@@ -4,26 +4,38 @@
 // Singelton keys.
 
 // Host count (Maintains total no. of registered hosts)
-uint8_t STK_HOST_COUNT[32] = {01, 01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// value 50 is in decimal. Its converted to 32 in hex.
+uint8_t STK_HOST_COUNT[32] = {'E', 'V', 'R', 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Auditor count (Maintains total no. of registered auditors)
-uint8_t STK_AUDITOR_COUNT[32] = {01, 02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// value 51 is in decimal. Its converted to 33 in hex.
+uint8_t STK_AUDITOR_COUNT[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Repetitive state keys.
-uint8_t STP_CONF = 1;         // Configuration keys (Holds paramateres tunable by governance game)
-uint8_t STP_HOST_ID = 2;      // Host id keys (Host registration entries for id-based lookup)
-uint8_t STP_HOST_ADDR = 3;    // Host address keys (Host registration entries for xrpl address-based lookup)
-uint8_t STP_AUDITOR_ID = 4;   // Auditor id keys (Auditor registration entries for id-based lookup)
-uint8_t STP_AUDITOR_ADDR = 5; // Auditor address keys (Auditor registration entries for xrpl address-based lookup)
-uint8_t STP_REDEEM_OP = 6;    // Redeem operation keys (Keys to hold ongoing redeem opration statuses)
 
-// Hook Configuration.
-uint8_t CONF_MOMENT_SIZE = 1;   // No. of ledgers per moment.
-uint8_t CONF_MINT_LIMIT = 2;    // No. of Evers that will be ever issued.
-uint8_t CONF_HOST_REG_FEE = 3;  // The host registration fee in Evers.
-uint8_t CONF_MIN_REDEEM = 4;    // The minimum amount of hosting token spending allowed in a redeem operation.
-uint8_t CONF_REDEEM_WINDOW = 5; // Max no. of ledgers within which a redeem operation has to be serviced.
-uint8_t CONF_HOST_REWARD = 6;   // No. of Evers rewarded to a host when an audit passes.
+// Last 4 bytes will be replaced by host id in runtime.
+uint8_t STP_HOST_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   // Host id keys (Host registration entries for id-based lookup)
+
+// Last 20 bytes will be replaced by host address in runtime.
+uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Host address keys (Host registration entries for xrpl address-based lookup)
+uint8_t STP_AUDITOR_ID = 4;                                                                                                         // Auditor id keys (Auditor registration entries for id-based lookup)
+uint8_t STP_AUDITOR_ADDR = 5;                                                                                                       // Auditor address keys (Auditor registration entries for xrpl address-based lookup)
+uint8_t STP_REDEEM_OP = 6;                                                                                                          // Redeem operation keys (Keys to hold ongoing redeem opration statuses)
+
+// Hook Configuration. All configuration keys has the prefix STP_CONF = 1;           
+                                                                                                    // Configuration keys (Holds paramateres tunable by governance game)
+// No. of ledgers per moment.
+uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+// No. of Evers that will be ever issued.
+uint8_t CONF_MINT_LIMIT[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
+// The host registration fee in Evers.
+uint8_t CONF_HOST_REG_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
+// The minimum amount of hosting token spending allowed in a redeem operation.
+uint8_t CONF_MIN_REDEEM[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
+// Max no. of ledgers within which a redeem operation has to be serviced.
+uint8_t CONF_REDEEM_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5};
+// No. of Evers rewarded to a host when an audit passes.
+uint8_t CONF_HOST_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
 
 // Default values.
 uint16_t DEF_MOMENT_SIZE = 72;
@@ -35,9 +47,7 @@ uint16_t DEF_HOST_REWARD = 1;
 
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
-// macro to check currency + issuer at the same time
-// truncate last bytes if key exceeds 32 bytes
-
+// Checks for EVR currency issued by hook account.
 #define IS_EVR(is_evr, amount_buffer, currency, issuer) \
     is_evr = 1;                                         \
     for (int i = 0; GUARD(20), i < 20; ++i)             \
@@ -50,20 +60,36 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
         }                                               \
     }
 
-#define STATE_KEY(buf, prefix, key, key_len)                  \
-    buf[0] = 'E';                                             \
-    buf[1] = 'V';                                             \
-    buf[2] = 'R';                                             \
-    buf[3] = prefix;                                          \
-    {                                                         \
-        int pad_len = sizeof(buf) - 4 - key_len;              \
-        if (pad_len < 0)                                      \
-            pad_len = 0;                                      \
-        for (int i = 0; GUARDM(pad_len, 1), i < pad_len; i++) \
-            buf[i + 4] = 0;                                   \
-                                                              \
-        for (int j = 0; GUARDM(key_len, 2), j < key_len; j++) \
-            buf[j + pad_len + 4] = key[j];                    \
+#define STATE_KEY(buf, prefix, key, key_len)                      \
+    buf[0] = 'E';                                                 \
+    buf[1] = 'V';                                                 \
+    buf[2] = 'R';                                                 \
+    buf[3] = prefix;                                              \
+    {                                                             \
+        int pad_len = sizeof(buf) - 4 - key_len;                  \
+        int key_limit = key_len;                                  \
+        if (pad_len < 0)                                          \
+        {                                                         \
+            pad_len = 0;                                          \
+            key_limit = key_len - 4;                              \
+        }                                                         \
+        for (int i = 0; GUARDM(pad_len, 1), i < pad_len; i++)     \
+            buf[i + 4] = 0;                                       \
+                                                                  \
+        for (int j = 0; GUARDM(key_limit, 2), j < key_limit; j++) \
+            buf[j + pad_len + 4] = key[j];                        \
+    }
+
+#define HOST_ADDR_KEY(host_addr)                  \
+    {                                             \
+        for (int i = 12; GUARD(20), i < 32; i++)  \
+            STP_HOST_ADDR[i] = host_addr[i - 12]; \
+    }
+
+#define HOST_ID_KEY(host_id)                    \
+    {                                           \
+        for (int i = 28; GUARD(4), i < 32; i++) \
+            STP_HOST_ID[i] = host_id[i - 28];   \
     }
 
 #define CONF_KEY(buf, conf_key)                        \
@@ -71,14 +97,6 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
         uint8_t *ptr = &conf_key;                      \
         STATE_KEY(buf, STP_CONF, ptr, sizeof(uint8_t)) \
     }
-
-#define UINT32_TO_BYTES(buf, val)         \
-    buf[0] = (uint8_t)(val >> 24) & 0xff; \
-    buf[1] = (uint8_t)(val >> 16) & 0xff; \
-    buf[2] = (uint8_t)(val >> 8) & 0xff;  \
-    buf[3] = (uint8_t)(val >> 0) & 0xff;
-
-#define BYTES_TO_UINT32(val, buf) val = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | (buf[3] << 0);
 
 #define ttTRUST_SET 20
 #define tfClearNoRipple 0x00040000 // Disable the No Ripple flag, allowing rippling on this trust line.

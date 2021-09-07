@@ -16,93 +16,83 @@ int64_t cbak(int64_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(int64_t reserved)
 {
-    uint32_t host_count = 0;
-    if (state(SBUF(&host_count), SBUF(STK_HOST_COUNT)) == DOESNT_EXIST)
+    uint8_t host_count_buf[4] = {0};
+    if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&host_count), SBUF(STK_HOST_COUNT)) < 0)
+        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
             rollback(SBUF("Evernode: Could not set default state for host count."), 1);
     }
+    uint32_t host_count = UINT32_FROM_BUF(host_count_buf);
     TRACEVAR(host_count);
 
-    uint32_t auditor_count = 0;
-    if (state(SBUF(&auditor_count), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
+    uint8_t auditor_count_buf[4] = {0};
+    if (state(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&auditor_count), SBUF(STK_AUDITOR_COUNT)) < 0)
+        if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
             rollback(SBUF("Evernode: Could not set default state for host count."), 1);
     }
+    uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
     TRACEVAR(auditor_count);
 
     // Setting and loading configuration values from the hook state.
-    uint8_t K_CONF_MOMENT_SIZE[32];
-    CONF_KEY(K_CONF_MOMENT_SIZE, CONF_MOMENT_SIZE);
-    uint16_t conf_moment_size;
-    if (state(SBUF(&conf_moment_size), SBUF(K_CONF_MOMENT_SIZE)) == DOESNT_EXIST)
+    uint8_t conf_moment_size_buf[2];
+    if (state(SBUF(conf_moment_size_buf), SBUF(CONF_MOMENT_SIZE)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&DEF_MOMENT_SIZE), SBUF(K_CONF_MOMENT_SIZE)) < 0)
+        UINT16_TO_BUF(conf_moment_size_buf, DEF_MOMENT_SIZE);
+        if (state_set(SBUF(conf_moment_size_buf), SBUF(CONF_MOMENT_SIZE)) < 0)
             rollback(SBUF("Evernode: Could not set default state for moment size."), 1);
-
-        conf_moment_size = DEF_MOMENT_SIZE;
     }
+    uint16_t conf_moment_size = UINT16_FROM_BUF(conf_moment_size_buf);
     TRACEVAR(conf_moment_size);
 
-    uint8_t K_CONF_MINT_LIMIT[32];
-    CONF_KEY(K_CONF_MINT_LIMIT, CONF_MINT_LIMIT);
-    uint64_t conf_mint_limit;
-    if (state(SBUF(&conf_mint_limit), SBUF(K_CONF_MINT_LIMIT)) == DOESNT_EXIST)
+    uint8_t conf_mint_limit_buf[8];
+    if (state(SBUF(conf_mint_limit_buf), SBUF(CONF_MINT_LIMIT)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&DEF_MINT_LIMIT), SBUF(K_CONF_MINT_LIMIT)) < 0)
+        UINT64_TO_BUF(conf_mint_limit_buf, DEF_MINT_LIMIT);
+        if (state_set(SBUF(conf_mint_limit_buf), SBUF(CONF_MINT_LIMIT)) < 0)
             rollback(SBUF("Evernode: Could not set default state for mint limit."), 1);
-
-        conf_mint_limit = DEF_MINT_LIMIT;
     }
+    uint64_t conf_mint_limit = UINT64_FROM_BUF(conf_mint_limit_buf);
     TRACEVAR(conf_mint_limit);
 
-    uint8_t K_CONF_HOST_REG_FEE[32];
-    CONF_KEY(K_CONF_HOST_REG_FEE, CONF_HOST_REG_FEE);
-    uint16_t conf_host_reg_fee;
-    if (state(SBUF(&conf_host_reg_fee), SBUF(K_CONF_HOST_REG_FEE)) == DOESNT_EXIST)
+    uint8_t conf_host_reg_fee_buf[2];
+    if (state(SBUF(conf_host_reg_fee_buf), SBUF(CONF_HOST_REG_FEE)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&DEF_HOST_REG_FEE), SBUF(K_CONF_HOST_REG_FEE)) < 0)
+        UINT16_TO_BUF(conf_host_reg_fee_buf, DEF_HOST_REG_FEE);
+        if (state_set(SBUF(conf_host_reg_fee_buf), SBUF(CONF_HOST_REG_FEE)) < 0)
             rollback(SBUF("Evernode: Could not set default state for host reg fee."), 1);
-
-        conf_host_reg_fee = DEF_HOST_REG_FEE;
     }
+    uint16_t conf_host_reg_fee = UINT16_FROM_BUF(conf_host_reg_fee_buf);
     TRACEVAR(conf_host_reg_fee);
 
-    uint8_t K_CONF_MIN_REDEEM[32];
-    CONF_KEY(K_CONF_MIN_REDEEM, CONF_MIN_REDEEM);
-    uint16_t conf_min_redeem;
-    if (state(SBUF(&conf_min_redeem), SBUF(K_CONF_MIN_REDEEM)) == DOESNT_EXIST)
+    uint8_t conf_min_redeem_buf[2];
+    if (state(SBUF(conf_min_redeem_buf), SBUF(CONF_MIN_REDEEM)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&DEF_MIN_REDEEM), SBUF(K_CONF_MIN_REDEEM)) < 0)
+        UINT16_TO_BUF(conf_min_redeem_buf, DEF_MIN_REDEEM);
+        if (state_set(SBUF(conf_min_redeem_buf), SBUF(CONF_MIN_REDEEM)) < 0)
             rollback(SBUF("Evernode: Could not set default state for min redeem."), 1);
-
-        conf_min_redeem = DEF_MIN_REDEEM;
     }
+    uint16_t conf_min_redeem = UINT16_FROM_BUF(conf_min_redeem_buf);
     TRACEVAR(conf_min_redeem);
 
-    uint8_t K_CONF_REDEEM_WINDOW[32];
-    CONF_KEY(K_CONF_REDEEM_WINDOW, CONF_REDEEM_WINDOW);
-    uint16_t conf_redeem_window;
-    if (state(SBUF(&conf_redeem_window), SBUF(K_CONF_REDEEM_WINDOW)) == DOESNT_EXIST)
+    uint8_t conf_redeem_window_buf[2];
+    if (state(SBUF(conf_redeem_window_buf), SBUF(CONF_REDEEM_WINDOW)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&DEF_REDEEM_WINDOW), SBUF(K_CONF_REDEEM_WINDOW)) < 0)
+        UINT16_TO_BUF(conf_redeem_window_buf, DEF_REDEEM_WINDOW);
+        if (state_set(SBUF(conf_redeem_window_buf), SBUF(CONF_REDEEM_WINDOW)) < 0)
             rollback(SBUF("Evernode: Could not set default state for redeem window."), 1);
-
-        conf_redeem_window = DEF_REDEEM_WINDOW;
     }
+    uint16_t conf_redeem_window = UINT16_FROM_BUF(conf_redeem_window_buf);
     TRACEVAR(conf_redeem_window);
 
-    uint8_t K_CONF_HOST_REWARD[32];
-    CONF_KEY(K_CONF_HOST_REWARD, CONF_HOST_REWARD);
-    uint16_t conf_host_reward;
-    if (state(SBUF(&conf_host_reward), SBUF(K_CONF_HOST_REWARD)) == DOESNT_EXIST)
+    uint8_t conf_host_reward_buf[2];
+    if (state(SBUF(conf_host_reward_buf), SBUF(CONF_HOST_REWARD)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(&DEF_HOST_REWARD), SBUF(K_CONF_HOST_REWARD)) < 0)
+        UINT16_TO_BUF(conf_host_reward_buf, DEF_HOST_REWARD);
+        if (state_set(SBUF(conf_host_reward_buf), SBUF(CONF_HOST_REWARD)) < 0)
             rollback(SBUF("Evernode: Could not set default state for host reward."), 1);
-
-        conf_host_reward = DEF_HOST_REWARD;
     }
+    uint16_t conf_host_reward = UINT16_FROM_BUF(conf_host_reward_buf);
     TRACEVAR(conf_host_reward);
 
     // TRACESTR("Evernode hook called.");
@@ -197,24 +187,23 @@ int64_t hook(int64_t reserved)
         int64_t type_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);
         uint8_t *type_ptr = SUB_OFFSET(type_lookup) + memo_ptr;
         uint32_t type_len = SUB_LENGTH(type_lookup);
-        trace(SBUF("type in hex: "), type_ptr, type_len, 1);
+        // trace(SBUF("type in hex: "), type_ptr, type_len, 1);
         int is_type_match = 0;
         BUFFER_EQUAL_STR_GUARD(is_type_match, type_ptr, type_len, "evnHostReg", 1);
         if (!is_type_match)
             rollback(SBUF("Evernode: Memo type should be evnHostReg."), 50);
 
         // Checking whether this host is already registered.
-        uint8_t K_HOST_ADDR[32];
-        STATE_KEY(K_HOST_ADDR, STP_HOST_ADDR, account_field, account_field_len);
+        HOST_ADDR_KEY(account_field);
         uint8_t host_addr[7]; // <host_id(4)><hosting_token(3)>
 
-        if (state(SBUF(host_addr), SBUF(K_HOST_ADDR)) != DOESNT_EXIST)
+        if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
             rollback(SBUF("Evernode: Host already registered."), 1);
 
         int64_t format_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);
         uint8_t *format_ptr = SUB_OFFSET(format_lookup) + memo_ptr;
         uint32_t format_len = SUB_LENGTH(format_lookup);
-        trace(SBUF("format in hex: "), format_ptr, format_len, 1);
+        // trace(SBUF("format in hex: "), format_ptr, format_len, 1);
         int is_format_match = 0;
         BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, "text/plain", 1);
         if (!is_format_match)
@@ -223,7 +212,7 @@ int64_t hook(int64_t reserved)
         int64_t data_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);
         uint8_t *data_ptr = SUB_OFFSET(data_lookup) + memo_ptr;
         uint32_t data_len = SUB_LENGTH(data_lookup);
-        trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
+        // trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
         // Generate transaction with following properties.
         /**
             Transaction type: Trust Set
@@ -231,7 +220,7 @@ int64_t hook(int64_t reserved)
             Destination: Host
             Currency: hosting_token
             Limit: 999999999 
-        */ 
+        */
 
         // Reserving one transaction.
         etxn_reserve(1);
@@ -264,17 +253,13 @@ int64_t hook(int64_t reserved)
 
         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-        uint8_t K_HOST_ID[32];
         uint32_t host_id = host_count + 1;
         uint8_t host_id_arr[4];
-        UINT32_TO_BYTES(host_id_arr, host_id);
-        STATE_KEY(K_HOST_ID, STP_HOST_ID, host_id_arr, sizeof(host_id_arr));
-        if (state_set(SBUF(account_field), SBUF(K_HOST_ID)) < 0)
+        UINT32_TO_BUF(host_id_arr, host_id);
+        HOST_ID_KEY(host_id_arr);
+        if (state_set(SBUF(account_field), SBUF(STP_HOST_ID)) < 0)
             rollback(SBUF("Evernode: Could not set state for host_id."), 1);
 
-        // uint8_t K_HOST_ADDR[32];
-        // STATE_KEY(K_HOST_ADDR, STP_HOST_ADDR, account_field, account_field_len);
-        // uint8_t host_addr[7]; // <host_id(4)><hosting_token(3)>
         host_addr[0] = host_id_arr[0];
         host_addr[1] = host_id_arr[1];
         host_addr[2] = host_id_arr[2];
@@ -282,11 +267,12 @@ int64_t hook(int64_t reserved)
         host_addr[4] = data_ptr[0];
         host_addr[5] = data_ptr[1];
         host_addr[6] = data_ptr[2];
-        if (state_set(SBUF(host_addr), SBUF(K_HOST_ADDR)) < 0)
+        if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
             rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
         host_count += 1;
-        if (state_set(SBUF(&host_count), SBUF(STK_HOST_COUNT)) < 0)
+        UINT32_TO_BUF(host_count_buf, host_count);
+        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
             rollback(SBUF("Evernode: Could not set default state for host count."), 1);
     }
     accept(0, 0, 0);
