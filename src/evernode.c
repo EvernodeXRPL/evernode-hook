@@ -1,8 +1,7 @@
-/**
- * This hook just accepts any transaction coming through it
- */
 #include "../lib/hookapi.h"
 #include "evernode.h"
+
+#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -10,8 +9,6 @@ int64_t cbak(int64_t reserved)
 {
     return 0;
 }
-// maximum tx blob
-#define MAX_MEMO_SIZE 4096
 
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(int64_t reserved)
@@ -29,7 +26,7 @@ int64_t hook(int64_t reserved)
     if (state(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
     {
         if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1);
+            rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
     }
     uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
     TRACEVAR(auditor_count);
@@ -95,8 +92,6 @@ int64_t hook(int64_t reserved)
     uint16_t conf_host_reward = UINT16_FROM_BUF(conf_host_reward_buf);
     TRACEVAR(conf_host_reward);
 
-    // TRACESTR("Evernode hook called.");
-
     // Getting the hook account id.
     unsigned char hook_accid[20];
     hook_account((uint32_t)hook_accid, 20);
@@ -107,7 +102,7 @@ int64_t hook(int64_t reserved)
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
     int32_t dest_field_len = otxn_field(SBUF(dest_field), sfDestination);
     if (account_field_len < 20 || dest_field_len < 20)
-        rollback(SBUF("Evernode: sfAccount or sfAccount field missing!!!"), 10);
+        rollback(SBUF("Evernode: sfAccount or sfDestination field missing!!!"), 10);
 
     // specifically we're interested in the amount sent
     int64_t oslot = otxn_slot(0);
@@ -131,7 +126,7 @@ int64_t hook(int64_t reserved)
     int64_t txn_type = otxn_type();
     TRACEVAR(txn_type);
     if (txn_type != ttPAYMENT)
-        rollback(SBUF("Evernode: Transaction should be of type 'Payement' for host registration."), 2);
+        rollback(SBUF("Evernode: Transaction should be of type 'Payment' for host registration."), 2);
 
     int is_dest_hook = 0;
     BUFFER_EQUAL(is_dest_hook, hook_accid, dest_field, 20);

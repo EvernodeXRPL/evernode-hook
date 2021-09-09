@@ -1,5 +1,4 @@
 const RippleAPI = require('ripple-lib').RippleAPI;
-const keypairs = require('ripple-keypairs');
 const fs = require('fs');
 const api = new RippleAPI({ server: 'wss://hooks-testnet.xrpl-labs.com'});
 // Hook account
@@ -10,7 +9,7 @@ const api = new RippleAPI({ server: 'wss://hooks-testnet.xrpl-labs.com'});
 
 const wasmfile = process.argv[2] || "build/evernode.wasm";
 const secret = process.argv[3] || "snL3hEFU3JUT7WSFRHvyKmghjU1Nj";
-const address = keypairs.deriveAddress(keypairs.deriveKeypair(secret).publicKey)
+const address = api.deriveAddress(api.deriveKeypair(secret).publicKey);
 
 console.log("SetHook on address " + address);
 
@@ -26,9 +25,7 @@ api.connect().then(() => {
         HookOn: '0000000000000000'
     }
     api.prepareTransaction(j).then((x) => {
-        // console.log(x.txJSON);
         let s = api.sign(x.txJSON, secret)
-        // console.log(s)
         api.submit(s.signedTransaction).then(response => {
             console.log(response.resultCode, response.resultMessage);
             process.exit(0);

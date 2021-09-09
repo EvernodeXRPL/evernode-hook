@@ -23,7 +23,7 @@ uint8_t STP_AUDITOR_ADDR = 5;                                                   
 uint8_t STP_REDEEM_OP = 6;                                                                                                          // Redeem operation keys (Keys to hold ongoing redeem opration statuses)
 
 // Hook Configuration. All configuration keys has the prefix STP_CONF = 1;           
-                                                                                                    // Configuration keys (Holds paramateres tunable by governance game)
+// Configuration keys (Holds paramateres tunable by governance game)
 // No. of ledgers per moment.
 uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 // No. of Evers that will be ever issued.
