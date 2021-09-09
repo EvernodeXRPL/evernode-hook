@@ -13,6 +13,10 @@ int64_t cbak(int64_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(int64_t reserved)
 {
+    // *************************************************************************************
+    // ***********************Config variable managment code********************************
+    // *************************************************************************************
+
     uint8_t host_count_buf[4] = {0};
     if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) == DOESNT_EXIST)
     {
@@ -91,6 +95,7 @@ int64_t hook(int64_t reserved)
     }
     uint16_t conf_host_reward = UINT16_FROM_BUF(conf_host_reward_buf);
     TRACEVAR(conf_host_reward);
+    // ************************Config variable managment code end **************************
 
     // Getting the hook account id.
     unsigned char hook_accid[20];
@@ -118,51 +123,16 @@ int64_t hook(int64_t reserved)
     if (is_xrp < 0)
         rollback(SBUF("Evernode: Could not determine sent amount type"), 3);
 
-    if (is_xrp)
-        accept(SBUF("Evernode: XRP transaction detected."), 0);
-
-    // Host registration logic.
-    // Checking transaction type.
     int64_t txn_type = otxn_type();
-    TRACEVAR(txn_type);
-    if (txn_type != ttPAYMENT)
-        rollback(SBUF("Evernode: Transaction should be of type 'Payment' for host registration."), 2);
-
-    int is_dest_hook = 0;
-    BUFFER_EQUAL(is_dest_hook, hook_accid, dest_field, 20);
-    if (!is_dest_hook)
-        rollback(SBUF("Evernode: Destination should be hook account for host registration."), 2);
-
-    int64_t amt = slot_float(amt_slot);
-    if (amt < 0)
-        rollback(SBUF("Evernode: Could not parse amount."), 1);
-
-    uint8_t amount_buffer[48];
-    if (slot(SBUF(amount_buffer), amt_slot) != 48)
-        rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
-
-    // Get amount received in drops
-    int64_t amount_val_drops = float_int(amt, 6, 0);
-    TRACEVAR(amount_val_drops);
-
-    if (amount_val_drops < (conf_host_reg_fee * 1000000))
-        rollback(SBUF("Evernode: Amount sent is less than the minimum fee."), 1);
-
-    // Currency should be EVR.
-    int is_evr;
-    IS_EVR(is_evr, amount_buffer, currency, hook_accid);
-    if (!is_evr)
-        rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
-
-    // Memos
-    uint8_t memos[MAX_MEMO_SIZE];
-    int64_t memos_len = otxn_field(SBUF(memos), sfMemos);
-
-    if (!memos_len)
-        rollback(SBUF("Evernode: No memos found for host registration."), 1);
-
-    if (memos_len > 0)
+    if (txn_type == ttPAYMENT)
     {
+        // Memos
+        uint8_t memos[MAX_MEMO_SIZE];
+        int64_t memos_len = otxn_field(SBUF(memos), sfMemos);
+
+        if (!memos_len)
+            accept(SBUF("Evernode: No memos found."), 1);
+
         // since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it
         // the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries
         int64_t memo_lookup = sto_subarray(memos, memos_len, 0);
@@ -177,100 +147,158 @@ int64_t hook(int64_t reserved)
         memo_len = SUB_LENGTH(memo_lookup);
 
         if (memo_lookup < 0)
-            rollback(SBUF("Echo: Incoming txn had a blank sfMemos, abort."), 1);
+            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);
 
         int64_t type_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);
         uint8_t *type_ptr = SUB_OFFSET(type_lookup) + memo_ptr;
         uint32_t type_len = SUB_LENGTH(type_lookup);
         // trace(SBUF("type in hex: "), type_ptr, type_len, 1);
-        int is_type_match = 0;
-        BUFFER_EQUAL_STR_GUARD(is_type_match, type_ptr, type_len, "evnHostReg", 1);
-        if (!is_type_match)
-            rollback(SBUF("Evernode: Memo type should be evnHostReg."), 50);
-
-        // Checking whether this host is already registered.
-        HOST_ADDR_KEY(account_field);
-        uint8_t host_addr[7]; // <host_id(4)><hosting_token(3)>
-
-        if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
-            rollback(SBUF("Evernode: Host already registered."), 1);
 
         int64_t format_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);
         uint8_t *format_ptr = SUB_OFFSET(format_lookup) + memo_ptr;
         uint32_t format_len = SUB_LENGTH(format_lookup);
         // trace(SBUF("format in hex: "), format_ptr, format_len, 1);
-        int is_format_match = 0;
-        BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, "text/plain", 1);
-        if (!is_format_match)
-            rollback(SBUF("Evernode: Memo format should be text/plain."), 50);
 
         int64_t data_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);
         uint8_t *data_ptr = SUB_OFFSET(data_lookup) + memo_ptr;
         uint32_t data_len = SUB_LENGTH(data_lookup);
         // trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
-        // Generate transaction with following properties.
-        /**
-            Transaction type: Trust Set
-            Source: Hook
-            Destination: Host
-            Currency: hosting_token
-            Limit: 999999999 
-        */
 
-        // Reserving one transaction.
-        etxn_reserve(1);
-        // Calculate fee for trustline transaction.
-        int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
-
-        uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, data_ptr[0], data_ptr[1], data_ptr[2], 0, 0, 0, 0, 0};
-
-        uint8_t amt_out[48];
-        int64_t token_limit = float_sum(float_set(9, 1), float_negate(float_one())); // 999999999
-        // we need to dump the iou amount into a buffer
-        // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
-        if (float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(account_field), token_limit, -1) < 0)
-            rollback(SBUF("Evernode: Could not dump hosting token amount into sto"), 1);
-
-        // set the currency code and issuer in the amount field
-        for (int i = 0; GUARD(20), i < 20; ++i)
+        if (is_xrp)
         {
-            amt_out[i + 28] = account_field[i];
-            amt_out[i + 8] = hosting_token[i];
+            // redeem reponse
+            // refund
+            accept(SBUF("Evernode: XRP transaction."), 1);
         }
+        else
+        {
+            // IOU payment.
+            int64_t amt = slot_float(amt_slot);
+            if (amt < 0)
+                rollback(SBUF("Evernode: Could not parse amount."), 1);
 
-        // Preparing trustline transaction.
-        uint8_t txn_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
-        PREPARE_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field);
+            uint8_t amount_buffer[48];
+            if (slot(SBUF(amount_buffer), amt_slot) != 48)
+                rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
 
-        uint8_t emithash[32];
-        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-            rollback(SBUF("Evernode: Emitting txn failed"), 1);
+            int is_evr;
+            IS_EVR(is_evr, amount_buffer, currency, hook_accid);
 
-        trace(SBUF("emit hash: "), SBUF(emithash), 1);
+            // Start filtering from memos type.
+            int is_host_reg_req = 0;
+            BUFFER_EQUAL_STR_GUARD(is_host_reg_req, type_ptr, type_len, "evnHostReg", 1);
+            if (is_host_reg_req)
+            {
+                // Currency should be EVR.
+                if (!is_evr)
+                    rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
 
-        uint32_t host_id = host_count + 1;
-        uint8_t host_id_arr[4];
-        UINT32_TO_BUF(host_id_arr, host_id);
-        HOST_ID_KEY(host_id_arr);
-        if (state_set(SBUF(account_field), SBUF(STP_HOST_ID)) < 0)
-            rollback(SBUF("Evernode: Could not set state for host_id."), 1);
+                // Get amount received in drops
+                int64_t amount_val_drops = float_int(amt, 6, 0);
+                TRACEVAR(amount_val_drops);
 
-        host_addr[0] = host_id_arr[0];
-        host_addr[1] = host_id_arr[1];
-        host_addr[2] = host_id_arr[2];
-        host_addr[3] = host_id_arr[3];
-        host_addr[4] = data_ptr[0];
-        host_addr[5] = data_ptr[1];
-        host_addr[6] = data_ptr[2];
-        if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
+                if (amount_val_drops < (conf_host_reg_fee * 1000000))
+                    rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
 
-        host_count += 1;
-        UINT32_TO_BUF(host_count_buf, host_count);
-        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1);
+                // Checking whether this host is already registered.
+                HOST_ADDR_KEY(account_field);
+                uint8_t host_addr[7]; // <host_id(4)><hosting_token(3)>
+
+                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: Host already registered."), 1);
+
+                int is_format_match = 0;
+                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, "text/plain", 1);
+                if (!is_format_match)
+                    rollback(SBUF("Evernode: Memo format should be text/plain."), 50);
+
+                int is_dest_hook = 0;
+                BUFFER_EQUAL(is_dest_hook, hook_accid, dest_field, 20);
+                if (!is_dest_hook)
+                    rollback(SBUF("Evernode: Destination should be hook account for host registration."), 2);
+
+                // Generate transaction with following properties.
+                /**
+                    Transaction type: Trust Set
+                    Source: Hook
+                    Destination: Host
+                    Currency: hosting_token
+                    Limit: 999999999 
+                    */
+
+                // Reserving one transaction.
+                etxn_reserve(1);
+                // Calculate fee for trustline transaction.
+                int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
+
+                uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, data_ptr[0], data_ptr[1], data_ptr[2], 0, 0, 0, 0, 0};
+
+                uint8_t amt_out[48];
+                int64_t token_limit = float_sum(float_set(9, 1), float_negate(float_one())); // 999999999
+                // we need to dump the iou amount into a buffer
+                // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
+                if (float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(account_field), token_limit, -1) < 0)
+                    rollback(SBUF("Evernode: Could not dump hosting token amount into sto"), 1);
+
+                // set the currency code and issuer in the amount field
+                for (int i = 0; GUARD(20), i < 20; ++i)
+                {
+                    amt_out[i + 28] = account_field[i];
+                    amt_out[i + 8] = hosting_token[i];
+                }
+
+                // Preparing trustline transaction.
+                uint8_t txn_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
+                PREPARE_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field);
+
+                uint8_t emithash[32];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                uint32_t host_id = host_count + 1;
+                uint8_t host_id_arr[4];
+                UINT32_TO_BUF(host_id_arr, host_id);
+                HOST_ID_KEY(host_id_arr);
+                if (state_set(SBUF(account_field), SBUF(STP_HOST_ID)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for host_id."), 1);
+
+                host_addr[0] = host_id_arr[0];
+                host_addr[1] = host_id_arr[1];
+                host_addr[2] = host_id_arr[2];
+                host_addr[3] = host_id_arr[3];
+                host_addr[4] = data_ptr[0];
+                host_addr[5] = data_ptr[1];
+                host_addr[6] = data_ptr[2];
+                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
+
+                host_count += 1;
+                UINT32_TO_BUF(host_count_buf, host_count);
+                if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
+                    rollback(SBUF("Evernode: Could not set default state for host count."), 1);
+
+                accept(SBUF("Host registration successful."), 0);
+            }
+
+            int is_redeem_req = 0;
+            BUFFER_EQUAL_STR_GUARD(is_redeem_req, type_ptr, type_len, "evndInstCreate", 1);
+            if (is_redeem_req)
+            {
+                if (is_evr)
+                    rollback(SBUF("Evernode: Currency cannot be EVR for redeem request."), 1);
+
+                accept(SBUF("Redeem successful."), 0);
+            }
+        }
     }
-    accept(0, 0, 0);
+    else if (txn_type == ttTRUST_SET)
+    {
+        accept(SBUF("De registration successful."), 0);
+    }
+
+    accept(SBUF("Evernode: Transaction type not supported."), 0);
 
     _g(1, 1); // every hook needs to import guard function and use it at least once
     // unreachable
