@@ -14,15 +14,16 @@ uint8_t STK_AUDITOR_COUNT[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Repetitive state keys.
 
 // Last 4 bytes will be replaced by host id in runtime.
-uint8_t STP_HOST_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   // Host id keys (Host registration entries for id-based lookup)
+uint8_t STP_HOST_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Host id keys (Host registration entries for id-based lookup)
 
 // Last 20 bytes will be replaced by host address in runtime.
 uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Host address keys (Host registration entries for xrpl address-based lookup)
 uint8_t STP_AUDITOR_ID = 4;                                                                                                         // Auditor id keys (Auditor registration entries for id-based lookup)
 uint8_t STP_AUDITOR_ADDR = 5;                                                                                                       // Auditor address keys (Auditor registration entries for xrpl address-based lookup)
-uint8_t STP_REDEEM_OP = 6;                                                                                                          // Redeem operation keys (Keys to hold ongoing redeem opration statuses)
+// Last 28 bytes will be replaced by tx hash in runtime.
+uint8_t STP_REDEEM_OP[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Redeem operation keys (Redeem entries for hash-based lookup)
 
-// Hook Configuration. All configuration keys has the prefix STP_CONF = 1;           
+// Hook Configuration. All configuration keys has the prefix STP_CONF = 1;
 // Configuration keys (Holds paramateres tunable by governance game)
 // No. of ledgers per moment.
 uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
@@ -90,6 +91,12 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
     {                                           \
         for (int i = 28; GUARD(4), i < 32; i++) \
             STP_HOST_ID[i] = host_id[i - 28];   \
+    }
+
+#define REDEEM_OP_KEY(hash)                    \
+    {                                           \
+        for (int i = 4; GUARD(28), i < 32; i++) \
+            STP_REDEEM_OP[i] = hash[i - 4];   \
     }
 
 #define CONF_KEY(buf, conf_key)                        \
