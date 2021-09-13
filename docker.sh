@@ -1,5 +1,5 @@
 #!/bin/sh
-config='config.json'
+config='hook.cfg'
 if [ "$1" = "start" ]; then
     echo "Starting hooks docker"
     [ ! -f $config ] && echo "$config does not exist, Run 'make' first." && exit 1

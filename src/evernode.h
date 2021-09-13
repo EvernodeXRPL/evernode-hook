@@ -1,6 +1,16 @@
 #ifndef EVERNODE_INCLUDED
 #define EVERNODE_INCLUDED 1
 
+#define HOST_REG "evnHostReg"
+#define REDEEM "evnRedeem"
+#define REDEEM_REF "evnRedeemRef"
+#define REDEEM_RESP "evnRedeemResp"
+
+#define FORMAT_BINARY "binary"
+#define FORMAT_TEXT "text/plain"
+
+#define REDEEM_ERR "REDEEM_ERR"
+
 // Singelton keys.
 
 // Host count (Maintains total no. of registered hosts)
