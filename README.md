@@ -14,4 +14,4 @@ node sethook.js
 ```
 
 * Note: `make` will build and upload the binary at the same time.
-* Note: `make upload` will create a config.json file with default hook address and secret. This can be updated to change your hook account.
+* Note: `make upload` will create a hook.cfg file with default hook address and secret. This can be updated to change your hook account.
