@@ -103,10 +103,10 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
             STP_HOST_ID[i] = host_id[i - 28];   \
     }
 
-#define REDEEM_OP_KEY(hash)                    \
+#define REDEEM_OP_KEY(hash)                     \
     {                                           \
         for (int i = 4; GUARD(28), i < 32; i++) \
-            STP_REDEEM_OP[i] = hash[i - 4];   \
+            STP_REDEEM_OP[i] = hash[i - 4];     \
     }
 
 #define CONF_KEY(buf, conf_key)                        \
@@ -135,6 +135,46 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);    /* pk      | size  35 */    \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);       /* account | size  22 */    \
         etxn_details((uint32_t)buf_out, 105);          /* emitdet | size 105 */    \
+    }
+
+#define ASCII_TO_HEX(val)    \
+    {                        \
+        switch (val)         \
+        {                    \
+        case 'A':            \
+            val = 10;        \
+            break;           \
+        case 'B':            \
+            val = 11;        \
+            break;           \
+        case 'C':            \
+            val = 12;        \
+            break;           \
+        case 'D':            \
+            val = 13;        \
+            break;           \
+        case 'E':            \
+            val = 14;        \
+            break;           \
+        case 'F':            \
+            val = 15;        \
+            break;           \
+        default:             \
+            val = val - '0'; \
+            break;           \
+        }                    \
+    }
+
+#define ASCII_TO_BYTES(byte_ptr, ascii_ptr, ascii_len)           \
+    {                                                            \
+        for (int i = 0; GUARD(ascii_len), i < ascii_len; i += 2) \
+        {                                                        \
+            int val1 = (int)ascii_ptr[i];                        \
+            int val2 = (int)ascii_ptr[i + 1];                    \
+            ASCII_TO_HEX(val1)                                   \
+            ASCII_TO_HEX(val2)                                   \
+            byte_ptr[i / 2] = ((val1 * 16) + val2);              \
+        }                                                        \
     }
 
 #endif

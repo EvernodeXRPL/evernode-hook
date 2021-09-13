@@ -175,10 +175,11 @@ int64_t hook(int64_t reserved)
                 if (!is_format_match)
                     rollback(SBUF("Evernode: Redeem reference memo format should be binary."), 50);
 
-                if (data_len < 32)
+                if (data_len < 64)
                     rollback(SBUF("Evernode: Invalid redeem reference."), 1);
 
-                uint8_t *hash_ptr = data_ptr;
+                uint8_t hash_ptr[32];
+                ASCII_TO_BYTES(hash_ptr, data_ptr, data_len);
 
                 // Redeem response has 2 memos, so check for the type in second memo.
                 memo_lookup = sto_subarray(memos, memos_len, 1);
@@ -226,10 +227,7 @@ int64_t hook(int64_t reserved)
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                 // Check for state with key as redeemRef.
-                // otxn_id gives maliformed transaction error, We comment this until it's fixed.
-                // REDEEM_OP_KEY(hash_ptr);
-                uint8_t hash[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-                REDEEM_OP_KEY(hash);
+                REDEEM_OP_KEY(hash_ptr);
 
                 uint8_t redeem_op[39];
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
@@ -246,7 +244,7 @@ int64_t hook(int64_t reserved)
                     uint8_t host_amount_buf[8];
                     for (int i = 0; GUARD(8), i < 8; ++i)
                         host_amount_buf[i] = redeem_op[i + 3];
-                    int64_t host_amount = UINT64_FROM_BUF(host_amount_buf);
+                    int64_t host_amount = INT64_FROM_BUF(host_amount_buf);
                     uint8_t host_issuer[20];
                     for (int i = 0; GUARD(20), i < 20; ++i)
                         host_issuer[i] = redeem_op[i + 11];
@@ -431,11 +429,10 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee."), 1);
 
                 // Get transaction hash(id).
-                uint8_t txid[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-                // otxn_id gives maliformed transaction error, We comment this until it's fixed.
-                // int32_t txid_len = otxn_id(SBUF(txid));
-                // if (txid_len < 32)
-                //     rollback(SBUF("Evernode: transaction id missing!!!"), 10);
+                uint8_t txid[32];
+                int32_t txid_len = otxn_id(SBUF(txid), 0);
+                if (txid_len < 32)
+                    rollback(SBUF("Evernode: transaction id missing!!!"), 10);
 
                 // Prepare state value.
                 uint8_t redeem_op[39];
@@ -447,7 +444,7 @@ int64_t hook(int64_t reserved)
 
                 // Set the amount.
                 uint8_t amount_buf[8];
-                UINT64_TO_BUF(amount_buf, amt);
+                INT64_TO_BUF(amount_buf, amt);
                 for (int i = 0; GUARD(8), i < 8; ++i)
                     redeem_op[i + 3] = amount_buf[i];
 
@@ -456,9 +453,9 @@ int64_t hook(int64_t reserved)
                     redeem_op[i + 11] = issuer[i];
 
                 // Set the ledger.
-                uint64_t ledger = ledger_seq();
+                int64_t ledger = ledger_seq();
                 uint8_t ledger_buf[8];
-                UINT64_TO_BUF(ledger_buf, ledger);
+                INT64_TO_BUF(ledger_buf, ledger);
                 for (int i = 0; GUARD(8), i < 8; ++i)
                     redeem_op[i + 31] = ledger_buf[i];
 
