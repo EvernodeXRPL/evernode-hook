@@ -175,7 +175,7 @@ int64_t hook(int64_t reserved)
                 if (!is_format_match)
                     rollback(SBUF("Evernode: Redeem reference memo format should be binary."), 50);
 
-                if (data_len < 64)
+                if (data_len != 64)
                     rollback(SBUF("Evernode: Invalid redeem reference."), 1);
 
                 uint8_t hash_ptr[HASH_SIZE];
@@ -241,24 +241,20 @@ int64_t hook(int64_t reserved)
                 {
                     // Prepare currency.
                     uint8_t host_currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, redeem_op[0], redeem_op[1], redeem_op[2], 0, 0, 0, 0, 0};
-                    uint8_t host_amount_buf[8];
-                    for (int i = 0; GUARD(8), i < 8; ++i)
-                        host_amount_buf[i] = redeem_op[i + 3];
-                    int64_t host_amount = INT64_FROM_BUF(host_amount_buf);
-                    uint8_t host_issuer[20];
-                    for (int i = 0; GUARD(20), i < 20; ++i)
-                        host_issuer[i] = redeem_op[i + 11];
+                    uint8_t *host_amount_ptr = &redeem_op[3];
+                    int64_t host_amount = INT64_FROM_BUF(host_amount_ptr);
+                    uint8_t *issuer_ptr = &redeem_op[11];
 
                     // We need to dump the iou amount into a buffer.
                     // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
                     uint8_t amt_out[48];
-                    if (float_sto(SBUF(amt_out), SBUF(host_currency), SBUF(host_issuer), host_amount, -1) < 0)
+                    if (float_sto(SBUF(amt_out), SBUF(host_currency), issuer_ptr, 20, host_amount, -1) < 0)
                         rollback(SBUF("Evernode: Could not dump hosting token amount into sto"), 1);
 
                     // Set the currency code and issuer in the amount field
                     for (int i = 0; GUARD(20), i < 20; ++i)
                     {
-                        amt_out[i + 28] = host_issuer[i];
+                        amt_out[i + 28] = issuer_ptr[i];
                         amt_out[i + 8] = host_currency[i];
                     }
 
@@ -471,12 +467,10 @@ int64_t hook(int64_t reserved)
                 if (!is_format_match)
                     rollback(SBUF("Evernode: Memo format should be binary."), 50);
 
-                uint8_t issuer[20];
-                for (int i = 0; GUARD(20), i < 20; ++i)
-                    issuer[i] = amount_buffer[i + 28];
+                uint8_t *issuer_ptr = &amount_buffer[28];
 
                 // Checking whether this host is registered.
-                HOST_ADDR_KEY(issuer);
+                HOST_ADDR_KEY(issuer_ptr);
                 uint8_t host_addr[7]; // <host_id(4)><hosting_token(3)>
 
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
@@ -515,7 +509,7 @@ int64_t hook(int64_t reserved)
 
                 // Set the issuer.
                 for (int i = 0; GUARD(20), i < 20; ++i)
-                    redeem_op[i + 11] = issuer[i];
+                    redeem_op[i + 11] = issuer_ptr[i];
 
                 // Set the ledger.
                 int64_t ledger = ledger_seq();
