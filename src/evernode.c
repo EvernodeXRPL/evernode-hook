@@ -305,7 +305,6 @@ int64_t hook(int64_t reserved)
 
                 uint8_t *ptr = &data_arr[31];
                 int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
-                TRACEVAR(ledger_seq_def);
                 if (ledger_seq_def < RELOAD_SEQ_THRESHOLD)
                     rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
 
