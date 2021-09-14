@@ -178,7 +178,7 @@ int64_t hook(int64_t reserved)
                 if (data_len < 64)
                     rollback(SBUF("Evernode: Invalid redeem reference."), 1);
 
-                uint8_t hash_ptr[32];
+                uint8_t hash_ptr[HASH_SIZE];
                 HEXSTR_TO_BYTES(hash_ptr, data_ptr, data_len);
 
                 // Redeem response has 2 memos, so check for the type in second memo.
@@ -229,13 +229,13 @@ int64_t hook(int64_t reserved)
                 // Check for state with key as redeemRef.
                 REDEEM_OP_KEY(hash_ptr);
 
-                uint8_t redeem_op[39];
+                uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: No redeem state for the redeem response."), 1);
 
                 int is_error = 0;
                 BUFFER_EQUAL_STR_GUARD(is_error, data_ptr, data_len, REDEEM_ERR, 1);
-                uint8_t emithash[32];
+                uint8_t emithash[HASH_SIZE];
                 // Send hosting tokens to the host and clear the state only if there's no error.
                 if (!is_error)
                 {
@@ -279,8 +279,73 @@ int64_t hook(int64_t reserved)
                     accept(SBUF("Redeem response failed."), 1);
             }
 
-            // refund
-            accept(SBUF("Evernode: XRP transaction."), 1);
+            // Refund.
+            int is_refund_request = 0;
+            BUFFER_EQUAL_STR_GUARD(is_refund_request, type_ptr, type_len, REFUND, 1);
+            if (is_refund_request)
+            {
+                int is_format_match = 0;
+                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_format_match)
+                    rollback(SBUF("Evernode: Memo format should be binary in refund request."), 1);
+
+                if (data_len != 64) // 64 bytes is the size of the hash in hex
+                    rollback(SBUF("Evernode: Memo data should be 64 bytes in hex in refund request."), 1);
+
+                uint8_t tx_hash_bytes[HASH_SIZE];
+                HEXSTR_TO_BYTES(tx_hash_bytes, data_ptr, data_len);
+                REDEEM_OP_KEY(tx_hash_bytes);
+
+                uint8_t data_arr[REDEEM_STATE_VAL_SIZE];
+
+                if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
+                    rollback(SBUF("Evernode: No redeem for this tx hash."), 1);
+
+                uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, data_arr[0], data_arr[1], data_arr[2], 0, 0, 0, 0, 0};
+
+                uint8_t *ptr = &data_arr[31];
+                int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
+                if (ledger_seq_def < RELOAD_SEQ_THRESHOLD)
+                    rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
+
+                // Setup the outgoing txn.
+                // Reserving one transaction.
+                etxn_reserve(1);
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+
+                // We need to dump the iou amount into a buffer.
+                // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
+                uint8_t amt_out[48];
+                uint8_t *issuer_arr = &data_arr[11];
+                uint8_t *amount_ptr = &data_arr[3];
+                int64_t token_amount = INT64_FROM_BUF(amount_ptr);
+                if (float_sto(SBUF(amt_out), SBUF(hosting_token), issuer_arr, 20, token_amount, -1) < 0)
+                    rollback(SBUF("Evernode: Could not dump hosting token amount into sto for refund."), 1);
+
+                // Set the currency code and issuer in the amount field
+                for (int i = 0; GUARD(20), i < 20; ++i)
+                {
+                    amt_out[i + 28] = issuer_arr[i];
+                    amt_out[i + 8] = hosting_token[i];
+                }
+
+                // Finally create the outgoing txn.
+                uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+                PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field, 0, 0);
+
+                uint8_t emithash[HASH_SIZE];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting refund transaction failed."), 1);
+
+                trace(SBUF("refund tx hash: "), SBUF(emithash), 1);
+
+                // Delete state entry after refund.
+                if (state_set(0, 0, SBUF(STP_REDEEM_OP)) < 0)
+                    rollback(SBUF("Evernode: Could not delete state entry after refund."), 1);
+
+                accept(SBUF("Evernode: Refund operation successful."), 0);
+            }
+            accept(SBUF("Evernode: XRP transaction."), 0);
         }
         else
         {
@@ -363,7 +428,7 @@ int64_t hook(int64_t reserved)
                 uint8_t txn_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
                 PREPARE_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field);
 
-                uint8_t emithash[32];
+                uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                     rollback(SBUF("Evernode: Emitting txn failed"), 1);
 
@@ -429,13 +494,13 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee."), 1);
 
                 // Get transaction hash(id).
-                uint8_t txid[32];
+                uint8_t txid[HASH_SIZE];
                 int32_t txid_len = otxn_id(SBUF(txid), 0);
-                if (txid_len < 32)
+                if (txid_len < HASH_SIZE)
                     rollback(SBUF("Evernode: transaction id missing!!!"), 10);
 
                 // Prepare state value.
-                uint8_t redeem_op[39];
+                uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
 
                 // Set the host token.
                 redeem_op[0] = amount_buffer[20];
