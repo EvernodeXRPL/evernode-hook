@@ -5,6 +5,7 @@
 #define REDEEM "evnRedeem"
 #define REDEEM_REF "evnRedeemRef"
 #define REDEEM_RESP "evnRedeemResp"
+#define REFUND "evnRefund"
 
 #define FORMAT_BINARY "binary"
 #define FORMAT_TEXT "text/plain"
@@ -28,8 +29,8 @@ uint8_t STP_HOST_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
 // Last 20 bytes will be replaced by host address in runtime.
 uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Host address keys (Host registration entries for xrpl address-based lookup)
-uint8_t STP_AUDITOR_ID = 4;                                                                                                         // Auditor id keys (Auditor registration entries for id-based lookup)
-uint8_t STP_AUDITOR_ADDR = 5;                                                                                                       // Auditor address keys (Auditor registration entries for xrpl address-based lookup)
+uint8_t STP_AUDITOR_ID = {'E', 'V', 'R', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};    // Auditor id keys (Auditor registration entries for id-based lookup)
+uint8_t STP_AUDITOR_ADDR = {'E', 'V', 'R', 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};  // Auditor address keys (Auditor registration entries for xrpl address-based lookup)
 // Last 28 bytes will be replaced by tx hash in runtime.
 uint8_t STP_REDEEM_OP[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Redeem operation keys (Redeem entries for hash-based lookup)
 
@@ -57,6 +58,9 @@ uint16_t DEF_REDEEM_WINDOW = 12;
 uint16_t DEF_HOST_REWARD = 1;
 
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
+
+// Constants
+int64_t RELOAD_SEQ_THRESHOLD = 10;
 
 // Checks for EVR currency issued by hook account.
 #define IS_EVR(is_evr, amount_buffer, currency, issuer) \
