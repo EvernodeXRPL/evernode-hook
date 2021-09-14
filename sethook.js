@@ -1,14 +1,31 @@
 const RippleAPI = require('ripple-lib').RippleAPI;
 const fs = require('fs');
-const api = new RippleAPI({ server: 'wss://hooks-testnet.xrpl-labs.com'});
-// Hook account
-// { "address": "rB9gfgPcZ9aS1WF2D1MPS8Gdg8bs2y8aEK", "secret": "snL3hEFU3JUT7WSFRHvyKmghjU1Nj", "xrp": 10000, "hash": "78DEA38A0E35BE878DF55DD698C8700D690C7C2168262CB84B6ECF7F86A8AAEA", "code": "tesSUCCESS" }
+const api = new RippleAPI({ server: 'wss://hooks-testnet.xrpl-labs.com' });
+
+const DEFAULT_ADDR = 'rB9gfgPcZ9aS1WF2D1MPS8Gdg8bs2y8aEK';
+const DEFAULT_SECRET = 'snL3hEFU3JUT7WSFRHvyKmghjU1Nj';
 
 // Host account
 // { "address": "r9D6VdU5odLPaR9aWYMhCXV1wztB9spBqR", "secret": "sh18veYyyfz3JHNp61js8eKPvZHMi", "xrp": 10000, "hash": "2737215204809E1C822A12182AAAF433AF86740F25526E0A8AB8C4E04CA6A1B0", "code": "tesSUCCESS" }
 
+const cfgPath = 'hook.cfg';
+let cfg;
+
+if (!fs.existsSync(cfgPath)) {
+    cfg = {
+        address: DEFAULT_ADDR,
+        secret: DEFAULT_SECRET
+    }
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+}
+else {
+    cfg = JSON.parse(fs.readFileSync(cfgPath));
+}
+
+
+
 const wasmfile = process.argv[2] || "build/evernode.wasm";
-const secret = process.argv[3] || "snL3hEFU3JUT7WSFRHvyKmghjU1Nj";
+const secret = cfg.secret;
 const address = api.deriveAddress(api.deriveKeypair(secret).publicKey);
 
 console.log("SetHook on address " + address);

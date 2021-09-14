@@ -320,9 +320,10 @@ extern int64_t otxn_generation     (void);
  * Retrieve the TXNID of the originating transaction.
  * @param write_ptr A buffer at least 32 bytes long
  * @param write_len The length of the buffer.
+ * @param flags Lets you query the original emitted txn that failed vs the emitted txn stand-in that represents the failure.
  * @return The number of bytes written into the buffer or a negative integer on failure.
  */
-extern int64_t otxn_id             (uint32_t write_ptr,  uint32_t write_len);
+extern int64_t otxn_id             (uint32_t write_ptr,  uint32_t write_len, uint32_t flags);
 
 /**
  * Retrieve the Transaction Type (e.g. ttPayment = 0) of the originating transaction.

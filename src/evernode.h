@@ -1,6 +1,16 @@
 #ifndef EVERNODE_INCLUDED
 #define EVERNODE_INCLUDED 1
 
+#define HOST_REG "evnHostReg"
+#define REDEEM "evnRedeem"
+#define REDEEM_REF "evnRedeemRef"
+#define REDEEM_RESP "evnRedeemResp"
+
+#define FORMAT_BINARY "binary"
+#define FORMAT_TEXT "text/plain"
+
+#define REDEEM_ERR "REDEEM_ERR"
+
 // Singelton keys.
 
 // Host count (Maintains total no. of registered hosts)
@@ -14,15 +24,16 @@ uint8_t STK_AUDITOR_COUNT[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Repetitive state keys.
 
 // Last 4 bytes will be replaced by host id in runtime.
-uint8_t STP_HOST_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   // Host id keys (Host registration entries for id-based lookup)
+uint8_t STP_HOST_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Host id keys (Host registration entries for id-based lookup)
 
 // Last 20 bytes will be replaced by host address in runtime.
 uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Host address keys (Host registration entries for xrpl address-based lookup)
 uint8_t STP_AUDITOR_ID = 4;                                                                                                         // Auditor id keys (Auditor registration entries for id-based lookup)
 uint8_t STP_AUDITOR_ADDR = 5;                                                                                                       // Auditor address keys (Auditor registration entries for xrpl address-based lookup)
-uint8_t STP_REDEEM_OP = 6;                                                                                                          // Redeem operation keys (Keys to hold ongoing redeem opration statuses)
+// Last 28 bytes will be replaced by tx hash in runtime.
+uint8_t STP_REDEEM_OP[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Redeem operation keys (Redeem entries for hash-based lookup)
 
-// Hook Configuration. All configuration keys has the prefix STP_CONF = 1;           
+// Hook Configuration. All configuration keys has the prefix STP_CONF = 1;
 // Configuration keys (Holds paramateres tunable by governance game)
 // No. of ledgers per moment.
 uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
@@ -92,6 +103,12 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
             STP_HOST_ID[i] = host_id[i - 28];   \
     }
 
+#define REDEEM_OP_KEY(hash)                     \
+    {                                           \
+        for (int i = 4; GUARD(28), i < 32; i++) \
+            STP_REDEEM_OP[i] = hash[i - 4];     \
+    }
+
 #define CONF_KEY(buf, conf_key)                        \
     {                                                  \
         uint8_t *ptr = &conf_key;                      \
@@ -118,6 +135,46 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);    /* pk      | size  35 */    \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);       /* account | size  22 */    \
         etxn_details((uint32_t)buf_out, 105);          /* emitdet | size 105 */    \
+    }
+
+#define ASCII_TO_HEX(val)    \
+    {                        \
+        switch (val)         \
+        {                    \
+        case 'A':            \
+            val = 10;        \
+            break;           \
+        case 'B':            \
+            val = 11;        \
+            break;           \
+        case 'C':            \
+            val = 12;        \
+            break;           \
+        case 'D':            \
+            val = 13;        \
+            break;           \
+        case 'E':            \
+            val = 14;        \
+            break;           \
+        case 'F':            \
+            val = 15;        \
+            break;           \
+        default:             \
+            val = val - '0'; \
+            break;           \
+        }                    \
+    }
+
+#define HEXSTR_TO_BYTES(byte_ptr, hexstr_ptr, hexstr_len)          \
+    {                                                              \
+        for (int i = 0; GUARD(hexstr_len), i < hexstr_len; i += 2) \
+        {                                                          \
+            int val1 = (int)hexstr_ptr[i];                         \
+            int val2 = (int)hexstr_ptr[i + 1];                     \
+            ASCII_TO_HEX(val1)                                     \
+            ASCII_TO_HEX(val2)                                     \
+            byte_ptr[i / 2] = ((val1 * 16) + val2);                \
+        }                                                          \
     }
 
 #endif
