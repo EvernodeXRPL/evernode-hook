@@ -165,16 +165,16 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
         }                    \
     }
 
-#define ASCII_TO_BYTES(byte_ptr, ascii_ptr, ascii_len)           \
-    {                                                            \
-        for (int i = 0; GUARD(ascii_len), i < ascii_len; i += 2) \
-        {                                                        \
-            int val1 = (int)ascii_ptr[i];                        \
-            int val2 = (int)ascii_ptr[i + 1];                    \
-            ASCII_TO_HEX(val1)                                   \
-            ASCII_TO_HEX(val2)                                   \
-            byte_ptr[i / 2] = ((val1 * 16) + val2);              \
-        }                                                        \
+#define HEXSTR_TO_BYTES(byte_ptr, hexstr_ptr, hexstr_len)          \
+    {                                                              \
+        for (int i = 0; GUARD(hexstr_len), i < hexstr_len; i += 2) \
+        {                                                          \
+            int val1 = (int)hexstr_ptr[i];                         \
+            int val2 = (int)hexstr_ptr[i + 1];                     \
+            ASCII_TO_HEX(val1)                                     \
+            ASCII_TO_HEX(val2)                                     \
+            byte_ptr[i / 2] = ((val1 * 16) + val2);                \
+        }                                                          \
     }
 
 #endif

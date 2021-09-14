@@ -179,7 +179,7 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Invalid redeem reference."), 1);
 
                 uint8_t hash_ptr[32];
-                ASCII_TO_BYTES(hash_ptr, data_ptr, data_len);
+                HEXSTR_TO_BYTES(hash_ptr, data_ptr, data_len);
 
                 // Redeem response has 2 memos, so check for the type in second memo.
                 memo_lookup = sto_subarray(memos, memos_len, 1);
@@ -253,7 +253,7 @@ int64_t hook(int64_t reserved)
                     // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
                     uint8_t amt_out[48];
                     if (float_sto(SBUF(amt_out), SBUF(host_currency), SBUF(host_issuer), host_amount, -1) < 0)
-                        rollback(SBUF("Evernode: Could not dump HTK amount into sto"), 1);
+                        rollback(SBUF("Evernode: Could not dump hosting token amount into sto"), 1);
 
                     // Set the currency code and issuer in the amount field
                     for (int i = 0; GUARD(20), i < 20; ++i)
@@ -264,7 +264,7 @@ int64_t hook(int64_t reserved)
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field, 0xFFFFFFFFU, 0xFFFFFFFFU);
+                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field, 0, 0);
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
@@ -422,7 +422,7 @@ int64_t hook(int64_t reserved)
                 for (int i = 0; GUARD(20), i < 20; ++i)
                 {
                     if (amount_buffer[i + 8] != hosting_token[i])
-                        rollback(SBUF("Evernode: Currency should be HTK to redeem."), 1);
+                        rollback(SBUF("Evernode: Currency should be in hosting tokens to redeem."), 1);
                 }
 
                 if (amount_val_drops < (conf_min_redeem * 1000000))
