@@ -61,6 +61,8 @@ uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0,
 
 // Constants
 int64_t RELOAD_SEQ_THRESHOLD = 10;
+int8_t REDEEM_STATE_VAL_SIZE = 39;
+int8_t HASH_SIZE = 32;
 
 // Checks for EVR currency issued by hook account.
 #define IS_EVR(is_evr, amount_buffer, currency, issuer) \
