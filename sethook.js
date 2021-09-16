@@ -6,7 +6,12 @@ const DEFAULT_ADDR = 'rB9gfgPcZ9aS1WF2D1MPS8Gdg8bs2y8aEK';
 const DEFAULT_SECRET = 'snL3hEFU3JUT7WSFRHvyKmghjU1Nj';
 
 // Host account
-// { "address": "r9D6VdU5odLPaR9aWYMhCXV1wztB9spBqR", "secret": "sh18veYyyfz3JHNp61js8eKPvZHMi", "xrp": 10000, "hash": "2737215204809E1C822A12182AAAF433AF86740F25526E0A8AB8C4E04CA6A1B0", "code": "tesSUCCESS" }
+// address = r9D6VdU5odLPaR9aWYMhCXV1wztB9spBqR
+// secret = sh18veYyyfz3JHNp61js8eKPvZHMi
+
+// Auditor account
+// address = rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky
+// secret = snUByxoPxYHTZjUBg38X8ihHk5QVi
 
 const cfgPath = 'hook.cfg';
 let cfg;
@@ -21,8 +26,6 @@ if (!fs.existsSync(cfgPath)) {
 else {
     cfg = JSON.parse(fs.readFileSync(cfgPath));
 }
-
-
 
 const wasmfile = process.argv[2] || "build/evernode.wasm";
 const secret = cfg.secret;

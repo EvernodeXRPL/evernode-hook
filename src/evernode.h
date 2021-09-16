@@ -6,11 +6,15 @@
 #define REDEEM_REF "evnRedeemRef"
 #define REDEEM_RESP "evnRedeemResp"
 #define REFUND "evnRefund"
+#define AUDIT_REQ "evnAuditRequest"
 
 #define FORMAT_BINARY "binary"
 #define FORMAT_TEXT "text/plain"
 
 #define REDEEM_ERR "REDEEM_ERR"
+
+// Default auditor address.
+#define DEFAULT_AUDITOR "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"
 
 // Singelton keys.
 
@@ -21,6 +25,14 @@ uint8_t STK_HOST_COUNT[32] = {'E', 'V', 'R', 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Auditor count (Maintains total no. of registered auditors)
 // value 51 is in decimal. Its converted to 33 in hex.
 uint8_t STK_AUDITOR_COUNT[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// Ledger index when the CONF_MOMENT_SIZE last changed on
+// value 52 is in decimal. Its converted to 34 in hex.
+uint8_t STK_MOMENT_BASE_IDX[32] = {'E', 'V', 'R', 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// Moment start index and the moment seed(ledger hash) for the current moment
+// value 53 is in decimal. Its converted to 35 in hex.
+uint8_t STK_MOMENT_SEED[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Repetitive state keys.
 
@@ -62,12 +74,19 @@ uint16_t DEF_MIN_REDEEM = 12;
 uint16_t DEF_REDEEM_WINDOW = 12;
 uint16_t DEF_HOST_REWARD = 1;
 
+uint16_t DEF_MAX_SEED_ITTERATOR = 29;
+
+
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
 // Constants
 int64_t RELOAD_SEQ_THRESHOLD = 10;
-int8_t REDEEM_STATE_VAL_SIZE = 39;
-int8_t HASH_SIZE = 32;
+int32_t HOST_ADDR_VAL_SIZE = 15;
+int32_t AUDITOR_ADDR_VAL_SIZE = 32;
+int32_t REDEEM_STATE_VAL_SIZE = 39;
+int32_t MOMENT_SEED_VAL_SIZE = 40;
+int32_t AMOUNT_BUF_SIZE = 48;
+int32_t HASH_SIZE = 32;
 
 // Checks for EVR currency issued by hook account.
 #define IS_EVR(is_evr, amount_buffer, currency, issuer) \
@@ -112,6 +131,18 @@ int8_t HASH_SIZE = 32;
     {                                           \
         for (int i = 28; GUARD(4), i < 32; i++) \
             STP_HOST_ID[i] = host_id[i - 28];   \
+    }
+
+#define AUDITOR_ADDR_KEY(auditor_addr)                  \
+    {                                                   \
+        for (int i = 12; GUARD(20), i < 32; i++)        \
+            STP_AUDITOR_ADDR[i] = auditor_addr[i - 12]; \
+    }
+
+#define AUDITOR_ID_KEY(auditor_id)                  \
+    {                                               \
+        for (int i = 28; GUARD(4), i < 32; i++)     \
+            STP_AUDITOR_ID[i] = auditor_id[i - 28]; \
     }
 
 #define REDEEM_OP_KEY(hash)                     \
