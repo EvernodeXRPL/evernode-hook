@@ -13,9 +13,6 @@
 
 #define REDEEM_ERR "REDEEM_ERR"
 
-// Default auditor address.
-#define DEFAULT_AUDITOR "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"
-
 // Singelton keys.
 
 // Host count (Maintains total no. of registered hosts)
@@ -65,6 +62,8 @@ uint8_t CONF_MIN_REDEEM[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 uint8_t CONF_REDEEM_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5};
 // No. of Evers rewarded to a host when an audit passes.
 uint8_t CONF_HOST_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
+// No. of No of maximum hosts that can be rewarded per moment.
+uint8_t CONF_MAX_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7};
 
 // Default values.
 uint16_t DEF_MOMENT_SIZE = 72;
@@ -73,13 +72,13 @@ uint16_t DEF_HOST_REG_FEE = 5;
 uint16_t DEF_MIN_REDEEM = 12;
 uint16_t DEF_REDEEM_WINDOW = 12;
 uint16_t DEF_HOST_REWARD = 1;
-
-uint16_t DEF_MAX_SEED_ITTERATOR = 29;
+uint16_t DEF_MAX_REWARD = 20;
+uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";
 
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
 // Constants
-int32_t HOST_ADDR_VAL_SIZE = 15;
+int32_t HOST_ADDR_VAL_SIZE = 43;
 int32_t AUDITOR_ADDR_VAL_SIZE = 32;
 int32_t REDEEM_STATE_VAL_SIZE = 39;
 int32_t MOMENT_SEED_VAL_SIZE = 40;
@@ -239,6 +238,17 @@ int32_t HASH_SIZE = 32;
             ASCII_TO_HEX(val2)                                     \
             byte_ptr[i / 2] = ((val1 * 16) + val2);                \
         }                                                          \
+    }
+
+#define IS_BUF_EMPTY(is_empty, buf, buflen)         \
+    is_empty = 1;                                   \
+    for (int i = 0; GUARD(buflen), i < buflen; ++i) \
+    {                                               \
+        if (buf[i] != 0)                            \
+        {                                           \
+            is_empty = 0;                           \
+            break;                                  \
+        }                                           \
     }
 
 #endif
