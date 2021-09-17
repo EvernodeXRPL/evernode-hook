@@ -76,11 +76,9 @@ uint16_t DEF_HOST_REWARD = 1;
 
 uint16_t DEF_MAX_SEED_ITTERATOR = 29;
 
-
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
 // Constants
-int64_t RELOAD_SEQ_THRESHOLD = 10;
 int32_t HOST_ADDR_VAL_SIZE = 15;
 int32_t AUDITOR_ADDR_VAL_SIZE = 32;
 int32_t REDEEM_STATE_VAL_SIZE = 39;
@@ -157,26 +155,50 @@ int32_t HASH_SIZE = 32;
         STATE_KEY(buf, STP_CONF, ptr, sizeof(uint8_t)) \
     }
 
+#define ttCHECK_CREATE 16
+#define ttCHECK_CASH 17
 #define ttTRUST_SET 20
+
 #define tfClearNoRipple 0x00040000 // Disable the No Ripple flag, allowing rippling on this trust line.
+
 #define PREPARE_SIMPLE_TRUSTLINE_SIZE 245
-#define PREPARE_SIMPLE_TRUSTLINE(buf_out_master, tlamt, drops_fee_raw, to_address) \
-    {                                                                              \
-        uint8_t *buf_out = buf_out_master;                                         \
-        uint8_t acc[20];                                                           \
-        uint64_t drops_fee = (drops_fee_raw);                                      \
-        uint32_t cls = (uint32_t)ledger_seq();                                     \
-        hook_account(SBUF(acc));                                                   \
-        _01_02_ENCODE_TT(buf_out, ttTRUST_SET);        /* uint16  | size   3 */    \
-        _02_02_ENCODE_FLAGS(buf_out, tfClearNoRipple); /* uint32  | size   5 */    \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);            /* uint32  | size   5 */    \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);           /* uint32  | size   6 */    \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);           /* uint32  | size   6 */    \
-        ENCODE_TL(buf_out, tlamt, amLIMITAMOUNT);      /* amount  | size  48 */    \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);   /* amount  | size   9 */    \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);    /* pk      | size  35 */    \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);       /* account | size  22 */    \
-        etxn_details((uint32_t)buf_out, 105);          /* emitdet | size 105 */    \
+#define PREPARE_SIMPLE_TRUSTLINE(buf_out_master, tlamt, drops_fee_raw)          \
+    {                                                                           \
+        uint8_t *buf_out = buf_out_master;                                      \
+        uint8_t acc[20];                                                        \
+        uint64_t drops_fee = (drops_fee_raw);                                   \
+        uint32_t cls = (uint32_t)ledger_seq();                                  \
+        hook_account(SBUF(acc));                                                \
+        _01_02_ENCODE_TT(buf_out, ttTRUST_SET);        /* uint16  | size   3 */ \
+        _02_02_ENCODE_FLAGS(buf_out, tfClearNoRipple); /* uint32  | size   5 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);            /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);           /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);           /* uint32  | size   6 */ \
+        ENCODE_TL(buf_out, tlamt, amLIMITAMOUNT);      /* amount  | size  48 */ \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);   /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);    /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);       /* account | size  22 */ \
+        etxn_details((uint32_t)buf_out, 105);          /* emitdet | size 105 */ \
+    }
+
+#define PREPARE_SIMPLE_CHECK_SIZE 261
+#define PREPARE_SIMPLE_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address)   \
+    {                                                                            \
+        uint8_t *buf_out = buf_out_master;                                       \
+        uint8_t acc[20];                                                         \
+        uint64_t drops_fee = (drops_fee_raw);                                    \
+        uint32_t cls = (uint32_t)ledger_seq();                                   \
+        hook_account(SBUF(acc));                                                 \
+        _01_02_ENCODE_TT(buf_out, ttCHECK_CREATE);      /* uint16  | size   3 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */ \
+        ENCODE_TL(buf_out, tlamt, amSENDMAX);           /* amount  | size  48 */ \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */ \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */ \
+        etxn_details((uint32_t)buf_out, 105);           /* emitdet | size 105 */ \
     }
 
 #define ASCII_TO_HEX(val)    \

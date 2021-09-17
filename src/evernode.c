@@ -340,7 +340,7 @@ int64_t hook(int64_t reserved)
 
                 uint8_t *ptr = &data_arr[31];
                 int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
-                if (ledger_seq_def < RELOAD_SEQ_THRESHOLD)
+                if (ledger_seq_def < DEF_REDEEM_WINDOW)
                     rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
 
                 // Setup the outgoing txn.
@@ -600,7 +600,7 @@ int64_t hook(int64_t reserved)
 
                 // Preparing trustline transaction.
                 uint8_t txn_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
-                PREPARE_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field);
+                PREPARE_SIMPLE_TRUSTLINE(txn_out, amt_out, fee);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
