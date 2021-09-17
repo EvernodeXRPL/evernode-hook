@@ -507,9 +507,9 @@ int64_t hook(int64_t reserved)
                 // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
                 uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, host_token_ptr[0], host_token_ptr[1], host_token_ptr[2], 0, 0, 0, 0, 0};
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
-                int64_t token_limit = float_set(conf_min_redeem, 1);
+                int64_t token_limit = float_set(0, conf_min_redeem);
                 if (float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(host_addr), token_limit, -1) < 0)
-                    rollback(SBUF("Evernode: Could not dump hosting token amount into sto for refund."), 1);
+                    rollback(SBUF("Evernode: Could not dump hosting token amount into sto for check."), 1);
 
                 // Set the currency code and issuer in the amount field
                 for (int i = 0; GUARD(20), i < 20; ++i)
