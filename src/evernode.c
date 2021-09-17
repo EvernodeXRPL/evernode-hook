@@ -457,13 +457,13 @@ int64_t hook(int64_t reserved)
                 // Only serve if auditor id is less than max reward.
                 if (auditor_id > conf_max_reward)
                     rollback(SBUF("Evernode: Max number of audits per moment is exceeded."), 1);
-                uint32_t host_id = (UINT32_FROM_BUF(&moment_seed_ptr[auditor_id - 1]) % host_count) + 1;
+                uint32_t host_id = (UINT32_FROM_BUF(moment_seed_ptr + (auditor_id - 1)) % host_count) + 1;
                 /////////////////////////////////// Method 2 //////////////////////////////////////////
                 // uint32_t host_id = 0;
                 // uint32_t lookup_value = 0;
                 // for (int i = 0; GUARD(conf_max_reward), i < conf_max_reward; ++i)
                 // {
-                //     lookup_value = UINT32_FROM_BUF(&moment_seed_ptr[i]);
+                //     lookup_value = UINT32_FROM_BUF(moment_seed_ptr + i);
                 //     if (((lookup_value % auditor_count) + 1) == auditor_id)
                 //         host_id = (lookup_value % host_count) + 1;
                 // }
