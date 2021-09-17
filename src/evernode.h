@@ -73,7 +73,7 @@ uint16_t DEF_MIN_REDEEM = 12;
 uint16_t DEF_REDEEM_WINDOW = 12;
 uint16_t DEF_HOST_REWARD = 1;
 uint16_t DEF_MAX_REWARD = 20;
-uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";
+uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";    // This is a hard coded value, can be changed later.
 
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
