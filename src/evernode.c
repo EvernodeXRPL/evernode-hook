@@ -429,7 +429,7 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: A host is already assigned to audit for this moment."), 1);
 
                 int update_seed = 0;
-                uint8_t moment_seed_buf[MOMENT_SEED_VAL_SIZE];
+                uint8_t moment_seed_buf[MOMENT_SEED_VAL_SIZE]; // <moment_start_idx(8)><moment_seed(32)>
                 // Set the seed if not exist or last updated seed is expired.
                 if (state(SBUF(moment_seed_buf), SBUF(STK_MOMENT_SEED)) == DOESNT_EXIST)
                     update_seed = 1;
