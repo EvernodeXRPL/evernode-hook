@@ -419,12 +419,13 @@ int64_t hook(int64_t reserved)
                 uint64_t relative_n = (ledger_seq() - moment_base_idx) / conf_moment_size;
                 uint64_t cur_moment_start_idx = moment_base_idx + (relative_n * conf_moment_size);
 
+                // We do not serve audit requests if moment start index in 0.
+                if (cur_moment_start_idx == 0)
+                    rollback(SBUF("Evernode: Rewards aren't allowed in the first moment."), 1);
+
                 // If auditors assigned moment idx is equal to currect moment start idx.
                 // A host has been already assigned.
-                // Check if host is empty.
-                int is_host_empty = 1;
-                IS_BUF_EMPTY(is_host_empty, lst_host_addr_ptr, 20);
-                if (!is_host_empty && lst_moment_start_idx == cur_moment_start_idx)
+                if (lst_moment_start_idx == cur_moment_start_idx)
                     rollback(SBUF("Evernode: A host is already assigned to audit for this moment."), 1);
 
                 int update_seed = 0;
@@ -481,19 +482,15 @@ int64_t hook(int64_t reserved)
 
                 // Take the last reward moment.
                 HOST_ADDR_KEY(host_addr);
-                uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE]; // <host_id(4)><hosting_token(3)><audit_assigned_moment_start_idx(8)><assigned_audit_addr(20)><rewarded_moment_start_idx(8)>
+                uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE]; // <host_id(4)><hosting_token(3)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
                 if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: Host is not registered."), 1);
 
                 uint8_t *host_token_ptr = &host_addr_buf[4];
                 uint64_t lst_adt_moment_start_idx = UINT64_FROM_BUF(&host_addr_buf[7]);
-                uint8_t *lst_adt_addr_ptr = &host_addr_buf[15];
 
                 // If host is already assigned for audit within this moment we won't reward again.
-                // Check if auditor is empty.
-                int is_adt_empty = 1;
-                IS_BUF_EMPTY(is_adt_empty, lst_adt_addr_ptr, 20);
-                if (!is_adt_empty && lst_adt_moment_start_idx == cur_moment_start_idx)
+                if (lst_adt_moment_start_idx == cur_moment_start_idx)
                     rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);
 
                 trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
@@ -539,8 +536,6 @@ int64_t hook(int64_t reserved)
                 // Update the host's audit state.
                 for (int i = 0; GUARD(8), i < 8; ++i)
                     host_addr_buf[i + 7] = moment_seed_buf[i];
-                for (int i = 0; GUARD(20), i < 20; ++i)
-                    host_addr_buf[i + 15] = account_field[i];
                 if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
 

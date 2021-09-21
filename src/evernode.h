@@ -78,7 +78,7 @@ uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";    // This 
 uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
 // Constants
-int32_t HOST_ADDR_VAL_SIZE = 43;
+int32_t HOST_ADDR_VAL_SIZE = 23;
 int32_t AUDITOR_ADDR_VAL_SIZE = 32;
 int32_t REDEEM_STATE_VAL_SIZE = 39;
 int32_t MOMENT_SEED_VAL_SIZE = 40;
