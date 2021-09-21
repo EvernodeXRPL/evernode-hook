@@ -419,7 +419,7 @@ int64_t hook(int64_t reserved)
                 uint64_t relative_n = (ledger_seq() - moment_base_idx) / conf_moment_size;
                 uint64_t cur_moment_start_idx = moment_base_idx + (relative_n * conf_moment_size);
 
-                // We do not serve audit requests if moment start index in 0.
+                // We do not serve audit requests if moment start index is 0.
                 if (cur_moment_start_idx == 0)
                     rollback(SBUF("Evernode: Rewards aren't allowed in the first moment."), 1);
 
