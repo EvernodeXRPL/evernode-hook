@@ -7,6 +7,7 @@
 #define REDEEM_RESP "evnRedeemResp"
 #define REFUND "evnRefund"
 #define AUDIT_REQ "evnAuditRequest"
+#define AUDIT_SUCCESS "evnAuditSuccess"
 
 #define FORMAT_BINARY "binary"
 #define FORMAT_TEXT "text/plain"
@@ -71,11 +72,11 @@ uint64_t DEF_MINT_LIMIT = 25804800;
 uint16_t DEF_HOST_REG_FEE = 5;
 uint16_t DEF_MIN_REDEEM = 12;
 uint16_t DEF_REDEEM_WINDOW = 12;
-uint16_t DEF_HOST_REWARD = 1;
+uint16_t DEF_HOST_REWARD = 64;
 uint16_t DEF_MAX_REWARD = 20;
 uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";    // This is a hard coded value, can be changed later.
 
-uint8_t currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
+uint8_t evr_currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
 // Constants
 int32_t HOST_ADDR_VAL_SIZE = 23;
