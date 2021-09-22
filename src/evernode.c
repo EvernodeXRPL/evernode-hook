@@ -519,10 +519,10 @@ int64_t hook(int64_t reserved)
                     uint8_t txn_out[PREPARE_SIMPLE_CHECK_SIZE];
                     PREPARE_SIMPLE_CHECK(txn_out, amt_out, fee, account_field);
 
-                    // uint8_t emithash[HASH_SIZE];
-                    // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    //     rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                    // trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    uint8_t emithash[HASH_SIZE];
+                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Update the auditor state.
                     for (int i = 0; GUARD(8), i < 8; ++i)
