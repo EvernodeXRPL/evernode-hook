@@ -284,7 +284,6 @@ int64_t hook(int64_t reserved)
                     // Reserving one transaction.
                     etxn_reserve(1);
 
-                    // Forward hosting tokens to the host on success.
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Prepare currency.
