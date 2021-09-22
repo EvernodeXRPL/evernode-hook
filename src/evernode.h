@@ -180,7 +180,7 @@ int32_t HASH_SIZE = 32;
         etxn_details((uint32_t)buf_out, 105);          /* emitdet | size 105 */ \
     }
 
-#define PREPARE_SIMPLE_CHECK_SIZE 261
+#define PREPARE_SIMPLE_CHECK_SIZE 262
 #define PREPARE_SIMPLE_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address)   \
     {                                                                            \
         uint8_t *buf_out = buf_out_master;                                       \
