@@ -21,7 +21,7 @@ int64_t hook(int64_t reserved)
     uint8_t account_field[20];
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
     if (account_field_len < 20)
-        rollback(SBUF("Evernode: sfAccount or sfDestination field missing!!!"), 10);
+        rollback(SBUF("Evernode: sfAccount field is missing."), 1);
 
     // Accept any outgoing transactions without further processing.
     int is_outgoing = 0;
