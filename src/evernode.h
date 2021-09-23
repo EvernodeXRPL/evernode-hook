@@ -2,6 +2,7 @@
 #define EVERNODE_INCLUDED 1
 
 #define HOST_REG "evnHostReg"
+#define HOST_DE_REG "evnHostDereg"
 #define REDEEM "evnRedeem"
 #define REDEEM_REF "evnRedeemRef"
 #define REDEEM_RESP "evnRedeemResp"
@@ -61,8 +62,8 @@ uint8_t CONF_HOST_REG_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 uint8_t CONF_MIN_REDEEM[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
 // Max no. of ledgers within which a redeem operation has to be serviced.
 uint8_t CONF_REDEEM_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5};
-// No. of Evers rewarded to a host when an audit passes.
-uint8_t CONF_HOST_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
+// No. of Evers rewarded per moment.
+uint8_t CONF_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
 // No. of No of maximum hosts that can be rewarded per moment.
 uint8_t CONF_MAX_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7};
 
@@ -72,9 +73,9 @@ uint64_t DEF_MINT_LIMIT = 25804800;
 uint16_t DEF_HOST_REG_FEE = 5;
 uint16_t DEF_MIN_REDEEM = 12;
 uint16_t DEF_REDEEM_WINDOW = 12;
-uint16_t DEF_HOST_REWARD = 64;
+uint16_t DEF_REWARD = 64;
 uint16_t DEF_MAX_REWARD = 20;
-uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";    // This is a hard coded value, can be changed later.
+uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 uint8_t evr_currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
@@ -158,27 +159,25 @@ int32_t HASH_SIZE = 32;
 #define ttCHECK_CREATE 16
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
-
-#define tfClearNoRipple 0x00040000 // Disable the No Ripple flag, allowing rippling on this trust line.
-
+#define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
 #define PREPARE_SIMPLE_TRUSTLINE_SIZE 245
-#define PREPARE_SIMPLE_TRUSTLINE(buf_out_master, tlamt, drops_fee_raw)          \
-    {                                                                           \
-        uint8_t *buf_out = buf_out_master;                                      \
-        uint8_t acc[20];                                                        \
-        uint64_t drops_fee = (drops_fee_raw);                                   \
-        uint32_t cls = (uint32_t)ledger_seq();                                  \
-        hook_account(SBUF(acc));                                                \
-        _01_02_ENCODE_TT(buf_out, ttTRUST_SET);        /* uint16  | size   3 */ \
-        _02_02_ENCODE_FLAGS(buf_out, tfClearNoRipple); /* uint32  | size   5 */ \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);            /* uint32  | size   5 */ \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);           /* uint32  | size   6 */ \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);           /* uint32  | size   6 */ \
-        ENCODE_TL(buf_out, tlamt, amLIMITAMOUNT);      /* amount  | size  48 */ \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);   /* amount  | size   9 */ \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);    /* pk      | size  35 */ \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);       /* account | size  22 */ \
-        etxn_details((uint32_t)buf_out, 105);          /* emitdet | size 105 */ \
+#define PREPARE_SIMPLE_TRUSTLINE(buf_out_master, tlamt, drops_fee_raw)        \
+    {                                                                         \
+        uint8_t *buf_out = buf_out_master;                                    \
+        uint8_t acc[20];                                                      \
+        uint64_t drops_fee = (drops_fee_raw);                                 \
+        uint32_t cls = (uint32_t)ledger_seq();                                \
+        hook_account(SBUF(acc));                                              \
+        _01_02_ENCODE_TT(buf_out, ttTRUST_SET);      /* uint16  | size   3 */ \
+        _02_02_ENCODE_FLAGS(buf_out, tfSetNoRipple); /* uint32  | size   5 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);          /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);         /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);         /* uint32  | size   6 */ \
+        ENCODE_TL(buf_out, tlamt, amLIMITAMOUNT);    /* amount  | size  48 */ \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee); /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);  /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);     /* account | size  22 */ \
+        etxn_details((uint32_t)buf_out, 105);        /* emitdet | size 105 */ \
     }
 
 #define PREPARE_SIMPLE_CHECK_SIZE 262
@@ -250,6 +249,18 @@ int32_t HASH_SIZE = 32;
             is_empty = 0;                           \
             break;                                  \
         }                                           \
+    }
+
+/**
+ * Preparing the amount buffer handling a special condition related to amount 0.
+*/
+#define FLOAT_ZERO_AMT(amt_out)                                                                                 \
+    {                                                                                                           \
+        const int64_t float_zero = 0;                                                                           \
+        int64_t float_ret = float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(account_field), float_zero, -1); \
+        amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/                                       \
+        if (float_ret < 0)                                                                                      \
+            rollback(SBUF("Evernode: Could not dump amount zero into amt."), 1);                                \
     }
 
 #endif
