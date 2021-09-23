@@ -29,24 +29,7 @@ int64_t hook(int64_t reserved)
     uint8_t auditor_count_buf[4] = {0};
     if (state(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
     {
-        if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
-    }
-    uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
-    TRACEVAR(auditor_count);
-
-    uint8_t moment_base_idx_buf[8];
-    if (state(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) == DOESNT_EXIST)
-    {
-        if (state_set(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for moment base idx."), 1);
-    }
-    uint64_t moment_base_idx = UINT64_FROM_BUF(moment_base_idx_buf);
-    TRACEVAR(moment_base_idx);
-
-    // Setting up default auditor if no auditors registered.
-    if (auditor_count == 0)
-    {
+        // Setting up default auditor if no auditors registered.
         uint8_t auditor_accid[20];
         util_accid(SBUF(auditor_accid), SBUF(DEF_AUDITOR_ADDR));
         uint8_t auditor_id_buf[4];
@@ -68,11 +51,22 @@ int64_t hook(int64_t reserved)
         if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
             rollback(SBUF("Evernode: Could not set state for default auditor_addr."), 1);
 
-        auditor_count = 1;
-        UINT32_TO_BUF(auditor_count_buf, auditor_count);
+        // Set auditor count to 1;
+        UINT32_TO_BUF(auditor_count_buf, 1);
         if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
             rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
     }
+    uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
+    TRACEVAR(auditor_count);
+
+    uint8_t moment_base_idx_buf[8] = {0};
+    if (state(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) == DOESNT_EXIST)
+    {
+        if (state_set(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) < 0)
+            rollback(SBUF("Evernode: Could not set default state for moment base idx."), 1);
+    }
+    uint64_t moment_base_idx = UINT64_FROM_BUF(moment_base_idx_buf);
+    TRACEVAR(moment_base_idx);
 
     // Setting and loading configuration values from the hook state.
     uint8_t conf_moment_size_buf[2];
@@ -568,11 +562,12 @@ int64_t hook(int64_t reserved)
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Prepare currency.
-                    // We need to dump the iou amount into a buffer.
-                    // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
                     // Reward amount would be, total reward amount equally divided by registered host count.
                     int64_t reward_amount = float_divide(float_set(0, conf_host_reward), float_set(0, host_count));
+                    
+                    // We need to dump the iou amount into a buffer.
+                    // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
                     if (float_sto(SBUF(amt_out), SBUF(evr_currency), SBUF(hook_accid), reward_amount, -1) < 0)
                         rollback(SBUF("Evernode: Could not dump reward amount into sto"), 1);
 
