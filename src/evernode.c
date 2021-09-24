@@ -710,10 +710,12 @@ int64_t hook(int64_t reserved)
                     uint8_t last_host_id_buf[HOST_ADDR_VAL_SIZE];
                     // Get the address of the host with last host id which is equal to the host count.
                     HOST_ID_KEY(host_count_buf);
-                    HOST_ADDR_KEY(last_host_addr);
+                    if (state(SBUF(last_host_addr), SBUF(STP_HOST_ID)) != 20)
+                        rollback(SBUF("Evernode: Could not get last host address."), 1);
 
-                    if (state(SBUF(last_host_addr), SBUF(STP_HOST_ID)) != 20 || state(SBUF(last_host_id_buf), SBUF(STP_HOST_ADDR)) != HOST_ADDR_VAL_SIZE)
-                        rollback(SBUF("Evernode: Could not get last host address or host id."), 1);
+                    HOST_ADDR_KEY(last_host_addr);
+                    if (state(SBUF(last_host_id_buf), SBUF(STP_HOST_ADDR)) != HOST_ADDR_VAL_SIZE)
+                        rollback(SBUF("Evernode: Could not get last host id data."), 1);
 
                     // Update the last host entry with the deleting host id.
                     last_host_id_buf[0] = host_addr_data[0];
@@ -783,11 +785,6 @@ int64_t hook(int64_t reserved)
                 BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_TEXT, 1);
                 if (!is_format_match)
                     rollback(SBUF("Evernode: Memo format should be text."), 50);
-
-                int is_dest_hook = 0;
-                BUFFER_EQUAL(is_dest_hook, hook_accid, account_field, 20);
-                if (!is_dest_hook)
-                    rollback(SBUF("Evernode: Destination should be hook account for host registration."), 2);
 
                 // Generate transaction with following properties.
                 /**
