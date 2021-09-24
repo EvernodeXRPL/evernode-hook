@@ -29,15 +29,6 @@ int64_t hook(int64_t reserved)
     if (is_outgoing)
         accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
 
-    // ****************************************************************************************************
-    // Setting and loading configuration values from the hook state.
-    // Currently these values aren't used.
-    // So, this need to be moved to the needed section when the usage is implemented.
-    uint64_t conf_mint_limit;
-    GET_CONF_VALUE(conf_mint_limit, DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not set default state for mint limit.");
-    TRACEVAR(conf_mint_limit);
-    // ****************************************************************************************************
-
     int64_t txn_type = otxn_type();
     if (txn_type == ttPAYMENT)
     {
