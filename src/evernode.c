@@ -17,13 +17,8 @@ int64_t hook(int64_t reserved)
     // ***********************Config variable managment code********************************
     // *************************************************************************************
 
-    uint8_t host_count_buf[4] = {0};
-    if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) == DOESNT_EXIST)
-    {
-        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1);
-    }
-    uint32_t host_count = UINT32_FROM_BUF(host_count_buf);
+    uint32_t host_count;
+    GET_CONF_VALUE(host_count, 0, STK_HOST_COUNT, "Evernode: Could not set default state for host count.");
     TRACEVAR(host_count);
 
     uint8_t auditor_count_buf[4] = {0};
@@ -59,84 +54,37 @@ int64_t hook(int64_t reserved)
     uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
     TRACEVAR(auditor_count);
 
-    uint8_t moment_base_idx_buf[8] = {0};
-    if (state(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) == DOESNT_EXIST)
-    {
-        if (state_set(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for moment base idx."), 1);
-    }
-    uint64_t moment_base_idx = UINT64_FROM_BUF(moment_base_idx_buf);
+    uint64_t moment_base_idx;
+    GET_CONF_VALUE(moment_base_idx, 0, STK_MOMENT_BASE_IDX, "Evernode: Could not set default state for moment base idx.");
     TRACEVAR(moment_base_idx);
 
     // Setting and loading configuration values from the hook state.
-    uint8_t conf_moment_size_buf[2];
-    if (state(SBUF(conf_moment_size_buf), SBUF(CONF_MOMENT_SIZE)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_moment_size_buf, DEF_MOMENT_SIZE);
-        if (state_set(SBUF(conf_moment_size_buf), SBUF(CONF_MOMENT_SIZE)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for moment size."), 1);
-    }
-    uint16_t conf_moment_size = UINT16_FROM_BUF(conf_moment_size_buf);
+    uint16_t conf_moment_size;
+    GET_CONF_VALUE(conf_moment_size, DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not set default state for moment size.");
     TRACEVAR(conf_moment_size);
 
-    uint8_t conf_mint_limit_buf[8];
-    if (state(SBUF(conf_mint_limit_buf), SBUF(CONF_MINT_LIMIT)) == DOESNT_EXIST)
-    {
-        UINT64_TO_BUF(conf_mint_limit_buf, DEF_MINT_LIMIT);
-        if (state_set(SBUF(conf_mint_limit_buf), SBUF(CONF_MINT_LIMIT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for mint limit."), 1);
-    }
-    uint64_t conf_mint_limit = UINT64_FROM_BUF(conf_mint_limit_buf);
+    uint64_t conf_mint_limit;
+    GET_CONF_VALUE(conf_mint_limit, DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not set default state for mint limit.");
     TRACEVAR(conf_mint_limit);
 
-    uint8_t conf_host_reg_fee_buf[2];
-    if (state(SBUF(conf_host_reg_fee_buf), SBUF(CONF_HOST_REG_FEE)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_host_reg_fee_buf, DEF_HOST_REG_FEE);
-        if (state_set(SBUF(conf_host_reg_fee_buf), SBUF(CONF_HOST_REG_FEE)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host reg fee."), 1);
-    }
-    uint16_t conf_host_reg_fee = UINT16_FROM_BUF(conf_host_reg_fee_buf);
+    uint16_t conf_host_reg_fee;
+    GET_CONF_VALUE(conf_host_reg_fee, DEF_HOST_REG_FEE, CONF_HOST_REG_FEE, "Evernode: Could not set default state for host reg fee.");
     TRACEVAR(conf_host_reg_fee);
 
-    uint8_t conf_min_redeem_buf[2];
-    if (state(SBUF(conf_min_redeem_buf), SBUF(CONF_MIN_REDEEM)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_min_redeem_buf, DEF_MIN_REDEEM);
-        if (state_set(SBUF(conf_min_redeem_buf), SBUF(CONF_MIN_REDEEM)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for min redeem."), 1);
-    }
-    uint16_t conf_min_redeem = UINT16_FROM_BUF(conf_min_redeem_buf);
+    uint16_t conf_min_redeem;
+    GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
     TRACEVAR(conf_min_redeem);
 
-    uint8_t conf_redeem_window_buf[2];
-    if (state(SBUF(conf_redeem_window_buf), SBUF(CONF_REDEEM_WINDOW)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_redeem_window_buf, DEF_REDEEM_WINDOW);
-        if (state_set(SBUF(conf_redeem_window_buf), SBUF(CONF_REDEEM_WINDOW)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for redeem window."), 1);
-    }
-    uint16_t conf_redeem_window = UINT16_FROM_BUF(conf_redeem_window_buf);
+    uint16_t conf_redeem_window;
+    GET_CONF_VALUE(conf_redeem_window, DEF_REDEEM_WINDOW, CONF_REDEEM_WINDOW, "Evernode: Could not set default state for redeem window.");
     TRACEVAR(conf_redeem_window);
 
-    uint8_t conf_host_reward_buf[2];
-    if (state(SBUF(conf_host_reward_buf), SBUF(CONF_HOST_REWARD)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_host_reward_buf, DEF_HOST_REWARD);
-        if (state_set(SBUF(conf_host_reward_buf), SBUF(CONF_HOST_REWARD)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host reward."), 1);
-    }
-    uint16_t conf_host_reward = UINT16_FROM_BUF(conf_host_reward_buf);
+    uint16_t conf_host_reward;
+    GET_CONF_VALUE(conf_host_reward, DEF_HOST_REWARD, CONF_HOST_REWARD, "Evernode: Could not set default state for host reward.");
     TRACEVAR(conf_host_reward);
 
-    uint8_t conf_max_reward_buf[2];
-    if (state(SBUF(conf_max_reward_buf), SBUF(CONF_MAX_REWARD)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_max_reward_buf, DEF_MAX_REWARD);
-        if (state_set(SBUF(conf_max_reward_buf), SBUF(CONF_MAX_REWARD)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for max reward."), 1);
-    }
-    uint16_t conf_max_reward = UINT16_FROM_BUF(conf_max_reward_buf);
+    uint16_t conf_max_reward;
+    GET_CONF_VALUE(conf_max_reward, DEF_MAX_REWARD, CONF_MAX_REWARD, "Evernode: Could not set default state for max reward.");
     TRACEVAR(conf_max_reward);
     // ************************Config variable managment code end **************************
 
@@ -565,7 +513,7 @@ int64_t hook(int64_t reserved)
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
                     // Reward amount would be, total reward amount equally divided by registered host count.
                     int64_t reward_amount = float_divide(float_set(0, conf_host_reward), float_set(0, host_count));
-                    
+
                     // We need to dump the iou amount into a buffer.
                     // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
                     if (float_sto(SBUF(amt_out), SBUF(evr_currency), SBUF(hook_accid), reward_amount, -1) < 0)
@@ -713,6 +661,7 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
                 host_count += 1;
+                uint8_t host_count_buf[4];
                 UINT32_TO_BUF(host_count_buf, host_count);
                 if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
                     rollback(SBUF("Evernode: Could not set default state for host count."), 1);

@@ -74,7 +74,7 @@ uint16_t DEF_MIN_REDEEM = 12;
 uint16_t DEF_REDEEM_WINDOW = 12;
 uint16_t DEF_HOST_REWARD = 64;
 uint16_t DEF_MAX_REWARD = 20;
-uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky";    // This is a hard coded value, can be changed later.
+uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 uint8_t evr_currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
 
@@ -250,6 +250,51 @@ int32_t HASH_SIZE = 32;
             is_empty = 0;                           \
             break;                                  \
         }                                           \
+    }
+
+#define GET_CONF_VALUE(value, def_value, key, error_buf)         \
+    {                                                            \
+        uint8_t size = sizeof(value);                            \
+        uint8_t value_buf[size];                                 \
+        int64_t state_res = state(SBUF(value_buf), SBUF(key));   \
+        switch (size)                                            \
+        {                                                        \
+        case 2:                                                  \
+            if (state_res == DOESNT_EXIST)                       \
+            {                                                    \
+                value = def_value;                               \
+                UINT16_TO_BUF(value_buf, value);                 \
+            }                                                    \
+            else                                                 \
+                value = UINT16_FROM_BUF(value_buf);              \
+            break;                                               \
+        case 4:                                                  \
+            if (state_res == DOESNT_EXIST)                       \
+            {                                                    \
+                value = def_value;                               \
+                UINT32_TO_BUF(value_buf, value);                 \
+            }                                                    \
+            else                                                 \
+                value = UINT32_FROM_BUF(value_buf);              \
+            break;                                               \
+        case 8:                                                  \
+            if (state_res == DOESNT_EXIST)                       \
+            {                                                    \
+                value = def_value;                               \
+                UINT64_TO_BUF(value_buf, value);                 \
+            }                                                    \
+            else                                                 \
+                value = UINT64_FROM_BUF(value_buf);              \
+            break;                                               \
+        default:                                                 \
+            rollback(SBUF("Evernode: Invalid state value."), 1); \
+            break;                                               \
+        }                                                        \
+        if (state_res == DOESNT_EXIST)                           \
+        {                                                        \
+            if (state_set(SBUF(value_buf), SBUF(key)) < 0)       \
+                rollback(SBUF(error_buf), 1);                    \
+        }                                                        \
     }
 
 #endif
