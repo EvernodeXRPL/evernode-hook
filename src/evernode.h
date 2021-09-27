@@ -19,19 +19,19 @@
 
 // Host count (Maintains total no. of registered hosts)
 // value 50 is in decimal. Its converted to 32 in hex.
-uint8_t STK_HOST_COUNT[32] = {'E', 'V', 'R', 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t STK_HOST_COUNT[32] = {'E', 'V', 'R', 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Auditor count (Maintains total no. of registered auditors)
 // value 51 is in decimal. Its converted to 33 in hex.
-uint8_t STK_AUDITOR_COUNT[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t STK_AUDITOR_COUNT[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Ledger index when the CONF_MOMENT_SIZE last changed on
 // value 52 is in decimal. Its converted to 34 in hex.
-uint8_t STK_MOMENT_BASE_IDX[32] = {'E', 'V', 'R', 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t STK_MOMENT_BASE_IDX[32] = {'E', 'V', 'R', 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Moment start index and the moment seed(ledger hash) for the current moment
 // value 53 is in decimal. Its converted to 35 in hex.
-uint8_t STK_MOMENT_SEED[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t STK_MOMENT_SEED[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Repetitive state keys.
 
@@ -53,51 +53,57 @@ uint8_t STP_REDEEM_OP[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 // Hook Configuration. All configuration keys has the prefix STP_CONF = 1;
 // Configuration keys (Holds paramateres tunable by governance game)
 // No. of ledgers per moment.
-uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+const uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 // No. of Evers that will be ever issued.
-uint8_t CONF_MINT_LIMIT[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
+const uint8_t CONF_MINT_LIMIT[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
 // The host registration fee in Evers.
-uint8_t CONF_HOST_REG_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
+const uint8_t CONF_HOST_REG_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
 // The minimum amount of hosting token spending allowed in a redeem operation.
-uint8_t CONF_MIN_REDEEM[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
+const uint8_t CONF_MIN_REDEEM[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
 // Max no. of ledgers within which a redeem operation has to be serviced.
-uint8_t CONF_REDEEM_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5};
+const uint8_t CONF_REDEEM_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5};
 // No. of Evers rewarded per moment.
-uint8_t CONF_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
+const uint8_t CONF_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
 // No. of No of maximum hosts that can be rewarded per moment.
-uint8_t CONF_MAX_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7};
+const uint8_t CONF_MAX_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7};
 
 // Default values.
-uint16_t DEF_MOMENT_SIZE = 72;
-uint64_t DEF_MINT_LIMIT = 25804800;
-uint16_t DEF_HOST_REG_FEE = 5;
-uint16_t DEF_MIN_REDEEM = 12;
-uint16_t DEF_REDEEM_WINDOW = 12;
-uint16_t DEF_REWARD = 64;
-uint16_t DEF_MAX_REWARD = 20;
-uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
-
-uint8_t evr_currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'E', 'V', 'R', 0, 0, 0, 0, 0};
+const uint16_t DEF_MOMENT_SIZE = 72;
+const uint64_t DEF_MINT_LIMIT = 25804800;
+const uint16_t DEF_HOST_REG_FEE = 5;
+const uint16_t DEF_MIN_REDEEM = 12;
+const uint16_t DEF_REDEEM_WINDOW = 12;
+const uint16_t DEF_REWARD = 64;
+const uint16_t DEF_MAX_REWARD = 20;
+const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants
-int32_t HOST_ADDR_VAL_SIZE = 23;
-int32_t AUDITOR_ADDR_VAL_SIZE = 32;
-int32_t REDEEM_STATE_VAL_SIZE = 39;
-int32_t MOMENT_SEED_VAL_SIZE = 40;
-int32_t AMOUNT_BUF_SIZE = 48;
-int32_t HASH_SIZE = 32;
+const int32_t HOST_ADDR_VAL_SIZE = 23;
+const int32_t AUDITOR_ADDR_VAL_SIZE = 32;
+const int32_t REDEEM_STATE_VAL_SIZE = 39;
+const int32_t MOMENT_SEED_VAL_SIZE = 40;
+const int32_t AMOUNT_BUF_SIZE = 48;
+const int32_t HASH_SIZE = 32;
+
+#define GET_TOKEN_CURRENCY(token)                                                       \
+    {                                                                                   \
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, token[0], token[1], token[2], 0, 0, 0, 0, 0 \
+    }
+
+const uint8_t evr_token[3] = {'E', 'V', 'R'};
+const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY("EVR");
 
 // Checks for EVR currency issued by hook account.
-#define IS_EVR(is_evr, amount_buffer, currency, issuer) \
-    is_evr = 1;                                         \
-    for (int i = 0; GUARD(20), i < 20; ++i)             \
-    {                                                   \
-        if (amount_buffer[i + 8] != currency[i] ||      \
-            amount_buffer[i + 28] != issuer[i])         \
-        {                                               \
-            is_evr = 0;                                 \
-            break;                                      \
-        }                                               \
+#define IS_EVR(is_evr, amount_buffer, hook_accid)      \
+    is_evr = 1;                                        \
+    for (int i = 0; GUARD(20), i < 20; ++i)            \
+    {                                                  \
+        if (amount_buffer[i + 8] != evr_currency[i] || \
+            amount_buffer[i + 28] != hook_accid[i])    \
+        {                                              \
+            is_evr = 0;                                \
+            break;                                     \
+        }                                              \
     }
 
 #define STATE_KEY(buf, prefix, key, key_len)                      \
@@ -240,25 +246,15 @@ int32_t HASH_SIZE = 32;
         }                                                          \
     }
 
-#define IS_BUF_EMPTY(is_empty, buf, buflen)         \
-    is_empty = 1;                                   \
-    for (int i = 0; GUARD(buflen), i < buflen; ++i) \
-    {                                               \
-        if (buf[i] != 0)                            \
-        {                                           \
-            is_empty = 0;                           \
-            break;                                  \
-        }                                           \
-    }
-
-// Preparing the amount buffer handling a special condition related to amount 0.
-#define FLOAT_ZERO_AMT(amt_out)                                                                                 \
-    {                                                                                                           \
-        const int64_t float_zero = 0;                                                                           \
-        int64_t float_ret = float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(account_field), float_zero, -1); \
-        amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/                                       \
-        if (float_ret < 0)                                                                                      \
-            rollback(SBUF("Evernode: Could not dump amount zero into amt."), 1);                                \
+#define IS_BUF_EMPTY(is_empty, buf)                           \
+    is_empty = 1;                                             \
+    for (int i = 0; GUARD(sizeof(buf)), i < sizeof(buf); ++i) \
+    {                                                         \
+        if (buf[i] != 0)                                      \
+        {                                                     \
+            is_empty = 0;                                     \
+            break;                                            \
+        }                                                     \
     }
 
 #define GET_CONF_VALUE(value, def_value, key, error_buf)         \
@@ -304,6 +300,35 @@ int32_t HASH_SIZE = 32;
             if (state_set(SBUF(value_buf), SBUF(key)) < 0)       \
                 rollback(SBUF(error_buf), 1);                    \
         }                                                        \
+    }
+
+#define COPY_BUF(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos, len) \
+    for (int i = 0; GUARD(len), i < len; ++i)                   \
+        lhsbuf[lhsbuf_spos + i] = rhsbuf[rhsbuf_spos + i];
+
+// If host count state does not exist, set host count to 0.
+#define GET_HOST_COUNT(host_count_buf, host_count)                             \
+    {                                                                          \
+        CLEARBUF(host_count_buf);                                              \
+        host_count = 0;                                                        \
+        if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST) \
+            host_count = UINT32_FROM_BUF(host_count_buf);                      \
+    }
+
+// We need to dump the iou amount into a buffer.
+// by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
+#define SET_AMOUNT_OUT(amt_out, token, issuer, amount)                            \
+    {                                                                             \
+        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                         \
+        if (float_sto(SBUF(amt_out), SBUF(currency), issuer, 20, amount, -1) < 0) \
+            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1);  \
+        for (int i = 0; GUARD(20), i < 20; ++i)                                   \
+        {                                                                         \
+            amt_out[i + 28] = issuer[i];                                          \
+            amt_out[i + 8] = currency[i];                                         \
+        }                                                                         \
+        if (amount == 0)                                                          \
+            amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/     \
     }
 
 #endif
