@@ -1,7 +1,7 @@
 #include "../lib/hookapi.h"
+#include "constants.h"
 #include "evernode.h"
-
-#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
+#include "statekeys.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -53,46 +53,19 @@ int64_t hook(int64_t reserved)
         if (!memos_len)
             accept(SBUF("Evernode: No memos found."), 1);
 
-        // since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it
-        // the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries
-        int64_t memo_lookup = sto_subarray(memos, memos_len, 0);
-
-        uint8_t *memo_ptr = SUB_OFFSET(memo_lookup) + memos;
-        uint32_t memo_len = SUB_LENGTH(memo_lookup);
-
-        // memos are nested inside an actual memo object, so we need to subfield
-        // equivalently in JSON this would look like memo_array[i]["Memo"]
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);
-        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;
-        memo_len = SUB_LENGTH(memo_lookup);
-
-        if (memo_lookup < 0)
-            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);
-
-        int64_t type_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);
-        uint8_t *type_ptr = SUB_OFFSET(type_lookup) + memo_ptr;
-        uint32_t type_len = SUB_LENGTH(type_lookup);
-        // trace(SBUF("type in hex: "), type_ptr, type_len, 1);
-
-        int64_t format_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);
-        uint8_t *format_ptr = SUB_OFFSET(format_lookup) + memo_ptr;
-        uint32_t format_len = SUB_LENGTH(format_lookup);
-        // trace(SBUF("format in hex: "), format_ptr, format_len, 1);
-
-        int64_t data_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);
-        uint8_t *data_ptr = SUB_OFFSET(data_lookup) + memo_ptr;
-        uint32_t data_len = SUB_LENGTH(data_lookup);
-        // trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
+        uint8_t *memo_ptr, *type_ptr, *format_ptr, *data_ptr;
+        uint32_t memo_len, type_len, format_len, data_len;
+        GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
         if (is_xrp)
         {
-            int is_redeem_ref = 0;
-            BUFFER_EQUAL_STR_GUARD(is_redeem_ref, type_ptr, type_len, REDEEM_REF, 1);
-            if (is_redeem_ref)
+            // Redeem response.
+            int is_redeem_res = 0;
+            BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_REF, 1);
+            if (is_redeem_res)
             {
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_res, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem reference memo format should be binary."), 50);
 
                 if (data_len != 64)
@@ -102,42 +75,15 @@ int64_t hook(int64_t reserved)
                 HEXSTR_TO_BYTES(hash_ptr, data_ptr, data_len);
 
                 // Redeem response has 2 memos, so check for the type in second memo.
-                memo_lookup = sto_subarray(memos, memos_len, 1);
-
-                memo_ptr = SUB_OFFSET(memo_lookup) + memos;
-                memo_len = SUB_LENGTH(memo_lookup);
-
-                memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);
-                memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;
-                memo_len = SUB_LENGTH(memo_lookup);
-
-                if (memo_lookup < 0)
-                    accept(SBUF("Evernode: Incoming redeem reference txn had a blank sfMemos."), 1);
-
-                type_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);
-                type_ptr = SUB_OFFSET(type_lookup) + memo_ptr;
-                type_len = SUB_LENGTH(type_lookup);
-                // trace(SBUF("type in hex: "), type_ptr, type_len, 1);
-
-                format_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);
-                format_ptr = SUB_OFFSET(format_lookup) + memo_ptr;
-                format_len = SUB_LENGTH(format_lookup);
-                // trace(SBUF("format in hex: "), format_ptr, format_len, 1);
-
-                data_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);
-                data_ptr = SUB_OFFSET(data_lookup) + memo_ptr;
-                data_len = SUB_LENGTH(data_lookup);
-                // trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
+                GET_MEMO(1, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
                 // Redeem response should contain redeemResp and format should be binary.
-                int is_redeem_res = 0;
                 BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_RESP, 1);
                 if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem response does not have instance info."), 1);
 
-                is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_res, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem response memo format should be binary."), 50);
 
                 // Check for state with key as redeemRef.
@@ -185,13 +131,12 @@ int64_t hook(int64_t reserved)
             }
 
             // Refund.
-            int is_refund_request = 0;
-            BUFFER_EQUAL_STR_GUARD(is_refund_request, type_ptr, type_len, REFUND, 1);
-            if (is_refund_request)
+            int is_refund_req = 0;
+            BUFFER_EQUAL_STR_GUARD(is_refund_req, type_ptr, type_len, REFUND, 1);
+            if (is_refund_req)
             {
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_refund_req, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_refund_req)
                     rollback(SBUF("Evernode: Memo format should be binary in refund request."), 1);
 
                 if (data_len != 64) // 64 bytes is the size of the hash in hex
@@ -202,7 +147,6 @@ int64_t hook(int64_t reserved)
                 REDEEM_OP_KEY(tx_hash_bytes);
 
                 uint8_t data_arr[REDEEM_STATE_VAL_SIZE];
-
                 if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
                     rollback(SBUF("Evernode: No redeem for this tx hash."), 1);
 
@@ -246,14 +190,14 @@ int64_t hook(int64_t reserved)
             }
 
             // Audit request.
-            int is_audit_request = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_request, type_ptr, type_len, AUDIT_REQ, 1);
+            int is_audit_req = 0;
+            BUFFER_EQUAL_STR_GUARD(is_audit_req, type_ptr, type_len, AUDIT_REQ, 1);
 
             // Audit success response.
-            int is_audit_success = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_success, type_ptr, type_len, AUDIT_SUCCESS, 1);
+            int is_audit_resp = 0;
+            BUFFER_EQUAL_STR_GUARD(is_audit_resp, type_ptr, type_len, AUDIT_SUCCESS, 1);
 
-            if (is_audit_request || is_audit_success)
+            if (is_audit_req || is_audit_resp)
             {
                 // Common checks for both audit request and audit suceess response.
 
@@ -325,7 +269,7 @@ int64_t hook(int64_t reserved)
                 uint8_t *lst_host_addr_ptr = &auditor_addr_buf[12];
 
                 // Seperate logic for audit request and audit suceess response.
-                if (is_audit_request) // Audit request
+                if (is_audit_req) // Audit request
                 {
                     // If auditors assigned moment idx is equal to currect moment start idx.
                     // A host has been already assigned.
@@ -430,7 +374,7 @@ int64_t hook(int64_t reserved)
 
                     accept(SBUF("Evernode: Audit request successful."), 0);
                 }
-                else if (is_audit_success) // Audit success response.
+                else if (is_audit_resp) // Audit success response.
                 {
                     // If auditor assigned moment idx is not equal to currect moment start idx.
                     // No host is assigned to audit for this momen.
@@ -467,7 +411,7 @@ int64_t hook(int64_t reserved)
                     int64_t reward_amount = float_divide(float_set(0, conf_reward), float_set(0, host_count));
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    SET_AMOUNT_OUT(amt_out, evr_token, hook_accid, reward_amount);
+                    SET_AMOUNT_OUT(amt_out, EVR_TOKEN, hook_accid, reward_amount);
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
@@ -496,6 +440,7 @@ int64_t hook(int64_t reserved)
                 }
             }
 
+            // Host deregistration.
             int is_host_de_reg = 0;
             BUFFER_EQUAL_STR_GUARD(is_host_de_reg, type_ptr, type_len, HOST_DE_REG, 1);
             if (is_host_de_reg)
@@ -639,14 +584,18 @@ int64_t hook(int64_t reserved)
             int is_evr;
             IS_EVR(is_evr, amount_buffer, hook_accid);
 
-            // Start filtering from memos type.
-            int is_host_reg_req = 0;
-            BUFFER_EQUAL_STR_GUARD(is_host_reg_req, type_ptr, type_len, HOST_REG, 1);
-            if (is_host_reg_req)
+            // Host registration.
+            int is_host_reg = 0;
+            BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
+            if (is_host_reg)
             {
                 // Currency should be EVR.
                 if (!is_evr)
                     rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
+
+                BUFFER_EQUAL_STR_GUARD(is_host_reg, format_ptr, format_len, FORMAT_TEXT, 1);
+                if (!is_host_reg)
+                    rollback(SBUF("Evernode: Memo format should be text."), 50);
 
                 // Take the host reg fee from config.
                 uint16_t conf_host_reg_fee;
@@ -662,11 +611,6 @@ int64_t hook(int64_t reserved)
 
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                     rollback(SBUF("Evernode: Host already registered."), 1);
-
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_TEXT, 1);
-                if (!is_format_match)
-                    rollback(SBUF("Evernode: Memo format should be text."), 50);
 
                 // Generate transaction with following properties.
                 /**
@@ -722,6 +666,7 @@ int64_t hook(int64_t reserved)
                 accept(SBUF("Host registration successful."), 0);
             }
 
+            // Redeem request.
             int is_redeem_req = 0;
             BUFFER_EQUAL_STR_GUARD(is_redeem_req, type_ptr, type_len, REDEEM, 1);
             if (is_redeem_req)
@@ -729,14 +674,11 @@ int64_t hook(int64_t reserved)
                 if (is_evr)
                     rollback(SBUF("Evernode: Currency cannot be EVR for redeem request."), 1);
 
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_req, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_redeem_req)
                     rollback(SBUF("Evernode: Memo format should be binary."), 50);
-
-                uint8_t *issuer_ptr = &amount_buffer[28];
-
                 // Checking whether this host is registered.
+                uint8_t *issuer_ptr = &amount_buffer[28];
                 HOST_ADDR_KEY(issuer_ptr);
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE]; // <host_id(4)><hosting_token(3)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
 
