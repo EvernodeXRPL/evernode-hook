@@ -1,7 +1,7 @@
 #include "../lib/hookapi.h"
+#include "constants.h"
 #include "evernode.h"
-
-#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
+#include "statekeys.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -29,133 +29,6 @@ int64_t hook(int64_t reserved)
     if (is_outgoing)
         accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
 
-    // *************************************************************************************
-    // ***********************Config variable managment code********************************
-    // *************************************************************************************
-
-    uint8_t host_count_buf[4] = {0};
-    if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) == DOESNT_EXIST)
-    {
-        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1);
-    }
-    uint32_t host_count = UINT32_FROM_BUF(host_count_buf);
-    TRACEVAR(host_count);
-
-    uint8_t auditor_count_buf[4] = {0};
-    if (state(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
-    {
-        // Setting up default auditor if no auditors registered.
-        uint8_t auditor_accid[20];
-        util_accid(SBUF(auditor_accid), SBUF(DEF_AUDITOR_ADDR));
-        uint8_t auditor_id_buf[4];
-        // Id of the default auditor in 1.
-        UINT32_TO_BUF(auditor_id_buf, 1);
-        AUDITOR_ID_KEY(auditor_id_buf);
-        if (state_set(SBUF(auditor_accid), SBUF(STP_AUDITOR_ID)) < 0)
-            rollback(SBUF("Evernode: Could not set state for default auditor_id."), 1);
-
-        uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE];
-        auditor_addr_buf[0] = auditor_id_buf[0];
-        auditor_addr_buf[1] = auditor_id_buf[1];
-        auditor_addr_buf[2] = auditor_id_buf[2];
-        auditor_addr_buf[3] = auditor_id_buf[3];
-        // Set 0's to the rest.
-        for (int i = 4; GUARD(AUDITOR_ADDR_VAL_SIZE - 4), i < AUDITOR_ADDR_VAL_SIZE; ++i)
-            auditor_addr_buf[i] = 0;
-        AUDITOR_ADDR_KEY(auditor_accid);
-        if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not set state for default auditor_addr."), 1);
-
-        // Set auditor count to 1;
-        UINT32_TO_BUF(auditor_count_buf, 1);
-        if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
-    }
-    uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
-    TRACEVAR(auditor_count);
-
-    uint8_t moment_base_idx_buf[8] = {0};
-    if (state(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) == DOESNT_EXIST)
-    {
-        if (state_set(SBUF(moment_base_idx_buf), SBUF(STK_MOMENT_BASE_IDX)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for moment base idx."), 1);
-    }
-    uint64_t moment_base_idx = UINT64_FROM_BUF(moment_base_idx_buf);
-    TRACEVAR(moment_base_idx);
-
-    // Setting and loading configuration values from the hook state.
-    uint8_t conf_moment_size_buf[2];
-    if (state(SBUF(conf_moment_size_buf), SBUF(CONF_MOMENT_SIZE)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_moment_size_buf, DEF_MOMENT_SIZE);
-        if (state_set(SBUF(conf_moment_size_buf), SBUF(CONF_MOMENT_SIZE)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for moment size."), 1);
-    }
-    uint16_t conf_moment_size = UINT16_FROM_BUF(conf_moment_size_buf);
-    TRACEVAR(conf_moment_size);
-
-    uint8_t conf_mint_limit_buf[8];
-    if (state(SBUF(conf_mint_limit_buf), SBUF(CONF_MINT_LIMIT)) == DOESNT_EXIST)
-    {
-        UINT64_TO_BUF(conf_mint_limit_buf, DEF_MINT_LIMIT);
-        if (state_set(SBUF(conf_mint_limit_buf), SBUF(CONF_MINT_LIMIT)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for mint limit."), 1);
-    }
-    uint64_t conf_mint_limit = UINT64_FROM_BUF(conf_mint_limit_buf);
-    TRACEVAR(conf_mint_limit);
-
-    uint8_t conf_host_reg_fee_buf[2];
-    if (state(SBUF(conf_host_reg_fee_buf), SBUF(CONF_HOST_REG_FEE)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_host_reg_fee_buf, DEF_HOST_REG_FEE);
-        if (state_set(SBUF(conf_host_reg_fee_buf), SBUF(CONF_HOST_REG_FEE)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host reg fee."), 1);
-    }
-    uint16_t conf_host_reg_fee = UINT16_FROM_BUF(conf_host_reg_fee_buf);
-    TRACEVAR(conf_host_reg_fee);
-
-    uint8_t conf_min_redeem_buf[2];
-    if (state(SBUF(conf_min_redeem_buf), SBUF(CONF_MIN_REDEEM)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_min_redeem_buf, DEF_MIN_REDEEM);
-        if (state_set(SBUF(conf_min_redeem_buf), SBUF(CONF_MIN_REDEEM)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for min redeem."), 1);
-    }
-    uint16_t conf_min_redeem = UINT16_FROM_BUF(conf_min_redeem_buf);
-    TRACEVAR(conf_min_redeem);
-
-    uint8_t conf_redeem_window_buf[2];
-    if (state(SBUF(conf_redeem_window_buf), SBUF(CONF_REDEEM_WINDOW)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_redeem_window_buf, DEF_REDEEM_WINDOW);
-        if (state_set(SBUF(conf_redeem_window_buf), SBUF(CONF_REDEEM_WINDOW)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for redeem window."), 1);
-    }
-    uint16_t conf_redeem_window = UINT16_FROM_BUF(conf_redeem_window_buf);
-    TRACEVAR(conf_redeem_window);
-
-    uint8_t conf_reward_buf[2];
-    if (state(SBUF(conf_reward_buf), SBUF(CONF_REWARD)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_reward_buf, DEF_REWARD);
-        if (state_set(SBUF(conf_reward_buf), SBUF(CONF_REWARD)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for host reward."), 1);
-    }
-    uint16_t conf_reward = UINT16_FROM_BUF(conf_reward_buf);
-    TRACEVAR(conf_reward);
-
-    uint8_t conf_max_reward_buf[2];
-    if (state(SBUF(conf_max_reward_buf), SBUF(CONF_MAX_REWARD)) == DOESNT_EXIST)
-    {
-        UINT16_TO_BUF(conf_max_reward_buf, DEF_MAX_REWARD);
-        if (state_set(SBUF(conf_max_reward_buf), SBUF(CONF_MAX_REWARD)) < 0)
-            rollback(SBUF("Evernode: Could not set default state for max reward."), 1);
-    }
-    uint16_t conf_max_reward = UINT16_FROM_BUF(conf_max_reward_buf);
-    TRACEVAR(conf_max_reward);
-    // ************************Config variable managment code end **************************
-
     int64_t txn_type = otxn_type();
     if (txn_type == ttPAYMENT)
     {
@@ -180,46 +53,19 @@ int64_t hook(int64_t reserved)
         if (!memos_len)
             accept(SBUF("Evernode: No memos found."), 1);
 
-        // since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it
-        // the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries
-        int64_t memo_lookup = sto_subarray(memos, memos_len, 0);
-
-        uint8_t *memo_ptr = SUB_OFFSET(memo_lookup) + memos;
-        uint32_t memo_len = SUB_LENGTH(memo_lookup);
-
-        // memos are nested inside an actual memo object, so we need to subfield
-        // equivalently in JSON this would look like memo_array[i]["Memo"]
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);
-        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;
-        memo_len = SUB_LENGTH(memo_lookup);
-
-        if (memo_lookup < 0)
-            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);
-
-        int64_t type_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);
-        uint8_t *type_ptr = SUB_OFFSET(type_lookup) + memo_ptr;
-        uint32_t type_len = SUB_LENGTH(type_lookup);
-        // trace(SBUF("type in hex: "), type_ptr, type_len, 1);
-
-        int64_t format_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);
-        uint8_t *format_ptr = SUB_OFFSET(format_lookup) + memo_ptr;
-        uint32_t format_len = SUB_LENGTH(format_lookup);
-        // trace(SBUF("format in hex: "), format_ptr, format_len, 1);
-
-        int64_t data_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);
-        uint8_t *data_ptr = SUB_OFFSET(data_lookup) + memo_ptr;
-        uint32_t data_len = SUB_LENGTH(data_lookup);
-        // trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
+        uint8_t *memo_ptr, *type_ptr, *format_ptr, *data_ptr;
+        uint32_t memo_len, type_len, format_len, data_len;
+        GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
         if (is_xrp)
         {
-            int is_redeem_ref = 0;
-            BUFFER_EQUAL_STR_GUARD(is_redeem_ref, type_ptr, type_len, REDEEM_REF, 1);
-            if (is_redeem_ref)
+            // Redeem response.
+            int is_redeem_res = 0;
+            BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_REF, 1);
+            if (is_redeem_res)
             {
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_res, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem reference memo format should be binary."), 50);
 
                 if (data_len != 64)
@@ -229,42 +75,15 @@ int64_t hook(int64_t reserved)
                 HEXSTR_TO_BYTES(hash_ptr, data_ptr, data_len);
 
                 // Redeem response has 2 memos, so check for the type in second memo.
-                memo_lookup = sto_subarray(memos, memos_len, 1);
-
-                memo_ptr = SUB_OFFSET(memo_lookup) + memos;
-                memo_len = SUB_LENGTH(memo_lookup);
-
-                memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);
-                memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;
-                memo_len = SUB_LENGTH(memo_lookup);
-
-                if (memo_lookup < 0)
-                    accept(SBUF("Evernode: Incoming redeem reference txn had a blank sfMemos."), 1);
-
-                type_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);
-                type_ptr = SUB_OFFSET(type_lookup) + memo_ptr;
-                type_len = SUB_LENGTH(type_lookup);
-                // trace(SBUF("type in hex: "), type_ptr, type_len, 1);
-
-                format_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);
-                format_ptr = SUB_OFFSET(format_lookup) + memo_ptr;
-                format_len = SUB_LENGTH(format_lookup);
-                // trace(SBUF("format in hex: "), format_ptr, format_len, 1);
-
-                data_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);
-                data_ptr = SUB_OFFSET(data_lookup) + memo_ptr;
-                data_len = SUB_LENGTH(data_lookup);
-                // trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format.
+                GET_MEMO(1, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
                 // Redeem response should contain redeemResp and format should be binary.
-                int is_redeem_res = 0;
                 BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_RESP, 1);
                 if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem response does not have instance info."), 1);
 
-                is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_res, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem response memo format should be binary."), 50);
 
                 // Check for state with key as redeemRef.
@@ -285,23 +104,12 @@ int64_t hook(int64_t reserved)
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Prepare currency.
-                    uint8_t host_currency[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, redeem_op[0], redeem_op[1], redeem_op[2], 0, 0, 0, 0, 0};
                     uint8_t *host_amount_ptr = &redeem_op[3];
                     int64_t host_amount = INT64_FROM_BUF(host_amount_ptr);
                     uint8_t *issuer_ptr = &redeem_op[11];
 
-                    // We need to dump the iou amount into a buffer.
-                    // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    if (float_sto(SBUF(amt_out), SBUF(host_currency), issuer_ptr, 20, host_amount, -1) < 0)
-                        rollback(SBUF("Evernode: Could not dump hosting token amount into sto"), 1);
-
-                    // Set the currency code and issuer in the amount field
-                    for (int i = 0; GUARD(20), i < 20; ++i)
-                    {
-                        amt_out[i + 28] = issuer_ptr[i];
-                        amt_out[i + 8] = host_currency[i];
-                    }
+                    SET_AMOUNT_OUT(amt_out, redeem_op, issuer_ptr, host_amount);
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
@@ -323,13 +131,12 @@ int64_t hook(int64_t reserved)
             }
 
             // Refund.
-            int is_refund_request = 0;
-            BUFFER_EQUAL_STR_GUARD(is_refund_request, type_ptr, type_len, REFUND, 1);
-            if (is_refund_request)
+            int is_refund_req = 0;
+            BUFFER_EQUAL_STR_GUARD(is_refund_req, type_ptr, type_len, REFUND, 1);
+            if (is_refund_req)
             {
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_refund_req, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_refund_req)
                     rollback(SBUF("Evernode: Memo format should be binary in refund request."), 1);
 
                 if (data_len != 64) // 64 bytes is the size of the hash in hex
@@ -340,15 +147,17 @@ int64_t hook(int64_t reserved)
                 REDEEM_OP_KEY(tx_hash_bytes);
 
                 uint8_t data_arr[REDEEM_STATE_VAL_SIZE];
-
                 if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
                     rollback(SBUF("Evernode: No redeem for this tx hash."), 1);
 
-                uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, data_arr[0], data_arr[1], data_arr[2], 0, 0, 0, 0, 0};
+                // Take the redeem window from the config.
+                uint16_t conf_redeem_window;
+                GET_CONF_VALUE(conf_redeem_window, DEF_REDEEM_WINDOW, CONF_REDEEM_WINDOW, "Evernode: Could not set default state for redeem window.");
+                TRACEVAR(conf_redeem_window);
 
                 uint8_t *ptr = &data_arr[31];
                 int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
-                if (ledger_seq_def < DEF_REDEEM_WINDOW)
+                if (ledger_seq_def < conf_redeem_window)
                     rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
 
                 // Setup the outgoing txn.
@@ -356,21 +165,12 @@ int64_t hook(int64_t reserved)
                 etxn_reserve(1);
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
-                // We need to dump the iou amount into a buffer.
-                // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
-                uint8_t amt_out[AMOUNT_BUF_SIZE];
-                uint8_t *issuer_arr = &data_arr[11];
+                uint8_t *issuer_ptr = &data_arr[11];
                 uint8_t *amount_ptr = &data_arr[3];
                 int64_t token_amount = INT64_FROM_BUF(amount_ptr);
-                if (float_sto(SBUF(amt_out), SBUF(hosting_token), issuer_arr, 20, token_amount, -1) < 0)
-                    rollback(SBUF("Evernode: Could not dump hosting token amount into sto for refund."), 1);
 
-                // Set the currency code and issuer in the amount field
-                for (int i = 0; GUARD(20), i < 20; ++i)
-                {
-                    amt_out[i + 28] = issuer_arr[i];
-                    amt_out[i + 8] = hosting_token[i];
-                }
+                uint8_t amt_out[AMOUNT_BUF_SIZE];
+                SET_AMOUNT_OUT(amt_out, data_arr, issuer_ptr, token_amount);
 
                 // Finally create the outgoing txn.
                 uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
@@ -390,18 +190,21 @@ int64_t hook(int64_t reserved)
             }
 
             // Audit request.
-            int is_audit_request = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_request, type_ptr, type_len, AUDIT_REQ, 1);
+            int is_audit_req = 0;
+            BUFFER_EQUAL_STR_GUARD(is_audit_req, type_ptr, type_len, AUDIT_REQ, 1);
 
             // Audit success response.
-            int is_audit_success = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_success, type_ptr, type_len, AUDIT_SUCCESS, 1);
+            int is_audit_resp = 0;
+            BUFFER_EQUAL_STR_GUARD(is_audit_resp, type_ptr, type_len, AUDIT_SUCCESS, 1);
 
-            if (is_audit_request || is_audit_success)
+            if (is_audit_req || is_audit_resp)
             {
                 // Common checks for both audit request and audit suceess response.
 
                 // Audit request is only served if at least one host is registered.
+                uint8_t host_count_buf[4];
+                uint32_t host_count;
+                GET_HOST_COUNT(host_count_buf, host_count);
                 if (host_count == 0)
                     rollback(SBUF("Evernode: No hosts registered to audit."), 1);
 
@@ -410,11 +213,46 @@ int64_t hook(int64_t reserved)
                 if (!is_format_match)
                     rollback(SBUF("Evernode: Memo format should be binary for auditing."), 1);
 
+                // If default auditor is not set, first set the default auditor.
+                uint8_t auditor_count_buf[4] = {0};
+                if (state(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
+                {
+                    // Setting up default auditor if no auditors registered.
+                    uint8_t auditor_accid[20];
+                    util_accid(SBUF(auditor_accid), SBUF(DEF_AUDITOR_ADDR));
+                    uint8_t auditor_id_buf[4];
+                    // Id of the default auditor is 1.
+                    UINT32_TO_BUF(auditor_id_buf, 1);
+                    AUDITOR_ID_KEY(auditor_id_buf);
+                    if (state_set(SBUF(auditor_accid), SBUF(STP_AUDITOR_ID)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for default auditor_id."), 1);
+
+                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE] = {0};
+                    COPY_BUF(auditor_addr_buf, 0, auditor_id_buf, 0, 4);
+                    AUDITOR_ADDR_KEY(auditor_accid);
+                    if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for default auditor_addr."), 1);
+
+                    // Set auditor count to 1;
+                    UINT32_TO_BUF(auditor_count_buf, 1);
+                    if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
+                        rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
+                }
+
                 // Checking whether this auditor exists.
                 AUDITOR_ADDR_KEY(account_field);
                 uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE]; // <auditor_id(4)><moment_start_idx(8)><host_addr(20)>
                 if (state(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: Auditor is not registered."), 1);
+
+                // Get moment data from the config.
+                uint64_t moment_base_idx;
+                GET_CONF_VALUE(moment_base_idx, 0, STK_MOMENT_BASE_IDX, "Evernode: Could not set default state for moment base idx.");
+                TRACEVAR(moment_base_idx);
+
+                uint16_t conf_moment_size;
+                GET_CONF_VALUE(conf_moment_size, DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not set default state for moment size.");
+                TRACEVAR(conf_moment_size);
 
                 // Take current moment start idx.
                 uint64_t relative_n = (ledger_seq() - moment_base_idx) / conf_moment_size;
@@ -429,7 +267,7 @@ int64_t hook(int64_t reserved)
                 uint8_t *lst_host_addr_ptr = &auditor_addr_buf[12];
 
                 // Seperate logic for audit request and audit suceess response.
-                if (is_audit_request) // Audit request
+                if (is_audit_req) // Audit request
                 {
                     // If auditors assigned moment idx is equal to currect moment start idx.
                     // A host has been already assigned.
@@ -449,6 +287,11 @@ int64_t hook(int64_t reserved)
 
                     uint8_t *moment_seed_ptr = &moment_seed_buf[8];
                     trace(SBUF("moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
+
+                    // Take the max reward from the config.
+                    uint16_t conf_max_reward;
+                    GET_CONF_VALUE(conf_max_reward, DEF_MAX_REWARD, CONF_MAX_REWARD, "Evernode: Could not set default state for max reward.");
+                    TRACEVAR(conf_max_reward);
 
                     // Calculate the host id using seed.
                     // Selecting a host to audit.
@@ -492,25 +335,20 @@ int64_t hook(int64_t reserved)
 
                     trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
 
+                    // Take the minimum redeem amount from the config.
+                    uint16_t conf_min_redeem;
+                    GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
+                    TRACEVAR(conf_min_redeem);
+
                     // Setup the outgoing txn.
                     // Reserving one transaction.
                     etxn_reserve(1);
                     int64_t fee = etxn_fee_base(PREPARE_SIMPLE_CHECK_SIZE);
 
-                    // We need to dump the iou amount into a buffer.
-                    // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
-                    uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, host_token_ptr[0], host_token_ptr[1], host_token_ptr[2], 0, 0, 0, 0, 0};
-                    uint8_t amt_out[AMOUNT_BUF_SIZE];
                     int64_t token_limit = float_set(0, conf_min_redeem);
-                    if (float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(host_addr), token_limit, -1) < 0)
-                        rollback(SBUF("Evernode: Could not dump hosting token amount into sto for check."), 1);
 
-                    // Set the currency code and issuer in the amount field
-                    for (int i = 0; GUARD(20), i < 20; ++i)
-                    {
-                        amt_out[i + 28] = host_addr[i];
-                        amt_out[i + 8] = hosting_token[i];
-                    }
+                    uint8_t amt_out[AMOUNT_BUF_SIZE];
+                    SET_AMOUNT_OUT(amt_out, host_token_ptr, host_addr, token_limit);
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_SIMPLE_CHECK_SIZE];
@@ -522,22 +360,19 @@ int64_t hook(int64_t reserved)
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Update the auditor state.
-                    for (int i = 0; GUARD(8), i < 8; ++i)
-                        auditor_addr_buf[i + 4] = moment_seed_buf[i];
-                    for (int i = 0; GUARD(20), i < 20; ++i)
-                        auditor_addr_buf[i + 12] = host_addr[i];
+                    COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
+                    COPY_BUF(auditor_addr_buf, 12, host_addr, 0, 20);
                     if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not update state for auditor_addr."), 1);
 
                     // Update the host's audit state.
-                    for (int i = 0; GUARD(8), i < 8; ++i)
-                        host_addr_buf[i + 7] = moment_seed_buf[i];
+                    COPY_BUF(host_addr_buf, 7, moment_seed_buf, 0, 8);
                     if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
 
                     accept(SBUF("Evernode: Audit request successful."), 0);
                 }
-                else if (is_audit_success) // Audit success response.
+                else if (is_audit_resp) // Audit success response.
                 {
                     // If auditor assigned moment idx is not equal to currect moment start idx.
                     // No host is assigned to audit for this momen.
@@ -558,6 +393,11 @@ int64_t hook(int64_t reserved)
                     if (UINT64_FROM_BUF(&host_addr_buf[15]) == cur_moment_start_idx)
                         rollback(SBUF("Evernode: The host is already rewarded within this moment."), 1);
 
+                    // Take the host rewards per moment from the config.
+                    uint16_t conf_reward;
+                    GET_CONF_VALUE(conf_reward, DEF_REWARD, CONF_REWARD, "Evernode: Could not set default state for host reward.");
+                    TRACEVAR(conf_reward);
+
                     // Reward the host.
                     // Reserving one transaction.
                     etxn_reserve(1);
@@ -565,22 +405,11 @@ int64_t hook(int64_t reserved)
                     // Forward hosting tokens to the host on success.
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
-                    // Prepare currency.
-                    uint8_t amt_out[AMOUNT_BUF_SIZE];
                     // Reward amount would be, total reward amount equally divided by registered host count.
                     int64_t reward_amount = float_divide(float_set(0, conf_reward), float_set(0, host_count));
 
-                    // We need to dump the iou amount into a buffer.
-                    // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
-                    if (float_sto(SBUF(amt_out), SBUF(evr_currency), SBUF(hook_accid), reward_amount, -1) < 0)
-                        rollback(SBUF("Evernode: Could not dump reward amount into sto"), 1);
-
-                    // Set the currency code and issuer in the amount field
-                    for (int i = 0; GUARD(20), i < 20; ++i)
-                    {
-                        amt_out[i + 28] = hook_accid[i];
-                        amt_out[i + 8] = evr_currency[i];
-                    }
+                    uint8_t amt_out[AMOUNT_BUF_SIZE];
+                    SET_AMOUNT_OUT(amt_out, EVR_TOKEN, hook_accid, reward_amount);
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
@@ -601,8 +430,7 @@ int64_t hook(int64_t reserved)
                     // Update the host's audit state.
                     uint8_t cur_moment_start_idx_buf[8];
                     UINT64_TO_BUF(cur_moment_start_idx_buf, cur_moment_start_idx);
-                    for (int i = 0; GUARD(8), i < 8; ++i)
-                        host_addr_buf[i + 15] = cur_moment_start_idx_buf[i];
+                    COPY_BUF(host_addr_buf, 15, cur_moment_start_idx_buf, 0, 8);
                     if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
 
@@ -610,20 +438,30 @@ int64_t hook(int64_t reserved)
                 }
             }
 
+            // Host deregistration.
             int is_host_de_reg = 0;
             BUFFER_EQUAL_STR_GUARD(is_host_de_reg, type_ptr, type_len, HOST_DE_REG, 1);
             if (is_host_de_reg)
             {
+                // Host de register is only served if at least one host is registered.
+                uint8_t host_count_buf[4];
+                uint32_t host_count;
+                GET_HOST_COUNT(host_count_buf, host_count);
+                if (host_count == 0)
+                    rollback(SBUF("Evernode: No hosts registered to de register."), 1);
+
                 HOST_ADDR_KEY(account_field);
                 // Check whether the host is registered.
                 uint8_t host_addr_data[HOST_ADDR_VAL_SIZE]; // <host_id(4)><hosting_token(3)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
                 if (state(SBUF(host_addr_data), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: This host is not registered."), 1);
 
+                uint8_t *host_token_ptr = &host_addr_data[4];
+
                 // Reserving two transaction.
                 etxn_reserve(2);
 
-                uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, host_addr_data[4], host_addr_data[5], host_addr_data[6], 0, 0, 0, 0, 0};
+                uint8_t hosting_token[20] = GET_TOKEN_CURRENCY(host_token_ptr);
                 uint8_t keylet[34];
                 if (util_keylet(SBUF(keylet), KEYLET_LINE, SBUF(hook_accid), SBUF(account_field), SBUF(hosting_token)) != 34)
                     rollback(SBUF("Evernode: Internal error, could not generate keylet for host deregistration"), 1);
@@ -656,17 +494,8 @@ int64_t hook(int64_t reserved)
                     // Setup the outgoing txn.
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
-                    // We need to dump the iou amount into a buffer.
-                    // By supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
-                    if (float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(account_field), balance_float, -1) < 0)
-                        rollback(SBUF("Evernode: Could not dump hosting token amount into sto for de-registration."), 1);
-
-                    // Set the currency code and issuer in the amount field.
-                    for (int i = 0; GUARD(20), i < 20; ++i)
-                    {
-                        amt_out[i + 28] = account_field[i];
-                        amt_out[i + 8] = hosting_token[i];
-                    }
+                    uint8_t amt_out[AMOUNT_BUF_SIZE];
+                    SET_AMOUNT_OUT(amt_out, host_token_ptr, account_field, balance_float);
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
@@ -682,14 +511,7 @@ int64_t hook(int64_t reserved)
                 // Clear amt_out buffer before re-using it.
                 CLEARBUF(amt_out);
 
-                FLOAT_ZERO_AMT(amt_out);
-
-                // Set the currency code and issuer in the amount field.
-                for (int i = 0; GUARD(20), i < 20; ++i)
-                {
-                    amt_out[i + 28] = account_field[i];
-                    amt_out[i + 8] = hosting_token[i];
-                }
+                SET_AMOUNT_OUT(amt_out, host_token_ptr, account_field, 0);
 
                 int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
 
@@ -718,10 +540,7 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: Could not get last host id data."), 1);
 
                     // Update the last host entry with the deleting host id.
-                    last_host_id_buf[0] = host_addr_data[0];
-                    last_host_id_buf[1] = host_addr_data[1];
-                    last_host_id_buf[2] = host_addr_data[2];
-                    last_host_id_buf[3] = host_addr_data[3];
+                    COPY_BUF(last_host_id_buf, 0, host_addr_data, 0, 4);
 
                     HOST_ID_KEY(host_addr_data);
                     if (state_set(SBUF(last_host_id_buf), SBUF(STP_HOST_ADDR)) < 0 || state_set(SBUF(last_host_addr), SBUF(STP_HOST_ID)) < 0)
@@ -760,16 +579,25 @@ int64_t hook(int64_t reserved)
             TRACEVAR(amount_val_drops);
 
             int is_evr;
-            IS_EVR(is_evr, amount_buffer, evr_currency, hook_accid);
+            IS_EVR(is_evr, amount_buffer, hook_accid);
 
-            // Start filtering from memos type.
-            int is_host_reg_req = 0;
-            BUFFER_EQUAL_STR_GUARD(is_host_reg_req, type_ptr, type_len, HOST_REG, 1);
-            if (is_host_reg_req)
+            // Host registration.
+            int is_host_reg = 0;
+            BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
+            if (is_host_reg)
             {
                 // Currency should be EVR.
                 if (!is_evr)
                     rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
+
+                BUFFER_EQUAL_STR_GUARD(is_host_reg, format_ptr, format_len, FORMAT_TEXT, 1);
+                if (!is_host_reg)
+                    rollback(SBUF("Evernode: Memo format should be text."), 50);
+
+                // Take the host reg fee from config.
+                uint16_t conf_host_reg_fee;
+                GET_CONF_VALUE(conf_host_reg_fee, DEF_HOST_REG_FEE, CONF_HOST_REG_FEE, "Evernode: Could not set default state for host reg fee.");
+                TRACEVAR(conf_host_reg_fee);
 
                 if (amount_val_drops < (conf_host_reg_fee * 1000000))
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
@@ -780,11 +608,6 @@ int64_t hook(int64_t reserved)
 
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                     rollback(SBUF("Evernode: Host already registered."), 1);
-
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_TEXT, 1);
-                if (!is_format_match)
-                    rollback(SBUF("Evernode: Memo format should be text."), 50);
 
                 // Generate transaction with following properties.
                 /**
@@ -800,21 +623,10 @@ int64_t hook(int64_t reserved)
                 // Calculate fee for trustline transaction.
                 int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
 
-                uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, data_ptr[0], data_ptr[1], data_ptr[2], 0, 0, 0, 0, 0};
+                int64_t token_limit = float_sum(float_set(9, 1), float_negate(float_one())); // 999999999
 
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
-                int64_t token_limit = float_sum(float_set(9, 1), float_negate(float_one())); // 999999999
-                // we need to dump the iou amount into a buffer
-                // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field
-                if (float_sto(SBUF(amt_out), SBUF(hosting_token), SBUF(account_field), token_limit, -1) < 0)
-                    rollback(SBUF("Evernode: Could not dump hosting token amount into sto"), 1);
-
-                // set the currency code and issuer in the amount field
-                for (int i = 0; GUARD(20), i < 20; ++i)
-                {
-                    amt_out[i + 28] = account_field[i];
-                    amt_out[i + 8] = hosting_token[i];
-                }
+                SET_AMOUNT_OUT(amt_out, data_ptr, account_field, token_limit);
 
                 // Preparing trustline transaction.
                 uint8_t txn_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
@@ -826,6 +638,10 @@ int64_t hook(int64_t reserved)
 
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
+                uint8_t host_count_buf[4];
+                uint32_t host_count;
+                GET_HOST_COUNT(host_count_buf, host_count);
+
                 uint32_t host_id = host_count + 1;
                 uint8_t host_id_arr[4];
                 UINT32_TO_BUF(host_id_arr, host_id);
@@ -833,13 +649,8 @@ int64_t hook(int64_t reserved)
                 if (state_set(SBUF(account_field), SBUF(STP_HOST_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_id."), 1);
 
-                host_addr[0] = host_id_arr[0];
-                host_addr[1] = host_id_arr[1];
-                host_addr[2] = host_id_arr[2];
-                host_addr[3] = host_id_arr[3];
-                host_addr[4] = data_ptr[0];
-                host_addr[5] = data_ptr[1];
-                host_addr[6] = data_ptr[2];
+                COPY_BUF(host_addr, 0, host_id_arr, 0, 4);
+                COPY_BUF(host_addr, 4, data_ptr, 0, 3);
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
@@ -851,6 +662,7 @@ int64_t hook(int64_t reserved)
                 accept(SBUF("Host registration successful."), 0);
             }
 
+            // Redeem request.
             int is_redeem_req = 0;
             BUFFER_EQUAL_STR_GUARD(is_redeem_req, type_ptr, type_len, REDEEM, 1);
             if (is_redeem_req)
@@ -858,14 +670,11 @@ int64_t hook(int64_t reserved)
                 if (is_evr)
                     rollback(SBUF("Evernode: Currency cannot be EVR for redeem request."), 1);
 
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_req, format_ptr, format_len, FORMAT_BINARY, 1);
+                if (!is_redeem_req)
                     rollback(SBUF("Evernode: Memo format should be binary."), 50);
-
-                uint8_t *issuer_ptr = &amount_buffer[28];
-
                 // Checking whether this host is registered.
+                uint8_t *issuer_ptr = &amount_buffer[28];
                 HOST_ADDR_KEY(issuer_ptr);
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE]; // <host_id(4)><hosting_token(3)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
 
@@ -873,11 +682,17 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Host is not registered."), 1);
 
                 // Checking whether transaction is with host tokens
-                uint8_t hosting_token[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, host_addr[4], host_addr[5], host_addr[6], 0, 0, 0, 0, 0};
+                uint8_t *host_token_ptr = &host_addr[4];
+                uint8_t hosting_token[20] = GET_TOKEN_CURRENCY(host_token_ptr);
                 uint8_t is_hosting_token = 0;
                 BUFFER_EQUAL_GUARD(is_hosting_token, hosting_token, 20, &amount_buffer[8], 20, 20);
                 if (!is_hosting_token)
                     rollback(SBUF("Evernode: Currency should be in hosting tokens to redeem."), 1);
+
+                // Take the minimum redeem amount from the config.
+                uint16_t conf_min_redeem;
+                GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
+                TRACEVAR(conf_min_redeem);
 
                 if (amount_val_drops < (conf_min_redeem * 1000000))
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee."), 1);
@@ -892,26 +707,21 @@ int64_t hook(int64_t reserved)
                 uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
 
                 // Set the host token.
-                redeem_op[0] = amount_buffer[20];
-                redeem_op[1] = amount_buffer[21];
-                redeem_op[2] = amount_buffer[22];
+                COPY_BUF(redeem_op, 0, amount_buffer, 20, 3)
 
                 // Set the amount.
                 uint8_t amount_buf[8];
                 INT64_TO_BUF(amount_buf, amt);
-                for (int i = 0; GUARD(8), i < 8; ++i)
-                    redeem_op[i + 3] = amount_buf[i];
+                COPY_BUF(redeem_op, 3, amount_buf, 0, 8);
 
                 // Set the issuer.
-                for (int i = 0; GUARD(20), i < 20; ++i)
-                    redeem_op[i + 11] = issuer_ptr[i];
+                COPY_BUF(redeem_op, 11, issuer_ptr, 0, 20);
 
                 // Set the ledger.
                 int64_t ledger = ledger_seq();
                 uint8_t ledger_buf[8];
                 INT64_TO_BUF(ledger_buf, ledger);
-                for (int i = 0; GUARD(8), i < 8; ++i)
-                    redeem_op[i + 31] = ledger_buf[i];
+                COPY_BUF(redeem_op, 31, ledger_buf, 0, 8);
 
                 // Set state key with transaction hash(id).
                 REDEEM_OP_KEY(txid);
