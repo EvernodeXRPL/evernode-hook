@@ -221,15 +221,13 @@ int64_t hook(int64_t reserved)
                     uint8_t auditor_accid[20];
                     util_accid(SBUF(auditor_accid), SBUF(DEF_AUDITOR_ADDR));
                     uint8_t auditor_id_buf[4];
-                    // Id of the default auditor in 1.
+                    // Id of the default auditor is 1.
                     UINT32_TO_BUF(auditor_id_buf, 1);
                     AUDITOR_ID_KEY(auditor_id_buf);
                     if (state_set(SBUF(auditor_accid), SBUF(STP_AUDITOR_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for default auditor_id."), 1);
 
-                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE];
-                    // Set 0's
-                    CLEARBUF(auditor_addr_buf);
+                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE] = {0};
                     COPY_BUF(auditor_addr_buf, 0, auditor_id_buf, 0, 4);
                     AUDITOR_ADDR_KEY(auditor_accid);
                     if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
@@ -446,7 +444,6 @@ int64_t hook(int64_t reserved)
             if (is_host_de_reg)
             {
                 // Host de register is only served if at least one host is registered.
-                // If host count state does not exist, set host count to 0.
                 uint8_t host_count_buf[4];
                 uint32_t host_count;
                 GET_HOST_COUNT(host_count_buf, host_count);
@@ -641,7 +638,6 @@ int64_t hook(int64_t reserved)
 
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                // If host count state does not exist, set host count to 0.
                 uint8_t host_count_buf[4];
                 uint32_t host_count;
                 GET_HOST_COUNT(host_count_buf, host_count);
