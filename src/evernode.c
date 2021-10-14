@@ -82,9 +82,12 @@ int64_t hook(int64_t reserved)
                 if (!is_redeem_res)
                     rollback(SBUF("Evernode: Redeem response does not have instance info."), 1);
 
-                BUFFER_EQUAL_STR_GUARD(is_redeem_res, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_redeem_res)
-                    rollback(SBUF("Evernode: Redeem response memo format should be binary."), 50);
+                int is_format_binary = 0, is_format_json = 0;
+                BUFFER_EQUAL_STR_GUARD(is_format_binary, format_ptr, format_len, FORMAT_BINARY, 1);
+                BUFFER_EQUAL_STR_GUARD(is_format_json, format_ptr, format_len, FORMAT_JSON, 1);
+                
+                if (!(is_format_binary ^ is_format_json))
+                    rollback(SBUF("Evernode: Redeem response memo format should be either binary or text/json."), 50);
 
                 // Check for state with key as redeemRef.
                 REDEEM_OP_KEY(hash_ptr);
@@ -93,10 +96,8 @@ int64_t hook(int64_t reserved)
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: No redeem state for the redeem response."), 1);
 
-                int is_error = 0;
-                BUFFER_EQUAL_STR_GUARD(is_error, data_ptr, data_len, REDEEM_ERR, 1);
                 // Send hosting tokens to the host and clear the state only if there's no error.
-                if (!is_error)
+                if (is_format_binary)
                 {
                     // Reserving one transaction.
                     etxn_reserve(1);
