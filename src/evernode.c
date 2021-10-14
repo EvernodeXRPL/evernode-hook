@@ -86,7 +86,7 @@ int64_t hook(int64_t reserved)
                 BUFFER_EQUAL_STR_GUARD(is_format_binary, format_ptr, format_len, FORMAT_BINARY, 1);
                 BUFFER_EQUAL_STR_GUARD(is_format_json, format_ptr, format_len, FORMAT_JSON, 1);
                 
-                if (!(is_format_binary ^ is_format_json))
+                if (!(is_format_binary || is_format_json))
                     rollback(SBUF("Evernode: Redeem response memo format should be either binary or text/json."), 50);
 
                 // Check for state with key as redeemRef.
