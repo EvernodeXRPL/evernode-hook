@@ -12,8 +12,7 @@
 
 #define FORMAT_BINARY "binary"
 #define FORMAT_TEXT "text/plain"
-
-#define REDEEM_ERR "REDEEM_ERR"
+#define FORMAT_JSON "text/json"
 
 #define EVR_TOKEN "EVR"
 
