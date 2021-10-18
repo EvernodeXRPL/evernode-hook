@@ -295,30 +295,31 @@ int64_t hook(int64_t reserved)
                     // Calculate the host id using seed.
                     // Selecting a host to audit.
                     uint8_t *audit_pick_ptr = &moment_seed_buf[8];
-                    uint32_t pick_index = auditor_id - 1;
                     trace(SBUF("Moment seed: "), audit_pick_ptr, HASH_SIZE, 1);
 
                     // If auditor id is not within (HASH_SIZE - 3) we are taking sha512 hashes.
                     uint32_t eligible_count = HASH_SIZE - 3;
                     uint32_t iterations = (auditor_id - 1) / eligible_count;
+                    uint32_t host_id;
                     if (iterations > 0)
                     {
                         uint8_t seed_hash[HASH_SIZE] = {0};
-                        if (util_sha512h(SBUF(seed_hash), audit_pick_ptr, HASH_SIZE) < 0)
-                            rollback(SBUF("Evernode: Could not generate the sha512h hash of the moment seed."), 1);
-
-                        for (int i = 0; GUARD(iterations - 1), i < (iterations - 1); ++i)
+                        for (int i = 0; GUARD(iterations), i < iterations; ++i)
                         {
-                            if (util_sha512h(SBUF(seed_hash), SBUF(seed_hash)) < 0)
+                            if (util_sha512h(SBUF(seed_hash), audit_pick_ptr, HASH_SIZE) < 0)
                                 rollback(SBUF("Evernode: Could not generate the sha512h hash of the moment seed."), 1);
+                            audit_pick_ptr = &seed_hash;
                         }
-
-                        *audit_pick_ptr = seed_hash;
-                        pick_index = (auditor_id % eligible_count) - 1;
+                        trace(SBUF("Auditor host pick buffer: "), audit_pick_ptr, HASH_SIZE, 1);
+                        uint32_t pick_index = (auditor_id - 1) % eligible_count;
+                        host_id = (UINT32_FROM_BUF(audit_pick_ptr + pick_index) % host_count) + 1;
                     }
-
-                    trace(SBUF("Auditor host pick buffer: "), audit_pick_ptr, HASH_SIZE, 1);
-                    uint32_t host_id = (UINT32_FROM_BUF(audit_pick_ptr + pick_index) % host_count) + 1;
+                    else
+                    {
+                        trace(SBUF("Auditor host pick buffer: "), audit_pick_ptr, HASH_SIZE, 1);
+                        uint32_t pick_index = auditor_id - 1;
+                        host_id = (UINT32_FROM_BUF(audit_pick_ptr + pick_index) % host_count) + 1;
+                    }
 
                     // Take the host address.
                     uint8_t host_addr[20];
