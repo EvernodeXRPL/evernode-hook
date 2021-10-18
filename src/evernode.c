@@ -287,9 +287,6 @@ int64_t hook(int64_t reserved)
                             rollback(SBUF("Evernode: Could not set state for moment seed."), 1);
                     }
 
-                    uint8_t *moment_seed_ptr = &moment_seed_buf[8];
-                    trace(SBUF("moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
-
                     // Take the max reward from the config.
                     uint16_t conf_max_reward;
                     GET_CONF_VALUE(conf_max_reward, DEF_MAX_REWARD, CONF_MAX_REWARD, "Evernode: Could not set default state for max reward.");
@@ -297,23 +294,31 @@ int64_t hook(int64_t reserved)
 
                     // Calculate the host id using seed.
                     // Selecting a host to audit.
-                    /////////////////////////////////// Method 1 //////////////////////////////////////////
-                    // Only serve if auditor id is less than max reward.
-                    if (auditor_id > conf_max_reward)
-                        rollback(SBUF("Evernode: Max number of audits per moment is exceeded."), 1);
-                    uint32_t host_id = (UINT32_FROM_BUF(moment_seed_ptr + (auditor_id - 1)) % host_count) + 1;
-                    /////////////////////////////////// Method 2 //////////////////////////////////////////
-                    // uint32_t host_id = 0;
-                    // uint32_t lookup_value = 0;
-                    // for (int i = 0; GUARD(conf_max_reward), i < conf_max_reward; ++i)
-                    // {
-                    //     lookup_value = UINT32_FROM_BUF(moment_seed_ptr + i);
-                    //     if (((lookup_value % auditor_count) + 1) == auditor_id)
-                    //         host_id = (lookup_value % host_count) + 1;
-                    // }
-                    // if (host_id == 0)
-                    //     rollback(SBUF("Evernode: Could not find a host to audit."), 1);
-                    ///////////////////////////////////////////////////////////////////////////////////////
+                    uint8_t *audit_pick_ptr = &moment_seed_buf[8];
+                    uint32_t pick_index = auditor_id - 1;
+                    trace(SBUF("Moment seed: "), audit_pick_ptr, HASH_SIZE, 1);
+
+                    // If auditor id is not within (HASH_SIZE - 3) we are taking sha512 hashes.
+                    uint32_t eligible_count = HASH_SIZE - 3;
+                    uint32_t iterations = (auditor_id - 1) / eligible_count;
+                    if (iterations > 0)
+                    {
+                        uint8_t seed_hash[HASH_SIZE] = {0};
+                        if (util_sha512h(SBUF(seed_hash), audit_pick_ptr, HASH_SIZE) < 0)
+                            rollback(SBUF("Evernode: Could not generate the sha512h hash of the moment seed."), 1);
+
+                        for (int i = 0; GUARD(iterations - 1), i < (iterations - 1); ++i)
+                        {
+                            if (util_sha512h(SBUF(seed_hash), SBUF(seed_hash)) < 0)
+                                rollback(SBUF("Evernode: Could not generate the sha512h hash of the moment seed."), 1);
+                        }
+
+                        *audit_pick_ptr = seed_hash;
+                        pick_index = (auditor_id % eligible_count) - 1;
+                    }
+
+                    trace(SBUF("Auditor host pick buffer: "), audit_pick_ptr, HASH_SIZE, 1);
+                    uint32_t host_id = (UINT32_FROM_BUF(audit_pick_ptr + pick_index) % host_count) + 1;
 
                     // Take the host address.
                     uint8_t host_addr[20];
