@@ -34,7 +34,7 @@ const uint16_t DEF_MAX_REWARD = 20;
 const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants
-const int32_t HOST_ADDR_VAL_SIZE = 23;
+const int32_t HOST_ADDR_VAL_SIZE = 125;
 const int32_t AUDITOR_ADDR_VAL_SIZE = 32;
 const int32_t REDEEM_STATE_VAL_SIZE = 39;
 const int32_t MOMENT_SEED_VAL_SIZE = 40;

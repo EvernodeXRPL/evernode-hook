@@ -588,6 +588,12 @@ int64_t hook(int64_t reserved)
             int is_evr;
             IS_EVR(is_evr, amount_buffer, hook_accid);
 
+            // Get transaction hash(id).
+            uint8_t txid[HASH_SIZE];
+            int32_t txid_len = otxn_id(SBUF(txid), 0);
+            if (txid_len < HASH_SIZE)
+                rollback(SBUF("Evernode: transaction id missing!!!"), 10);
+
             // Host registration.
             int is_host_reg = 0;
             BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
@@ -656,8 +662,47 @@ int64_t hook(int64_t reserved)
                 if (state_set(SBUF(account_field), SBUF(STP_HOST_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_id."), 1);
 
+                CLEARBUF(host_addr);
                 COPY_BUF(host_addr, 0, host_id_arr, 0, 4);
                 COPY_BUF(host_addr, 4, data_ptr, 0, 3);
+                COPY_BUF(host_addr, 7, txid, 0, txid_len);
+
+                // Read instace details from the memo.
+                // We cannot predict the lengths of instance size and locations.
+                // So we scan bytes and populate the buffer.
+                uint32_t section_number = 0;
+                uint32_t write_idx = 0;
+                for (int i = 3; GUARD(data_len - 3), i < data_len; ++i)
+                {
+                    uint8_t *str_ptr = data_ptr + i;
+                    // Colon means this is an end of the section.
+                    // If so, we start reading the new section and reset the write index.
+                    // Stop reading is an emty byte reached.
+                    if (*str_ptr == ';')
+                    {
+                        section_number++;
+                        write_idx = 0;
+                        continue;
+                    }
+                    else if (*str_ptr == 0)
+                        break;
+
+                    // Section 1 is instance size.
+                    // Only read first 50 bytes.
+                    if (section_number == 1 && write_idx < 50)
+                    {
+                        host_addr[55 + write_idx] = *str_ptr;
+                        write_idx++;
+                    }
+                    // Section 2 is location.
+                    // Only read first 20 bytes.
+                    else if (section_number == 2 && write_idx < 20)
+                    {
+                        host_addr[105 + write_idx] = *str_ptr;
+                        write_idx++;
+                    }
+                }
+
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
@@ -703,12 +748,6 @@ int64_t hook(int64_t reserved)
 
                 if (amount_val_drops < (conf_min_redeem * 1000000))
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee."), 1);
-
-                // Get transaction hash(id).
-                uint8_t txid[HASH_SIZE];
-                int32_t txid_len = otxn_id(SBUF(txid), 0);
-                if (txid_len < HASH_SIZE)
-                    rollback(SBUF("Evernode: transaction id missing!!!"), 10);
 
                 // Prepare state value.
                 uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
