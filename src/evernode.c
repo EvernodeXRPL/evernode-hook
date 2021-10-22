@@ -596,7 +596,7 @@ int64_t hook(int64_t reserved)
             uint8_t txid[HASH_SIZE];
             int32_t txid_len = otxn_id(SBUF(txid), 0);
             if (txid_len < HASH_SIZE)
-                rollback(SBUF("Evernode: transaction id missing!!!"), 10);
+                rollback(SBUF("Evernode: transaction id missing!!!"), 1);
 
             // Host registration.
             int is_host_reg = 0;
