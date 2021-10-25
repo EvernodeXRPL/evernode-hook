@@ -119,6 +119,25 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                        \
     }
 
+#define GET_FLOAT_CONF_VALUE(value, def_mentissa, def_exponent, key, error_buf) \
+    {                                                                           \
+        uint8_t value_buf[8];                                                   \
+        int64_t state_res = state(SBUF(value_buf), SBUF(key));                  \
+        if (state_res == DOESNT_EXIST)                                          \
+        {                                                                       \
+            value = float_set(def_exponent, def_mentissa);                      \
+            INT64_TO_BUF(value_buf, value);                                     \
+        }                                                                       \
+        else                                                                    \
+            value = INT64_FROM_BUF(value_buf);                                  \
+                                                                                \
+        if (state_res == DOESNT_EXIST)                                          \
+        {                                                                       \
+            if (state_set(SBUF(value_buf), SBUF(key)) < 0)                      \
+                rollback(SBUF(error_buf), 1);                                   \
+        }                                                                       \
+    }
+
 #define COPY_BUF(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos, len) \
     for (int i = 0; GUARD(len), i < len; ++i)                   \
         lhsbuf[lhsbuf_spos + i] = rhsbuf[rhsbuf_spos + i];
