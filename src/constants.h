@@ -30,8 +30,8 @@ const int64_t DEF_HOST_REG_FEE_M = 87654321;
 const int32_t DEF_HOST_REG_FEE_E = -8;
 const uint16_t DEF_MIN_REDEEM = 12;
 const uint16_t DEF_REDEEM_WINDOW = 24;
-const int64_t DEF_REWARD_M = 11234;
-const int32_t DEF_REWARD_E = -4;
+const int64_t DEF_REWARD_M = 64;
+const int32_t DEF_REWARD_E = 0;
 const uint16_t DEF_MAX_REWARD = 20;
 const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
