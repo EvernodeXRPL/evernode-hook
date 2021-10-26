@@ -404,8 +404,8 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: The host is already rewarded within this moment."), 1);
 
                     // Take the host rewards per moment from the config.
-                    uint16_t conf_reward;
-                    GET_CONF_VALUE(conf_reward, DEF_REWARD, CONF_REWARD, "Evernode: Could not set default state for host reward.");
+                    int64_t conf_reward;
+                    GET_FLOAT_CONF_VALUE(conf_reward, DEF_REWARD_M, DEF_REWARD_E, CONF_REWARD, "Evernode: Could not set default state for host reward.");
                     TRACEVAR(conf_reward);
 
                     // Reward the host.
@@ -416,7 +416,7 @@ int64_t hook(int64_t reserved)
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Reward amount would be, total reward amount equally divided by registered host count.
-                    int64_t reward_amount = float_divide(float_set(0, conf_reward), float_set(0, host_count));
+                    int64_t reward_amount = float_divide(conf_reward, float_set(0, host_count));
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, hook_accid, reward_amount);
@@ -582,12 +582,9 @@ int64_t hook(int64_t reserved)
                 rollback(SBUF("Evernode: Could not parse amount."), 1);
 
             uint8_t amount_buffer[AMOUNT_BUF_SIZE];
-            if (slot(SBUF(amount_buffer), amt_slot) != AMOUNT_BUF_SIZE)
+            int64_t result = slot(SBUF(amount_buffer), amt_slot);
+            if (result != AMOUNT_BUF_SIZE)
                 rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
-
-            // Get amount received in drops
-            int64_t amount_val_drops = float_int(amt, 6, 0);
-            TRACEVAR(amount_val_drops);
 
             int is_evr;
             IS_EVR(is_evr, amount_buffer, hook_accid);
@@ -612,11 +609,11 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Memo format should be text."), 50);
 
                 // Take the host reg fee from config.
-                uint16_t conf_host_reg_fee;
-                GET_CONF_VALUE(conf_host_reg_fee, DEF_HOST_REG_FEE, CONF_HOST_REG_FEE, "Evernode: Could not set default state for host reg fee.");
+                int64_t conf_host_reg_fee;
+                GET_FLOAT_CONF_VALUE(conf_host_reg_fee, DEF_HOST_REG_FEE_M, DEF_HOST_REG_FEE_E, CONF_HOST_REG_FEE, "Evernode: Could not set default state for host reg fee.");
                 TRACEVAR(conf_host_reg_fee);
 
-                if (amount_val_drops < (conf_host_reg_fee * 1000000))
+                if (float_compare(amt, conf_host_reg_fee, COMPARE_LESS) == 1)
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
 
                 // Checking whether this host is already registered.
@@ -752,8 +749,8 @@ int64_t hook(int64_t reserved)
                 GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
                 TRACEVAR(conf_min_redeem);
 
-                if (amount_val_drops < (conf_min_redeem * 1000000))
-                    rollback(SBUF("Evernode: Amount sent is less than the minimum fee."), 1);
+                if (float_compare(amt, float_set(0, conf_min_redeem), COMPARE_LESS) == 1)
+                    rollback(SBUF("Evernode: Amount sent is less than the minimum registration fee."), 1);
 
                 // Prepare state value.
                 uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
