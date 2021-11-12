@@ -7,8 +7,8 @@ let cfg;
 
 if (!fs.existsSync(cfgPath)) {
     cfg = {
-        address: "",
-        secret: ""
+        address: undefined,
+        secret: undefined
     }
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
 }
@@ -16,7 +16,7 @@ else {
     cfg = JSON.parse(fs.readFileSync(cfgPath));
 }
 
-if (cfg.address === "" || cfg.secret === "") {
+if (cfg.address === undefined || cfg.secret === undefined) {
     console.log("SETHOOK FAILED: Please specify hook address and secret in hook.cfg");
 }
 else {
