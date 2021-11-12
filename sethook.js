@@ -7,8 +7,7 @@ let cfg;
 
 if (!fs.existsSync(cfgPath)) {
     cfg = {
-        address: "",
-        secret: ""
+        secret: undefined
     }
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
 }
@@ -16,33 +15,33 @@ else {
     cfg = JSON.parse(fs.readFileSync(cfgPath));
 }
 
-if (cfg.address === "" || cfg.secret === "") {
-    console.log("SETHOOK FAILED: Please specify hook address and secret in hook.cfg");
+if (cfg.secret === undefined) {
+    console.log("SETHOOK FAILED: Please specify hook secret in hook.cfg");
 }
 else {
     const wasmfile = process.argv[2] || "build/evernode.wasm";
     const secret = cfg.secret;
     const address = api.deriveAddress(api.deriveKeypair(secret).publicKey);
 
-    console.log("SetHook on address " + address);
+    console.log("SetHook on address: " + address);
 
     api.on('error', (errorCode, errorMessage) => { console.log(errorCode + ': ' + errorMessage); });
-    api.on('connected', () => { console.log('connected'); });
-    api.on('disconnected', (code) => { console.log('disconnected, code:', code); });
+    api.on('connected', () => { console.log('Connected'); });
+    api.on('disconnected', (code) => { console.log('Disconnected, code: ', code); });
     api.connect().then(() => {
         binary = fs.readFileSync(wasmfile).toString('hex').toUpperCase();
-        j = {
+        tx = {
             Account: address,
             TransactionType: "SetHook",
             CreateCode: binary,
             HookOn: '0000000000000000'
         }
-        api.prepareTransaction(j).then((x) => {
-            let s = api.sign(x.txJSON, secret)
-            api.submit(s.signedTransaction).then(response => {
+        api.prepareTransaction(tx).then((x) => {
+            let signed_tx = api.sign(x.txJSON, secret)
+            api.submit(signed_tx.signedTransaction).then(response => {
                 console.log(response.resultCode, response.resultMessage);
                 process.exit(0);
             }).catch(e => { console.log(e) });
         });
-    }).then(() => { }).catch(console.error);
+    }).then(() => { }).catch(console.log('Error: ' + console.error);
 }
