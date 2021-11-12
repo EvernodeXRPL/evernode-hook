@@ -43,8 +43,8 @@ int64_t hook(int64_t reserved)
             rollback(SBUF("Evernode: Could not slot otxn.sfAmount"), 1);
 
         int64_t is_xrp = slot_type(amt_slot, 1);
-        if (is_xrp < 0)
-            rollback(SBUF("Evernode: Could not determine sent amount type"), 1);
+        if (is_xrp <= 0)
+            rollback(SBUF("Evernode: Could not determine sent amount type, amount must be more then 0."), 1);
 
         // Memos
         uint8_t memos[MAX_MEMO_SIZE];
