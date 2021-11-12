@@ -12,7 +12,7 @@ Evernode consist of four main components that make it possible to execute flexib
  - [**Evernode Hook**](https://github.com/HotPocketDev/evernode-hook): A Hook on the XRP Ledger that controls the emission of Evers and confirms each Node’s membership in Evernode, their willingness to host dApps, and their agreement to be paid in Evers.
  - [**DEX**](https://xrpl.org/decentralized-exchange.html#main-page-header): The XRP Ledger’s native decentralised exchange which Evernode utilizes to automate the buying and selling of hosting services with Evers. 
 
-In concert, these 4 components create Evernode: a reliable, secure, and decentralised “network-of-networks” of HotPocket nodes piggybacking off the XRP Ledger that anyone can join, capable of running a wide variety of cheap, scalable and fast dApps that is mainted 24/7.
+In concert, these 4 components create Evernode: a reliable, secure, and decentralised “network-of-networks” of HotPocket nodes piggybacking off the XRP Ledger that anyone can join, capable of running a wide variety of cheap, scalable and fast dApps that is maintained 24/7.
 
 
 ## Build
