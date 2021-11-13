@@ -120,11 +120,11 @@ int64_t hook(int64_t reserved)
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting txn failed"), 1);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     if (state_set(0, 0, SBUF(STP_REDEEM_OP)) < 0)
                         rollback(SBUF("Evernode: Could not delete state for redeem_op."), 1);
-
+                    
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     accept(SBUF("Redeem response successful."), 0);
                 }
                 else
