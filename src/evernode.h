@@ -238,3 +238,49 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 #endif
+
+#define ENCODE_GEN_COMMON_SIZE 5U
+#define ENCODE_GEN_COMMON(buf_out, type, field) \
+    {                                           \
+        uint32_t ui = 15; /*temp value*/        \
+        uint8_t uf = field;                     \
+        buf_out[0] = type + (uf & 0x0FU);       \
+        buf_out[1] = (ui >> 24) & 0xFFU;        \
+        buf_out[2] = (ui >> 16) & 0xFFU;        \
+        buf_out[3] = (ui >> 8) & 0xFFU;         \
+        buf_out[4] = (ui >> 0) & 0xFFU;         \
+        buf_out += ENCODE_GEN_COMMON_SIZE;      \
+    }
+
+#define PREPARE_PAYMENT_MEMO_SIZE 272
+#define PREPARE_PAYMENT_MEMO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, dest_tag_raw, src_tag_raw) \
+    {                                                                                                                \
+        uint8_t *buf_out = buf_out_master;                                                                           \
+        uint8_t acc[20];                                                                                             \
+        uint64_t drops_amount = (drops_amount_raw);                                                                  \
+        uint64_t drops_fee = (drops_fee_raw);                                                                        \
+        uint32_t dest_tag = (dest_tag_raw);                                                                          \
+        uint32_t src_tag = (src_tag_raw);                                                                            \
+        uint32_t cls = (uint32_t)ledger_seq();                                                                       \
+        hook_account(SBUF(acc));                                                                                     \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                   /* uint16  | size   3 */                             \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);              /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 0xF0U, 9); /*Arr Start*/     /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 0xE0U, 0xA0U); /*Obj Start*/ /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 7, 0xC0U); /*Memo type*/     /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 7, 0xD0U); /*Memo format*/   /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 7, 0xE0U); /*Memo data*/     /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 0xE0U, 1); /*Obj end*/       /* uint32  | size   5 */                             \
+        ENCODE_GEN_COMMON(buf_out, 0xF0U, 1); /*Arr Start*/     /* uint32  | size   5 */                             \
+        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);                /* uint32  | size   5 */                             \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                     /* uint32  | size   5 */                             \
+        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);               /* uint32  | size   5 */                             \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);                    /* zuint32  | size   6 */                            \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);                    /* uint32  | size   6 */                             \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount);      /* amount  | size   9 */                             \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);            /* amount  | size   9 */                             \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);             /* pk      | size  35 */                             \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                /* account | size  22 */                             \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);         /* account | size  22 */                             \
+        etxn_details((uint32_t)buf_out, 105);                   /* emitdet | size 105 */                             \
+    }
