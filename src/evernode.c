@@ -165,7 +165,7 @@ int64_t hook(int64_t reserved)
                 // Setup the outgoing txn.
                 // Reserving one transaction.
                 etxn_reserve(1);
-                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REFUND_SIZE);
 
                 uint8_t *issuer_ptr = &data_arr[11];
                 uint8_t *amount_ptr = &data_arr[3];
@@ -174,9 +174,15 @@ int64_t hook(int64_t reserved)
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
                 SET_AMOUNT_OUT(amt_out, data_arr, issuer_ptr, token_amount);
 
+                // Get transaction hash(id).
+                uint8_t txid[HASH_SIZE];
+                int32_t txid_len = otxn_id(SBUF(txid), 0);
+                if (txid_len < HASH_SIZE)
+                    rollback(SBUF("Evernode: transaction id missing!!!"), 1);
+
                 // Finally create the outgoing txn.
-                uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field, 0, 0);
+                uint8_t txn_out[PREPARE_PAYMENT_REFUND_SIZE];
+                PREPARE_PAYMENT_REFUND(txn_out, amt_out, fee, account_field, tx_hash_bytes, txid);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
