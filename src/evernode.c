@@ -367,7 +367,10 @@ int64_t hook(int64_t reserved)
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_SIMPLE_CHECK_SIZE];
-                    PREPARE_SIMPLE_CHECK(txn_out, amt_out, fee, account_field);
+                    uint8_t *data_buf = &host_addr_buf[39];
+                    uint8_t data_hex[140];
+                    BYTES_TO_HEXSTR(data_hex, data_buf, 70, 1);
+                    PREPARE_SIMPLE_CHECK(txn_out, amt_out, fee, account_field, data_hex, 140);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
