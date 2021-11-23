@@ -1,6 +1,16 @@
 #ifndef EVERNODE_INCLUDED
 #define EVERNODE_INCLUDED 1
 
+/****** Field and Type codes ******/
+#define ARRAY 0xF0U
+#define OBJECT 0xE0U
+#define MEMOS 0X9
+#define MEMO 0XA
+#define END 1
+#define MEMO_TYPE 0xC
+#define MEMO_DATA 0xD
+#define MEMO_FORMAT 0xE
+
 /////////// Utility Macros. ///////////
 
 #define GET_TOKEN_CURRENCY(token)                                                       \
@@ -234,31 +244,31 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define _07_XX_ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n) \
     ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n)
 
-#define _F0_09_ENCODE_MEMOS_SINGLE(buf_out, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len)         \
-    {                                                                                                               \
-        ENCODE_FIELDS(buf_out, 0xF0U, 0X9); /*Arr Start*/                      /* uint32  | size   1 */             \
-        ENCODE_FIELDS(buf_out, 0xE0U, 0xA); /*Obj start*/                      /* uint32  | size   1 */             \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, type_ptr, type_len, 0xC, 10);     /* STI_VL  | size   type_len + 2*/   \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, data_ptr, data_len, 0xD, 20);     /* STI_VL  | size   data_len + 2*/   \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, format_ptr, format_len, 0xE, 30); /* STI_VL  | size   format_len + 2*/ \
-        ENCODE_FIELDS(buf_out, 0xE0U, 1); /*Obj end*/                          /* uint32  | size   1 */             \
-        ENCODE_FIELDS(buf_out, 0xF0U, 1); /*Arr End*/                          /* uint32  | size   1 */             \
+#define _F0_09_ENCODE_MEMOS_SINGLE(buf_out, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len)                \
+    {                                                                                                                      \
+        ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                           /* uint32  | size   1 */             \
+        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                           /* uint32  | size   1 */             \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, type_ptr, type_len, MEMO_TYPE, 7);       /* STI_VL  | size   type_len + 2*/   \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, data_ptr, data_len, MEMO_DATA, 8);       /* STI_VL  | size   data_len + 2*/   \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, format_ptr, format_len, MEMO_FORMAT, 9); /* STI_VL  | size   format_len + 2*/ \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                              /* uint32  | size   1 */             \
+        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                               /* uint32  | size   1 */             \
     }
 
-#define _F0_09_ENCODE_MEMOS_DUO(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data_len) \
-    {                                                                                                                                                                               \
-        ENCODE_FIELDS(buf_out, 0xF0U, 0X9); /*Arr Start*/                       /* uint32  | size   1 */                                                                            \
-        ENCODE_FIELDS(buf_out, 0xE0U, 0xA); /*Obj start*/                       /* uint32  | size   1 */                                                                            \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, type1_ptr, type1_len, 0xC, 1);     /* STI_VL  | size   type_len + 2*/                                                                  \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, data1_ptr, data1_len, 0xD, 2);     /* STI_VL  | size   data_len + 2*/                                                                  \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, format1_ptr, format1_len, 0xE, 3); /* STI_VL  | size   format_len + 2 */                                                               \
-        ENCODE_FIELDS(buf_out, 0xE0U, 1); /*Obj end*/                           /* uint32  | size   1 */                                                                            \
-        ENCODE_FIELDS(buf_out, 0xE0U, 0xA); /*Obj start*/                       /* uint32  | size   1 */                                                                            \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, type2_ptr, type2_len, 0xC, 4);     /* STI_VL  | size   type_len + 2*/                                                                  \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, data2_ptr, data2_len, 0xD, 5);     /* STI_VL  | size   data_len + 2*/                                                                  \
-        _07_XX_ENCODE_STI_VL_COMMON(buf_out, format2_ptr, format2_len, 0xE, 6); /* STI_VL  | size   format_len + 2*/                                                                \
-        ENCODE_FIELDS(buf_out, 0xE0U, 1); /*Obj end*/                           /* uint32  | size   1 */                                                                            \
-        ENCODE_FIELDS(buf_out, 0xF0U, 1); /*Arr End*/                           /* uint32  | size   1 */                                                                            \
+#define _F0_09_ENCODE_MEMOS_DUO(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data2_len) \
+    {                                                                                                                                                                                \
+        ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                             /* uint32  | size   1 */                                                                     \
+        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                             /* uint32  | size   1 */                                                                     \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, type1_ptr, type1_len, MEMO_TYPE, 1);       /* STI_VL  | size   type_len + 2*/                                                           \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, data1_ptr, data1_len, MEMO_DATA, 2);       /* STI_VL  | size   data_len + 2*/                                                           \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, format1_ptr, format1_len, MEMO_FORMAT, 3); /* STI_VL  | size   format_len + 2 */                                                        \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                /* uint32  | size   1 */                                                                     \
+        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                             /* uint32  | size   1 */                                                                     \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, type2_ptr, type2_len, MEMO_TYPE, 4);       /* STI_VL  | size   type_len + 2*/                                                           \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, data2_ptr, data2_len, MEMO_DATA, 5);       /* STI_VL  | size   data_len + 2*/                                                           \
+        _07_XX_ENCODE_STI_VL_COMMON(buf_out, format2_ptr, format2_len, MEMO_FORMAT, 6); /* STI_VL  | size   format_len + 2*/                                                         \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                /* uint32  | size   1 */                                                                     \
+        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                 /* uint32  | size   1 */                                                                     \
     }
 
 /////////// Macros to prepare xrpl transactions. ///////////
