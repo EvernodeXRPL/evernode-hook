@@ -292,9 +292,28 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);     /* account | size  22 */ \
         etxn_details((uint32_t)buf_out, 105);        /* emitdet | size 105 */ \
     }
+#define PREPARE_SIMPLE_CHECK_SIZE 262
+#define PREPARE_SIMPLE_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address)   \
+    {                                                                            \
+        uint8_t *buf_out = buf_out_master;                                       \
+        uint8_t acc[20];                                                         \
+        uint64_t drops_fee = (drops_fee_raw);                                    \
+        uint32_t cls = (uint32_t)ledger_seq();                                   \
+        hook_account(SBUF(acc));                                                 \
+        _01_02_ENCODE_TT(buf_out, ttCHECK_CREATE);      /* uint16  | size   3 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */ \
+        ENCODE_TL(buf_out, tlamt, amSENDMAX);           /* amount  | size  48 */ \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */ \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */ \
+        etxn_details((uint32_t)buf_out, 105);           /* emitdet | size 105 */ \
+    }
 
-#define PREPARE_SIMPLE_CHECK_SIZE 428 /* Data len is taken as 140 bytes. */ 
-#define PREPARE_SIMPLE_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                          \
+#define PREPARE_AUDIT_CHECK_SIZE 428 /* Data len is taken as 140 bytes. */
+#define PREPARE_AUDIT_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                           \
     {                                                                                                                   \
         uint8_t *buf_out = buf_out_master;                                                                              \
         uint8_t acc[20];                                                                                                \

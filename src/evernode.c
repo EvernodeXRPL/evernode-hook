@@ -358,7 +358,7 @@ int64_t hook(int64_t reserved)
                     // Setup the outgoing txn.
                     // Reserving one transaction.
                     etxn_reserve(1);
-                    int64_t fee = etxn_fee_base(PREPARE_SIMPLE_CHECK_SIZE);
+                    int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);
 
                     int64_t token_limit = float_set(0, conf_min_redeem);
 
@@ -366,11 +366,11 @@ int64_t hook(int64_t reserved)
                     SET_AMOUNT_OUT(amt_out, host_token_ptr, host_addr, token_limit);
 
                     // Finally create the outgoing txn.
-                    uint8_t txn_out[PREPARE_SIMPLE_CHECK_SIZE];
+                    uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
                     uint8_t *data_buf = &host_addr_buf[39];
                     uint8_t data_hex[140];
                     BYTES_TO_HEXSTR(data_hex, data_buf, 70, 1);
-                    PREPARE_SIMPLE_CHECK(txn_out, amt_out, fee, account_field, data_hex, 140);
+                    PREPARE_AUDIT_CHECK(txn_out, amt_out, fee, account_field, data_hex, 140);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
