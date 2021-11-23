@@ -422,7 +422,7 @@ int64_t hook(int64_t reserved)
                     etxn_reserve(1);
 
                     // Forward hosting tokens to the host on success.
-                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REWARD_SIZE);
 
                     // Reward amount would be, total reward amount equally divided by registered host count.
                     int64_t reward_amount = float_divide(conf_reward, float_set(0, host_count));
@@ -431,8 +431,8 @@ int64_t hook(int64_t reserved)
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, hook_accid, reward_amount);
 
                     // Create the outgoing hosting token txn.
-                    uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, lst_host_addr_ptr, 0, 0);
+                    uint8_t txn_out[PREPARE_PAYMENT_REWARD_SIZE];
+                    PREPARE_PAYMENT_REWARD(txn_out, amt_out, fee, lst_host_addr_ptr);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
