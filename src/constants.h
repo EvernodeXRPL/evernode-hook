@@ -9,6 +9,7 @@
 #define REFUND "evnRefund"
 #define AUDIT_REQ "evnAuditRequest"
 #define AUDIT_SUCCESS "evnAuditSuccess"
+#define REFUND_RESP "evnRefundResp"
 
 #define FORMAT_BINARY "binary"
 #define FORMAT_TEXT "text/plain"
