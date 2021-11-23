@@ -293,7 +293,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         etxn_details((uint32_t)buf_out, 105);        /* emitdet | size 105 */ \
     }
 
-#define PREPARE_SIMPLE_CHECK_SIZE 428 /* Data len is taken as 140 bytes. */
+#define PREPARE_SIMPLE_CHECK_SIZE 428 /* Data len is taken as 140 bytes. */ 
 #define PREPARE_SIMPLE_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                          \
     {                                                                                                                   \
         uint8_t *buf_out = buf_out_master;                                                                              \
