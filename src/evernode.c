@@ -358,7 +358,7 @@ int64_t hook(int64_t reserved)
                     // Setup the outgoing txn.
                     // Reserving one transaction.
                     etxn_reserve(1);
-                    int64_t fee = etxn_fee_base(PREPARE_SIMPLE_CHECK_SIZE);
+                    int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);
 
                     int64_t token_limit = float_set(0, conf_min_redeem);
 
@@ -366,8 +366,11 @@ int64_t hook(int64_t reserved)
                     SET_AMOUNT_OUT(amt_out, host_token_ptr, host_addr, token_limit);
 
                     // Finally create the outgoing txn.
-                    uint8_t txn_out[PREPARE_SIMPLE_CHECK_SIZE];
-                    PREPARE_SIMPLE_CHECK(txn_out, amt_out, fee, account_field);
+                    uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
+                    uint8_t *data_buf = &host_addr_buf[39];
+                    uint8_t data_hex[140];
+                    BYTES_TO_HEXSTR(data_hex, data_buf, 70, 1);
+                    PREPARE_AUDIT_CHECK(txn_out, amt_out, fee, account_field, data_hex, 140);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -419,7 +422,7 @@ int64_t hook(int64_t reserved)
                     etxn_reserve(1);
 
                     // Forward hosting tokens to the host on success.
-                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REWARD_SIZE);
 
                     // Reward amount would be, total reward amount equally divided by registered host count.
                     int64_t reward_amount = float_divide(conf_reward, float_set(0, host_count));
@@ -428,8 +431,8 @@ int64_t hook(int64_t reserved)
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, hook_accid, reward_amount);
 
                     // Create the outgoing hosting token txn.
-                    uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, lst_host_addr_ptr, 0, 0);
+                    uint8_t txn_out[PREPARE_PAYMENT_REWARD_SIZE];
+                    PREPARE_PAYMENT_REWARD(txn_out, amt_out, fee, lst_host_addr_ptr);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
