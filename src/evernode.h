@@ -249,7 +249,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define _07_XX_ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n) \
     ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n)
 
-#define _F0_09_ENCODE_MEMOS_SINGLE(buf_out, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len)                \
+#define _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len)                \
     {                                                                                                                      \
         ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                           /* uint32  | size   1 */             \
         ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                           /* uint32  | size   1 */             \
@@ -260,7 +260,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                               /* uint32  | size   1 */             \
     }
 
-#define _F0_09_ENCODE_MEMOS_DUO(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data2_len) \
+#define _0F_09_ENCODE_MEMOS_DUO(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data2_len) \
     {                                                                                                                                                                                \
         ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                             /* uint32  | size   1 */                                                                     \
         ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                             /* uint32  | size   1 */                                                                     \
