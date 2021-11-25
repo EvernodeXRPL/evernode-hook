@@ -334,7 +334,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                                           /* pk      | size  35 */  \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                              /* account | size  22 */  \
         _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                                       /* account | size  22 */  \
-        _F0_09_ENCODE_MEMOS_SINGLE(buf_out, AUDIT_REF, 11, FORMAT_BINARY, 6, data, data_len); /* memo    | size  167 */ \
+        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, AUDIT_REF, 11, FORMAT_BINARY, 6, data, data_len); /* memo    | size  167 */ \
         etxn_details((uint32_t)buf_out, 105);                                                 /* emitdet | size 105 */  \
     }
 
@@ -363,7 +363,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                                           /* pk      | size  35 */ \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                              /* account | size  22 */ \
         _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                                       /* account | size  22 */ \
-        _F0_09_ENCODE_MEMOS_SINGLE(buf_out, REFUND_RESP, 13, FORMAT_BINARY, 6, hex_str, 128); /* memo  | size 157 */   \
+        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, REFUND_RESP, 13, FORMAT_BINARY, 6, hex_str, 128); /* memo  | size 157 */   \
         etxn_details((uint32_t)buf_out, 105);                                                 /* emitdet | size 105 */ \
     }
 
