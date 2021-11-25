@@ -219,6 +219,11 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                 \
     }
 
+#define ENCODE_TL_SENDMAX(buf_out, drops) \
+    ENCODE_TL(buf_out, drops, amSENDMAX);
+#define _06_09_ENCODE_TL_SENDMAX(buf_out, drops) \
+    ENCODE_TL_SENDMAX(buf_out, drops);
+
 /**************************************************************************/
 /**************************MEMO related MACROS*****************************/
 /**************************************************************************/
@@ -304,7 +309,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */ \
         _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */ \
         _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */ \
-        ENCODE_TL(buf_out, tlamt, amSENDMAX);           /* amount  | size  48 */ \
+        _06_09_ENCODE_TL_SENDMAX(buf_out, tlamt);       /* amount  | size  48 */ \
         _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */ \
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */ \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */ \
@@ -324,7 +329,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _02_04_ENCODE_SEQUENCE(buf_out, 0);                                                   /* uint32  | size   5 */  \
         _02_26_ENCODE_FLS(buf_out, cls + 1);                                                  /* uint32  | size   6 */  \
         _02_27_ENCODE_LLS(buf_out, cls + 5);                                                  /* uint32  | size   6 */  \
-        ENCODE_TL(buf_out, tlamt, amSENDMAX);                                                 /* amount  | size  48 */  \
+        _06_09_ENCODE_TL_SENDMAX(buf_out, tlamt);                                             /* amount  | size  48 */  \
         _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);                                          /* amount  | size   9 */  \
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                                           /* pk      | size  35 */  \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                              /* account | size  22 */  \
