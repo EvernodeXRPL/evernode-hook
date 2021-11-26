@@ -71,11 +71,14 @@ int64_t hook(int64_t reserved)
                 if (data_len != 64)
                     rollback(SBUF("Evernode: Invalid redeem reference."), 1);
 
-                uint8_t hash_ptr[HASH_SIZE];
-                HEXSTR_TO_BYTES(hash_ptr, data_ptr, data_len);
+                uint8_t redeem_ref[data_len];
+                COPY_BUF(redeem_ref, 0, data_ptr, 0, data_len);
 
                 // Redeem response has 2 memos, so check for the type in second memo.
                 GET_MEMO(1, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
+
+                uint8_t redeem_res[data_len];
+                COPY_BUF(redeem_res, 0, data_ptr, 0, data_len);
 
                 // Redeem response should contain redeemResp and format should be binary.
                 BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_RESP, 1);
@@ -91,18 +94,35 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Redeem response memo format should be either binary or text/json."), 50);
 
                 // Check for state with key as redeemRef.
+                uint8_t hash_ptr[HASH_SIZE];
+                HEXSTR_TO_BYTES(hash_ptr, redeem_ref, sizeof(redeem_ref));
                 REDEEM_OP_KEY(hash_ptr);
 
-                uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
+                uint8_t redeem_op[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: No redeem state for the redeem response."), 1);
+
+                // Forward redeem to the user
+                if (is_format_binary)
+                    etxn_reserve(2);
+                else
+                    etxn_reserve(1);
+
+                uint8_t *useraddr_ptr = &redeem_op[39];
+
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_format_binary));
+
+                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_format_binary)];
+                PREPARE_PAYMENT_REDEEM_RESP(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_ref, sizeof(redeem_ref), redeem_res, sizeof(redeem_res), is_format_binary);
+
+                uint8_t emithash[HASH_SIZE];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting user txn failed"), 1);
+                trace(SBUF("emit user hash: "), SBUF(emithash), 1);
 
                 // Send hosting tokens to the host and clear the state only if there's no error.
                 if (is_format_binary)
                 {
-                    // Reserving one transaction.
-                    etxn_reserve(1);
-
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Prepare currency.
@@ -148,7 +168,7 @@ int64_t hook(int64_t reserved)
                 HEXSTR_TO_BYTES(tx_hash_bytes, data_ptr, data_len);
                 REDEEM_OP_KEY(tx_hash_bytes);
 
-                uint8_t data_arr[REDEEM_STATE_VAL_SIZE];
+                uint8_t data_arr[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
                 if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
                     rollback(SBUF("Evernode: No redeem for this tx hash."), 1);
 
@@ -369,13 +389,13 @@ int64_t hook(int64_t reserved)
                     uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
                     uint8_t *data_buf = &host_addr_buf[39];
                     uint8_t data_hex[140];
-                    BYTES_TO_HEXSTR(data_hex, data_buf, 70, 1);
+                    BYTES_TO_HEXSTRM(data_hex, data_buf, 70, 1);
                     PREPARE_AUDIT_CHECK(txn_out, amt_out, fee, account_field, data_hex, 140);
 
-                    uint8_t emithash[HASH_SIZE];
-                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                        rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    // uint8_t emithash[HASH_SIZE];
+                    // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    //     rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
+                    // trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Update the auditor state.
                     COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
@@ -762,7 +782,7 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Amount sent is less than the minimum registration fee."), 1);
 
                 // Prepare state value.
-                uint8_t redeem_op[REDEEM_STATE_VAL_SIZE];
+                uint8_t redeem_op[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
 
                 // Set the host token.
                 COPY_BUF(redeem_op, 0, amount_buffer, 20, 3)
@@ -781,10 +801,29 @@ int64_t hook(int64_t reserved)
                 INT64_TO_BUF(ledger_buf, ledger);
                 COPY_BUF(redeem_op, 31, ledger_buf, 0, 8);
 
+                // Set the user account.
+                COPY_BUF(redeem_op, 39, account_field, 0, 20);
+
                 // Set state key with transaction hash(id).
                 REDEEM_OP_KEY(txid);
                 if (state_set(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) < 0)
                     rollback(SBUF("Evernode: Could not set state for redeem_op."), 1);
+
+                // Forward redeem to the host
+                etxn_reserve(1);
+
+                uint8_t data[data_len];
+                COPY_BUF(data, 0, data_ptr, 0, data_len);
+
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(data)));
+
+                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(data))];
+                PREPARE_PAYMENT_REDEEM(txn_out, MIN_DROPS, fee, issuer_ptr, data, sizeof(data));
+
+                uint8_t emithash[HASH_SIZE];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 accept(SBUF("Redeem request successful."), 0);
             }
