@@ -229,11 +229,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                 \
     }
 
-#define ENCODE_TL_SENDMAX(buf_out, drops) \
-    ENCODE_TL(buf_out, drops, amSENDMAX);
-#define _06_09_ENCODE_TL_SENDMAX(buf_out, drops) \
-    ENCODE_TL_SENDMAX(buf_out, drops);
-
 /**************************************************************************/
 /**************************MEMO related MACROS*****************************/
 /**************************************************************************/
@@ -297,23 +292,113 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                  /* uint32  | size   1 */                                                                    \
     }
 
-// #define _0F_09_ENCODE_MEMOS_DUO(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data2_len) \
-//     {                                                                                                                                                                                \
-//         ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                              /* uint32  | size   1 */                                                                    \
-//         ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                              /* uint32  | size   1 */                                                                    \
-//         _07_XX_ENCODE_STI_VL_COMMON(buf_out, type1_ptr, type1_len, MEMO_TYPE, 20);       /* STI_VL  | size   type_len + 2*/                                                          \
-//         _07_XX_ENCODE_STI_VL_COMMON(buf_out, data1_ptr, data1_len, MEMO_DATA, 30);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/                                  \
-//         _07_XX_ENCODE_STI_VL_COMMON(buf_out, format1_ptr, format1_len, MEMO_FORMAT, 40); /* STI_VL  | size   format_len + 2 */                                                       \
-//         ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                 /* uint32  | size   1 */                                                                    \
-//         ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                              /* uint32  | size   1 */                                                                    \
-//         _07_XX_ENCODE_STI_VL_COMMON(buf_out, type2_ptr, type2_len, MEMO_TYPE, 50);       /* STI_VL  | size   type_len + 2*/                                                          \
-//         _07_XX_ENCODE_STI_VL_COMMON(buf_out, data2_ptr, data2_len, MEMO_DATA, 60);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/                                  \
-//         _07_XX_ENCODE_STI_VL_COMMON(buf_out, format2_ptr, format2_len, MEMO_FORMAT, 70); /* STI_VL  | size   format_len + 2*/                                                        \
-//         ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                 /* uint32  | size   1 */                                                                    \
-//         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                  /* uint32  | size   1 */                                                                    \
-//     }
+/////////// Macros to prepare a simple transaction with memos. ///////////
 
-/////////// Macros to prepare xrpl transactions. ///////////
+#define POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address) \
+    {                                                                                        \
+        uint8_t acc[20];                                                                     \
+        uint64_t drops_amount = (drops_amount_raw);                                          \
+        uint64_t drops_fee = (drops_fee_raw);                                                \
+        uint32_t cls = (uint32_t)ledger_seq();                                               \
+        hook_account(SBUF(acc));                                                             \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);              /* uint16  | size   3 */          \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);         /* uint32  | size   5 */          \
+        _02_03_ENCODE_TAG_SRC(buf_out, 0);                 /* uint32  | size   5 */          \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */          \
+        _02_14_ENCODE_TAG_DST(buf_out, 0);                 /* uint32  | size   5 */          \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */          \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */          \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */          \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);       /* amount  | size   9 */          \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);        /* pk      | size  35 */          \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);           /* account | size  22 */          \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);    /* account | size  22 */          \
+    }
+
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
+    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + 237 + 4)
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
+    {                                                                                                                                                        \
+        uint8_t *buf_out = buf_out_master;                                                                                                                   \
+        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                \
+        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                             \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                       \
+    }
+
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(type1_len, format1_len, data1_len, type2_len, format2_len, data2_len)                   \
+    ((type2_len + (type2_len <= 192 ? 2 : 3) + format2_len + (format2_len <= 192 ? 2 : 3) + data2_len + (data2_len <= 192 ? 2 : 3)) + \
+     (type1_len + (type1_len <= 192 ? 2 : 3) + format1_len + (format1_len <= 192 ? 2 : 3) + data1_len + (data1_len <= 192 ? 2 : 3)) + 237 + 6)
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len) \
+    {                                                                                                                                                                                                                     \
+        uint8_t *buf_out = buf_out_master;                                                                                                                                                                                \
+        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                                                                      \
+        _0F_09_ENCODE_MEMOS_DUO(buf_out, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len);                                                             \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                                                                                    \
+    }
+
+/////////// Macros to prepare a trustline transaction with memos. ///////////
+
+#define POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address) \
+    {                                                                                       \
+        uint8_t acc[20];                                                                    \
+        uint64_t drops_fee = (drops_fee_raw);                                               \
+        uint32_t cls = (uint32_t)ledger_seq();                                              \
+        char *empty = 0;                                                                    \
+        hook_account(SBUF(acc));                                                            \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);           /* uint16  | size   3 */            \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);      /* uint32  | size   5 */            \
+        _02_03_ENCODE_TAG_SRC(buf_out, 0);              /* uint32  | size   5 */            \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */            \
+        _02_14_ENCODE_TAG_DST(buf_out, 0);              /* uint32  | size   5 */            \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */            \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */            \
+        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);        /* amount  | size  48 */            \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */            \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */            \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */            \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */            \
+    }
+
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
+    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + 276 + 4)
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
+    {                                                                                                                                                       \
+        uint8_t *buf_out = buf_out_master;                                                                                                                  \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                                \
+        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                            \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                      \
+    }
+
+/////////// Macros to prepare a check with memos. ///////////
+
+#define POPULATE_SIMPLE_CHECK_COMMON(buf_out, tlamt, drops_fee_raw, to_address)  \
+    {                                                                            \
+        uint8_t acc[20];                                                         \
+        uint64_t drops_fee = (drops_fee_raw);                                    \
+        uint32_t cls = (uint32_t)ledger_seq();                                   \
+        hook_account(SBUF(acc));                                                 \
+        _01_02_ENCODE_TT(buf_out, ttCHECK_CREATE);      /* uint16  | size   3 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */ \
+        _06_09_ENCODE_TL_SENDMAX(buf_out, tlamt);       /* amount  | size  48 */ \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */ \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */ \
+    }
+
+#define PREPARE_SIMPLE_CHECK_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
+    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + 261 + 4)
+#define PREPARE_SIMPLE_CHECK_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
+    {                                                                                                                                           \
+        uint8_t *buf_out = buf_out_master;                                                                                                      \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                    \
+        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                          \
+    }
+
+/////////// Macro to prepare a trustline. ///////////
 
 #define PREPARE_SIMPLE_TRUSTLINE_SIZE 245
 #define PREPARE_SIMPLE_TRUSTLINE(buf_out_master, tlamt, drops_fee_raw)        \
@@ -334,173 +419,55 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);     /* account | size  22 */ \
         etxn_details((uint32_t)buf_out, 105);        /* emitdet | size 105 */ \
     }
-#define PREPARE_SIMPLE_CHECK_SIZE 262
-#define PREPARE_SIMPLE_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address)   \
-    {                                                                            \
-        uint8_t *buf_out = buf_out_master;                                       \
-        uint8_t acc[20];                                                         \
-        uint64_t drops_fee = (drops_fee_raw);                                    \
-        uint32_t cls = (uint32_t)ledger_seq();                                   \
-        hook_account(SBUF(acc));                                                 \
-        _01_02_ENCODE_TT(buf_out, ttCHECK_CREATE);      /* uint16  | size   3 */ \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */ \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */ \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */ \
-        _06_09_ENCODE_TL_SENDMAX(buf_out, tlamt);       /* amount  | size  48 */ \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */ \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */ \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */ \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */ \
-        etxn_details((uint32_t)buf_out, 105);           /* emitdet | size 105 */ \
-    }
 
-#define PREPARE_AUDIT_CHECK_SIZE 428 /* Data len is taken as 140 bytes. */
-#define PREPARE_AUDIT_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                           \
-    {                                                                                                                   \
-        uint8_t *buf_out = buf_out_master;                                                                              \
-        uint8_t acc[20];                                                                                                \
-        uint64_t drops_fee = (drops_fee_raw);                                                                           \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                          \
-        hook_account(SBUF(acc));                                                                                        \
-        _01_02_ENCODE_TT(buf_out, ttCHECK_CREATE);                                            /* uint16  | size   3 */  \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                                                   /* uint32  | size   5 */  \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);                                                  /* uint32  | size   6 */  \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);                                                  /* uint32  | size   6 */  \
-        _06_09_ENCODE_TL_SENDMAX(buf_out, tlamt);                                             /* amount  | size  48 */  \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);                                          /* amount  | size   9 */  \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                                           /* pk      | size  35 */  \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                              /* account | size  22 */  \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                                       /* account | size  22 */  \
-        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, AUDIT_REF, 11, FORMAT_BINARY, 6, data, data_len); /* memo    | size  167 */ \
-        etxn_details((uint32_t)buf_out, 105);                                                 /* emitdet | size 105 */  \
-    }
-
-#define PREPARE_PAYMENT_REFUND_SIZE 434
-#define PREPARE_PAYMENT_REFUND(buf_out_master, tlamt, drops_fee_raw, to_address, redeem_ptr, refund_ptr)               \
-    {                                                                                                                  \
-        uint8_t *buf_out = buf_out_master;                                                                             \
-        uint8_t acc[20];                                                                                               \
-        uint64_t drops_fee = (drops_fee_raw);                                                                          \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                         \
-        uint8_t memo_data[64];                                                                                         \
-        COPY_BUFM(memo_data, 0, redeem_ptr, 0, 32, 4);                                                                 \
-        COPY_BUFM(memo_data, 32, refund_ptr, 0, 32, 5);                                                                \
-        uint8_t hex_str[128];                                                                                          \
-        BYTES_TO_HEXSTRM(hex_str, memo_data, 64, 6);                                                                   \
-        hook_account(SBUF(acc));                                                                                       \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                                                 /* uint16  | size   3 */ \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);                                            /* uint32  | size   5 */ \
-        _02_03_ENCODE_TAG_SRC(buf_out, 0);                                                    /* uint32  | size   5 */ \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                                                   /* uint32  | size   5 */ \
-        _02_14_ENCODE_TAG_DST(buf_out, 0);                                                    /* uint32  | size   5 */ \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);                                                  /* uint32  | size   6 */ \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);                                                  /* uint32  | size   6 */ \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);                                              /* amount  | size  48 */ \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);                                          /* amount  | size   9 */ \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                                           /* pk      | size  35 */ \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                              /* account | size  22 */ \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                                       /* account | size  22 */ \
-        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, REFUND_RESP, 13, FORMAT_BINARY, 6, hex_str, 128); /* memo  | size 157 */   \
-        etxn_details((uint32_t)buf_out, 105);                                                 /* emitdet | size 105 */ \
-    }
-
-#define PREPARE_PAYMENT_REWARD_SIZE 304
-#define PREPARE_PAYMENT_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                  \
-    {                                                                                                             \
-        uint8_t *buf_out = buf_out_master;                                                                        \
-        uint8_t acc[20];                                                                                          \
-        uint64_t drops_fee = (drops_fee_raw);                                                                     \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                    \
-        char *empty = 0;                                                                                          \
-        hook_account(SBUF(acc));                                                                                  \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                                            /* uint16  | size   3 */ \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);                                       /* uint32  | size   5 */ \
-        _02_03_ENCODE_TAG_SRC(buf_out, 0);                                               /* uint32  | size   5 */ \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                                              /* uint32  | size   5 */ \
-        _02_14_ENCODE_TAG_DST(buf_out, 0);                                               /* uint32  | size   5 */ \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);                                             /* uint32  | size   6 */ \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);                                             /* uint32  | size   6 */ \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);                                         /* amount  | size  48 */ \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);                                     /* amount  | size   9 */ \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                                      /* pk      | size  35 */ \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                         /* account | size  22 */ \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                                  /* account | size  22 */ \
-        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, REWARD_REF, 12, FORMAT_BINARY, 6, empty, 0); /* memo    | size  28 */ \
-        etxn_details((uint32_t)buf_out, 105);                                            /* emitdet | size 105 */ \
-    }
-
-#define PREPARE_PAYMENT_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
-    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + 237 + 4)
-#define PREPARE_PAYMENT_TRUSTLINE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
-    {                                                                                                                                                           \
-        uint8_t *buf_out = buf_out_master;                                                                                                                      \
-        uint8_t acc[20];                                                                                                                                        \
-        uint64_t drops_amount = (drops_amount_raw);                                                                                                             \
-        uint64_t drops_fee = (drops_fee_raw);                                                                                                                   \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                                                                  \
-        hook_account(SBUF(acc));                                                                                                                                \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);              /* uint16  | size   3 */                                                                             \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);         /* uint32  | size   5 */                                                                             \
-        _02_03_ENCODE_TAG_SRC(buf_out, 0);                 /* uint32  | size   5 */                                                                             \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */                                                                             \
-        _02_14_ENCODE_TAG_DST(buf_out, 0);                 /* uint32  | size   5 */                                                                             \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */                                                                             \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */                                                                             \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */                                                                             \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);       /* amount  | size   9 */                                                                             \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);        /* pk      | size  35 */                                                                             \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);           /* account | size  22 */                                                                             \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);    /* account | size  22 */                                                                             \
-        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                                \
-        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                          \
-    }
-
-#define PREPARE_PAYMENT_TRUSTLINE_MEMOS_DUO_SIZE(type1_len, format1_len, data1_len, type2_len, format2_len, data2_len)                \
-    ((type2_len + (type2_len <= 192 ? 2 : 3) + format2_len + (format2_len <= 192 ? 2 : 3) + data2_len + (data2_len <= 192 ? 2 : 3)) + \
-     (type1_len + (type1_len <= 192 ? 2 : 3) + format1_len + (format1_len <= 192 ? 2 : 3) + data1_len + (data1_len <= 192 ? 2 : 3)) + 237 + 6)
-#define PREPARE_PAYMENT_TRUSTLINE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len) \
-    {                                                                                                                                                                                                                        \
-        uint8_t *buf_out = buf_out_master;                                                                                                                                                                                   \
-        uint8_t acc[20];                                                                                                                                                                                                     \
-        uint64_t drops_amount = (drops_amount_raw);                                                                                                                                                                          \
-        uint64_t drops_fee = (drops_fee_raw);                                                                                                                                                                                \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                                                                                                                               \
-        hook_account(SBUF(acc));                                                                                                                                                                                             \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);              /* uint16  | size   3 */                                                                                                                                          \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);         /* uint32  | size   5 */                                                                                                                                          \
-        _02_03_ENCODE_TAG_SRC(buf_out, 0);                 /* uint32  | size   5 */                                                                                                                                          \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */                                                                                                                                          \
-        _02_14_ENCODE_TAG_DST(buf_out, 0);                 /* uint32  | size   5 */                                                                                                                                          \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */                                                                                                                                          \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */                                                                                                                                          \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */                                                                                                                                          \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);       /* amount  | size   9 */                                                                                                                                          \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);        /* pk      | size  35 */                                                                                                                                          \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);           /* account | size  22 */                                                                                                                                          \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);    /* account | size  22 */                                                                                                                                          \
-        _0F_09_ENCODE_MEMOS_DUO(buf_out, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len);                                                                \
-        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                                                                                       \
-    }
+/////////// Macros to prepare evernode realated transactions. ///////////
 
 #define PREPARE_PAYMENT_REDEEM_SIZE(data_len) \
-    (PREPARE_PAYMENT_TRUSTLINE_MEMOS_SINGLE_SIZE(9, 6, data_len))
-#define PREPARE_PAYMENT_REDEEM(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, data, data_len)                                               \
-    {                                                                                                                                                     \
-        PREPARE_PAYMENT_TRUSTLINE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM, 9, FORMAT_BINARY, 6, data, data_len); \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(9, 6, data_len))
+#define PREPARE_PAYMENT_REDEEM(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, data, data_len)                                            \
+    {                                                                                                                                                  \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM, 9, FORMAT_BINARY, 6, data, data_len); \
     }
 
 #define PREPARE_PAYMENT_REDEEM_RESP_SIZE(redeem_ref_len, redeem_resp_len, is_success) \
-    (PREPARE_PAYMENT_TRUSTLINE_MEMOS_DUO_SIZE(12, 6, redeem_ref_len, 13, (is_success ? 6 : 9), redeem_resp_len))
-#define PREPARE_PAYMENT_REDEEM_RESP(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_ref_ptr, redeem_ref_len, redeem_resp_ptr, redeem_resp_len, is_success)                                                                       \
-    {                                                                                                                                                                                                                                                \
-        if (is_success)                                                                                                                                                                                                                              \
-        {                                                                                                                                                                                                                                            \
-            PREPARE_PAYMENT_TRUSTLINE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_RESP, 13, FORMAT_BINARY, 6, redeem_resp_ptr, redeem_resp_len); \
-        }                                                                                                                                                                                                                                            \
-        else                                                                                                                                                                                                                                         \
-        {                                                                                                                                                                                                                                            \
-            PREPARE_PAYMENT_TRUSTLINE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_RESP, 13, FORMAT_JSON, 9, redeem_resp_ptr, redeem_resp_len);   \
-        }                                                                                                                                                                                                                                            \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(12, 6, redeem_ref_len, 13, (is_success ? 6 : 9), redeem_resp_len))
+#define PREPARE_PAYMENT_REDEEM_RESP(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_ref_ptr, redeem_ref_len, redeem_resp_ptr, redeem_resp_len, is_success)                                                                    \
+    {                                                                                                                                                                                                                                             \
+        if (is_success)                                                                                                                                                                                                                           \
+        {                                                                                                                                                                                                                                         \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_RESP, 13, FORMAT_BINARY, 6, redeem_resp_ptr, redeem_resp_len); \
+        }                                                                                                                                                                                                                                         \
+        else                                                                                                                                                                                                                                      \
+        {                                                                                                                                                                                                                                         \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_RESP, 13, FORMAT_JSON, 9, redeem_resp_ptr, redeem_resp_len);   \
+        }                                                                                                                                                                                                                                         \
+    }
+
+#define PREPARE_PAYMENT_REWARD_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(12, 6, 0))
+#define PREPARE_PAYMENT_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                     \
+    {                                                                                                                                                \
+        char *empty = 0;                                                                                                                             \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REWARD_REF, 12, FORMAT_BINARY, 6, empty, 0); \
+    }
+
+#define PREPARE_PAYMENT_REFUND_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(13, 6, 128))
+#define PREPARE_PAYMENT_REFUND(buf_out_master, tlamt, drops_fee_raw, to_address, redeem_ptr, refund_ptr)                                                  \
+    {                                                                                                                                                     \
+        uint8_t memo_data[64];                                                                                                                            \
+        COPY_BUFM(memo_data, 0, redeem_ptr, 0, 32, 4);                                                                                                    \
+        COPY_BUFM(memo_data, 32, refund_ptr, 0, 32, 5);                                                                                                   \
+        uint8_t hex_str[128];                                                                                                                             \
+        BYTES_TO_HEXSTRM(hex_str, memo_data, 64, 6);                                                                                                      \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REFUND_RESP, 13, FORMAT_BINARY, 6, hex_str, 128); \
+    }
+
+#define PREPARE_AUDIT_CHECK_SIZE \
+    (PREPARE_SIMPLE_CHECK_MEMOS_SINGLE_SIZE(11, 6, 140)) /* Data len is taken as 140 bytes. */
+#define PREPARE_AUDIT_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                                                 \
+    {                                                                                                                                         \
+        PREPARE_SIMPLE_CHECK_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, AUDIT_REF, 11, FORMAT_BINARY, 6, data, data_len); \
     }
 
 #endif

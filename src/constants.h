@@ -19,7 +19,6 @@
 
 #define EVR_TOKEN "EVR"
 
-#define ttCHECK_CREATE 16
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
