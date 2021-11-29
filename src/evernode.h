@@ -219,16 +219,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                 \
     }
 
-#define BYTES_TO_HEXSTR(hexstr_ptr, byte_ptr, byte_len)                                                   \
-    {                                                                                                     \
-        char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'}; \
-        for (int i = 0; GUARD(byte_len), i < byte_len; i++)                                               \
-        {                                                                                                 \
-            hexstr_ptr[2 * i] = hexmap[(byte_ptr[i] & 0xF0) >> 4];                                        \
-            hexstr_ptr[2 * i + 1] = hexmap[byte_ptr[i] & 0x0F];                                           \
-        }                                                                                                 \
-    }
-
 /**************************************************************************/
 /**************************MEMO related MACROS*****************************/
 /**************************************************************************/
@@ -241,25 +231,25 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         buf_out += ENCODE_FIELDS_SIZE;      \
     }
 
-#define ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n) \
-    {                                                           \
-        uint8_t *ptr = (uint8_t *)&data;                        \
-        uint8_t uf = field;                                     \
-        buf_out[0] = 0x70U + (uf & 0x0FU);                      \
-        if (data_len <= 192)                                    \
-        {                                                       \
-            buf_out[1] = data_len;                              \
-            COPY_BUFM(buf_out, 2, ptr, 0, data_len, n);         \
-            buf_out += (2 + data_len);                          \
-        }                                                       \
-        else                                                    \
-        {                                                       \
-            buf_out[0] = 0x70U + (uf & 0x0FU);                  \
-            buf_out[1] = ((data_len - 193) / 256) + 193;        \
-            buf_out[2] = data_len - buf_out[1];                 \
-            COPY_BUFM(buf_out, 3, ptr, 0, data_len, n);         \
-            buf_out += (3 + data_len);                          \
-        }                                                       \
+#define ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n)                   \
+    {                                                                             \
+        uint8_t *ptr = (uint8_t *)&data;                                          \
+        uint8_t uf = field;                                                       \
+        buf_out[0] = 0x70U + (uf & 0x0FU);                                        \
+        if (data_len <= 192) /*Data legth is represented with 2 bytes if (>192)*/ \
+        {                                                                         \
+            buf_out[1] = data_len;                                                \
+            COPY_BUFM(buf_out, 2, ptr, 0, data_len, n);                           \
+            buf_out += (2 + data_len);                                            \
+        }                                                                         \
+        else                                                                      \
+        {                                                                         \
+            buf_out[0] = 0x70U + (uf & 0x0FU);                                    \
+            buf_out[1] = ((data_len - 193) / 256) + 193;                          \
+            buf_out[2] = data_len - buf_out[1];                                   \
+            COPY_BUFM(buf_out, 3, ptr, 0, data_len, n);                           \
+            buf_out += (3 + data_len);                                            \
+        }                                                                         \
     }
 
 #define _07_XX_ENCODE_STI_VL_COMMON(buf_out, data, data_len, field, n) \

@@ -102,12 +102,13 @@ int64_t hook(int64_t reserved)
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: No redeem state for the redeem response."), 1);
 
-                // Forward redeem to the user
+                // If redeem succeed we have to prepare two transactions.
                 if (is_format_binary)
                     etxn_reserve(2);
                 else
                     etxn_reserve(1);
 
+                // Forward redeem to the user
                 uint8_t *useraddr_ptr = &redeem_op[39];
 
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_format_binary));
@@ -800,7 +801,7 @@ int64_t hook(int64_t reserved)
                 INT64_TO_BUF(ledger_buf, ledger);
                 COPY_BUF(redeem_op, 31, ledger_buf, 0, 8);
 
-                // Set the user account.
+                // Set the user address.
                 COPY_BUF(redeem_op, 39, account_field, 0, 20);
 
                 // Set state key with transaction hash(id).
