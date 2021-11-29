@@ -331,7 +331,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len) \
     {                                                                                                                                                                                                                     \
         uint8_t *buf_out = buf_out_master;                                                                                                                                                                                \
-        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                                                                      \
+        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                                                                             \
         _0F_09_ENCODE_MEMOS_DUO(buf_out, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len);                                                             \
         etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                                                                                    \
     }
@@ -393,7 +393,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define PREPARE_SIMPLE_CHECK_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
     {                                                                                                                                           \
         uint8_t *buf_out = buf_out_master;                                                                                                      \
-        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                    \
+        POPULATE_SIMPLE_CHECK_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                                \
         _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                \
         etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                          \
     }
@@ -444,7 +444,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 #define PREPARE_PAYMENT_REWARD_SIZE \
-    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(12, 6, 0))
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(12, 6, 0))
 #define PREPARE_PAYMENT_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                     \
     {                                                                                                                                                \
         char *empty = 0;                                                                                                                             \
@@ -464,7 +464,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 #define PREPARE_AUDIT_CHECK_SIZE \
-    (PREPARE_SIMPLE_CHECK_MEMOS_SINGLE_SIZE(11, 6, 140)) /* Data len is taken as 140 bytes. */
+    (PREPARE_SIMPLE_CHECK_MEMOS_SINGLE_SIZE(11, 6, 70)) /* Data len is taken as 70 bytes. */
 #define PREPARE_AUDIT_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                                                 \
     {                                                                                                                                         \
         PREPARE_SIMPLE_CHECK_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, AUDIT_REF, 11, FORMAT_BINARY, 6, data, data_len); \
