@@ -420,53 +420,53 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 #define PREPARE_PAYMENT_REDEEM_RESP_SIZE(redeem_ref_len, redeem_resp_len, is_success) \
-    (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(12, 6, redeem_ref_len, 13, (is_success ? 6 : 9), redeem_resp_len))
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(12, 6, redeem_ref_len, (is_success ? 15 : 14), (is_success ? 6 : 9), redeem_resp_len))
 #define PREPARE_PAYMENT_REDEEM_RESP(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_ref_ptr, redeem_ref_len, redeem_resp_ptr, redeem_resp_len, is_success)                                                                       \
     {                                                                                                                                                                                                                                                \
         if (is_success)                                                                                                                                                                                                                              \
         {                                                                                                                                                                                                                                            \
-            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_SUCCESS, 13, FORMAT_BINARY, 6, redeem_resp_ptr, redeem_resp_len); \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_SUCCESS, 15, FORMAT_BINARY, 6, redeem_resp_ptr, redeem_resp_len); \
         }                                                                                                                                                                                                                                            \
         else                                                                                                                                                                                                                                         \
         {                                                                                                                                                                                                                                            \
-            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_ERROR, 13, FORMAT_JSON, 9, redeem_resp_ptr, redeem_resp_len);     \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_REF, 12, FORMAT_BINARY, 6, redeem_ref_ptr, redeem_ref_len, REDEEM_ERROR, 14, FORMAT_JSON, 9, redeem_resp_ptr, redeem_resp_len);     \
         }                                                                                                                                                                                                                                            \
     }
 
 #define PREPARE_PAYMENT_REWARD_SIZE \
-    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(12, 6, 0))
-#define PREPARE_PAYMENT_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                     \
-    {                                                                                                                                                \
-        char *empty = 0;                                                                                                                             \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REWARD_REF, 12, FORMAT_BINARY, 6, empty, 0); \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(9, 6, 0))
+#define PREPARE_PAYMENT_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                \
+    {                                                                                                                                           \
+        char *empty = 0;                                                                                                                        \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REWARD, 9, FORMAT_BINARY, 6, empty, 0); \
     }
 
-#define PREPARE_PAYMENT_REFUND_SIZE(is_success) \
-    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(13, 6, (is_success ? 128 : 64)))
-#define PREPARE_PAYMENT_REFUND(buf_out_master, tlamt, drops_fee_raw, to_address, refund_ptr, redeem_ptr, is_success)                                          \
-    {                                                                                                                                                         \
-        if (is_success)                                                                                                                                       \
-        {                                                                                                                                                     \
-            uint8_t memo_data[64];                                                                                                                            \
-            COPY_BUFM(memo_data, 32, refund_ptr, 0, 32, 5);                                                                                                   \
-            COPY_BUFM(memo_data, 0, redeem_ptr, 0, 32, 4);                                                                                                    \
-            uint8_t hex_str[128];                                                                                                                             \
-            BYTES_TO_HEXSTRM(hex_str, memo_data, 64, 6);                                                                                                      \
-            PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REFUND_RESP, 13, FORMAT_BINARY, 6, hex_str, 128); \
-        }                                                                                                                                                     \
-        else                                                                                                                                                  \
-        {                                                                                                                                                     \
-            uint8_t hex_str[64];                                                                                                                              \
-            BYTES_TO_HEXSTRM(hex_str, refund_ptr, 32, 5);                                                                                                     \
-            PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REFUND_RESP, 13, FORMAT_BINARY, 6, hex_str, 64);  \
-        }                                                                                                                                                     \
+#define PREPARE_PAYMENT_REFUND_SUCCESS_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(16, 6, 128))
+#define PREPARE_PAYMENT_REFUND_SUCCESS(buf_out_master, tlamt, drops_fee_raw, to_address, refund_ptr, redeem_ptr)                                             \
+    {                                                                                                                                                        \
+        uint8_t memo_data[64];                                                                                                                               \
+        COPY_BUFM(memo_data, 0, refund_ptr, 0, 32, 4);                                                                                                      \
+        COPY_BUFM(memo_data, 32, redeem_ptr, 0, 32, 5);                                                                                                       \
+        uint8_t hex_str[128];                                                                                                                                \
+        BYTES_TO_HEXSTRM(hex_str, memo_data, 64, 6);                                                                                                         \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REFUND_SUCCESS, 16, FORMAT_BINARY, 6, hex_str, 128); \
+    }
+
+#define PREPARE_PAYMENT_REFUND_ERROR_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(14, 6, 64))
+#define PREPARE_PAYMENT_REFUND_ERROR(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, refund_ptr)                                              \
+    {                                                                                                                                                      \
+        uint8_t hex_str[64];                                                                                                                               \
+        BYTES_TO_HEXSTRM(hex_str, refund_ptr, 32, 4);                                                                                                      \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REFUND_ERROR, 14, FORMAT_BINARY, 6, hex_str, 64); \
     }
 
 #define PREPARE_AUDIT_CHECK_SIZE \
-    (PREPARE_SIMPLE_CHECK_MEMOS_SINGLE_SIZE(11, 6, 70)) /* Data len is taken as 70 bytes. */
-#define PREPARE_AUDIT_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                                                 \
-    {                                                                                                                                         \
-        PREPARE_SIMPLE_CHECK_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, AUDIT_REF, 11, FORMAT_BINARY, 6, data, data_len); \
+    (PREPARE_SIMPLE_CHECK_MEMOS_SINGLE_SIZE(18, 6, 70)) /* Data len is taken as 70 bytes. */
+#define PREPARE_AUDIT_CHECK(buf_out_master, tlamt, drops_fee_raw, to_address, data, data_len)                                                        \
+    {                                                                                                                                                \
+        PREPARE_SIMPLE_CHECK_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, AUDIT_ASSIGNMENT, 18, FORMAT_BINARY, 6, data, data_len); \
     }
 
 #endif

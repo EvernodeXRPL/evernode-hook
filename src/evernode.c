@@ -86,7 +86,19 @@ int64_t hook(int64_t reserved)
                 if (!is_redeem_suc)
                     BUFFER_EQUAL_STR_GUARD(is_redeem_err, type_ptr, type_len, REDEEM_ERROR, 1);
 
-                if (!(is_redeem_suc || is_redeem_err))
+                if (is_redeem_suc)
+                {
+                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_BINARY, 1);
+                    if (!is_redeem_suc)
+                        rollback(SBUF("Evernode: Redeem success memo format should be binary."), 50);
+                }
+                else if (is_redeem_err)
+                {
+                    BUFFER_EQUAL_STR_GUARD(is_redeem_err, format_ptr, format_len, FORMAT_JSON, 1);
+                    if (!is_redeem_err)
+                        rollback(SBUF("Evernode: Redeem error memo format should be text/json."), 50);
+                }
+                else
                     rollback(SBUF("Evernode: Redeem response does not have instance info."), 1);
 
                 // Check for state with key as redeemRef.
@@ -98,18 +110,7 @@ int64_t hook(int64_t reserved)
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: No redeem state for the redeem response."), 1);
 
-                if (is_redeem_suc)
-                {
-                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_BINARY, 1);
-                    if (!is_redeem_suc)
-                        rollback(SBUF("Evernode: Redeem success memo format should be binary."), 50);                    
-                }
-                else
-                {
-                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_JSON, 1);
-                    if (!is_redeem_err)
-                        rollback(SBUF("Evernode: Redeem error memo format should be text/json."), 50);                    
-                }
+                uint8_t *useraddr_ptr = &redeem_op[39];
 
                 // If redeem succeed we have to prepare two transactions.
                 if (is_redeem_suc)
@@ -117,9 +118,7 @@ int64_t hook(int64_t reserved)
                 else
                     etxn_reserve(1);
 
-                // Forward redeem to the user
-                uint8_t *useraddr_ptr = &redeem_op[39];
-
+                // Forward redeem res to the user
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_redeem_suc));
 
                 uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_redeem_suc)];
@@ -178,70 +177,83 @@ int64_t hook(int64_t reserved)
                 HEXSTR_TO_BYTES(tx_hash_bytes, data_ptr, data_len);
                 REDEEM_OP_KEY(tx_hash_bytes);
 
-                uint8_t data_arr[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
-                if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
-                {
-                    rollback(SBUF("Evernode: No redeem for this tx hash."), 1);
-
-                }
-                else
-                {
-                // Take the redeem window from the config.
-                uint16_t conf_redeem_window;
-                GET_CONF_VALUE(conf_redeem_window, DEF_REDEEM_WINDOW, CONF_REDEEM_WINDOW, "Evernode: Could not set default state for redeem window.");
-                TRACEVAR(conf_redeem_window);
-
-                uint8_t *ptr = &data_arr[31];
-                int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
-                if (ledger_seq_def < conf_redeem_window)
-                    rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
-                }
-
-
-                // Setup the outgoing txn.
-                // Reserving one transaction.
-                etxn_reserve(1);
-                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REFUND_SIZE);
-
-                uint8_t *issuer_ptr = &data_arr[11];
-                uint8_t *amount_ptr = &data_arr[3];
-                int64_t token_amount = INT64_FROM_BUF(amount_ptr);
-
-                uint8_t amt_out[AMOUNT_BUF_SIZE];
-                SET_AMOUNT_OUT(amt_out, data_arr, issuer_ptr, token_amount);
-
                 // Get transaction hash(id).
                 uint8_t txid[HASH_SIZE];
                 int32_t txid_len = otxn_id(SBUF(txid), 0);
                 if (txid_len < HASH_SIZE)
                     rollback(SBUF("Evernode: transaction id missing!!!"), 1);
 
-                // Finally create the outgoing txn.
-                uint8_t txn_out[PREPARE_PAYMENT_REFUND_SIZE];
-                PREPARE_PAYMENT_REFUND(txn_out, amt_out, fee, account_field, tx_hash_bytes, txid);
+                uint8_t data_arr[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
+                if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
+                {
+                    // Setup the outgoing txn.
+                    // Reserving one transaction.
+                    etxn_reserve(1);
+                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REFUND_ERROR_SIZE);
 
-                uint8_t emithash[HASH_SIZE];
-                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    rollback(SBUF("Evernode: Emitting refund transaction failed."), 1);
+                    // Finally create the outgoing txn.
+                    uint8_t txn_out[PREPARE_PAYMENT_REFUND_ERROR_SIZE];
+                    PREPARE_PAYMENT_REFUND_ERROR(txn_out, MIN_DROPS, fee, account_field, txid);
 
-                trace(SBUF("refund tx hash: "), SBUF(emithash), 1);
+                    uint8_t emithash[HASH_SIZE];
+                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        rollback(SBUF("Evernode: Emitting refund transaction failed."), 1);
 
-                // Delete state entry after refund.
-                if (state_set(0, 0, SBUF(STP_REDEEM_OP)) < 0)
-                    rollback(SBUF("Evernode: Could not delete state entry after refund."), 1);
+                    trace(SBUF("refund error tx hash: "), SBUF(emithash), 1);
 
-                accept(SBUF("Evernode: Refund operation successful."), 0);
+                    accept(SBUF("Evernode: No redeem for this tx hash."), 1);
+                }
+                else
+                {
+                    // Take the redeem window from the config.
+                    uint16_t conf_redeem_window;
+                    GET_CONF_VALUE(conf_redeem_window, DEF_REDEEM_WINDOW, CONF_REDEEM_WINDOW, "Evernode: Could not set default state for redeem window.");
+                    TRACEVAR(conf_redeem_window);
+
+                    uint8_t *ptr = &data_arr[31];
+                    int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
+                    if (ledger_seq_def < conf_redeem_window)
+                        rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
+
+                    uint8_t *issuer_ptr = &data_arr[11];
+                    uint8_t *amount_ptr = &data_arr[3];
+                    int64_t token_amount = INT64_FROM_BUF(amount_ptr);
+
+                    uint8_t amt_out[AMOUNT_BUF_SIZE];
+                    SET_AMOUNT_OUT(amt_out, data_arr, issuer_ptr, token_amount);
+
+                    // Setup the outgoing txn.
+                    // Reserving one transaction.
+                    etxn_reserve(1);
+                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REFUND_SUCCESS_SIZE);
+
+                    // Finally create the outgoing txn.
+                    uint8_t txn_out[PREPARE_PAYMENT_REFUND_SUCCESS_SIZE];
+                    PREPARE_PAYMENT_REFUND_SUCCESS(txn_out, amt_out, fee, account_field, txid, tx_hash_bytes);
+
+                    uint8_t emithash[HASH_SIZE];
+                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        rollback(SBUF("Evernode: Emitting refund transaction failed."), 1);
+
+                    trace(SBUF("refund tx hash: "), SBUF(emithash), 1);
+
+                    // Delete state entry after refund.
+                    if (state_set(0, 0, SBUF(STP_REDEEM_OP)) < 0)
+                        rollback(SBUF("Evernode: Could not delete state entry after refund."), 1);
+
+                    accept(SBUF("Evernode: Refund operation successful."), 0);
+                }
             }
 
             // Audit request.
             int is_audit_req = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_req, type_ptr, type_len, AUDIT_REQ, 1);
+            BUFFER_EQUAL_STR_GUARD(is_audit_req, type_ptr, type_len, AUDIT, 1);
 
             // Audit success response.
-            int is_audit_resp = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_resp, type_ptr, type_len, AUDIT_SUCCESS, 1);
+            int is_audit_suc = 0;
+            BUFFER_EQUAL_STR_GUARD(is_audit_suc, type_ptr, type_len, AUDIT_SUCCESS, 1);
 
-            if (is_audit_req || is_audit_resp)
+            if (is_audit_req || is_audit_suc)
             {
                 // Common checks for both audit request and audit suceess response.
 
@@ -407,10 +419,10 @@ int64_t hook(int64_t reserved)
                     COPY_BUF(audit_data, 0, host_addr_buf, 39, 70)
                     PREPARE_AUDIT_CHECK(txn_out, amt_out, fee, account_field, audit_data, sizeof(audit_data));
 
-                    uint8_t emithash[HASH_SIZE];
-                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                        rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    // uint8_t emithash[HASH_SIZE];
+                    // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    //     rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
+                    // trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Update the auditor state.
                     COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
@@ -425,7 +437,7 @@ int64_t hook(int64_t reserved)
 
                     accept(SBUF("Evernode: Audit request successful."), 0);
                 }
-                else if (is_audit_resp) // Audit success response.
+                else if (is_audit_suc) // Audit success response.
                 {
                     // If auditor assigned moment idx is not equal to currect moment start idx.
                     // No host is assigned to audit for this momen.
