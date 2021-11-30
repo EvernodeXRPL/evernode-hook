@@ -80,18 +80,14 @@ int64_t hook(int64_t reserved)
                 uint8_t redeem_res[data_len];
                 COPY_BUF(redeem_res, 0, data_ptr, 0, data_len);
 
-                // Redeem response should contain redeemResp and format should be binary.
-                BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_RESP, 1);
-                if (!is_redeem_res)
+                // Redeem response should contain evnRedeemSuccess or evnRedeemError and format should be binary.
+                int is_redeem_suc = 0, is_redeem_err = 0;
+                BUFFER_EQUAL_STR_GUARD(is_redeem_suc, type_ptr, type_len, REDEEM_SUCCESS, 1);
+                if (!is_redeem_suc)
+                    BUFFER_EQUAL_STR_GUARD(is_redeem_err, type_ptr, type_len, REDEEM_ERROR, 1);
+
+                if (!(is_redeem_suc || is_redeem_err))
                     rollback(SBUF("Evernode: Redeem response does not have instance info."), 1);
-
-                int is_format_binary = 0, is_format_json = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_binary, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_binary)
-                    BUFFER_EQUAL_STR_GUARD(is_format_json, format_ptr, format_len, FORMAT_JSON, 1);
-
-                if (!(is_format_binary || is_format_json))
-                    rollback(SBUF("Evernode: Redeem response memo format should be either binary or text/json."), 50);
 
                 // Check for state with key as redeemRef.
                 uint8_t hash_ptr[HASH_SIZE];
@@ -102,8 +98,21 @@ int64_t hook(int64_t reserved)
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: No redeem state for the redeem response."), 1);
 
+                if (is_redeem_suc)
+                {
+                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_BINARY, 1);
+                    if (!is_redeem_suc)
+                        rollback(SBUF("Evernode: Redeem success memo format should be binary."), 50);                    
+                }
+                else
+                {
+                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_JSON, 1);
+                    if (!is_redeem_err)
+                        rollback(SBUF("Evernode: Redeem error memo format should be text/json."), 50);                    
+                }
+
                 // If redeem succeed we have to prepare two transactions.
-                if (is_format_binary)
+                if (is_redeem_suc)
                     etxn_reserve(2);
                 else
                     etxn_reserve(1);
@@ -111,10 +120,10 @@ int64_t hook(int64_t reserved)
                 // Forward redeem to the user
                 uint8_t *useraddr_ptr = &redeem_op[39];
 
-                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_format_binary));
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_redeem_suc));
 
-                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_format_binary)];
-                PREPARE_PAYMENT_REDEEM_RESP(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_ref, sizeof(redeem_ref), redeem_res, sizeof(redeem_res), is_format_binary);
+                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_redeem_suc)];
+                PREPARE_PAYMENT_REDEEM_RESP(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_ref, sizeof(redeem_ref), redeem_res, sizeof(redeem_res), is_redeem_suc);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -122,7 +131,7 @@ int64_t hook(int64_t reserved)
                 trace(SBUF("emit user hash: "), SBUF(emithash), 1);
 
                 // Send hosting tokens to the host and clear the state only if there's no error.
-                if (is_format_binary)
+                if (is_redeem_suc)
                 {
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
@@ -171,8 +180,12 @@ int64_t hook(int64_t reserved)
 
                 uint8_t data_arr[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
                 if (state(SBUF(data_arr), SBUF(STP_REDEEM_OP)) < 0)
+                {
                     rollback(SBUF("Evernode: No redeem for this tx hash."), 1);
 
+                }
+                else
+                {
                 // Take the redeem window from the config.
                 uint16_t conf_redeem_window;
                 GET_CONF_VALUE(conf_redeem_window, DEF_REDEEM_WINDOW, CONF_REDEEM_WINDOW, "Evernode: Could not set default state for redeem window.");
@@ -182,6 +195,8 @@ int64_t hook(int64_t reserved)
                 int64_t ledger_seq_def = ledger_seq() - INT64_FROM_BUF(ptr);
                 if (ledger_seq_def < conf_redeem_window)
                     rollback(SBUF("Evernode: Redeeming window is not yet passed. Rejected."), 1);
+                }
+
 
                 // Setup the outgoing txn.
                 // Reserving one transaction.
