@@ -4,6 +4,7 @@
 #define HOST_REG "evnHostReg"
 #define HOST_DE_REG "evnHostDereg"
 #define REDEEM "evnRedeem"
+#define REDEEM_ORIGIN "evnRedeemOrigin"
 #define REDEEM_REF "evnRedeemRef"
 #define REDEEM_SUCCESS "evnRedeemSuccess"
 #define REDEEM_ERROR "evnRedeemError"
@@ -50,6 +51,7 @@ const uint32_t HOST_AUDIT_INFO_OFFSET = 109;
 const uint32_t INSTANCE_INFO_OFFSET = 39;
 const uint32_t INSTANCE_SIZE_LEN = 60;
 const uint32_t LOCATION_LEN = 10;
+const uint32_t REDEEM_ORIGIN_DATA_LEN = 31;
 
 const uint64_t MIN_DROPS = 1;
 

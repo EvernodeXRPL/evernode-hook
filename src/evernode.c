@@ -827,13 +827,21 @@ int64_t hook(int64_t reserved)
                 // Forward redeem to the host
                 etxn_reserve(1);
 
-                uint8_t data[data_len];
-                COPY_BUF(data, 0, data_ptr, 0, data_len);
+                uint8_t origin_data[REDEEM_ORIGIN_DATA_LEN];
+                // Set the user address.
+                COPY_BUF(origin_data, 0, account_field, 0, 20);
+                // Set the amount.
+                COPY_BUF(origin_data, 20, amount_buf, 0, 8);
+                // Set the host token.
+                COPY_BUF(origin_data, 28, amount_buffer, 20, 3);
 
-                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(data)));
+                uint8_t redeem_data[data_len];
+                COPY_BUF(redeem_data, 0, data_ptr, 0, data_len);
 
-                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(data))];
-                PREPARE_PAYMENT_REDEEM(txn_out, MIN_DROPS, fee, issuer_ptr, data, sizeof(data));
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(origin_data), sizeof(redeem_data)));
+
+                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(origin_data), sizeof(redeem_data))];
+                PREPARE_PAYMENT_REDEEM(txn_out, MIN_DROPS, fee, issuer_ptr, origin_data, sizeof(origin_data), redeem_data, sizeof(redeem_data));
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)

@@ -412,11 +412,11 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 /////////// Macros to prepare evernode realated transactions. ///////////
 
-#define PREPARE_PAYMENT_REDEEM_SIZE(data_len) \
-    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(9, 6, data_len))
-#define PREPARE_PAYMENT_REDEEM(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, data, data_len)                                            \
-    {                                                                                                                                                  \
-        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM, 9, FORMAT_BINARY, 6, data, data_len); \
+#define PREPARE_PAYMENT_REDEEM_SIZE(origin_data_len, redeem_data_len) \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(15, 6, origin_data_len, 9, 6, redeem_data_len))
+#define PREPARE_PAYMENT_REDEEM(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, origin_data, origin_data_len, redeem_data, redeem_data_len)                                                                              \
+    {                                                                                                                                                                                                                                \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_ORIGIN, 15, FORMAT_BINARY, 6, origin_data, origin_data_len, REDEEM, 9, FORMAT_BINARY, 6, redeem_data, redeem_data_len); \
     }
 
 #define PREPARE_PAYMENT_REDEEM_RESP_SIZE(redeem_ref_len, redeem_resp_len, is_success) \
