@@ -246,7 +246,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         {                                                                         \
             buf_out[0] = 0x70U + (uf & 0x0FU);                                    \
             buf_out[1] = ((data_len - 193) / 256) + 193;                          \
-            buf_out[2] = data_len - buf_out[1];                                   \
+            buf_out[2] = data_len - (((buf_out[1] - 193) * 256) + 193);           \
             COPY_BUFM(buf_out, 3, ptr, 0, data_len, n);                           \
             buf_out += (3 + data_len);                                            \
         }                                                                         \
