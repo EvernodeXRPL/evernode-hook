@@ -59,13 +59,11 @@ int64_t hook(int64_t reserved)
 
         if (is_xrp)
         {
-            // Redeem success.
-            int is_redeem_suc = 0;
+            // Redeem responses.
+            int is_redeem_suc = 0, is_redeem_err = 0;
             BUFFER_EQUAL_STR_GUARD(is_redeem_suc, type_ptr, type_len, REDEEM_SUCCESS, 1);
-
-            // Redeem error.
-            int is_redeem_err = 0;
-            BUFFER_EQUAL_STR_GUARD(is_redeem_err, type_ptr, type_len, REDEEM_ERROR, 1);
+            if (!is_redeem_suc)
+                BUFFER_EQUAL_STR_GUARD(is_redeem_err, type_ptr, type_len, REDEEM_ERROR, 1);
 
             if (is_redeem_suc || is_redeem_err)
             {
@@ -241,13 +239,11 @@ int64_t hook(int64_t reserved)
                 }
             }
 
-            // Audit request.
-            int is_audit_req = 0;
+            // Audit request or Audit success response.
+            int is_audit_req = 0, is_audit_suc = 0;
             BUFFER_EQUAL_STR_GUARD(is_audit_req, type_ptr, type_len, AUDIT, 1);
-
-            // Audit success response.
-            int is_audit_suc = 0;
-            BUFFER_EQUAL_STR_GUARD(is_audit_suc, type_ptr, type_len, AUDIT_SUCCESS, 1);
+            if (!is_audit_req)
+                BUFFER_EQUAL_STR_GUARD(is_audit_suc, type_ptr, type_len, AUDIT_SUCCESS, 1);
 
             if (is_audit_req || is_audit_suc)
             {
