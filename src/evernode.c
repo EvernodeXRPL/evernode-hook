@@ -419,10 +419,10 @@ int64_t hook(int64_t reserved)
                     COPY_BUF(audit_data, 0, host_addr_buf, 39, 70)
                     PREPARE_AUDIT_CHECK(txn_out, amt_out, fee, account_field, audit_data, sizeof(audit_data));
 
-                    // uint8_t emithash[HASH_SIZE];
-                    // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    //     rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                    // trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    uint8_t emithash[HASH_SIZE];
+                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Update the auditor state.
                     COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
