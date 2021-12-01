@@ -16,7 +16,8 @@
 #define AUDIT_SUCCESS "evnAuditSuccess"
 #define REWARD "evnReward"
 
-#define FORMAT_BINARY "binary"
+#define FORMAT_HEX "hex"
+#define FORMAT_BASE64 "base64"
 #define FORMAT_TEXT "text/plain"
 #define FORMAT_JSON "text/json"
 
@@ -54,5 +55,6 @@ const uint32_t LOCATION_LEN = 10;
 const uint32_t REDEEM_ORIGIN_DATA_LEN = 31;
 
 const uint64_t MIN_DROPS = 1;
+const char *empty_ptr = 0;
 
 #endif

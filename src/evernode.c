@@ -59,52 +59,48 @@ int64_t hook(int64_t reserved)
 
         if (is_xrp)
         {
-            // Redeem response.
-            int is_redeem_res = 0;
-            BUFFER_EQUAL_STR_GUARD(is_redeem_res, type_ptr, type_len, REDEEM_REF, 1);
-            if (is_redeem_res)
+            // Redeem success.
+            int is_redeem_suc = 0;
+            BUFFER_EQUAL_STR_GUARD(is_redeem_suc, type_ptr, type_len, REDEEM_SUCCESS, 1);
+
+            // Redeem error.
+            int is_redeem_err = 0;
+            BUFFER_EQUAL_STR_GUARD(is_redeem_err, type_ptr, type_len, REDEEM_ERROR, 1);
+
+            if (is_redeem_suc || is_redeem_err)
             {
-                BUFFER_EQUAL_STR_GUARD(is_redeem_res, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_redeem_res)
-                    rollback(SBUF("Evernode: Redeem reference memo format should be binary."), 50);
-
-                if (data_len != 64)
-                    rollback(SBUF("Evernode: Invalid redeem reference."), 1);
-
-                uint8_t redeem_ref[data_len];
-                COPY_BUF(redeem_ref, 0, data_ptr, 0, data_len);
-
-                // Redeem response has 2 memos, so check for the type in second memo.
-                GET_MEMO(1, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
-
-                uint8_t redeem_res[data_len];
-                COPY_BUF(redeem_res, 0, data_ptr, 0, data_len);
-
-                // Redeem response should contain evnRedeemSuccess or evnRedeemError and format should be binary.
-                int is_redeem_suc = 0, is_redeem_err = 0;
-                BUFFER_EQUAL_STR_GUARD(is_redeem_suc, type_ptr, type_len, REDEEM_SUCCESS, 1);
-                if (!is_redeem_suc)
-                    BUFFER_EQUAL_STR_GUARD(is_redeem_err, type_ptr, type_len, REDEEM_ERROR, 1);
-
                 if (is_redeem_suc)
                 {
-                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_BINARY, 1);
+                    BUFFER_EQUAL_STR_GUARD(is_redeem_suc, format_ptr, format_len, FORMAT_BASE64, 1);
                     if (!is_redeem_suc)
-                        rollback(SBUF("Evernode: Redeem success memo format should be binary."), 50);
+                        rollback(SBUF("Evernode: Redeem success memo format should be base64."), 50);
                 }
-                else if (is_redeem_err)
+                else
                 {
                     BUFFER_EQUAL_STR_GUARD(is_redeem_err, format_ptr, format_len, FORMAT_JSON, 1);
                     if (!is_redeem_err)
                         rollback(SBUF("Evernode: Redeem error memo format should be text/json."), 50);
                 }
-                else
-                    rollback(SBUF("Evernode: Redeem response does not have instance info."), 1);
 
-                // Check for state with key as redeemRef.
-                uint8_t hash_ptr[HASH_SIZE];
-                HEXSTR_TO_BYTES(hash_ptr, redeem_ref, sizeof(redeem_ref));
-                REDEEM_OP_KEY(hash_ptr);
+                uint8_t redeem_res[data_len];
+                COPY_BUF(redeem_res, 0, data_ptr, 0, data_len);
+
+                // Redeem response has 2 memos, so check for the type in second memo.
+                GET_MEMO(1, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
+
+                int is_redeem_ref = 0;
+                BUFFER_EQUAL_STR_GUARD(is_redeem_ref, type_ptr, type_len, REDEEM_REF, 1);
+                if (!is_redeem_ref)
+                    rollback(SBUF("Evernode: Redeem response does not have a reference."), 1);
+
+                BUFFER_EQUAL_STR_GUARD(is_redeem_ref, format_ptr, format_len, FORMAT_HEX, 1);
+                if (!is_redeem_ref)
+                    rollback(SBUF("Evernode: Redeem reference memo format should be hex."), 50);
+
+                uint8_t redeem_ref[data_len];
+                COPY_BUF(redeem_ref, 0, data_ptr, 0, data_len);
+
+                REDEEM_OP_KEY(redeem_ref);
 
                 uint8_t redeem_op[REDEEM_STATE_VAL_SIZE]; // <hosting_token(3)><amount(8)><host_addr(20)><lcl_index(8)><user_addr(20)>
                 if (state(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) == DOESNT_EXIST)
@@ -119,10 +115,10 @@ int64_t hook(int64_t reserved)
                     etxn_reserve(1);
 
                 // Forward redeem res to the user
-                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_redeem_suc));
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_res), sizeof(redeem_ref), is_redeem_suc));
 
-                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_ref), sizeof(redeem_res), is_redeem_suc)];
-                PREPARE_PAYMENT_REDEEM_RESP(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_ref, sizeof(redeem_ref), redeem_res, sizeof(redeem_res), is_redeem_suc);
+                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_res), sizeof(redeem_ref), is_redeem_suc)];
+                PREPARE_PAYMENT_REDEEM_RESP(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_res, sizeof(redeem_res), redeem_ref, sizeof(redeem_ref), is_redeem_suc);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -166,16 +162,16 @@ int64_t hook(int64_t reserved)
             BUFFER_EQUAL_STR_GUARD(is_refund_req, type_ptr, type_len, REFUND, 1);
             if (is_refund_req)
             {
-                BUFFER_EQUAL_STR_GUARD(is_refund_req, format_ptr, format_len, FORMAT_BINARY, 1);
+                BUFFER_EQUAL_STR_GUARD(is_refund_req, format_ptr, format_len, FORMAT_HEX, 1);
                 if (!is_refund_req)
-                    rollback(SBUF("Evernode: Memo format should be binary in refund request."), 1);
+                    rollback(SBUF("Evernode: Memo format should be hex in refund request."), 1);
 
-                if (data_len != 64) // 64 bytes is the size of the hash in hex
+                if (data_len != 32) // 32 bytes is the size of the hash in hex
                     rollback(SBUF("Evernode: Memo data should be 64 bytes in hex in refund request."), 1);
 
-                uint8_t tx_hash_bytes[HASH_SIZE];
-                HEXSTR_TO_BYTES(tx_hash_bytes, data_ptr, data_len);
-                REDEEM_OP_KEY(tx_hash_bytes);
+                uint8_t refund_ref[data_len];
+                COPY_BUF(refund_ref, 0, data_ptr, 0, data_len);
+                REDEEM_OP_KEY(refund_ref);
 
                 // Get transaction hash(id).
                 uint8_t txid[HASH_SIZE];
@@ -229,7 +225,7 @@ int64_t hook(int64_t reserved)
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_PAYMENT_REFUND_SUCCESS_SIZE];
-                    PREPARE_PAYMENT_REFUND_SUCCESS(txn_out, amt_out, fee, account_field, txid, tx_hash_bytes);
+                    PREPARE_PAYMENT_REFUND_SUCCESS(txn_out, amt_out, fee, account_field, txid, refund_ref);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -263,11 +259,6 @@ int64_t hook(int64_t reserved)
                 GET_HOST_COUNT(host_count_buf, host_count);
                 if (host_count == 0)
                     rollback(SBUF("Evernode: No hosts registered to audit."), 1);
-
-                int is_format_match = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_match, format_ptr, format_len, FORMAT_BINARY, 1);
-                if (!is_format_match)
-                    rollback(SBUF("Evernode: Memo format should be binary for auditing."), 1);
 
                 // If default auditor is not set, first set the default auditor.
                 uint8_t auditor_count_buf[4] = {0};
@@ -780,9 +771,9 @@ int64_t hook(int64_t reserved)
                 if (is_evr)
                     rollback(SBUF("Evernode: Currency cannot be EVR for redeem request."), 1);
 
-                BUFFER_EQUAL_STR_GUARD(is_redeem_req, format_ptr, format_len, FORMAT_BINARY, 1);
+                BUFFER_EQUAL_STR_GUARD(is_redeem_req, format_ptr, format_len, FORMAT_BASE64, 1);
                 if (!is_redeem_req)
-                    rollback(SBUF("Evernode: Memo format should be binary."), 50);
+                    rollback(SBUF("Evernode: Memo format should be base64 for redeem."), 50);
                 // Checking whether this host is registered.
                 uint8_t *issuer_ptr = &amount_buffer[28];
                 HOST_ADDR_KEY(issuer_ptr);
@@ -850,10 +841,10 @@ int64_t hook(int64_t reserved)
                 uint8_t redeem_data[data_len];
                 COPY_BUF(redeem_data, 0, data_ptr, 0, data_len);
 
-                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(origin_data), sizeof(redeem_data)));
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data)));
 
-                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(origin_data), sizeof(redeem_data))];
-                PREPARE_PAYMENT_REDEEM(txn_out, MIN_DROPS, fee, issuer_ptr, origin_data, sizeof(origin_data), redeem_data, sizeof(redeem_data));
+                uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data))];
+                PREPARE_PAYMENT_REDEEM(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data));
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
