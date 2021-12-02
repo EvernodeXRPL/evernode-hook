@@ -818,11 +818,6 @@ int64_t hook(int64_t reserved)
                 // Set the user address.
                 COPY_BUF(redeem_op, 39, account_field, 0, 20);
 
-                // Set state key with transaction hash(id).
-                REDEEM_OP_KEY(txid);
-                if (state_set(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) < 0)
-                    rollback(SBUF("Evernode: Could not set state for redeem_op."), 1);
-
                 // Forward redeem to the host
                 etxn_reserve(1);
 
@@ -833,6 +828,8 @@ int64_t hook(int64_t reserved)
                 COPY_BUF(origin_data, 20, amount_buf, 0, 8);
                 // Set the host token.
                 COPY_BUF(origin_data, 28, amount_buffer, 20, 3);
+                // Set the redeem tx hash.
+                COPY_BUF(origin_data, 31, txid, 0, 32);
 
                 uint8_t redeem_data[data_len];
                 COPY_BUF(redeem_data, 0, data_ptr, 0, data_len);
@@ -846,6 +843,11 @@ int64_t hook(int64_t reserved)
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                     rollback(SBUF("Evernode: Emitting txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                // Set state key with transaction hash(id).
+                REDEEM_OP_KEY(txid);
+                if (state_set(SBUF(redeem_op), SBUF(STP_REDEEM_OP)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for redeem_op."), 1);
 
                 accept(SBUF("Redeem request successful."), 0);
             }
