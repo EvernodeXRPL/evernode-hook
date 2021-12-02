@@ -419,12 +419,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 #define PREPARE_PAYMENT_REDEEM_RESP_SIZE(redeem_resp_len, redeem_ref_len, is_success) \
-    (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE((is_success ? 15 : 14), (is_success ? 6 : 9), redeem_resp_len, 12, 3, redeem_ref_len))
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE((is_success ? 16 : 14), (is_success ? 6 : 9), redeem_resp_len, 12, 3, redeem_ref_len))
 #define PREPARE_PAYMENT_REDEEM_RESP(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_resp_ptr, redeem_resp_len, redeem_ref_ptr, redeem_ref_len, is_success)                                                                    \
     {                                                                                                                                                                                                                                             \
         if (is_success)                                                                                                                                                                                                                           \
         {                                                                                                                                                                                                                                         \
-            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_SUCCESS, 15, FORMAT_BASE64, 6, redeem_resp_ptr, redeem_resp_len, REDEEM_REF, 12, FORMAT_HEX, 3, redeem_ref_ptr, redeem_ref_len); \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_SUCCESS, 16, FORMAT_BASE64, 6, redeem_resp_ptr, redeem_resp_len, REDEEM_REF, 12, FORMAT_HEX, 3, redeem_ref_ptr, redeem_ref_len); \
         }                                                                                                                                                                                                                                         \
         else                                                                                                                                                                                                                                      \
         {                                                                                                                                                                                                                                         \
