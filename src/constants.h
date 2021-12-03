@@ -39,6 +39,7 @@ const uint16_t DEF_REDEEM_WINDOW = 24;
 const int64_t DEF_REWARD_M = 64;
 const int32_t DEF_REWARD_E = 0;
 const uint16_t DEF_MAX_REWARD = 20;
+const uint16_t DEF_MAX_AUDIT = 5;
 const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants

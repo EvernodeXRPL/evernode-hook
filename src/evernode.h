@@ -84,6 +84,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                     \
     }
 
+#define MAX(num1, num2) \
+    ((num1 > num2) ? num1 : num2)
+
+#define MIN(num1, num2) \
+    ((num1 > num2) ? num2 : num1)
+
+#define CEIL(dividend, divisor) \
+    ((dividend / divisor) + ((dividend % divisor) != 0))
+
 #define GET_CONF_VALUE(value, def_value, key, error_buf)         \
     {                                                            \
         uint8_t size = sizeof(value);                            \
