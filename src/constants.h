@@ -4,16 +4,20 @@
 #define HOST_REG "evnHostReg"
 #define HOST_DE_REG "evnHostDereg"
 #define REDEEM "evnRedeem"
+#define REDEEM_ORIGIN "evnRedeemOrigin"
 #define REDEEM_REF "evnRedeemRef"
-#define REDEEM_RESP "evnRedeemResp"
+#define REDEEM_SUCCESS "evnRedeemSuccess"
+#define REDEEM_ERROR "evnRedeemError"
 #define REFUND "evnRefund"
-#define AUDIT_REQ "evnAuditRequest"
+#define REFUND_SUCCESS "evnRefundSuccess"
+#define REFUND_ERROR "evnRefundError"
+#define AUDIT "evnAudit"
+#define AUDIT_ASSIGNMENT "evnAuditAssignment"
 #define AUDIT_SUCCESS "evnAuditSuccess"
-#define REFUND_RESP "evnRefundResp"
-#define AUDIT_REF "evnAuditRef"
-#define REWARD_REF "evnRewardRef"
+#define REWARD "evnReward"
 
-#define FORMAT_BINARY "binary"
+#define FORMAT_HEX "hex"
+#define FORMAT_BASE64 "base64"
 #define FORMAT_TEXT "text/plain"
 #define FORMAT_JSON "text/json"
 
@@ -48,7 +52,9 @@ const uint32_t HOST_AUDIT_INFO_OFFSET = 109;
 const uint32_t INSTANCE_INFO_OFFSET = 39;
 const uint32_t INSTANCE_SIZE_LEN = 60;
 const uint32_t LOCATION_LEN = 10;
+const uint32_t REDEEM_ORIGIN_DATA_LEN = 63;
 
 const uint64_t MIN_DROPS = 1;
+const char *empty_ptr = 0;
 
 #endif
