@@ -346,16 +346,24 @@ int64_t hook(int64_t reserved)
 
                     uint32_t active_host_count = host_count;
                     uint32_t max_audit = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
-                    
-                    uint32_t pick_start_host_id = (UINT16_FROM_BUF(moment_seed_buf) % active_host_count) + 1;
-                    uint32_t pick_start_auditor_id = (UINT16_FROM_BUF(&moment_seed_buf[1]) % auditor_count) + 1;
+
+                    uint8_t *moment_seed_ptr = &moment_seed_buf[8];
+                    trace(SBUF("Moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
+
+                    uint32_t pick_start_host_id = (UINT32_FROM_BUF(moment_seed_ptr) % active_host_count) + 1;
+                    uint32_t pick_start_auditor_id = (UINT32_FROM_BUF(moment_seed_ptr + 1) % auditor_count) + 1;
 
                     uint32_t pick_count = max_audit;
                     uint32_t pick_idx = ((auditor_count + auditor_id) - pick_start_auditor_id) % auditor_count;
-                    uint32_t pick_host_from = (pick_start_host_id + (pick_idx * pick_count)) % active_host_count || active_host_count;
-                    uint32_t pick_host_to = (pick_host_from + pick_count) % active_host_count || active_host_count;
-                    if (pick_host_to > pick_start_host_id)
-                        pick_count = pick_count - (pick_host_to - pick_start_host_id);
+                    uint32_t pick_host_from = pick_start_host_id + (pick_idx * pick_count);
+                    pick_host_from = (pick_host_from > active_host_count) ? (pick_host_from % active_host_count) : pick_host_from;
+                    uint32_t pick_host_to = pick_host_from + pick_count;
+                    if (pick_host_to > active_host_count)
+                    {
+                        pick_host_to = pick_host_to % active_host_count;
+                        if (pick_host_to > pick_start_host_id)
+                            pick_count = pick_count - (pick_host_to - pick_start_host_id);
+                    }
 
                     // Setup the outgoing txns for all the hosts.
                     etxn_reserve(pick_count);
@@ -364,7 +372,8 @@ int64_t hook(int64_t reserved)
                     for (int i = 0; GUARD(pick_count), i < pick_count; ++i)
                     {
                         // Take the host address.
-                        uint32_t host_id = (pick_host_from + i) % active_host_count || active_host_count;
+                        uint32_t host_id = pick_host_from + i;
+                        host_id = (host_id > active_host_count) ? (host_id % active_host_count) : host_id;
                         uint8_t host_addr[20];
                         uint8_t host_id_arr[4];
                         UINT32_TO_BUF(host_id_arr, host_id);
@@ -381,11 +390,11 @@ int64_t hook(int64_t reserved)
 
                         uint8_t *host_token_ptr = &host_addr_buf[4];
 
+                        trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
+
                         // If host is already assigned for audit within this moment we won't reward again.
                         if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_INFO_OFFSET]) == cur_moment_start_idx)
                             rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);
-
-                        trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
 
                         int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);
 
@@ -614,6 +623,61 @@ int64_t hook(int64_t reserved)
 
                 accept(SBUF("Evernode: Host de-registration successful."), 0);
             }
+
+            //// Test Code ////
+            //// This section is to registor auditors for testing purpose of multiple auditors ////
+
+            int is_auditor_reg = 0;
+            BUFFER_EQUAL_STR_GUARD(is_auditor_reg, type_ptr, type_len, "evnAuditorReg", 1);
+            if (is_auditor_reg)
+            {
+                // If default auditor is not set, first set the default auditor.
+                uint8_t auditor_count_buf[4] = {0};
+                if (state(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) == DOESNT_EXIST)
+                {
+                    // Setting up default auditor if no auditors registered.
+                    uint8_t auditor_accid[20];
+                    util_accid(SBUF(auditor_accid), SBUF(DEF_AUDITOR_ADDR));
+                    uint8_t auditor_id_buf[4];
+                    // Id of the default auditor is 1.
+                    UINT32_TO_BUF(auditor_id_buf, 1);
+                    AUDITOR_ID_KEY(auditor_id_buf);
+                    if (state_set(SBUF(auditor_accid), SBUF(STP_AUDITOR_ID)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for default auditor_id."), 1);
+
+                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE] = {0};
+                    COPY_BUF(auditor_addr_buf, 0, auditor_id_buf, 0, 4);
+                    AUDITOR_ADDR_KEY(auditor_accid);
+                    if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for default auditor_addr."), 1);
+
+                    // Set auditor count to 1;
+                    UINT32_TO_BUF(auditor_count_buf, 1);
+                    if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
+                        rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
+                }
+                uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
+
+                uint8_t auditor_id_buf[4];
+                UINT32_TO_BUF(auditor_id_buf, auditor_count + 1);
+                AUDITOR_ID_KEY(auditor_id_buf);
+                if (state_set(SBUF(account_field), SBUF(STP_AUDITOR_ID)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for auditor_id."), 1);
+
+                uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE] = {0};
+                COPY_BUF(auditor_addr_buf, 0, auditor_id_buf, 0, 4);
+                AUDITOR_ADDR_KEY(account_field);
+                if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for auditor_addr."), 1);
+
+                UINT32_TO_BUF(auditor_count_buf, auditor_count + 1);
+                if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
+                    rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
+
+                accept(SBUF("Evernode: Auditor registration successful."), 0);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////
 
             accept(SBUF("Evernode: XRP transaction."), 0);
         }
