@@ -353,7 +353,6 @@ int64_t hook(int64_t reserved)
                     TRACEVAR(conf_min_redeem);
 
                     uint32_t active_host_count = host_count;
-                    uint32_t max_audit = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
 
                     uint8_t *moment_seed_ptr = &moment_seed_buf[8];
                     trace(SBUF("Moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
@@ -361,17 +360,13 @@ int64_t hook(int64_t reserved)
                     uint32_t pick_start_host_id = (UINT32_FROM_BUF(moment_seed_ptr) % active_host_count) + 1;
                     uint32_t pick_start_auditor_id = (UINT32_FROM_BUF(moment_seed_ptr + 1) % auditor_count) + 1;
 
-                    uint32_t pick_count = max_audit;
                     uint32_t pick_idx = ((auditor_count + auditor_id) - pick_start_auditor_id) % auditor_count;
+                    uint32_t pick_count = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
                     uint32_t pick_host_from = pick_start_host_id + (pick_idx * pick_count);
-                    uint32_t pick_host_to = pick_host_from + pick_count;
                     pick_host_from = (pick_host_from > active_host_count) ? (pick_host_from % active_host_count) : pick_host_from;
-                    if (pick_host_to > active_host_count)
-                    {
-                        pick_host_to = pick_host_to % active_host_count;
-                        if (pick_host_to > pick_start_host_id)
-                            pick_count = pick_count - (pick_host_to - pick_start_host_id);
-                    }
+                    // If this is the last index, it might not get assigned "pick_count" hosts.
+                    if (pick_idx == auditor_count - 1)
+                        pick_count = pick_count - (((pick_idx + 1) * pick_count) % active_host_count);
 
                     // Setup the outgoing txns for all the hosts.
                     etxn_reserve(pick_count);
@@ -416,13 +411,12 @@ int64_t hook(int64_t reserved)
                         uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
                         PREPARE_AUDIT_CHECK_GUARD(txn_out, amt_out, fee, account_field, macro_guard);
 
-                        // uint8_t emithash[HASH_SIZE];
-                        // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                        //     rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                        // trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                        uint8_t emithash[HASH_SIZE];
+                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                            rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
+                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // Update the host's audit assigned state.
-
                         COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET, moment_seed_buf, 0, 8, macro_guard);
                         COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET + 8, account_field, 0, 20, macro_guard);
 
@@ -460,7 +454,7 @@ int64_t hook(int64_t reserved)
 
                     // If host is not assigned for audit in this moment we won't reward.
                     if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_INFO_OFFSET]) != cur_moment_start_idx)
-                        rollback(SBUF("Evernode: Picked host is not assigned for audit in moment."), 1);
+                        rollback(SBUF("Evernode: The host isn't assigned for audit in moment."), 1);
 
                     // If the host is not assigned for audit from this auditor.
                     BUFFER_EQUAL_GUARD(is_audit_suc, &host_addr_buf[HOST_AUDIT_INFO_OFFSET + 8], 20, account_field, 20, 1);
