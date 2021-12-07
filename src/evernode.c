@@ -371,7 +371,6 @@ int64_t hook(int64_t reserved)
                     // Setup the outgoing txns for all the hosts.
                     etxn_reserve(pick_count);
 
-                    int host_assigned = 0;
                     int macro_guard = pick_count + 1;
                     for (int i = 0; GUARD(pick_count), i < pick_count; ++i)
                     {
@@ -422,12 +421,10 @@ int64_t hook(int64_t reserved)
 
                         if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                             rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
-
-                        host_assigned = 1;
                     }
 
                     // Update the auditor state if at least one host is assigned.
-                    if (host_assigned)
+                    if (pick_count > 0)
                     {
                         COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
                         if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
