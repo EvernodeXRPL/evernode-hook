@@ -88,6 +88,18 @@ const uint8_t CONF_MAX_AUDIT[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             STP_HOST_ID[i] = host_id[i - 28];   \
     }
 
+#define HOST_ADDR_KEY_GUARD(host_addr, n)            \
+    {                                                \
+        for (int i = 12; GUARD(20 * n), i < 32; i++) \
+            STP_HOST_ADDR[i] = host_addr[i - 12];    \
+    }
+
+#define HOST_ID_KEY_GUARD(host_id, n)               \
+    {                                               \
+        for (int i = 28; GUARD(4 * n), i < 32; i++) \
+            STP_HOST_ID[i] = host_id[i - 28];       \
+    }
+
 #define AUDITOR_ADDR_KEY(auditor_addr)                  \
     {                                                   \
         for (int i = 12; GUARD(20), i < 32; i++)        \
