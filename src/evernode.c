@@ -352,23 +352,36 @@ int64_t hook(int64_t reserved)
                     GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
                     TRACEVAR(conf_min_redeem);
 
+                    // Host count to be audited.
                     uint32_t active_host_count = host_count;
 
                     uint8_t *moment_seed_ptr = &moment_seed_buf[8];
                     trace(SBUF("Moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
 
+                    // Host id where hosts picking is started.
                     uint32_t pick_start_host_id = (UINT32_FROM_BUF(moment_seed_ptr) % active_host_count) + 1;
+                    // Auditor id which starts picking at "pick_start_host_id"
                     uint32_t pick_start_auditor_id = (UINT32_FROM_BUF(moment_seed_ptr + 1) % auditor_count) + 1;
+                    // Auditor "pick_start_auditor_id" picks host "pick_start_host_id" and upto "pick_start_host_id + pick_count"
+                    // Auditor "pick_start_auditor_id + 1" picks host "pick_start_host_id + pick_count" and upto "pick_start_host_id + (2 * pick_count)"
+                    // ...
 
+                    // Relative index of the requested auditor id, Ex: {If "auditor_id = 4", "pick_start_auditor_id = 2" and "auditor_count = 5" then,
+                    // "pick_idx = [((5 + 4) - 2) % 5] = 2"}
                     uint32_t pick_idx = ((auditor_count + auditor_id) - pick_start_auditor_id) % auditor_count;
+                    // How many hosts will be assigned for the auditor min(ceil(active_host_count / auditor_count), conf_max_audit).
+                    // Note: maximum pick count would be conf_max_audit.
                     uint32_t pick_count = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
+                    // Which is a picking starting host_id for this auditor.
                     uint32_t pick_host_from = pick_start_host_id + (pick_idx * pick_count);
+                    // If "pick_host_from > active_host_count" means picking is started from the "pick_host_from % active_host_count"
                     pick_host_from = (pick_host_from > active_host_count) ? (pick_host_from % active_host_count) : pick_host_from;
-                    // If this is the last index, it might not get assigned "pick_count" hosts.
-                    if (pick_idx == auditor_count - 1)
-                        pick_count = pick_count - (((pick_idx + 1) * pick_count) % active_host_count);
+                    // If this is the last index, it might not get assigned all the "pick_count" hosts from "pick_host_from".
+                    // Beacause when "active_host_count % auditor_count > 0", last auditor gets the remainder
+                    if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
+                        pick_count = active_host_count % auditor_count;
 
-                    // Setup the outgoing txns for all the hosts.
+                    // Setup the outgoing txns for all checkCreates representing hosts assigned for this auditor.
                     etxn_reserve(pick_count);
 
                     int macro_guard = pick_count + 1;
