@@ -163,8 +163,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 // If it is used 3 times inside a macro use m = 1,2,3
 #define COPY_BUF_GUARDM(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos, len, n, m) \
     {                                                                        \
-        int guard = (len > 0) ? (len * n) : n;                               \
-        for (int i = 0; GUARDM(guard, m), i < len; ++i)                      \
+        for (int i = 0; GUARDM((n * (len + 1)), m), i < len; ++i)            \
             lhsbuf[lhsbuf_spos + i] = rhsbuf[rhsbuf_spos + i];               \
     }
 
@@ -190,7 +189,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                         \
         if (float_sto(SBUF(amt_out), SBUF(currency), issuer, 20, amount, -1) < 0) \
             rollback(SBUF("Evernode: Could not dump token amount into sto"), 1);  \
-        for (int i = 0; GUARD(20 * n), i < 20; ++i)                               \
+        for (int i = 0; GUARD(21 * n), i < 20; ++i)                               \
         {                                                                         \
             amt_out[i + 28] = issuer[i];                                          \
             amt_out[i + 8] = currency[i];                                         \
@@ -312,7 +311,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     {                                                   \
         uint8_t uat = amount_type;                      \
         buf_out[0] = 0x60U + (uat & 0x0FU);             \
-        for (int i = 1; GUARDM(48 * n, 1), i < 49; ++i) \
+        for (int i = 1; GUARDM(49 * n, 1), i < 49; ++i) \
             buf_out[i] = tlamt[i - 1];                  \
         buf_out += ENCODE_TL_SIZE;                      \
     }

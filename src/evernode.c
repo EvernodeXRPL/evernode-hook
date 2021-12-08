@@ -384,7 +384,6 @@ int64_t hook(int64_t reserved)
                     // Setup the outgoing txns for all checkCreates representing hosts assigned for this auditor.
                     etxn_reserve(pick_count);
 
-                    int macro_guard = pick_count + 1;
                     for (int i = 0; GUARD(pick_count), i < pick_count; ++i)
                     {
                         // Take the host address.
@@ -393,12 +392,12 @@ int64_t hook(int64_t reserved)
                         uint8_t host_addr[20];
                         uint8_t host_id_arr[4];
                         UINT32_TO_BUF(host_id_arr, host_id);
-                        HOST_ID_KEY_GUARD(host_id_arr, macro_guard);
+                        HOST_ID_KEY_GUARD(host_id_arr, pick_count);
                         if (state(SBUF(host_addr), SBUF(STP_HOST_ID)) == DOESNT_EXIST)
                             rollback(SBUF("Evernode: Could not find a matching host for the id."), 1);
 
                         // Take the last audit assigned moment.
-                        HOST_ADDR_KEY_GUARD(host_addr, macro_guard);
+                        HOST_ADDR_KEY_GUARD(host_addr, pick_count);
                         // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
                         uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
                         if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
@@ -417,11 +416,11 @@ int64_t hook(int64_t reserved)
                         int64_t token_limit = float_set(0, conf_min_redeem);
 
                         uint8_t amt_out[AMOUNT_BUF_SIZE];
-                        SET_AMOUNT_OUT_GUARD(amt_out, host_token_ptr, host_addr, token_limit, macro_guard);
+                        SET_AMOUNT_OUT_GUARD(amt_out, host_token_ptr, host_addr, token_limit, pick_count);
 
                         // Finally create the outgoing txn.
                         uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
-                        PREPARE_AUDIT_CHECK_GUARD(txn_out, amt_out, fee, account_field, macro_guard);
+                        PREPARE_AUDIT_CHECK_GUARD(txn_out, amt_out, fee, account_field, pick_count);
 
                         uint8_t emithash[HASH_SIZE];
                         if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -429,8 +428,8 @@ int64_t hook(int64_t reserved)
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // Update the host's audit assigned state.
-                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET, moment_seed_buf, 0, 8, macro_guard);
-                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET + 8, account_field, 0, 20, macro_guard);
+                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET, moment_seed_buf, 0, 8, pick_count);
+                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET + 8, account_field, 0, 20, pick_count);
 
                         if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                             rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
