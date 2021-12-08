@@ -436,7 +436,7 @@ int64_t hook(int64_t reserved)
                 else if (is_audit_suc) // Audit success response.
                 {
                     // If auditor assigned moment idx is not equal to currect moment start idx.
-                    // No host is assigned to audit for this momen.
+                    // No host is assigned to audit for this moment.
                     if (lst_moment_start_idx != cur_moment_start_idx)
                         rollback(SBUF("Evernode: No host is assigned to audit for this moment."), 1);
 
@@ -488,13 +488,6 @@ int64_t hook(int64_t reserved)
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                    // Update the auditor state.
-                    // Empty the audit details.
-                    for (int i = 0; GUARD(28), i < 28; ++i)
-                        auditor_addr_buf[i + 4] = 0;
-                    if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not update state for auditor_addr."), 1);
 
                     // Update the host's audit rewarded state.
                     uint8_t cur_moment_start_idx_buf[8];
