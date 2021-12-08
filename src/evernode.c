@@ -248,6 +248,15 @@ int64_t hook(int64_t reserved)
             if (is_audit_req || is_audit_suc)
             {
                 // Common checks for both audit request and audit suceess response.
+                if (is_audit_suc)
+                {
+                    BUFFER_EQUAL_STR_GUARD(is_audit_suc, format_ptr, format_len, FORMAT_HEX, 1);
+                    if (!is_audit_suc)
+                        rollback(SBUF("Evernode: Audit success memo format should be hex."), 50);
+
+                    uint8_t redeem_res[data_len];
+                    COPY_BUF(redeem_res, 0, data_ptr, 0, data_len);
+                }
 
                 // Audit request is only served if at least one host is registered.
                 uint8_t host_count_buf[4];
@@ -281,10 +290,11 @@ int64_t hook(int64_t reserved)
                     if (state_set(SBUF(auditor_count_buf), SBUF(STK_AUDITOR_COUNT)) < 0)
                         rollback(SBUF("Evernode: Could not set default state for auditor count."), 1);
                 }
+                uint32_t auditor_count = UINT32_FROM_BUF(auditor_count_buf);
 
                 // Checking whether this auditor exists.
                 AUDITOR_ADDR_KEY(account_field);
-                uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE]; // <auditor_id(4)><moment_start_idx(8)><host_addr(20)>
+                uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE]; // <auditor_id(4)><moment_start_idx(8)>
                 if (state(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: Auditor is not registered."), 1);
 
@@ -307,7 +317,6 @@ int64_t hook(int64_t reserved)
 
                 uint32_t auditor_id = UINT32_FROM_BUF(auditor_addr_buf);
                 uint64_t lst_moment_start_idx = UINT64_FROM_BUF(&auditor_addr_buf[4]);
-                uint8_t *lst_host_addr_ptr = &auditor_addr_buf[12];
 
                 // Seperate logic for audit request and audit suceess response.
                 if (is_audit_req) // Audit request
@@ -333,117 +342,136 @@ int64_t hook(int64_t reserved)
                     GET_CONF_VALUE(conf_max_reward, DEF_MAX_REWARD, CONF_MAX_REWARD, "Evernode: Could not set default state for max reward.");
                     TRACEVAR(conf_max_reward);
 
-                    // Calculate the host id using seed.
-                    // Selecting a host to audit.
-                    uint8_t *audit_pick_ptr = &moment_seed_buf[8];
-                    trace(SBUF("Moment seed: "), audit_pick_ptr, HASH_SIZE, 1);
-
-                    // If auditor id is not within (HASH_SIZE - 3) we are taking sha512 hashes.
-                    uint32_t eligible_count = HASH_SIZE - 3;
-                    uint32_t iterations = (auditor_id - 1) / eligible_count;
-                    uint32_t host_id;
-                    if (iterations > 0)
-                    {
-                        uint8_t seed_hash[HASH_SIZE] = {0};
-                        for (int i = 0; GUARD(iterations), i < iterations; ++i)
-                        {
-                            if (util_sha512h(SBUF(seed_hash), audit_pick_ptr, HASH_SIZE) < 0)
-                                rollback(SBUF("Evernode: Could not generate the sha512h hash of the moment seed."), 1);
-                            audit_pick_ptr = &seed_hash;
-                        }
-                        trace(SBUF("Auditor host pick buffer: "), audit_pick_ptr, HASH_SIZE, 1);
-                        uint32_t pick_index = (auditor_id - 1) % eligible_count;
-                        host_id = (UINT32_FROM_BUF(audit_pick_ptr + pick_index) % host_count) + 1;
-                    }
-                    else
-                    {
-                        trace(SBUF("Auditor host pick buffer: "), audit_pick_ptr, HASH_SIZE, 1);
-                        uint32_t pick_index = auditor_id - 1;
-                        host_id = (UINT32_FROM_BUF(audit_pick_ptr + pick_index) % host_count) + 1;
-                    }
-
-                    // Take the host address.
-                    uint8_t host_addr[20];
-                    uint8_t host_id_arr[4];
-                    UINT32_TO_BUF(host_id_arr, host_id);
-                    HOST_ID_KEY(host_id_arr);
-                    if (state(SBUF(host_addr), SBUF(STP_HOST_ID)) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: Could not find a matching host for the id."), 1);
-
-                    // Take the last audit assigned moment.
-                    HOST_ADDR_KEY(host_addr);
-                    // <host_id(4)><hosting_token(3)><reg_tx_hash(32)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
-                    uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: Host is not registered."), 1);
-
-                    uint8_t *host_token_ptr = &host_addr_buf[4];
-
-                    // If host is already assigned for audit within this moment we won't reward again.
-                    if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_INFO_OFFSET]) == cur_moment_start_idx)
-                        rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);
-
-                    trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
+                    // Take the max audit from the config.
+                    uint16_t conf_max_audit;
+                    GET_CONF_VALUE(conf_max_audit, DEF_MAX_AUDIT, CONF_MAX_AUDIT, "Evernode: Could not set default state for max audit.");
+                    TRACEVAR(conf_max_audit);
 
                     // Take the minimum redeem amount from the config.
                     uint16_t conf_min_redeem;
                     GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
                     TRACEVAR(conf_min_redeem);
 
-                    // Setup the outgoing txn.
-                    // Reserving one transaction.
-                    etxn_reserve(1);
-                    int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);
+                    // Host count to be audited.
+                    uint32_t active_host_count = host_count;
 
-                    int64_t token_limit = float_set(0, conf_min_redeem);
+                    uint8_t *moment_seed_ptr = &moment_seed_buf[8];
+                    trace(SBUF("Moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
 
-                    uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    SET_AMOUNT_OUT(amt_out, host_token_ptr, host_addr, token_limit);
+                    // Host id where hosts picking is started.
+                    uint32_t pick_start_host_id = (UINT32_FROM_BUF(moment_seed_ptr) % active_host_count) + 1;
+                    // Auditor id which starts picking at "pick_start_host_id"
+                    uint32_t pick_start_auditor_id = (UINT32_FROM_BUF(moment_seed_ptr + 1) % auditor_count) + 1;
+                    // Auditor "pick_start_auditor_id" picks host "pick_start_host_id" and upto "pick_start_host_id + pick_count"
+                    // Auditor "pick_start_auditor_id + 1" picks host "pick_start_host_id + pick_count" and upto "pick_start_host_id + (2 * pick_count)"
+                    // ...
 
-                    // Finally create the outgoing txn.
-                    uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
-                    uint8_t audit_data[70];
-                    COPY_BUF(audit_data, 0, host_addr_buf, 39, 70)
-                    PREPARE_AUDIT_CHECK(txn_out, amt_out, fee, account_field, audit_data, sizeof(audit_data));
+                    // Relative index of the requested auditor id, Ex: {If "auditor_id = 4", "pick_start_auditor_id = 2" and "auditor_count = 5" then,
+                    // "pick_idx = [((5 + 4) - 2) % 5] = 2"}
+                    uint32_t pick_idx = ((auditor_count + auditor_id) - pick_start_auditor_id) % auditor_count;
+                    // How many hosts will be assigned for the auditor min(ceil(active_host_count / auditor_count), conf_max_audit).
+                    // Note: maximum pick count would be conf_max_audit.
+                    uint32_t pick_count = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
+                    // Which is a picking starting host_id for this auditor.
+                    uint32_t pick_host_from = pick_start_host_id + (pick_idx * pick_count);
+                    // If "pick_host_from > active_host_count" means picking is started from the "pick_host_from % active_host_count"
+                    pick_host_from = (pick_host_from > active_host_count) ? (pick_host_from % active_host_count) : pick_host_from;
+                    // If this is the last index, it might not get assigned all the "pick_count" hosts from "pick_host_from".
+                    // Beacause when "active_host_count % auditor_count > 0", last auditor gets the remainder
+                    if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
+                        pick_count = active_host_count % auditor_count;
 
-                    uint8_t emithash[HASH_SIZE];
-                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                        rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    // Setup the outgoing txns for all checkCreates representing hosts assigned for this auditor.
+                    etxn_reserve(pick_count);
 
-                    // Update the auditor state.
-                    COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
-                    COPY_BUF(auditor_addr_buf, 12, host_addr, 0, 20);
-                    if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not update state for auditor_addr."), 1);
+                    for (int i = 0; GUARD(pick_count), i < pick_count; ++i)
+                    {
+                        // Take the host address.
+                        uint32_t host_id = pick_host_from + i;
+                        host_id = (host_id > active_host_count) ? (host_id % active_host_count) : host_id;
+                        uint8_t host_addr[20];
+                        uint8_t host_id_arr[4];
+                        UINT32_TO_BUF(host_id_arr, host_id);
+                        HOST_ID_KEY_GUARD(host_id_arr, pick_count);
+                        if (state(SBUF(host_addr), SBUF(STP_HOST_ID)) == DOESNT_EXIST)
+                            rollback(SBUF("Evernode: Could not find a matching host for the id."), 1);
 
-                    // Update the host's audit assigned state.
-                    COPY_BUF(host_addr_buf, HOST_AUDIT_INFO_OFFSET, moment_seed_buf, 0, 8);
-                    if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
+                        // Take the last audit assigned moment.
+                        HOST_ADDR_KEY_GUARD(host_addr, pick_count);
+                        // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
+                        uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
+                        if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                            rollback(SBUF("Evernode: Host is not registered."), 1);
+
+                        uint8_t *host_token_ptr = &host_addr_buf[4];
+
+                        trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
+
+                        // If host is already assigned for audit within this moment we won't reward again.
+                        if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_INFO_OFFSET]) == cur_moment_start_idx)
+                            rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);
+
+                        int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);
+
+                        int64_t token_limit = float_set(0, conf_min_redeem);
+
+                        uint8_t amt_out[AMOUNT_BUF_SIZE];
+                        SET_AMOUNT_OUT_GUARD(amt_out, host_token_ptr, host_addr, token_limit, pick_count);
+
+                        // Finally create the outgoing txn.
+                        uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
+                        PREPARE_AUDIT_CHECK_GUARD(txn_out, amt_out, fee, account_field, pick_count);
+
+                        uint8_t emithash[HASH_SIZE];
+                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                            rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
+                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                        // Update the host's audit assigned state.
+                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET, moment_seed_buf, 0, 8, pick_count);
+                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_INFO_OFFSET + 8, account_field, 0, 20, pick_count);
+
+                        if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
+                    }
+
+                    // Update the auditor state if at least one host is assigned.
+                    if (pick_count > 0)
+                    {
+                        COPY_BUF(auditor_addr_buf, 4, moment_seed_buf, 0, 8);
+                        if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not update state for auditor_addr."), 1);
+                    }
 
                     accept(SBUF("Evernode: Audit request successful."), 0);
                 }
                 else if (is_audit_suc) // Audit success response.
                 {
                     // If auditor assigned moment idx is not equal to currect moment start idx.
-                    // No host is assigned to audit for this momen.
+                    // No host is assigned to audit for this moment.
                     if (lst_moment_start_idx != cur_moment_start_idx)
                         rollback(SBUF("Evernode: No host is assigned to audit for this moment."), 1);
 
+                    uint8_t *lst_host_addr_ptr = data_ptr;
+
                     // Take the last reward moment of the assigned host.
                     HOST_ADDR_KEY(lst_host_addr_ptr);
-                    // <host_id(4)><hosting_token(3)><reg_tx_hash(32)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
+                    // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
                     uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
                     if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                         rollback(SBUF("Evernode: Host is not registered."), 1);
 
                     // If host is not assigned for audit in this moment we won't reward.
                     if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_INFO_OFFSET]) != cur_moment_start_idx)
-                        rollback(SBUF("Evernode: Picked host is not assigned for audit in moment."), 1);
+                        rollback(SBUF("Evernode: The host isn't assigned for audit in moment."), 1);
+
+                    // If the host is not assigned for audit from this auditor.
+                    BUFFER_EQUAL_GUARD(is_audit_suc, &host_addr_buf[HOST_AUDIT_INFO_OFFSET + 8], 20, account_field, 20, 1);
+                    if (!is_audit_suc)
+                        rollback(SBUF("Evernode: The host isn't assigned for audit from this auditor."), 1);
 
                     // If host is already rewarded within this moment we won't reward again.
-                    if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_INFO_OFFSET + 8]) == cur_moment_start_idx)
+                    if (UINT64_FROM_BUF(&host_addr_buf[HOST_REWARD_INFO_OFFSET]) == cur_moment_start_idx)
                         rollback(SBUF("Evernode: The host is already rewarded within this moment."), 1);
 
                     // Take the host rewards per moment from the config.
@@ -473,17 +501,10 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: Emitting txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                    // Update the auditor state.
-                    // Empty the audit details.
-                    for (int i = 0; GUARD(28), i < 28; ++i)
-                        auditor_addr_buf[i + 4] = 0;
-                    if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not update state for auditor_addr."), 1);
-
                     // Update the host's audit rewarded state.
                     uint8_t cur_moment_start_idx_buf[8];
                     UINT64_TO_BUF(cur_moment_start_idx_buf, cur_moment_start_idx);
-                    COPY_BUF(host_addr_buf, HOST_AUDIT_INFO_OFFSET + 8, cur_moment_start_idx_buf, 0, 8);
+                    COPY_BUF(host_addr_buf, HOST_REWARD_INFO_OFFSET, cur_moment_start_idx_buf, 0, 8);
                     if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
 
@@ -505,7 +526,7 @@ int64_t hook(int64_t reserved)
 
                 HOST_ADDR_KEY(account_field);
                 // Check whether the host is registered.
-                // <host_id(4)><hosting_token(3)><reg_tx_hash(32)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
+                // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
                 uint8_t host_addr_data[HOST_ADDR_VAL_SIZE];
                 if (state(SBUF(host_addr_data), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                     rollback(SBUF("Evernode: This host is not registered."), 1);
@@ -661,7 +682,7 @@ int64_t hook(int64_t reserved)
 
                 // Checking whether this host is already registered.
                 HOST_ADDR_KEY(account_field);
-                // <host_id(4)><hosting_token(3)><reg_tx_hash(32)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
+                // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
@@ -673,7 +694,7 @@ int64_t hook(int64_t reserved)
                     Source: Hook
                     Destination: Host
                     Currency: hosting_token
-                    Limit: 999999999 
+                    Limit: 999999999
                     */
 
                 // Reserving one transaction.
@@ -710,7 +731,6 @@ int64_t hook(int64_t reserved)
                 CLEARBUF(host_addr);
                 COPY_BUF(host_addr, 0, host_id_arr, 0, 4);
                 COPY_BUF(host_addr, 4, data_ptr, 0, 3);
-                COPY_BUF(host_addr, 7, txid, 0, txid_len);
 
                 // Read instace details from the memo.
                 // We cannot predict the lengths of instance size and locations.
@@ -773,7 +793,7 @@ int64_t hook(int64_t reserved)
                 // Checking whether this host is registered.
                 uint8_t *issuer_ptr = &amount_buffer[28];
                 HOST_ADDR_KEY(issuer_ptr);
-                // <host_id(4)><hosting_token(3)><reg_tx_hash(32)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><rewarded_moment_start_idx(8)>
+                // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
@@ -783,7 +803,7 @@ int64_t hook(int64_t reserved)
                 uint8_t *host_token_ptr = &host_addr[4];
                 uint8_t hosting_token[20] = GET_TOKEN_CURRENCY(host_token_ptr);
                 uint8_t is_hosting_token = 0;
-                BUFFER_EQUAL_GUARD(is_hosting_token, hosting_token, 20, &amount_buffer[8], 20, 20);
+                BUFFER_EQUAL_GUARD(is_hosting_token, hosting_token, 20, &amount_buffer[8], 20, 1);
                 if (!is_hosting_token)
                     rollback(SBUF("Evernode: Currency should be in hosting tokens to redeem."), 1);
 

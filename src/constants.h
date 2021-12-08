@@ -39,6 +39,7 @@ const uint16_t DEF_REDEEM_WINDOW = 24;
 const int64_t DEF_REWARD_M = 64;
 const int32_t DEF_REWARD_E = 0;
 const uint16_t DEF_MAX_REWARD = 20;
+const uint16_t DEF_MAX_AUDIT = 5;
 const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants
@@ -48,8 +49,9 @@ const uint32_t REDEEM_STATE_VAL_SIZE = 59;
 const uint32_t MOMENT_SEED_VAL_SIZE = 40;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
-const uint32_t HOST_AUDIT_INFO_OFFSET = 109;
-const uint32_t INSTANCE_INFO_OFFSET = 39;
+const uint32_t HOST_AUDIT_INFO_OFFSET = 77;
+const uint32_t HOST_REWARD_INFO_OFFSET = 105;
+const uint32_t INSTANCE_INFO_OFFSET = 7;
 const uint32_t INSTANCE_SIZE_LEN = 60;
 const uint32_t LOCATION_LEN = 10;
 const uint32_t REDEEM_ORIGIN_DATA_LEN = 63;

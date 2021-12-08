@@ -51,8 +51,10 @@ const uint8_t CONF_MIN_REDEEM[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
 const uint8_t CONF_REDEEM_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5};
 // No. of Evers rewarded per moment.
 const uint8_t CONF_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6};
-// No. of No of maximum hosts that can be rewarded per moment.
+// No. of maximum hosts that can be rewarded per moment.
 const uint8_t CONF_MAX_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7};
+// No. of maximum hosts that can be audited by a audit per moment.
+const uint8_t CONF_MAX_AUDIT[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8};
 
 #define STATE_KEY(buf, prefix, key, key_len)                      \
     buf[0] = 'E';                                                 \
@@ -84,6 +86,18 @@ const uint8_t CONF_MAX_REWARD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
     {                                           \
         for (int i = 28; GUARD(4), i < 32; i++) \
             STP_HOST_ID[i] = host_id[i - 28];   \
+    }
+
+#define HOST_ADDR_KEY_GUARD(host_addr, n)            \
+    {                                                \
+        for (int i = 12; GUARD(21 * n), i < 32; i++) \
+            STP_HOST_ADDR[i] = host_addr[i - 12];    \
+    }
+
+#define HOST_ID_KEY_GUARD(host_id, n)               \
+    {                                               \
+        for (int i = 28; GUARD(5 * n), i < 32; i++) \
+            STP_HOST_ID[i] = host_id[i - 28];       \
     }
 
 #define AUDITOR_ADDR_KEY(auditor_addr)                  \
