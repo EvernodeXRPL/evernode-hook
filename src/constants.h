@@ -14,6 +14,7 @@
 #define AUDIT "evnAudit"
 #define AUDIT_ASSIGNMENT "evnAuditAssignment"
 #define AUDIT_SUCCESS "evnAuditSuccess"
+#define AUDIT_FAILED "evnAuditFailed"
 #define REWARD "evnReward"
 
 #define FORMAT_HEX "hex"
@@ -49,8 +50,10 @@ const uint32_t REDEEM_STATE_VAL_SIZE = 59;
 const uint32_t MOMENT_SEED_VAL_SIZE = 40;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
-const uint32_t HOST_AUDIT_INFO_OFFSET = 77;
-const uint32_t HOST_REWARD_INFO_OFFSET = 105;
+const uint32_t HOST_AUDIT_IDX_OFFSET = 77;
+const uint32_t HOST_AUDITOR_OFFSET = 85;
+const uint32_t HOST_REWARD_IDX_OFFSET = 105;
+const uint32_t HOST_ACCUMULATED_AMT_OFFSET = 113;
 const uint32_t INSTANCE_INFO_OFFSET = 7;
 const uint32_t INSTANCE_SIZE_LEN = 60;
 const uint32_t LOCATION_LEN = 10;
