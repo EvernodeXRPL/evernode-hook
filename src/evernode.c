@@ -549,7 +549,7 @@ int64_t hook(int64_t reserved)
                     int64_t reward_amount = INT64_FROM_BUF(acc_amount_ptr);
 
                     // If reward amount is zero, means accumulated amount is already made zero.
-                    // Since above host already rewarded check failed it means accumulated amout is empied by an audit failure.
+                    // Since host already rewarded check failed in line 544 it means accumulated amout is empied by an audit failure.
                     if (reward_amount == 0)
                         rollback(SBUF("Evernode: An audit for this host has been already failed within this moment."), 1);
 
