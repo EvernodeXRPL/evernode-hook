@@ -400,9 +400,11 @@ int64_t hook(int64_t reserved)
                             int64_t cur_acc_amount = INT64_FROM_BUF(cur_acc_amount_ptr);
 
                             // If last audit hasn't been rewarded it should be a audit failure.
-                            // Then add accumulated amount to the pool.
+                            // Then if accumulated amount is > 0 add accumulated amount to the pool.
                             uint64_t audit_assigned_moment_start_idx = UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_IDX_OFFSET]);
-                            if ((cur_moment_start_idx > audit_assigned_moment_start_idx) && (audit_assigned_moment_start_idx > UINT64_FROM_BUF(&host_addr_buf[HOST_REWARD_IDX_OFFSET])))
+                            if ((cur_moment_start_idx > audit_assigned_moment_start_idx) &&
+                                (cur_acc_amount > 0) &&
+                                (audit_assigned_moment_start_idx > UINT64_FROM_BUF(&host_addr_buf[HOST_REWARD_IDX_OFFSET])))
                             {
                                 ADD_TO_REWARD_POOL(cur_acc_amount);
                                 cur_acc_amount = 0;
