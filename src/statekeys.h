@@ -19,6 +19,14 @@ const uint8_t STK_MOMENT_BASE_IDX[32] = {'E', 'V', 'R', 52, 0, 0, 0, 0, 0, 0, 0,
 // value 53 is in decimal. Its converted to 35 in hex.
 const uint8_t STK_MOMENT_SEED[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+// Last moment start index where rewards have been accumulated
+// value 54 is in decimal. Its converted to 36 in hex.
+const uint8_t STK_ACCUMULATED_MOMENT_IDX[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// Pool of reward amounts which are received on a audit failure.
+// value 55 is in decimal. Its converted to 37 in hex.
+const uint8_t STK_REWARD_POOL[32] = {'E', 'V', 'R', 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 /////////// Repetitive state keys. ///////////
 
 // Host id keys (Host registration entries for id-based lookup). Last 4 bytes will be replaced by host id in runtime.

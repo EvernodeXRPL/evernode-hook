@@ -182,6 +182,21 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             host_count = UINT32_FROM_BUF(host_count_buf);                      \
     }
 
+// Adds the given amount to the reward pool.
+#define ADD_TO_REWARD_POOL(float_amount)                                         \
+    {                                                                            \
+        /* Take the current reward pool amount from the config. */               \
+        uint8_t reward_pool_buf[8] = {0};                                        \
+        int64_t reward_pool = 0;                                                 \
+        if (state(SBUF(reward_pool_buf), SBUF(STK_REWARD_POOL)) != DOESNT_EXIST) \
+            reward_pool = INT64_FROM_BUF(reward_pool_buf);                       \
+        reward_pool = float_sum(reward_pool, float_amount);                      \
+        /* Update the last accumulated moment state. */                          \
+        INT64_TO_BUF(reward_pool_buf, reward_pool);                              \
+        if (state_set(SBUF(reward_pool_buf), SBUF(STK_REWARD_POOL)) < 0)         \
+            rollback(SBUF("Evernode: Could not update the reward pool."), 1);    \
+    }
+
 // We need to dump the iou amount into a buffer.
 // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
 #define SET_AMOUNT_OUT_GUARD(amt_out, token, issuer, amount, n)                   \
