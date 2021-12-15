@@ -73,6 +73,13 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                          \
     }
 
+#define STR_TO_UINT(number, str_ptr, str_len)             \
+    {                                                     \
+        number = 0;                                       \
+        for (int i = 0; GUARD(str_len), i < str_len; i++) \
+            number = number * 10 + (int)str_ptr[i] - '0'; \
+    }
+
 #define IS_BUF_EMPTY(is_empty, buf)                           \
     is_empty = 1;                                             \
     for (int i = 0; GUARD(sizeof(buf)), i < sizeof(buf); ++i) \
@@ -172,6 +179,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 #define COPY_BUF(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos, len) \
     COPY_BUF_GUARDM(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos, len, 1, 1);
+
+#define CLEAR_BUF(buf, buf_spos, len)             \
+    {                                             \
+        for (int i = 0; GUARD(len), i < len; ++i) \
+            buf[buf_spos + i] = 0;                \
+    }
 
 // If host count state does not exist, set host count to 0.
 #define GET_HOST_COUNT(host_count_buf, host_count)                             \
