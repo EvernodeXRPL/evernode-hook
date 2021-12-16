@@ -476,7 +476,7 @@ int64_t hook(int64_t reserved)
                     if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
                         pick_count = active_host_count % auditor_count;
                     // Which is the picking endig host index for this auditor.
-                    uint32_t pick_host_to_idx = (pick_start_host_idx + pick_count) % active_host_count;
+                    uint32_t pick_host_to_idx = (pick_host_from_idx + pick_count) % active_host_count;
 
                     // Setup the outgoing txns for all checkCreates representing hosts assigned for this auditor.
                     etxn_reserve(pick_count);
@@ -532,7 +532,7 @@ int64_t hook(int64_t reserved)
                                 is_picked = i >= pick_host_from_idx || i < pick_host_to_idx;
 
                             if (is_picked)
-                                EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count);
+                                EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, active_host_count);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);

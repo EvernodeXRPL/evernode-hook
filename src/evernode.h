@@ -573,6 +573,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             is_active = (last_hearbeat_ledger_idx > 0);                                                                                                                \
     }
 
+#define IS_HOST_ACTIVE(is_active, host_addr_buf, cur_ledger_seq)                                                                       \
+    {                                                                                                                                  \
+        uint16_t conf_moment_size;                                                                                                     \
+        GET_CONF_VALUE(conf_moment_size, DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not set default state for moment size."); \
+        uint64_t cur_moment_start_idx;                                                                                                 \
+        GET_MOMENT_START_INDEX_MOMENT_SIZE_GIVEN(cur_moment_start_idx, cur_ledger_seq, conf_moment_size);                              \
+        IS_HOST_ACTIVE_MOMENT_IDX_SIZE_GIVEN(is_active, host_addr_buf, cur_moment_start_idx, conf_moment_size);                        \
+    }
+
 #define EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, min_redeem, host_addr, host_addr_buf, to_addr, n) \
     {                                                                                                                   \
         uint8_t *host_token_ptr = &host_addr_buf[HOST_TOKEN_OFFSET];                                                    \
@@ -596,12 +605,4 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         COPY_BUF_GUARDM(host_addr_buf, HOST_AUDITOR_OFFSET, to_addr, 0, 20, n, 14);                                     \
     }
 
-#define IS_HOST_ACTIVE(is_active, host_addr_buf, cur_ledger_seq)                                                                       \
-    {                                                                                                                                  \
-        uint16_t conf_moment_size;                                                                                                     \
-        GET_CONF_VALUE(conf_moment_size, DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not set default state for moment size."); \
-        uint64_t cur_moment_start_idx;                                                                                                 \
-        GET_MOMENT_START_INDEX_MOMENT_SIZE_GIVEN(cur_moment_start_idx, cur_ledger_seq, conf_moment_size);                              \
-        IS_HOST_ACTIVE_MOMENT_IDX_SIZE_GIVEN(is_active, host_addr_buf, cur_moment_start_idx, conf_moment_size);                        \
-    }
 #endif
