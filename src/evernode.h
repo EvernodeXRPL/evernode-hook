@@ -164,6 +164,44 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                       \
     }
 
+#define GET_MOMENT_START_INDEX_MOMENT_BASE_SIZE_GIVEN(cur_moment_start_idx, cur_ledger_seq, moment_base_idx, moment_size) \
+    {                                                                                                                     \
+        uint64_t relative_n = (cur_ledger_seq - moment_base_idx) / moment_size;                                           \
+        cur_moment_start_idx = moment_base_idx + (relative_n * moment_size);                                              \
+    }
+
+#define GET_MOMENT_START_INDEX_MOMENT_SIZE_GIVEN(cur_moment_start_idx, cur_ledger_seq, moment_size)                             \
+    {                                                                                                                           \
+        uint64_t moment_base_idx;                                                                                               \
+        GET_CONF_VALUE(moment_base_idx, 0, STK_MOMENT_BASE_IDX, "Evernode: Could not set default state for moment base idx.");  \
+        GET_MOMENT_START_INDEX_MOMENT_BASE_SIZE_GIVEN(cur_moment_start_idx, cur_ledger_seq, moment_base_idx, conf_moment_size); \
+    }
+
+#define IS_HOST_ACTIVE_MOMENT_IDX_SIZE_GIVEN(is_active, host_addr_buf, cur_moment_start_idx, moment_size)                                                              \
+    {                                                                                                                                                                  \
+        uint16_t conf_host_heartbeat_freq;                                                                                                                             \
+        GET_CONF_VALUE(conf_host_heartbeat_freq, DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not set default state for host heartbeat freq."); \
+        uint8_t *host_hearbeat_ledger_idx_ptr = &host_addr_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];                                                                      \
+        int64_t last_hearbeat_ledger_idx = INT64_FROM_BUF(host_hearbeat_ledger_idx_ptr);                                                                               \
+        if (cur_moment_start_idx > (conf_host_heartbeat_freq * moment_size))                                                                                           \
+            is_active = (last_hearbeat_ledger_idx >= (cur_moment_start_idx - (conf_host_heartbeat_freq * moment_size)));                                               \
+        else                                                                                                                                                           \
+            is_active = (last_hearbeat_ledger_idx > 0);                                                                                                                \
+    }
+
+#define IS_HOST_ACTIVE(is_active, host_addr_buf, cur_ledger_seq)                                                                       \
+    {                                                                                                                                  \
+        uint16_t conf_moment_size;                                                                                                     \
+        GET_CONF_VALUE(conf_moment_size, DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not set default state for moment size."); \
+        uint64_t cur_moment_start_idx;                                                                                                 \
+        GET_MOMENT_START_INDEX_MOMENT_SIZE_GIVEN(cur_moment_start_idx, cur_ledger_seq, conf_moment_size);                              \
+        IS_HOST_ACTIVE_MOMENT_IDX_SIZE_GIVEN(is_active, host_addr_buf, cur_moment_start_idx, conf_moment_size);                        \
+    }
+
+// It gives -29 (EXPONENT_UNDERSIZED) when balance is zero. Need to read and experiment more.
+#define IS_FLOAT_ZERO(float) \
+    (float == 0 || float == -29)
+
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
 // e.g. if it is in a loop that loops 10 times n = 10

@@ -46,7 +46,7 @@ const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 125;
+const uint32_t HOST_ADDR_VAL_SIZE = 115;
 const uint32_t AUDITOR_ADDR_VAL_SIZE = 32;
 const uint32_t REDEEM_STATE_VAL_SIZE = 59;
 const uint32_t MOMENT_SEED_VAL_SIZE = 40;
