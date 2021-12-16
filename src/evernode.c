@@ -410,10 +410,12 @@ int64_t hook(int64_t reserved)
                     if (state(SBUF(last_updated_moment_start_idx_buf), SBUF(STK_ACCUMULATED_MOMENT_IDX)) != DOESNT_EXIST)
                         last_updated_moment_start_idx = UINT64_FROM_BUF(last_updated_moment_start_idx_buf);
 
-                    // Consider only active hosts.
+                    // Consider only active hosts. Loop through all the host and check for activeness.
                     // Prepare an array to keep active hosts.
+                    // <host1_addr(20)><host2_addr(20)><host3_addr(20)>....
                     // This buf can populate upto maximum host_count, So we pre allocate array for that limit.
-                    uint32_t active_host_addr_buf[host_count * 20];
+                    uint32_t host_info_len = 20;
+                    uint32_t active_host_addr_buf[host_count * host_info_len];
                     uint32_t active_host_count = 0;
                     for (int i = 0; GUARD(host_count), i < host_count; ++i)
                     {
@@ -435,7 +437,8 @@ int64_t hook(int64_t reserved)
                         IS_HOST_ACTIVE_MOMENT_IDX_SIZE_GIVEN(is_active, host_addr_buf, cur_moment_start_idx, conf_moment_size);
                         if (is_active)
                         {
-                            uint8_t *buf_ptr = &active_host_addr_buf[20 * active_host_count];
+                            uint8_t *buf_ptr = &active_host_addr_buf[host_info_len * active_host_count];
+                            // Copy address to the buffer.
                             COPY_BUF_GUARD(buf_ptr, 0, host_addr, 0, 20, host_count);
                             active_host_count++;
                         }
@@ -448,54 +451,6 @@ int64_t hook(int64_t reserved)
 
                     if (active_host_count == 0)
                         rollback(SBUF("Evernode: No active hosts to audit."), 1);
-
-                    uint64_t missed_moments = (cur_moment_start_idx - MAX(last_updated_moment_start_idx, moment_base_idx)) / conf_moment_size;
-                    if (missed_moments > 0)
-                    {
-                        // Accumulated amount would be, total reward amount equally divided by active host count multiplied by missed moments.
-                        int64_t acc_amount = float_divide(conf_reward, float_set(0, active_host_count));
-                        acc_amount = float_multiply(acc_amount, float_set(0, missed_moments));
-
-                        // There can be a possibility of some hosts has gone active or inactive within these missed moments.
-                        // In that case amount to accumulate won't be same for all the moment, we need to consider that scenario later.
-
-                        for (int i = 0; GUARD(active_host_count), i < active_host_count; ++i)
-                        {
-                            uint8_t *host_addr_ptr = &active_host_addr_buf[20 * i];
-                            // Take the last audit assigned moment.
-                            HOST_ADDR_KEY_GUARD(host_addr_ptr, host_count);
-                            // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
-                            uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
-                            if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
-                                rollback(SBUF("Evernode: Host is not registered."), 1);
-
-                            uint8_t *cur_acc_amount_ptr = &host_addr_buf[HOST_ACCUMULATED_AMT_OFFSET];
-                            int64_t cur_acc_amount = INT64_FROM_BUF(cur_acc_amount_ptr);
-
-                            // If last audit hasn't been rewarded it should be a audit failure.
-                            // Then if accumulated amount is > 0 add accumulated amount to the pool.
-                            uint64_t audit_assigned_moment_start_idx = UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_IDX_OFFSET]);
-                            if ((cur_moment_start_idx > audit_assigned_moment_start_idx) &&
-                                (cur_acc_amount > 0) &&
-                                (audit_assigned_moment_start_idx > UINT64_FROM_BUF(&host_addr_buf[HOST_REWARD_IDX_OFFSET])))
-                            {
-                                ADD_TO_REWARD_POOL(cur_acc_amount);
-                                cur_acc_amount = 0;
-                            }
-
-                            cur_acc_amount = float_sum(cur_acc_amount, acc_amount);
-
-                            // Update the host's accumulated amount state.
-                            INT64_TO_BUF(cur_acc_amount_ptr, cur_acc_amount);
-                            if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
-                                rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
-                        }
-
-                        // Update the last accumulated moment state.
-                        UINT64_TO_BUF(last_updated_moment_start_idx_buf, cur_moment_start_idx);
-                        if (state_set(SBUF(last_updated_moment_start_idx_buf), SBUF(STK_ACCUMULATED_MOMENT_IDX)) < 0)
-                            rollback(SBUF("Evernode: Could not set default state for last accumulated moment."), 1);
-                    }
 
                     uint8_t *moment_seed_ptr = &moment_seed_buf[8];
                     trace(SBUF("Moment seed: "), moment_seed_ptr, HASH_SIZE, 1);
@@ -514,59 +469,101 @@ int64_t hook(int64_t reserved)
                     // How many hosts will be assigned for the auditor min(ceil(active_host_count / auditor_count), conf_max_audit).
                     // Note: maximum pick count would be conf_max_audit.
                     uint32_t pick_count = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
-                    // Which is a picking starting host index for this auditor.
+                    // Which is the picking starting host index for this auditor.
                     uint32_t pick_host_from_idx = (pick_start_host_idx + (pick_idx * pick_count)) % active_host_count;
                     // If this is the last index, it might not get assigned all the "pick_count" hosts from "pick_host_from".
                     // Beacause when "active_host_count % auditor_count > 0", last auditor gets the remainder
                     if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
                         pick_count = active_host_count % auditor_count;
+                    // Which is the picking endig host index for this auditor.
+                    uint32_t pick_host_to_idx = (pick_start_host_idx + pick_count) % active_host_count;
 
                     // Setup the outgoing txns for all checkCreates representing hosts assigned for this auditor.
                     etxn_reserve(pick_count);
 
-                    for (int i = 0; GUARD(pick_count), i < pick_count; ++i)
+                    // If there're missed moments, we loop for all the active hosts and distribute accumulated rewards.
+                    // And withing same loop, if the active host index is (> pick_host_from_idx) and (< pick_host_from_idx + pick_count) emit the check to the auditor.
+                    // If there're no missed moments, we loop for pick_count and emit checks to the auditor from the pick_host_from_idx
+                    uint64_t missed_moments = (cur_moment_start_idx - MAX(last_updated_moment_start_idx, moment_base_idx)) / conf_moment_size;
+                    if (missed_moments > 0)
                     {
-                        // Take the host address.
-                        uint32_t pick_idx = (pick_host_from_idx + i) % active_host_count;
-                        uint8_t *host_addr_ptr = &active_host_addr_buf[20 * pick_idx];
+                        // Accumulated amount would be, total reward amount equally divided by active host count multiplied by missed moments.
+                        int64_t acc_amount = float_divide(conf_reward, float_set(0, active_host_count));
+                        acc_amount = float_multiply(acc_amount, float_set(0, missed_moments));
 
-                        // Take the last audit assigned moment.
-                        HOST_ADDR_KEY_GUARD(host_addr_ptr, host_count);
-                        // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
-                        uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
-                        if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
-                            rollback(SBUF("Evernode: Host is not registered."), 1);
+                        // There can be a possibility of some hosts has gone active or inactive within these missed moments.
+                        // In that case amount to accumulate won't be same for all the moment, we need to consider that scenario later.
 
-                        uint8_t *host_token_ptr = &host_addr_buf[4];
+                        for (int i = 0; GUARD(active_host_count), i < active_host_count; ++i)
+                        {
+                            uint8_t *host_addr_ptr = &active_host_addr_buf[host_info_len * i];
+                            // Take the last audit assigned moment.
+                            HOST_ADDR_KEY_GUARD(host_addr_ptr, host_count);
+                            // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
+                            uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
+                            if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                                rollback(SBUF("Evernode: Host is not registered."), 1);
 
-                        trace(SBUF("Hosting token"), host_token_ptr, 3, 1);
+                            uint8_t *cur_acc_amount_ptr = &host_addr_buf[HOST_ACCUMULATED_AMT_OFFSET];
+                            int64_t cur_acc_amount = INT64_FROM_BUF(cur_acc_amount_ptr);
 
-                        // If host is already assigned for audit within this moment we won't reward again.
-                        if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_IDX_OFFSET]) == cur_moment_start_idx)
-                            rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);
+                            // If last audit hasn't been rewarded it should be an audit failure.
+                            // Then if accumulated amount is > 0 add accumulated amount to the pool.
+                            uint64_t audit_assigned_moment_start_idx = UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_IDX_OFFSET]);
+                            if ((cur_moment_start_idx > audit_assigned_moment_start_idx) &&
+                                (cur_acc_amount > 0) &&
+                                (audit_assigned_moment_start_idx > UINT64_FROM_BUF(&host_addr_buf[HOST_REWARD_IDX_OFFSET])))
+                            {
+                                ADD_TO_REWARD_POOL(cur_acc_amount);
+                                cur_acc_amount = 0;
+                            }
 
-                        int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);
+                            // Update the host's accumulated amount state.
+                            cur_acc_amount = float_sum(cur_acc_amount, acc_amount);
+                            INT64_TO_BUF(cur_acc_amount_ptr, cur_acc_amount);
 
-                        int64_t token_limit = float_set(0, conf_min_redeem);
+                            // Check whether this host is to picked by this auditor. If so emit the check.
+                            int is_picked = 0;
+                            if (pick_host_from_idx == pick_host_to_idx) // If range is like (3 to 3) {0, 1, 2], [3, 4, 5} -> |3, 4, 5, 0, 1, 2|.
+                                is_picked = 1;
+                            else if (pick_host_from_idx < pick_host_to_idx) // If range is like (1 to 4) {0, [1, 2, 3, 4], 5} -> |1, 2, 3, 4|.
+                                is_picked = (i >= pick_host_from_idx && i < pick_host_to_idx);
+                            else if (pick_host_from_idx > pick_host_to_idx) // If range is like (4 to 1) {0, 1], 2, 3, [4, 5} -> |4, 5, 0, 1|.
+                                is_picked = i >= pick_host_from_idx || i < pick_host_to_idx;
 
-                        uint8_t amt_out[AMOUNT_BUF_SIZE];
-                        SET_AMOUNT_OUT_GUARD(amt_out, host_token_ptr, host_addr_ptr, token_limit, pick_count);
+                            if (is_picked)
+                                EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count);
 
-                        // Finally create the outgoing txn.
-                        uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];
-                        PREPARE_AUDIT_CHECK_GUARD(txn_out, amt_out, fee, account_field, pick_count);
+                            if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
+                                rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
+                        }
 
-                        uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                            rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                        // Update the last accumulated moment state.
+                        UINT64_TO_BUF(last_updated_moment_start_idx_buf, cur_moment_start_idx);
+                        if (state_set(SBUF(last_updated_moment_start_idx_buf), SBUF(STK_ACCUMULATED_MOMENT_IDX)) < 0)
+                            rollback(SBUF("Evernode: Could not set default state for last accumulated moment."), 1);
+                    }
+                    else
+                    {
+                        // Emit the checks of picked hosts.
+                        for (int i = 0; GUARD(pick_count), i < pick_count; ++i)
+                        {
+                            // Take the host address.
+                            uint32_t pick_idx = (pick_host_from_idx + i) % active_host_count;
+                            uint8_t *host_addr_ptr = &active_host_addr_buf[host_info_len * pick_idx];
 
-                        // Update the host's audit assigned state.
-                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDIT_IDX_OFFSET, moment_seed_buf, 0, 8, pick_count);
-                        COPY_BUF_GUARD(host_addr_buf, HOST_AUDITOR_OFFSET, account_field, 0, 20, pick_count);
+                            // Take the last audit assigned moment.
+                            HOST_ADDR_KEY_GUARD(host_addr_ptr, host_count);
+                            // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
+                            uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
+                            if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                                rollback(SBUF("Evernode: Host is not registered."), 1);
 
-                        if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
-                            rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
+                            EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count);
+
+                            if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
+                                rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
+                        }
                     }
 
                     // Update the auditor state if at least one host is assigned.
