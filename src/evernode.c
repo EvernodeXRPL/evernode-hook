@@ -884,8 +884,8 @@ int64_t hook(int64_t reserved)
                 COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 4, COUNTRY_CODE_LEN);
 
                 // Read instace details from the memo.
-                // We cannot predict the lengths of instance size and locations.
-                // So we scan bytes and populate the buffer.
+                // We cannot predict the lengths of the numarical values.
+                // So we scan bytes and keep pointers and lengths to set in host address buffer.
                 uint32_t section_number = 0;
                 uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *description_ptr;
                 uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, description_len = 0;
@@ -930,11 +930,13 @@ int64_t hook(int64_t reserved)
                     }
                 }
 
+                // Take the unsigned int values.
                 uint32_t cpu_microsec, ram_mb, disk_mb;
                 STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
                 STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
                 STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
 
+                // Populate the values to the buffer.
                 UINT32_TO_BUF(&host_addr[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                 UINT32_TO_BUF(&host_addr[HOST_RAM_MB_OFFSET], ram_mb);
                 UINT32_TO_BUF(&host_addr[HOST_DISK_MB_OFFSET], disk_mb);
@@ -1035,7 +1037,7 @@ int64_t hook(int64_t reserved)
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data)));
 
                 uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data))];
-                PREPARE_PAYMENT_REDEEM_M(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data), 1038);
+                PREPARE_PAYMENT_REDEEM_M(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data), 1040);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -1103,12 +1105,18 @@ int64_t hook(int64_t reserved)
                 GET_CONF_VALUE(conf_host_heartbeat_freq, DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not set default state for host heartbeat freq.");
                 TRACEVAR(conf_host_heartbeat_freq);
 
+                // Take the current locked amount.
                 uint8_t *locked_amount_ptr = &host_addr[HOST_LOCKED_TOKEN_AMT_OFFSET];
                 int64_t cur_locked_amount = INT64_FROM_BUF(locked_amount_ptr);
+                // Take the host heartbeat frequency.
                 int64_t host_heartbeat_freq_float = float_set(0, conf_host_heartbeat_freq);
+                // Calculate minimum required amount.
                 int64_t required_amount = float_sum(cur_locked_amount, float_multiply(min_redeem_float, float_sum(host_heartbeat_freq_float, float_one())));
+                // Calculate excess amount, In this case if received amount is MIN_REDEEM resulting value would be negative.
+                // In the next step we add current token balane to this amount then we get the actual excess amount.
                 int64_t excess_amount = float_sum(amt, float_negate(required_amount));
 
+                // Taking the current token balance.
                 uint8_t keylet[34];
                 if (util_keylet(SBUF(keylet), KEYLET_LINE, SBUF(hook_accid), SBUF(account_field), SBUF(hosting_token)) != 34)
                     rollback(SBUF("Evernode: Internal error, could not generate keylet for host recharge"), 1);
@@ -1131,6 +1139,7 @@ int64_t hook(int64_t reserved)
                 int64_t balance_float = slot_float(balance_slot);
                 TRACEVAR(balance_float);
 
+                // Add the balance only if positive,
                 if (balance_float < 0 && !IS_FLOAT_ZERO(balance_float))
                     rollback(SBUF("Evernode: Could not parse user trustline balance."), 1);
                 else if (!IS_FLOAT_ZERO(balance_float))                                    // If we have positive balance.
