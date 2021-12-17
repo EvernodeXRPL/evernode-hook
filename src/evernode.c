@@ -118,7 +118,7 @@ int64_t hook(int64_t reserved)
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_res), sizeof(redeem_ref), is_redeem_suc));
 
                 uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_res), sizeof(redeem_ref), is_redeem_suc)];
-                PREPARE_PAYMENT_REDEEM_RESP_M(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_res, sizeof(redeem_res), redeem_ref, sizeof(redeem_ref), is_redeem_suc, 121);
+                PREPARE_PAYMENT_REDEEM_RESP_M(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_res, sizeof(redeem_res), redeem_ref, sizeof(redeem_ref), is_redeem_suc, 10);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -208,7 +208,7 @@ int64_t hook(int64_t reserved)
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_PAYMENT_REFUND_ERROR_SIZE];
-                    PREPARE_PAYMENT_REFUND_ERROR_M(txn_out, MIN_DROPS, fee, account_field, txid, 211);
+                    PREPARE_PAYMENT_REFUND_ERROR_M(txn_out, MIN_DROPS, fee, account_field, txid, 10);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -244,7 +244,7 @@ int64_t hook(int64_t reserved)
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_PAYMENT_REFUND_SUCCESS_SIZE];
-                    PREPARE_PAYMENT_REFUND_SUCCESS_M(txn_out, amt_out, fee, account_field, txid, refund_ref, 247);
+                    PREPARE_PAYMENT_REFUND_SUCCESS_M(txn_out, amt_out, fee, account_field, txid, refund_ref, 10);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -535,7 +535,7 @@ int64_t hook(int64_t reserved)
                                 is_picked = i >= pick_host_from_idx || i < pick_host_to_idx;
 
                             if (is_picked)
-                                EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 538);
+                                EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 10);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
@@ -562,7 +562,7 @@ int64_t hook(int64_t reserved)
                             if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                                 rollback(SBUF("Evernode: Host is not registered."), 1);
 
-                            EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 565);
+                            EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 10);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
@@ -634,7 +634,7 @@ int64_t hook(int64_t reserved)
 
                         // Create the outgoing hosting token txn.
                         uint8_t txn_out[PREPARE_PAYMENT_REWARD_SIZE];
-                        PREPARE_PAYMENT_REWARD_M(txn_out, amt_out, fee, host_addr_ptr, 637);
+                        PREPARE_PAYMENT_REWARD_M(txn_out, amt_out, fee, host_addr_ptr, 10);
 
                         uint8_t emithash[HASH_SIZE];
                         if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -1037,7 +1037,7 @@ int64_t hook(int64_t reserved)
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data)));
 
                 uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data))];
-                PREPARE_PAYMENT_REDEEM_M(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data), 1040);
+                PREPARE_PAYMENT_REDEEM_M(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data), 10);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -1149,8 +1149,10 @@ int64_t hook(int64_t reserved)
                 if (IS_FLOAT_ZERO(excess_amount))
                     excess_amount = 0;
 
-                // If transfer amount(amount we have + current recharge amount - max amount) < 0, hook does not have enogh hosting tokens.
-                // If transfer amount > 0, we refund them to the host.
+                // If excess amount(amount we have + current recharge amount - max amount) < 0, hook does not have enough hosting tokens.
+                // If excess amount > 0, we refund them to the host.
+                if (float_compare(excess_amount, 0, COMPARE_LESS) == 1)
+                    rollback(SBUF("Evernode: Recharge amount is less than minimum required hosting token amount."), 1);
                 if (float_compare(excess_amount, 0, COMPARE_GREATER) == 1)
                 {
                     // Send hosting tokens to the host.
