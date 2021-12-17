@@ -428,7 +428,8 @@ int64_t hook(int64_t reserved)
 
                         // Take the last audit assigned moment.
                         HOST_ADDR_KEY_GUARD(host_addr, host_count);
-                        // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
+                        // <host_id(4)><hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><audit_assigned_moment_start_idx(8)>
+                        // <auditor_addr(20)><rewarded_moment_start_idx(8)><accumulated_rewards(8)><locked_token_amont(8)><last_hearbeat_ledger_idx(8)>
                         uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
                         if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                             rollback(SBUF("Evernode: Host is not registered."), 1);
