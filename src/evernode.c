@@ -118,7 +118,7 @@ int64_t hook(int64_t reserved)
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_res), sizeof(redeem_ref), is_redeem_suc));
 
                 uint8_t txn_out[PREPARE_PAYMENT_REDEEM_RESP_SIZE(sizeof(redeem_res), sizeof(redeem_ref), is_redeem_suc)];
-                PREPARE_PAYMENT_REDEEM_RESP(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_res, sizeof(redeem_res), redeem_ref, sizeof(redeem_ref), is_redeem_suc);
+                PREPARE_PAYMENT_REDEEM_RESP_M(txn_out, MIN_DROPS, fee, useraddr_ptr, redeem_res, sizeof(redeem_res), redeem_ref, sizeof(redeem_ref), is_redeem_suc, 121);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -208,7 +208,7 @@ int64_t hook(int64_t reserved)
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_PAYMENT_REFUND_ERROR_SIZE];
-                    PREPARE_PAYMENT_REFUND_ERROR(txn_out, MIN_DROPS, fee, account_field, txid);
+                    PREPARE_PAYMENT_REFUND_ERROR_M(txn_out, MIN_DROPS, fee, account_field, txid, 211);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -244,7 +244,7 @@ int64_t hook(int64_t reserved)
 
                     // Finally create the outgoing txn.
                     uint8_t txn_out[PREPARE_PAYMENT_REFUND_SUCCESS_SIZE];
-                    PREPARE_PAYMENT_REFUND_SUCCESS(txn_out, amt_out, fee, account_field, txid, refund_ref);
+                    PREPARE_PAYMENT_REFUND_SUCCESS_M(txn_out, amt_out, fee, account_field, txid, refund_ref, 247);
 
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -471,9 +471,12 @@ int64_t hook(int64_t reserved)
                     uint32_t pick_count = MIN(CEIL(active_host_count, auditor_count), conf_max_audit);
                     // Which is the picking starting host index for this auditor.
                     uint32_t pick_host_from_idx = (pick_start_host_idx + (pick_idx * pick_count)) % active_host_count;
+                    // If "active_host_count < auditor_count" then "pick_count" would be 1, and extra auditors ("pick_idx >= active_host_count") won't get assigned audits.
                     // If this is the last index, it might not get assigned all the "pick_count" hosts from "pick_host_from".
-                    // Beacause when "active_host_count % auditor_count > 0", last auditor gets the remainder
-                    if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
+                    // Beacause when "active_host_count % auditor_count > 0", last auditor gets the remainder.
+                    if ((auditor_count > active_host_count) && (pick_idx >= active_host_count))
+                        rollback(SBUF("Evernode: No enough hosts to audit for this auditor."), 1);
+                    else if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
                         pick_count = active_host_count % auditor_count;
                     // Which is the picking endig host index for this auditor.
                     uint32_t pick_host_to_idx = (pick_host_from_idx + pick_count) % active_host_count;
@@ -532,7 +535,7 @@ int64_t hook(int64_t reserved)
                                 is_picked = i >= pick_host_from_idx || i < pick_host_to_idx;
 
                             if (is_picked)
-                                EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, active_host_count);
+                                EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 538);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
@@ -553,13 +556,13 @@ int64_t hook(int64_t reserved)
                             uint8_t *host_addr_ptr = &active_host_addr_buf[host_info_len * pick_idx];
 
                             // Take the last audit assigned moment.
-                            HOST_ADDR_KEY_GUARD(host_addr_ptr, host_count);
+                            HOST_ADDR_KEY_GUARD(host_addr_ptr, pick_count);
                             // <host_id(4)><hosting_token(3)><instance_size(60)><location(10)><audit_assigned_moment_start_idx(8)><auditor_addr(20)><rewarded_moment_start_idx(8)>
                             uint8_t host_addr_buf[HOST_ADDR_VAL_SIZE];
                             if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                                 rollback(SBUF("Evernode: Host is not registered."), 1);
 
-                            EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count);
+                            EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 565);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
@@ -631,7 +634,7 @@ int64_t hook(int64_t reserved)
 
                         // Create the outgoing hosting token txn.
                         uint8_t txn_out[PREPARE_PAYMENT_REWARD_SIZE];
-                        PREPARE_PAYMENT_REWARD(txn_out, amt_out, fee, host_addr_ptr);
+                        PREPARE_PAYMENT_REWARD_M(txn_out, amt_out, fee, host_addr_ptr, 637);
 
                         uint8_t emithash[HASH_SIZE];
                         if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -1032,7 +1035,7 @@ int64_t hook(int64_t reserved)
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data)));
 
                 uint8_t txn_out[PREPARE_PAYMENT_REDEEM_SIZE(sizeof(redeem_data), sizeof(origin_data))];
-                PREPARE_PAYMENT_REDEEM(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data));
+                PREPARE_PAYMENT_REDEEM_M(txn_out, MIN_DROPS, fee, issuer_ptr, redeem_data, sizeof(redeem_data), origin_data, sizeof(origin_data), 1038);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)

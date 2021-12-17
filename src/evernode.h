@@ -230,30 +230,27 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     {                                                                                                                                                              \
         ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                                         /* uint32  | size   1 */                                       \
         ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                                         /* uint32  | size   1 */                                       \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, type_ptr, type_len, MEMO_TYPE, n, m + 7);       /* STI_VL  | size   type_len + (type_len <= 192 ? 2 : 3)*/     \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data_ptr, data_len, MEMO_DATA, n, m + 8);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/     \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, format_ptr, format_len, MEMO_FORMAT, n, m + 9); /* STI_VL  | size   format_len + (format_len <= 192 ? 2 : 3)*/ \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, type_ptr, type_len, MEMO_TYPE, n, m);           /* STI_VL  | size   type_len + (type_len <= 192 ? 2 : 3)*/     \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data_ptr, data_len, MEMO_DATA, n, m + 1);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/     \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, format_ptr, format_len, MEMO_FORMAT, n, m + 2); /* STI_VL  | size   format_len + (format_len <= 192 ? 2 : 3)*/ \
         ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                            /* uint32  | size   1 */                                       \
         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                             /* uint32  | size   1 */                                       \
     }
 
-#define _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
-    _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len, 1, 1)
-
-#define _0F_09_ENCODE_MEMOS_DUO(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data2_len) \
-    {                                                                                                                                                                                \
-        ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                                        /* uint32  | size   1 */                                                          \
-        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                                        /* uint32  | size   1 */                                                          \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, type1_ptr, type1_len, MEMO_TYPE, 1, 7);        /* STI_VL  | size   type_len + (type_len <= 192 ? 2 : 3)*/                        \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data1_ptr, data1_len, MEMO_DATA, 1, 8);        /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/                        \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, format1_ptr, format1_len, MEMO_FORMAT, 1, 9);  /* STI_VL  | size   format_len + (format_len <= 192 ? 2 : 3)*/                    \
-        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                           /* uint32  | size   1 */                                                          \
-        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                                        /* uint32  | size   1 */                                                          \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, type2_ptr, type2_len, MEMO_TYPE, 1, 10);       /* STI_VL  | size   type_len + (type_len <= 192 ? 2 : 3)*/                        \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data2_ptr, data2_len, MEMO_DATA, 1, 11);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/                        \
-        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, format2_ptr, format2_len, MEMO_FORMAT, 1, 12); /* STI_VL  | size   format_len + (format_len <= 192 ? 2 : 3)*/                    \
-        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                           /* uint32  | size   1 */                                                          \
-        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                            /* uint32  | size   1 */                                                          \
+#define _0F_09_ENCODE_MEMOS_DUO_GUARDM(buf_out, type1_ptr, type1_len, format1_ptr, format1_len, data1_ptr, data1_len, type2_ptr, type2_len, format2_ptr, format2_len, data2_ptr, data2_len, n, m) \
+    {                                                                                                                                                                                             \
+        ENCODE_FIELDS(buf_out, ARRAY, MEMOS); /*Arr Start*/                                           /* uint32  | size   1 */                                                                    \
+        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                                           /* uint32  | size   1 */                                                                    \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, type1_ptr, type1_len, MEMO_TYPE, n, m);           /* STI_VL  | size   type_len + (type_len <= 192 ? 2 : 3)*/                                  \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data1_ptr, data1_len, MEMO_DATA, n, m + 1);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/                                  \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, format1_ptr, format1_len, MEMO_FORMAT, n, m + 2); /* STI_VL  | size   format_len + (format_len <= 192 ? 2 : 3)*/                              \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                              /* uint32  | size   1 */                                                                    \
+        ENCODE_FIELDS(buf_out, OBJECT, MEMO); /*Obj start*/                                           /* uint32  | size   1 */                                                                    \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, type2_ptr, type2_len, MEMO_TYPE, n, m + 3);       /* STI_VL  | size   type_len + (type_len <= 192 ? 2 : 3)*/                                  \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data2_ptr, data2_len, MEMO_DATA, n, m + 4);       /* STI_VL  | size   data_len + (data_len <= 192 ? 2 : 3)*/                                  \
+        _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, format2_ptr, format2_len, MEMO_FORMAT, n, m + 5); /* STI_VL  | size   format_len + (format_len <= 192 ? 2 : 3)*/                              \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj end*/                                              /* uint32  | size   1 */                                                                    \
+        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                               /* uint32  | size   1 */                                                                    \
     }
 
 /////////// Guarded hookmacro.h duplicates. ///////////
@@ -298,23 +295,23 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 #define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
     ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + 237 + 4)
-#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
-    {                                                                                                                                                        \
-        uint8_t *buf_out = buf_out_master;                                                                                                                   \
-        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                \
-        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                             \
-        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                       \
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len, m) \
+    {                                                                                                                                                             \
+        uint8_t *buf_out = buf_out_master;                                                                                                                        \
+        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                     \
+        _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                     \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                            \
     }
 
 #define PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(type1_len, format1_len, data1_len, type2_len, format2_len, data2_len)                   \
     ((type2_len + (type2_len <= 192 ? 2 : 3) + format2_len + (format2_len <= 192 ? 2 : 3) + data2_len + (data2_len <= 192 ? 2 : 3)) + \
      (type1_len + (type1_len <= 192 ? 2 : 3) + format1_len + (format1_len <= 192 ? 2 : 3) + data1_len + (data1_len <= 192 ? 2 : 3)) + 237 + 6)
-#define PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len) \
-    {                                                                                                                                                                                                                     \
-        uint8_t *buf_out = buf_out_master;                                                                                                                                                                                \
-        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                                                                             \
-        _0F_09_ENCODE_MEMOS_DUO(buf_out, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len);                                                             \
-        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                                                                                    \
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len, m) \
+    {                                                                                                                                                                                                                          \
+        uint8_t *buf_out = buf_out_master;                                                                                                                                                                                     \
+        POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address);                                                                                                                                  \
+        _0F_09_ENCODE_MEMOS_DUO_GUARDM(buf_out, type1, type1_len, format1, format1_len, data1, data1_len, type2, type2_len, format2, format2_len, data2, data2_len, 1, m);                                                     \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                                                                                         \
     }
 
 /////////// Macros to prepare a trustline transaction with memos. ///////////
@@ -341,12 +338,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 #define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
     ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + 276 + 4)
-#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len) \
-    {                                                                                                                                                       \
-        uint8_t *buf_out = buf_out_master;                                                                                                                  \
-        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                                \
-        _0F_09_ENCODE_MEMOS_SINGLE(buf_out, type, type_len, format, format_len, data, data_len);                                                            \
-        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                      \
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len, m) \
+    {                                                                                                                                                            \
+        uint8_t *buf_out = buf_out_master;                                                                                                                       \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                                     \
+        _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                    \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                           \
     }
 
 /////////// Macros to prepare a check with memos. ///////////
@@ -408,47 +405,47 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 #define PREPARE_PAYMENT_REDEEM_SIZE(redeem_data_len, origin_data_len) \
     (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE(9, 6, redeem_data_len, 15, 3, origin_data_len))
-#define PREPARE_PAYMENT_REDEEM(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_data, redeem_data_len, origin_data, origin_data_len)                                                                           \
-    {                                                                                                                                                                                                                             \
-        PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM, 9, FORMAT_BASE64, 6, redeem_data, redeem_data_len, REDEEM_ORIGIN, 15, FORMAT_HEX, 3, origin_data, origin_data_len); \
+#define PREPARE_PAYMENT_REDEEM_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_data, redeem_data_len, origin_data, origin_data_len, m)                                                                           \
+    {                                                                                                                                                                                                                                  \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM, 9, FORMAT_BASE64, 6, redeem_data, redeem_data_len, REDEEM_ORIGIN, 15, FORMAT_HEX, 3, origin_data, origin_data_len, m); \
     }
 
 #define PREPARE_PAYMENT_REDEEM_RESP_SIZE(redeem_resp_len, redeem_ref_len, is_success) \
     (PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_SIZE((is_success ? 16 : 14), (is_success ? 6 : 9), redeem_resp_len, 12, 3, redeem_ref_len))
-#define PREPARE_PAYMENT_REDEEM_RESP(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_resp_ptr, redeem_resp_len, redeem_ref_ptr, redeem_ref_len, is_success)                                                                    \
-    {                                                                                                                                                                                                                                             \
-        if (is_success)                                                                                                                                                                                                                           \
-        {                                                                                                                                                                                                                                         \
-            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_SUCCESS, 16, FORMAT_BASE64, 6, redeem_resp_ptr, redeem_resp_len, REDEEM_REF, 12, FORMAT_HEX, 3, redeem_ref_ptr, redeem_ref_len); \
-        }                                                                                                                                                                                                                                         \
-        else                                                                                                                                                                                                                                      \
-        {                                                                                                                                                                                                                                         \
-            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_ERROR, 14, FORMAT_JSON, 9, redeem_resp_ptr, redeem_resp_len, REDEEM_REF, 12, FORMAT_HEX, 3, redeem_ref_ptr, redeem_ref_len);     \
-        }                                                                                                                                                                                                                                         \
+#define PREPARE_PAYMENT_REDEEM_RESP_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, redeem_resp_ptr, redeem_resp_len, redeem_ref_ptr, redeem_ref_len, is_success, m)                                                                    \
+    {                                                                                                                                                                                                                                                  \
+        if (is_success)                                                                                                                                                                                                                                \
+        {                                                                                                                                                                                                                                              \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_SUCCESS, 16, FORMAT_BASE64, 6, redeem_resp_ptr, redeem_resp_len, REDEEM_REF, 12, FORMAT_HEX, 3, redeem_ref_ptr, redeem_ref_len, m); \
+        }                                                                                                                                                                                                                                              \
+        else                                                                                                                                                                                                                                           \
+        {                                                                                                                                                                                                                                              \
+            PREPARE_PAYMENT_SIMPLE_MEMOS_DUO_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REDEEM_ERROR, 14, FORMAT_JSON, 9, redeem_resp_ptr, redeem_resp_len, REDEEM_REF, 12, FORMAT_HEX, 3, redeem_ref_ptr, redeem_ref_len, m);     \
+        }                                                                                                                                                                                                                                              \
     }
 
 #define PREPARE_PAYMENT_REWARD_SIZE \
     (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(9, 0, 0))
-#define PREPARE_PAYMENT_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                \
-    {                                                                                                                                           \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REWARD, 9, empty_ptr, 0, empty_ptr, 0); \
+#define PREPARE_PAYMENT_REWARD_M(buf_out_master, tlamt, drops_fee_raw, to_address, m)                                                                \
+    {                                                                                                                                                \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, REWARD, 9, empty_ptr, 0, empty_ptr, 0, m); \
     }
 
 #define PREPARE_PAYMENT_REFUND_SUCCESS_SIZE \
     (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(16, 3, 64))
-#define PREPARE_PAYMENT_REFUND_SUCCESS(buf_out_master, tlamt, drops_fee_raw, to_address, refund_ptr, redeem_ptr)                                           \
-    {                                                                                                                                                      \
-        uint8_t memo_data[64];                                                                                                                             \
-        COPY_BUF_GUARDM(memo_data, 0, refund_ptr, 0, 32, 1, 4);                                                                                            \
-        COPY_BUF_GUARDM(memo_data, 32, redeem_ptr, 0, 32, 1, 5);                                                                                           \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE(buf_out_master, tlamt, drops_fee_raw, to_address, REFUND_SUCCESS, 16, FORMAT_HEX, 3, memo_data, 64); \
+#define PREPARE_PAYMENT_REFUND_SUCCESS_M(buf_out_master, tlamt, drops_fee_raw, to_address, refund_ptr, redeem_ptr, m)                                           \
+    {                                                                                                                                                           \
+        uint8_t memo_data[64];                                                                                                                                  \
+        COPY_BUF_GUARDM(memo_data, 0, refund_ptr, 0, 32, 1, 4);                                                                                                 \
+        COPY_BUF_GUARDM(memo_data, 32, redeem_ptr, 0, 32, 1, 5);                                                                                                \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, REFUND_SUCCESS, 16, FORMAT_HEX, 3, memo_data, 64, m); \
     }
 
 #define PREPARE_PAYMENT_REFUND_ERROR_SIZE \
     (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(14, 3, 32))
-#define PREPARE_PAYMENT_REFUND_ERROR(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, refund_ptr)                                              \
-    {                                                                                                                                                      \
-        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REFUND_ERROR, 14, FORMAT_HEX, 3, refund_ptr, 32); \
+#define PREPARE_PAYMENT_REFUND_ERROR_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, refund_ptr, m)                                              \
+    {                                                                                                                                                           \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, REFUND_ERROR, 14, FORMAT_HEX, 3, refund_ptr, 32, m); \
     }
 
 #define PREPARE_AUDIT_CHECK_SIZE \
@@ -582,27 +579,27 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         IS_HOST_ACTIVE_MOMENT_IDX_SIZE_GIVEN(is_active, host_addr_buf, cur_moment_start_idx, conf_moment_size);                        \
     }
 
-#define EMIT_AUDIT_CHECK_GUARD(cur_moment_start_idx, moment_seed_buf, min_redeem, host_addr, host_addr_buf, to_addr, n) \
-    {                                                                                                                   \
-        uint8_t *host_token_ptr = &host_addr_buf[HOST_TOKEN_OFFSET];                                                    \
-        trace(SBUF("Hosting token"), host_token_ptr, 3, 1);                                                             \
-        /* If host is already assigned for audit within this moment we won't reward again. */                           \
-        if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_IDX_OFFSET]) == cur_moment_start_idx)                             \
-            rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);               \
-        int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);                                                          \
-        int64_t token_limit = float_set(0, min_redeem);                                                                 \
-        uint8_t amt_out[AMOUNT_BUF_SIZE];                                                                               \
-        SET_AMOUNT_OUT_GUARDM(amt_out, host_token_ptr, host_addr, token_limit, n, 1);                                   \
-        /* Finally create the outgoing txn. */                                                                          \
-        uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];                                                                      \
-        PREPARE_AUDIT_CHECK_GUARDM(txn_out, amt_out, fee, to_addr, n, 2);                                               \
-        uint8_t emithash[HASH_SIZE];                                                                                    \
-        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)                                                                    \
-            rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);                                        \
-        trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                  \
-        /* Update the host's audit assigned state. */                                                                   \
-        COPY_BUF_GUARDM(host_addr_buf, HOST_AUDIT_IDX_OFFSET, moment_seed_buf, 0, 8, n, 13);                            \
-        COPY_BUF_GUARDM(host_addr_buf, HOST_AUDITOR_OFFSET, to_addr, 0, 20, n, 14);                                     \
+#define EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, min_redeem, host_addr, host_addr_buf, to_addr, n, m) \
+    {                                                                                                                       \
+        uint8_t *host_token_ptr = &host_addr_buf[HOST_TOKEN_OFFSET];                                                        \
+        trace(SBUF("Hosting token"), host_token_ptr, 3, 1);                                                                 \
+        /* If host is already assigned for audit within this moment we won't reward again. */                               \
+        if (UINT64_FROM_BUF(&host_addr_buf[HOST_AUDIT_IDX_OFFSET]) == cur_moment_start_idx)                                 \
+            rollback(SBUF("Evernode: Picked host is already assigned for audit within this moment."), 1);                   \
+        int64_t fee = etxn_fee_base(PREPARE_AUDIT_CHECK_SIZE);                                                              \
+        int64_t token_limit = float_set(0, min_redeem);                                                                     \
+        uint8_t amt_out[AMOUNT_BUF_SIZE];                                                                                   \
+        SET_AMOUNT_OUT_GUARDM(amt_out, host_token_ptr, host_addr, token_limit, n, m);                                       \
+        /* Finally create the outgoing txn. */                                                                              \
+        uint8_t txn_out[PREPARE_AUDIT_CHECK_SIZE];                                                                          \
+        PREPARE_AUDIT_CHECK_GUARDM(txn_out, amt_out, fee, to_addr, n, m + 1);                                               \
+        uint8_t emithash[HASH_SIZE];                                                                                        \
+        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)                                                                        \
+            rollback(SBUF("Evernode: Emitting hosting token check failed."), 1);                                            \
+        trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                      \
+        /* Update the host's audit assigned state. */                                                                       \
+        COPY_BUF_GUARDM(host_addr_buf, HOST_AUDIT_IDX_OFFSET, moment_seed_buf, 0, 8, n, m + 5);                             \
+        COPY_BUF_GUARDM(host_addr_buf, HOST_AUDITOR_OFFSET, to_addr, 0, 20, n, m + 6);                                      \
     }
 
 #endif
