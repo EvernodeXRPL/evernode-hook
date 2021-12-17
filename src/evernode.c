@@ -477,7 +477,7 @@ int64_t hook(int64_t reserved)
                     if ((auditor_count > active_host_count) && (pick_idx >= active_host_count))
                         rollback(SBUF("Evernode: No enough hosts to audit for this auditor."), 1);
                     else if ((pick_idx == auditor_count - 1) && (active_host_count % auditor_count > 0))
-                        pick_count = active_host_count % auditor_count;
+                        pick_count = active_host_count % pick_count;
                     // Which is the picking endig host index for this auditor.
                     uint32_t pick_host_to_idx = (pick_host_from_idx + pick_count) % active_host_count;
 
