@@ -16,6 +16,7 @@
 #define AUDIT_SUCCESS "evnAuditSuccess"
 #define AUDIT_FAILED "evnAuditFailed"
 #define REWARD "evnReward"
+#define RECHARGE "evnRecharge"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -41,23 +42,35 @@ const int64_t DEF_REWARD_M = 64;
 const int32_t DEF_REWARD_E = 0;
 const uint16_t DEF_MAX_REWARD = 20;
 const uint16_t DEF_MAX_AUDIT = 5;
+const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 125;
+const uint32_t HOST_ADDR_VAL_SIZE = 115;
 const uint32_t AUDITOR_ADDR_VAL_SIZE = 32;
 const uint32_t REDEEM_STATE_VAL_SIZE = 59;
 const uint32_t MOMENT_SEED_VAL_SIZE = 40;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
-const uint32_t HOST_AUDIT_IDX_OFFSET = 77;
-const uint32_t HOST_AUDITOR_OFFSET = 85;
-const uint32_t HOST_REWARD_IDX_OFFSET = 105;
-const uint32_t HOST_ACCUMULATED_AMT_OFFSET = 113;
-const uint32_t INSTANCE_INFO_OFFSET = 7;
-const uint32_t INSTANCE_SIZE_LEN = 60;
-const uint32_t LOCATION_LEN = 10;
+const uint32_t COUNTRY_CODE_LEN = 2;
+const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t REDEEM_ORIGIN_DATA_LEN = 63;
+
+// State value offsets
+// HOST_ADDR
+const uint32_t HOST_TOKEN_OFFSET = 4;
+const uint32_t HOST_COUNTRY_CODE_OFFSET = 7;
+const uint32_t HOST_CPU_MICROSEC_OFFSET = 9;
+const uint32_t HOST_RAM_MB_OFFSET = 13;
+const uint32_t HOST_DISK_MB_OFFSET = 17;
+const uint32_t HOST_RESERVED_OFFSET = 21;
+const uint32_t HOST_DESCRIPTION_OFFSET = 29;
+const uint32_t HOST_AUDIT_IDX_OFFSET = 55;
+const uint32_t HOST_AUDITOR_OFFSET = 63;
+const uint32_t HOST_REWARD_IDX_OFFSET = 83;
+const uint32_t HOST_ACCUMULATED_AMT_OFFSET = 91;
+const uint32_t HOST_LOCKED_TOKEN_AMT_OFFSET = 99;
+const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 107;
 
 const uint64_t MIN_DROPS = 1;
 const char *empty_ptr = 0;
