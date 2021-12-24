@@ -697,10 +697,9 @@ int64_t hook(int64_t reserved)
                 if (balance_slot < 0)
                     rollback(SBUF("Evernode: Could not find sfBalance on trustline"), 1);
 
-                TRACEVAR(balance_slot);
 
                 int64_t balance_float = slot_float(balance_slot);
-                TRACEVAR(balance_float);
+
                 // Hook gets a negative trustline balance since hook owes tokens to the host. 
                 if (float_compare(balance_float, 0, COMPARE_LESS) == 1)
                     balance_float = float_negate(balance_float);
@@ -1116,7 +1115,6 @@ int64_t hook(int64_t reserved)
                 // Calculate excess amount, In this case if received amount is MIN_REDEEM resulting value would be negative.
                 // In the next step we add current token balane to this amount then we get the actual excess amount.
                 int64_t excess_amount = amt_int - required_amount;
-                TRACEVAR(excess_amount);
 
                 // Taking the current token balance.
                 uint8_t keylet[34];
@@ -1136,17 +1134,14 @@ int64_t hook(int64_t reserved)
                 if (balance_slot < 0)
                     rollback(SBUF("Evernode: Could not find sfBalance on trustline"), 1);
 
-                TRACEVAR(balance_slot);
-
                 int64_t balance_float = slot_float(balance_slot);
-                TRACEVAR(balance_float);
+
                 if (IS_FLOAT_ZERO(balance_float))
                     balance_float = 0;
                 int64_t balance_drops = float_int(balance_float, 6, 1);
                 if (balance_drops < 0)
                     rollback(SBUF("Evernode: Could not parse user trustline balance."), 1);
                 int64_t balance_int = balance_drops / 1000000;
-                TRACEVAR(balance_int);
 
                 // Add the balance only if positive,
                 if (balance_int > 0)                             // If we have positive balance.
