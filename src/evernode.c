@@ -136,7 +136,7 @@ int64_t hook(int64_t reserved)
                     uint8_t *issuer_ptr = &redeem_op[11];
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    SET_AMOUNT_OUT(amt_out, redeem_op, issuer_ptr, host_amount);
+                    SET_AMOUNT_OUT(amt_out, redeem_op, issuer_ptr, float_set(0, host_amount));
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
@@ -160,10 +160,7 @@ int64_t hook(int64_t reserved)
 
                     uint8_t *locked_amount_ptr = &host_addr[HOST_LOCKED_TOKEN_AMT_OFFSET];
                     int64_t cur_locked_amount = INT64_FROM_BUF(locked_amount_ptr);
-                    cur_locked_amount = float_sum(cur_locked_amount, float_negate(host_amount));
-                    // Float arithmatic sometimes gives -29 for 0, So we manually override float to 0.
-                    if (IS_FLOAT_ZERO(cur_locked_amount))
-                        cur_locked_amount = 0;
+                    cur_locked_amount = cur_locked_amount - host_amount;
 
                     INT64_TO_BUF(locked_amount_ptr, cur_locked_amount);
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -235,7 +232,7 @@ int64_t hook(int64_t reserved)
                     int64_t token_amount = INT64_FROM_BUF(amount_ptr);
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    SET_AMOUNT_OUT(amt_out, data_arr, issuer_ptr, token_amount);
+                    SET_AMOUNT_OUT(amt_out, data_arr, issuer_ptr, float_set(0, token_amount));
 
                     // Setup the outgoing txn.
                     // Reserving one transaction.
@@ -266,10 +263,7 @@ int64_t hook(int64_t reserved)
 
                     uint8_t *locked_amount_ptr = &host_addr[HOST_LOCKED_TOKEN_AMT_OFFSET];
                     int64_t cur_locked_amount = INT64_FROM_BUF(locked_amount_ptr);
-                    cur_locked_amount = float_sum(cur_locked_amount, float_negate(token_amount));
-                    // Float arithmatic sometimes gives -29 for 0, So we manually override float to 0.
-                    if (IS_FLOAT_ZERO(cur_locked_amount))
-                        cur_locked_amount = 0;
+                    cur_locked_amount = cur_locked_amount - token_amount;
 
                     INT64_TO_BUF(locked_amount_ptr, cur_locked_amount);
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -707,6 +701,9 @@ int64_t hook(int64_t reserved)
 
                 int64_t balance_float = slot_float(balance_slot);
                 TRACEVAR(balance_float);
+                // Hook gets a negative trustline balance since hook owes tokens to the host. 
+                if (float_compare(balance_float, 0, COMPARE_LESS) == 1)
+                    balance_float = float_negate(balance_float);
 
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
                 // If value is < 0 or not 0 value is invalid.
@@ -795,6 +792,11 @@ int64_t hook(int64_t reserved)
             if (amt < 0)
                 rollback(SBUF("Evernode: Could not parse amount."), 1);
 
+            int64_t amt_drops = float_int(amt, 6, 0);
+            if (amt_drops < 0)
+                rollback(SBUF("Evernode: Could not parse amount."), 1);
+            int64_t amt_int = amt_drops / 1000000;
+
             uint8_t amount_buffer[AMOUNT_BUF_SIZE];
             int64_t result = slot(SBUF(amount_buffer), amt_slot);
             if (result != AMOUNT_BUF_SIZE)
@@ -853,7 +855,7 @@ int64_t hook(int64_t reserved)
                 // Calculate fee for trustline transaction.
                 int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
 
-                int64_t token_limit = float_sum(float_set(9, 1), float_negate(float_one())); // 999999999
+                int64_t token_limit = float_set(0, 999999999); // 999999999
 
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
                 SET_AMOUNT_OUT(amt_out, data_ptr, account_field, token_limit);
@@ -996,7 +998,7 @@ int64_t hook(int64_t reserved)
                 GET_CONF_VALUE(conf_min_redeem, DEF_MIN_REDEEM, CONF_MIN_REDEEM, "Evernode: Could not set default state for min redeem.");
                 TRACEVAR(conf_min_redeem);
 
-                if (float_compare(amt, float_set(0, conf_min_redeem), COMPARE_LESS) == 1)
+                if (amt_int < conf_min_redeem)
                     rollback(SBUF("Evernode: Amount sent is less than the minimum redeem amount."), 1);
 
                 // Prepare state value.
@@ -1007,7 +1009,7 @@ int64_t hook(int64_t reserved)
 
                 // Set the amount.
                 uint8_t amount_buf[8];
-                INT64_TO_BUF(amount_buf, amt);
+                INT64_TO_BUF(amount_buf, amt_int);
                 COPY_BUF(redeem_op, 3, amount_buf, 0, 8);
 
                 // Set the issuer.
@@ -1053,7 +1055,7 @@ int64_t hook(int64_t reserved)
                 // Increasing the locked amount. since host receive tokens.
                 uint8_t *locked_amount_ptr = &host_addr[HOST_LOCKED_TOKEN_AMT_OFFSET];
                 int64_t cur_locked_amount = INT64_FROM_BUF(locked_amount_ptr);
-                cur_locked_amount = float_sum(cur_locked_amount, amt);
+                cur_locked_amount = cur_locked_amount + amt_int;
 
                 INT64_TO_BUF(locked_amount_ptr, cur_locked_amount);
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -1109,13 +1111,12 @@ int64_t hook(int64_t reserved)
                 // Take the current locked amount.
                 uint8_t *locked_amount_ptr = &host_addr[HOST_LOCKED_TOKEN_AMT_OFFSET];
                 int64_t cur_locked_amount = INT64_FROM_BUF(locked_amount_ptr);
-                // Take the host heartbeat frequency.
-                int64_t host_heartbeat_freq_float = float_set(0, conf_host_heartbeat_freq);
                 // Calculate minimum required amount.
-                int64_t required_amount = float_sum(cur_locked_amount, float_multiply(min_redeem_float, float_sum(host_heartbeat_freq_float, float_one())));
+                int64_t required_amount = cur_locked_amount + (conf_min_redeem * (conf_host_heartbeat_freq + 1));
                 // Calculate excess amount, In this case if received amount is MIN_REDEEM resulting value would be negative.
                 // In the next step we add current token balane to this amount then we get the actual excess amount.
-                int64_t excess_amount = float_sum(amt, float_negate(required_amount));
+                int64_t excess_amount = amt_int - required_amount;
+                TRACEVAR(excess_amount);
 
                 // Taking the current token balance.
                 uint8_t keylet[34];
@@ -1139,22 +1140,23 @@ int64_t hook(int64_t reserved)
 
                 int64_t balance_float = slot_float(balance_slot);
                 TRACEVAR(balance_float);
+                if (IS_FLOAT_ZERO(balance_float))
+                    balance_float = 0;
+                int64_t balance_drops = float_int(balance_float, 6, 1);
+                if (balance_drops < 0)
+                    rollback(SBUF("Evernode: Could not parse user trustline balance."), 1);
+                int64_t balance_int = balance_drops / 1000000;
+                TRACEVAR(balance_int);
 
                 // Add the balance only if positive,
-                if (balance_float < 0 && !IS_FLOAT_ZERO(balance_float))
-                    rollback(SBUF("Evernode: Could not parse user trustline balance."), 1);
-                else if (!IS_FLOAT_ZERO(balance_float))                                    // If we have positive balance.
-                    excess_amount = float_sum(excess_amount, float_negate(balance_float)); // It gives negative value of the balance. Need to read and experiment more.
-
-                // Float arithmatic sometimes gives -29 for 0, So we manually override float to 0.
-                if (IS_FLOAT_ZERO(excess_amount))
-                    excess_amount = 0;
+                if (balance_int > 0)                             // If we have positive balance.
+                    excess_amount = excess_amount + balance_int; // It gives negative value of the balance. Need to read and experiment more.
 
                 // If excess amount(amount we have + current recharge amount - max amount) < 0, hook does not have enough hosting tokens.
                 // If excess amount > 0, we refund them to the host.
-                if (float_compare(excess_amount, 0, COMPARE_LESS) == 1)
+                if (excess_amount < 0)
                     rollback(SBUF("Evernode: Recharge amount is less than minimum required hosting token amount."), 1);
-                if (float_compare(excess_amount, 0, COMPARE_GREATER) == 1)
+                else if (excess_amount > 0)
                 {
                     // Send hosting tokens to the host.
                     etxn_reserve(1);
@@ -1163,7 +1165,7 @@ int64_t hook(int64_t reserved)
 
                     // Prepare currency.
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    SET_AMOUNT_OUT(amt_out, host_token_ptr, account_field, excess_amount);
+                    SET_AMOUNT_OUT(amt_out, host_token_ptr, account_field, float_set(0, excess_amount));
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
