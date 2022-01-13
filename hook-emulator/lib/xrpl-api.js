@@ -48,8 +48,14 @@ class XrplApi {
                 const matches = this.#addressSubscriptions.filter(s => s.address === data.transaction.Account || s.address === data.transaction.Destination);
                 if (matches.length > 0) {
                     // Emit the event only for successful transactions, Otherwise emit error.
+                    const tx = {
+                        ledgerHash: data.ledger_hash,
+                        ledgerIndex: data.ledger_index,
+                        ...data.transaction
+                    }; // Create an object copy. Otherwise xrpl client will mutate the transaction object,
+                    // Emit the event only for successful transactions, Otherwise emit error.
                     if (data.engine_result === "tesSUCCESS") {
-                        matches.forEach(s => s.handler(data));
+                        matches.forEach(s => s.handler(tx));
                     }
                     else {
                         matches.forEach(s => s.handler(null, data.engine_result_message));

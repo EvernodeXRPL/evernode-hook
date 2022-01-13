@@ -1,6 +1,6 @@
-const { spawn } = require("child_process");
+const { exec } = require("child_process");
 
-const TX_WAIT_TIMEOUT = 10000;
+const TX_WAIT_TIMEOUT = 3000;
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -18,39 +18,37 @@ class TransactionManager {
 
     processTransaction(transaction) {
         return new Promise((resolve, reject) => {
-            let child = spawn(this.#hookWrapperPath);
+            let completed = false;
 
-            child.stdout.on('data', (data) => {
-                if (!data)
-                    return;
-                else
-                    data = data.toString();
+            const failTimeout = setTimeout(() => {
+                this.#rollbackTransaction();
+                reject(ErrorCodes.TIMEOUT);
+                completed = true;
+            }, TX_WAIT_TIMEOUT);
 
-                if (data.startsWith("**TRACE**"))
-                    console.log(data.substring(9));
-                else if (data.startsWith("**EMIT**")) {
-                    console.log("Received emit transaction : ", data.substring(8));
-                }
-                else if (data.startsWith("**KEYLET**")) {
-                    console.log("Received keylet request");
-                }
-                else if (data.startsWith("**STATEGET**")) {
-                    this.#stateManager.get("key");
-                }
-                else if (data.startsWith("**STATESET**")) {
-                    this.#stateManager.set("key", "value");
+            const child = exec(this.#hookWrapperPath);
+
+            // Getting the exit code.
+            child.on('close', (code) => {
+                if (!completed) {
+                    clearTimeout(failTimeout);
+                    if (code == 0)
+                        resolve("SUCCESS");
+                    else {
+                        this.#rollbackTransaction();
+                        reject(ErrorCodes.TX_ERROR);
+                    }
+                    completed = true;
                 }
             });
 
-            // Getting the exit code.
-            child.on('close', function (code) {
-                if (code == -1) {
-                    this.#rollbackTransaction();
-                    reject(ErrorCodes.TX_ERROR);
-                    return;
+            child.stdout.setEncoding('utf8');
+            child.stdout.on('data', (data) => {
+                if (!completed) {
+                    const lines = data.split('\n');
+                    for (const line of lines)
+                        this.#handleMessage(line);
                 }
-                else
-                    resolve("SUCCESS");
             });
 
             child.stdin.setEncoding('utf-8');
@@ -58,17 +56,28 @@ class TransactionManager {
             child.stdin.write('\n');
 
             child.stdin.end();
-
-            setTimeout(() => {
-                this.#rollbackTransaction();
-                reject(ErrorCodes.TIMEOUT);
-                return;
-            }, TX_WAIT_TIMEOUT);
         });
     }
 
     #rollbackTransaction() {
 
+    }
+
+    #handleMessage(message) {
+        if (message.startsWith("**TRACE**"))
+            console.log(message.substring(9));
+        else if (message.startsWith("**EMIT**")) {
+            console.log("Received emit transaction : ", message.substring(8));
+        }
+        else if (message.startsWith("**KEYLET**")) {
+            console.log("Received keylet request");
+        }
+        else if (message.startsWith("**STATEGET**")) {
+            this.#stateManager.get("key");
+        }
+        else if (message.startsWith("**STATESET**")) {
+            this.#stateManager.set("key", "value");
+        }
     }
 }
 

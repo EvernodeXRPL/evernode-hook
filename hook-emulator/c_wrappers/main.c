@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 void trace(const char *trace)
 {
     printf("%s", trace);
+    printf("\n");
     fflush(stdout);
 }
 
@@ -25,12 +27,12 @@ int main()
     char *format = "**TRACE**Transaction: %s";
     const int len = 23 + i;
     char out[len];
-    sprintf(&out, format, str);
+    sprintf(out, format, str);
     trace(out);
 
-    sleep(3);
+    sleep(1);
 
     trace("**EMIT**Test");
 
-    return 0;
+    exit(0);
 }

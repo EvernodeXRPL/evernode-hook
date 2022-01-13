@@ -28,10 +28,10 @@ class HookEmulator {
         console.log("Starting hook emulator.");
 
         await this.#xrplApi.connect();
-        await this.#xrplApi.subscribeToAddress(this.#hookAddress, async (data, error) => {
+        await this.#xrplApi.subscribeToAddress(this.#hookAddress, async (tx, error) => {
             if (error)
                 console.error(error);
-            const resCode = await this.#transactionManager.processTransaction(data).catch(console.error);
+            const resCode = await this.#transactionManager.processTransaction(tx).catch(console.error);
             if (resCode)
                 console.log(resCode);
         });
