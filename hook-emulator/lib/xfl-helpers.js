@@ -50,13 +50,13 @@ class XflHelpers {
             } else if (newExponent < 0) {
                 finalResult = '0.' + cleanedMantissa.padStart(newExponent * (-1) + cleanedMantissa.length, '0');
             } else {
-                finalResult = cleanedMantissa.substr(0, newExponent) + '.' + cleanedMantissa.substr(newExponent);
+                finalResult = mantissaStr.substr(0, newExponent) + '.' + mantissaStr.substr(newExponent).replace(/0+$/, '');
             }
         }
-        return (this.isNegative(xfl) ? '-' : '') + finalResult;
+        return (this.isNegative(xfl) ? '-' : '') + finalResult.replace(/\.+$/, '');
     }
 
-    static getXfl1(floatStr) {
+    static getXfl(floatStr) {
         let exponent;
         let mantissa;
         if (floatStr.startsWith('.')) {
@@ -69,7 +69,7 @@ class XflHelpers {
         }
         else if (floatStr.includes('.')) {
             const parts = floatStr.split('.');
-            exponent = BigInt(parts.length === 2 ? -parts[1].length : 0);
+            exponent = BigInt(-parts[1].length);
             mantissa = BigInt(parseInt(parts.join('')));
         }
         else if (floatStr.endsWith('0')) {
@@ -124,58 +124,6 @@ class XflHelpers {
         xfl |= BigInt(mantissa);
 
         return xfl;
-    }
-
-    static getXfl(floatStr) {
-        let isNeg = false;
-        if (floatStr.startsWith('-')) {
-            isNeg = true;
-            floatStr = floatStr.substring(1);
-        }
-
-        let exponent;
-        let mantissa;
-        if (floatStr.startsWith('.')) {
-            exponent = floatStr.length - 1;
-            mantissa = parseInt(floatStr.substr(1));
-        }
-        else if (floatStr.endsWith('.')) {
-            exponent = 0;
-            mantissa = parseInt(floatStr.substr(-1));
-        }
-        else if (floatStr.includes('.')) {
-            const parts = floatStr.split('.');
-            exponent = parts.length === 2 ? -parts[1].length : 0;
-            mantissa = parseInt(parts.join(''));
-        }
-        else if (floatStr.endsWith('0')) {
-            const mantissaStr = floatStr.replace(/0+$/g, "");
-            exponent = floatStr.length - mantissaStr.length;
-            mantissa = parseInt(mantissaStr);
-        }
-        else {
-            exponent = 0;
-            mantissa = parseInt(floatStr);
-        }
-
-        const exp = ((exponent + 97) >>> 0).toString(2).padStart(10, '0');
-        const man = (mantissa >>> 0).toString(2).padStart(54, '0');
-
-        let bits = (isNeg ? '00' : '01') + exp.substring(2, 10) + man.substring(0, 54);
-
-        let bytes = [];
-        for (let i = 0; i < 64; i += 8) {
-            bytes.push((parseInt(bits[i]) << 7) +
-                (parseInt(bits[i + 1]) << 6) +
-                (parseInt(bits[i + 2]) << 5) +
-                (parseInt(bits[i + 3]) << 4) +
-                (parseInt(bits[i + 4]) << 3) +
-                (parseInt(bits[i + 5]) << 2) +
-                (parseInt(bits[i + 6]) << 1) +
-                parseInt(bits[i + 7]));
-        }
-
-        return Buffer.from(bytes).readBigUInt64BE();
     }
 }
 

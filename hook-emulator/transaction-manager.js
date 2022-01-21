@@ -38,12 +38,12 @@ class TransactionManager {
         if (isXrp) {
             amountBuf = Buffer.allocUnsafe(8);
             isXrpBuf.writeUInt8(1);
-            amountBuf.writeBigUInt64BE(XflHelpers.getXfl(transaction.Amount));
+            amountBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount));
         }
         else {
             isXrpBuf.writeUInt8(0);
             let valueBuf = Buffer.allocUnsafe(8);
-            valueBuf.writeBigUInt64BE(XflHelpers.getXfl(transaction.Amount.value))
+            valueBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount.value))
             amountBuf = Buffer.concat([
                 Buffer.from(codec.decodeAccountID(transaction.Amount.issuer)),
                 Buffer.from(transaction.Amount.currency),
@@ -84,7 +84,7 @@ class TransactionManager {
         offset += 20;
 
         if (transactionBuf.readUInt8(offset++) === 1) {
-            transaction.Amount = XflHelpers.toString(transactionBuf.readBigUInt64BE(offset));
+            transaction.Amount = XflHelpers.toString(transactionBuf.readBigInt64BE(offset));
             offset += 8;
         }
         else {
@@ -95,7 +95,7 @@ class TransactionManager {
             transaction.Amount.currency = transactionBuf.slice(offset, offset + 3).toString();
             offset += 3;
 
-            transaction.Amount.value = XflHelpers.toString(transactionBuf.readBigUInt64BE(offset));
+            transaction.Amount.value = XflHelpers.toString(transactionBuf.readBigInt64BE(offset));
             offset += 8;
         }
 
@@ -149,10 +149,10 @@ class TransactionManager {
             let buf = Buffer.concat([codec.decodeAccountID(trustLines[0].account), Buffer.from(trustLines[0].currency)]);
 
             let balanceBuf = Buffer.allocUnsafe(8);
-            balanceBuf.writeBigUInt64BE(XflHelpers.getXfl(trustLines[0].balance));
+            balanceBuf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance));
 
             let limitBuf = Buffer.allocUnsafe(8);
-            limitBuf.writeBigUInt64BE(XflHelpers.getXfl(trustLines[0].limit));
+            limitBuf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit));
 
             return Buffer.concat([buf, balanceBuf, limitBuf]);
         }
