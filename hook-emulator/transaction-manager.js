@@ -118,6 +118,13 @@ class TransactionManager {
                 }
             });
 
+            child.stderr.setEncoding('utf8');
+            child.stderr.on('data', async (data) => {
+                if (!completed) {
+                    console.log(data);
+                }
+            });
+
             child.stdin.setEncoding('binary');
             child.stdin.write(Buffer.concat([txLenBuf, txBuf]));
         });
@@ -196,12 +203,25 @@ class TransactionManager {
             console.log("Received emit transaction : ", tx);
         }
         else if (type === MESSAGE_TYPES.KEYLET) {
-            const address = content.toString().substring(0, 33);
-            const issuer = content.toString().substring(33, 67);
-            const currency = content.toString().substring(67);
+            let offset = 0;
+            const issuer = codec.encodeAccountID(content.slice(offset, offset + 20));
+            offset += 20;
+            const currency = content.slice(offset, offset + 3).toString();
             const lines = await this.#xrplAcc.getTrustLines(currency, issuer);
-            proc.stdin.write(JSON.stringify(lines));
-            proc.stdin.write('\n');
+            let linesBuf = Buffer.from([]);
+            if (lines && lines.length) {
+                const issuerBuf = codec.decodeAccountID(lines[0].account);
+                const currencyBuf = Buffer.from(lines[0].currency);
+                let balanceBuf = Buffer.allocUnsafe(8);
+                balanceBuf.writeBigUInt64BE(XflHelpers.getXfl(lines[0].balance));
+                let limitBuf = Buffer.allocUnsafe(8);
+                limitBuf.writeBigUInt64BE(XflHelpers.getXfl(lines[0].limit));
+                linesBuf = Buffer.concat([issuerBuf, currencyBuf, balanceBuf, limitBuf]);
+            }
+            const linesLenBuf = Buffer.allocUnsafe(4);
+            linesLenBuf.writeUInt32BE(linesBuf.length);
+
+            proc.stdin.write(Buffer.concat([linesLenBuf, linesBuf]));
         }
         else if (type === MESSAGE_TYPES.STATEGET) {
             this.#stateManager.get("key");

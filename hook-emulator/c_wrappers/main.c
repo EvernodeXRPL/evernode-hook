@@ -14,7 +14,9 @@ enum MESSAGE_TYPES
     STATESET
 };
 
-// Transaction - <account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Transaction (origin|emit) - <account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Keylet request - <issuer(20)><currency(3)>
+// Keylet response - <issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
 
 void write_stdout(const uint8_t *buf, const int len)
 {
@@ -51,13 +53,39 @@ void emit(const uint8_t *tx, const int len)
     write_stdout(buf, buflen);
 }
 
-void keylet(const char *address, const char *issuer, const char *currency)
+int keylet(uint8_t *lines, const uint8_t *issuer, const uint8_t *currency)
 {
-    const int len = 1 + strlen(address) + strlen(issuer) + strlen(currency);
-    char buf[len];
+    const int len = 24;
+    uint8_t buf[len];
     buf[0] = KEYLET;
-    sprintf(&buf[1], "%s%s%s\n", address, issuer, currency);
+    for (int i = 0; i < 20; i++)
+    {
+        if (i < 3)
+            buf[21 + i] = currency[i];
+        buf[1 + i] = issuer[i];
+    }
+
     write_stdout(buf, len);
+
+    uint8_t read_buf[53];
+    read(STDIN_FILENO, read_buf, sizeof(read_buf));
+    uint32_t lines_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+
+    memcpy(lines, read_buf + 4, lines_len);
+
+    return lines_len;
+}
+
+void bin_to_hex(char *hex, const uint8_t *bin, const int len)
+{
+    strcpy(hex, "");
+    for (int i = 0; i < len; i++)
+    {
+        char n[20];
+        sprintf(n, "%02X", bin[i]);
+        strcat(hex, n);
+    }
+    strcat(hex, "\0");
 }
 
 int main()
@@ -67,21 +95,32 @@ int main()
     trace("Enter a string: ");
 
     read(STDIN_FILENO, buf, sizeof(buf));
-    uint32_t txLen = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
+    uint32_t tx_len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
 
-    uint8_t tx[txLen];
-    for (int i = 0; i < txLen; i++)
+    uint8_t tx[tx_len];
+    for (int i = 0; i < tx_len; i++)
         tx[i] = buf[4 + i];
 
-    char bytes[2048];
-    strcpy(bytes, "");
-    for (int i = 0; i < txLen; i++)
+    uint8_t from_acc[20];
+    for (int i = 0; i < 20; i++)
     {
-        char n[20];
-        sprintf(n, "%02X", tx[i]);
-        strcat(bytes, n);
+        from_acc[i] = tx[i];
     }
-    strcat(bytes, "\0");
+    uint8_t to_acc[20];
+    for (int i = 0; i < 20; i++)
+    {
+        int offset = 29;
+        if (tx[21] == 0)
+            offset = 52;
+        to_acc[i] = tx[offset + i];
+    }
+    uint8_t token[3];
+    token[0] = 'A';
+    token[1] = 'B';
+    token[2] = 'C';
+
+    char bytes[2048];
+    bin_to_hex(bytes, tx, tx_len);
 
     char *format = "Transaction: %s";
     int len = 13 + strlen(bytes);
@@ -91,19 +130,15 @@ int main()
 
     emit(tx, sizeof(tx));
 
-    keylet("rqiGkSMnQbBiC1to5hs3G34iAgLt5PG7D", "rUsJzadhnCbnjjUXQCjzCUdC7CbBtXhJ3P", "ABC");
+    uint8_t lines[39];
+    const int lines_len = keylet(lines, from_acc, token);
 
-    fgets(bytes, sizeof(bytes), stdin);
+    bin_to_hex(bytes, lines, lines_len);
 
-    /* remove newline, if present */
-    int i = strlen(bytes) - 1;
-    if (bytes[i] == '\n')
-        bytes[i] = '\0';
-
-    format = "Trustlines: %s";
-    len = 13 + i;
-    char out2[len];
-    sprintf(out2, format, bytes);
+    char *format2 = "Trustlines: %s";
+    int len2 = 13 + strlen(bytes);
+    char out2[len2];
+    sprintf(out2, format2, bytes);
     trace(out2);
 
     exit(0);
