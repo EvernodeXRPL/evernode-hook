@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "sqlite3": "5.0.2",
+    "ripple-address-codec": "4.2.0",
     "evernode-js-client": "0.4.2"
   },
   "devDependencies": {

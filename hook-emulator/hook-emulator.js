@@ -17,7 +17,6 @@ class HookEmulator {
 
     constructor(rippledServer, hookAddress, hookWrapperPath, dbPath) {
         this.#stateManager = new StateManager(dbPath);
-        this.#transactionManager = new TransactionManager(hookWrapperPath, this.#stateManager);
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
             hookAddress: hookAddress,
@@ -25,6 +24,7 @@ class HookEmulator {
             xrplApi: this.#xrplApi
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress);
+        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
         this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
     }
 
