@@ -2,7 +2,7 @@ const { exec } = require("child_process");
 const codec = require('ripple-address-codec');
 const { XflHelpers } = require('./lib/xfl-helpers');
 
-const TX_WAIT_TIMEOUT = 10000;
+const TX_WAIT_TIMEOUT = 5000;
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -21,6 +21,7 @@ class TransactionManager {
     #hookWrapperPath = null;
     #stateManager = null;
     #xrplAcc = null;
+    #hookProcess = null;
 
     constructor(xrplAcc, hookWrapperPath, stateManager) {
         this.#xrplAcc = xrplAcc;
@@ -28,8 +29,9 @@ class TransactionManager {
         this.#stateManager = stateManager;
     }
 
-    processTransaction(transaction) {
-        const accountBuf = codec.decodeAccountID(transaction.Account);
+    #encodeTransaction(transaction) {
+        let txBuf = codec.decodeAccountID(transaction.Account);
+
         const isXrp = (typeof transaction.Amount === 'string');
         let isXrpBuf = Buffer.allocUnsafe(1);
         let amountBuf;
@@ -47,12 +49,12 @@ class TransactionManager {
                 Buffer.from(transaction.Amount.currency),
                 valueBuf]);
         }
-        const destinationBuf = codec.decodeAccountID(transaction.Destination);
+
         const memos = transaction.Memos ? transaction.Memos : [];
         let memoCountBuf = Buffer.allocUnsafe(1);
         memoCountBuf.writeUInt8(memos.length);
+        txBuf = Buffer.concat([txBuf, isXrpBuf, amountBuf, codec.decodeAccountID(transaction.Destination), memoCountBuf]);
 
-        let memosBuf = Buffer.from([]);
         for (const memo of memos) {
             const typeBuf = Buffer.from(memo.type ? memo.type : []);
             let typeLenBuf = Buffer.allocUnsafe(1);
@@ -66,67 +68,171 @@ class TransactionManager {
             let dataLenBuf = Buffer.allocUnsafe(1);
             dataLenBuf.writeUInt8(dataBuf.length);
 
-            memosBuf = Buffer.concat([memosBuf, typeLenBuf, typeBuf, formatLenBuf, formatBuf, dataLenBuf, dataBuf]);
+            txBuf = Buffer.concat([txBuf, typeLenBuf, typeBuf, formatLenBuf, formatBuf, dataLenBuf, dataBuf]);
         }
-        const ledgerHashBuf = Buffer.from(transaction.LedgerHash, 'hex');
+
         let ledgerIndexBuf = Buffer.allocUnsafe(8);
         ledgerIndexBuf.writeBigUInt64BE(BigInt(transaction.LedgerIndex));
 
-        const txBuf = Buffer.concat([accountBuf, isXrpBuf, amountBuf, destinationBuf, memoCountBuf, memosBuf, ledgerHashBuf, ledgerIndexBuf]);
-        const txLenBuf = Buffer.allocUnsafe(4);
-        txLenBuf.writeUInt32BE(txBuf.length);
+        return Buffer.concat([txBuf, Buffer.from(transaction.LedgerHash, 'hex'), ledgerIndexBuf]);
+    }
+
+    #decodeTransaction(transactionBuf) {
+        let transaction = {};
+        let offset = 0;
+        transaction.Account = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
+        offset += 20;
+
+        if (transactionBuf.readUInt8(offset++) === 1) {
+            transaction.Amount = XflHelpers.toString(transactionBuf.readBigUInt64BE(offset));
+            offset += 8;
+        }
+        else {
+            transaction.Amount = {};
+            transaction.Amount.issuer = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
+            offset += 20;
+
+            transaction.Amount.currency = transactionBuf.slice(offset, offset + 3).toString();
+            offset += 3;
+
+            transaction.Amount.value = XflHelpers.toString(transactionBuf.readBigUInt64BE(offset));
+            offset += 8;
+        }
+
+        transaction.Destination = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
+        offset += 20;
+
+        const memoCount = transactionBuf.readUInt8(offset);
+        offset++;
+        transaction.Memos = [];
+        for (let i = 0; i < memoCount; i++) {
+            const typeLen = transactionBuf.readUInt8(offset);
+            offset++;
+            const type = transactionBuf.slice(offset, offset + typeLen).toString();
+            offset += typeLen;
+            const formatLen = transactionBuf.readUInt8(offset);
+            offset++;
+            const format = transactionBuf.slice(offset, offset + formatLen).toString();
+            offset += formatLen;
+            const dataLen = transactionBuf.readUInt8(offset);
+            offset++;
+            const data = transactionBuf.slice(offset, offset + dataLen).toString(format === 'hex' ? 'hex' : 'utf8');
+            offset += dataLen;
+            transaction.Memos.push({
+                type: type,
+                format: format,
+                data: data
+            });
+        }
+
+        transaction.LedgerHash = transactionBuf.slice(offset, offset + 32).toString('hex');
+        offset += 32;
+
+        transaction.LedgerIndex = Number(transactionBuf.readBigUInt64BE(offset));
+
+        return transaction;
+    }
+
+    #decodeKeyletRequest(requestBuf) {
+        let request = {};
+        let offset = 0;
+        request.issuer = codec.encodeAccountID(requestBuf.slice(offset, offset + 20));
+        offset += 20;
+
+        request.currency = requestBuf.slice(offset, offset + 3).toString();
+
+        return request;
+    }
+
+    #encodeTrustLines(trustLines) {
+        if (trustLines && trustLines.length) {
+            let buf = Buffer.concat([codec.decodeAccountID(trustLines[0].account), Buffer.from(trustLines[0].currency)]);
+
+            let balanceBuf = Buffer.allocUnsafe(8);
+            balanceBuf.writeBigUInt64BE(XflHelpers.getXfl(trustLines[0].balance));
+
+            let limitBuf = Buffer.allocUnsafe(8);
+            limitBuf.writeBigUInt64BE(XflHelpers.getXfl(trustLines[0].limit));
+
+            return Buffer.concat([buf, balanceBuf, limitBuf]);
+        }
+        else
+            return Buffer.from([]);
+    }
+
+    #sendToProc(data) {
+        const lenBuf = Buffer.allocUnsafe(4);
+        lenBuf.writeUInt32BE(data.length);
+        this.#hookProcess.stdin.write(Buffer.concat([lenBuf, data]));
+    }
+
+    #terminateProc(success = false) {
+        this.#hookProcess.stdin.end();
+        this.#hookProcess = null;
+
+        if (!success)
+            this.#rollbackTransaction();
+    }
+
+    processTransaction(transaction) {
+        const txBuf = this.#encodeTransaction(transaction);
+
+        this.#hookProcess = exec(this.#hookWrapperPath);
+
+        // Set stdin and stdout encoding to binary.
+        this.#hookProcess.stdin.setEncoding('binary');
+        this.#hookProcess.stdout.setEncoding('binary');
+        this.#hookProcess.stderr.setEncoding('utf8');
+
+        // Writing transaction to stdin.
+        this.#sendToProc(txBuf);
 
         return new Promise((resolve, reject) => {
             let completed = false;
 
             const failTimeout = setTimeout(() => {
-                this.#rollbackTransaction();
                 reject(ErrorCodes.TIMEOUT);
-                child.stdin.end();
+                this.#terminateProc();
                 completed = true;
             }, TX_WAIT_TIMEOUT);
 
-            const child = exec(this.#hookWrapperPath);
-
             // Getting the exit code.
-            child.on('close', (code) => {
+            this.#hookProcess.on('close', (code) => {
                 if (!completed) {
                     clearTimeout(failTimeout);
-                    if (code == 0)
+                    if (code === 0)
                         resolve("SUCCESS");
                     else {
-                        this.#rollbackTransaction();
                         reject(ErrorCodes.TX_ERROR);
                     }
-                    child.stdin.end();
+                    this.#terminateProc(code === 0);
                     completed = true;
                 }
             });
 
-            child.stdout.setEncoding('binary');
-            child.stdout.on('data', async (data) => {
+            this.#hookProcess.stdout.on('data', async (data) => {
                 if (!completed) {
                     const messageBuf = Buffer.from(data, "binary");
+
+                    // Split data by lengths and handle seperately.
                     let offset = 0;
                     while (offset < messageBuf.length) {
                         const msgLen = messageBuf.readUInt32BE(offset);
                         offset += 4;
+
                         const msg = messageBuf.slice(offset, offset + msgLen);
                         offset += msgLen;
-                        await this.#handleMessage(child, msg);
+
+                        await this.#handleMessage(msg);
                     }
                 }
             });
 
-            child.stderr.setEncoding('utf8');
-            child.stderr.on('data', async (data) => {
+            this.#hookProcess.stderr.on('data', async (data) => {
                 if (!completed) {
                     console.log(data);
                 }
             });
-
-            child.stdin.setEncoding('binary');
-            child.stdin.write(Buffer.concat([txLenBuf, txBuf]));
         });
     }
 
@@ -134,100 +240,31 @@ class TransactionManager {
 
     }
 
-    async #handleMessage(proc, messageBuf) {
+    async #handleMessage(messageBuf) {
         const type = messageBuf.readUInt8(0);
         const content = messageBuf.slice(1);
-        if (type === MESSAGE_TYPES.TRACE)
-            console.log(content.toString());
-        else if (type === MESSAGE_TYPES.EMIT) {
-            let offset = 0;
-            const account = codec.encodeAccountID(content.slice(offset, offset + 20));
-            offset += 20;
-            const isXrp = (content.readUInt8(offset) === 1);
-            offset++;
-            let amount;
-            if (isXrp) {
-                const xfl = content.readBigUInt64BE(offset);
-                offset += 8;
-                amount = XflHelpers.toString(xfl);
-            }
-            else {
-                const issuer = codec.encodeAccountID(content.slice(offset, offset + 20));
-                offset += 20;
-                const currency = content.slice(offset, offset + 3).toString();
-                offset += 3;
-                const xfl = content.readBigUInt64BE(offset);
-                offset += 8;
-                const value = XflHelpers.toString(xfl);
-                amount = {
-                    issuer: issuer,
-                    currency: currency,
-                    value: value
-                }
-            }
-            const destination = codec.encodeAccountID(content.slice(offset, offset + 20));
-            offset += 20;
-            const memoCount = content.readUInt8(offset);
-            offset++;
-            let memos = [];
-            for (let i = 0; i < memoCount; i++) {
-                const typeLen = content.readUInt8(offset);
-                offset++;
-                const type = content.slice(offset, offset + typeLen).toString();
-                offset += typeLen;
-                const formatLen = content.readUInt8(offset);
-                offset++;
-                const format = content.slice(offset, offset + formatLen).toString();
-                offset += formatLen;
-                const dataLen = content.readUInt8(offset);
-                offset++;
-                const data = content.slice(offset, offset + dataLen).toString(format === 'hex' ? 'hex' : 'utf8');
-                offset += dataLen;
-                memos.push({
-                    type: type,
-                    format: format,
-                    data: data
-                });
-            }
-            const ledgerHash = content.slice(offset, offset + 32).toString('hex');
-            offset += 32;
-            const ledgerIndex = Number(content.readBigUInt64BE(offset));
-            const tx = {
-                Account: account,
-                Amount: amount,
-                Destination: destination,
-                Memos: memos,
-                LedgerHash: ledgerHash,
-                LedgerIndex: ledgerIndex
-            }
-            console.log("Received emit transaction : ", tx);
-        }
-        else if (type === MESSAGE_TYPES.KEYLET) {
-            let offset = 0;
-            const issuer = codec.encodeAccountID(content.slice(offset, offset + 20));
-            offset += 20;
-            const currency = content.slice(offset, offset + 3).toString();
-            const lines = await this.#xrplAcc.getTrustLines(currency, issuer);
-            let linesBuf = Buffer.from([]);
-            if (lines && lines.length) {
-                const issuerBuf = codec.decodeAccountID(lines[0].account);
-                const currencyBuf = Buffer.from(lines[0].currency);
-                let balanceBuf = Buffer.allocUnsafe(8);
-                balanceBuf.writeBigUInt64BE(XflHelpers.getXfl(lines[0].balance));
-                let limitBuf = Buffer.allocUnsafe(8);
-                limitBuf.writeBigUInt64BE(XflHelpers.getXfl(lines[0].limit));
-                linesBuf = Buffer.concat([issuerBuf, currencyBuf, balanceBuf, limitBuf]);
-            }
-            const linesLenBuf = Buffer.allocUnsafe(4);
-            linesLenBuf.writeUInt32BE(linesBuf.length);
 
-            proc.stdin.write(Buffer.concat([linesLenBuf, linesBuf]));
-        }
-        else if (type === MESSAGE_TYPES.STATEGET) {
-            this.#stateManager.get("key");
-        }
-        else if (type === MESSAGE_TYPES.STATESET) {
-            this.#stateManager.set("key", "value");
+        switch (type) {
+            case (MESSAGE_TYPES.TRACE):
+                console.log(content.toString());
+                break;
+            case (MESSAGE_TYPES.EMIT):
+                const tx = this.#decodeTransaction(content);
+                console.log("Received emit transaction : ", tx);
+                break;
+            case (MESSAGE_TYPES.KEYLET):
+                const request = this.#decodeKeyletRequest(content);
+                const lines = await this.#xrplAcc.getTrustLines(request.currency, request.issuer);
+                this.#sendToProc(this.#encodeTrustLines(lines));
+                break;
+            case (MESSAGE_TYPES.STATEGET):
+                this.#stateManager.get("key");
+                break;
+            case (MESSAGE_TYPES.STATESET):
+                this.#stateManager.set("key", "value");
+                break;
+            default:
+                break;
         }
     }
 }
