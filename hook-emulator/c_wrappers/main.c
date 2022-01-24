@@ -45,7 +45,7 @@ void trace(const char *trace)
 
 void emit(const uint8_t *tx, const int len)
 {
-    int buflen = 1 + len;
+    const int buflen = 1 + len;
     uint8_t buf[buflen];
     buf[0] = EMIT;
     memcpy(&buf[1], tx, buflen);
@@ -89,8 +89,8 @@ int main()
     trace("Enter a string: ");
 
     read(STDIN_FILENO, buf, sizeof(buf));
-    uint32_t read_len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
-    uint32_t tx_len = read_len - 20;
+    const uint32_t read_len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
+    const uint32_t tx_len = read_len - 20;
 
     uint8_t hook_accid[20];
     uint8_t tx[tx_len];
