@@ -10,8 +10,8 @@ enum MESSAGE_TYPES
     TRACE,
     EMIT,
     KEYLET,
-    STATEGET,
-    STATESET
+    STATE_GET,
+    STATE_SET
 };
 
 // Sample std in/out message formats

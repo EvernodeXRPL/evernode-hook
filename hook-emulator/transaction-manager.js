@@ -13,8 +13,8 @@ const MESSAGE_TYPES = {
     TRACE: 0,
     EMIT: 1,
     KEYLET: 2,
-    STATEGET: 3,
-    STATESET: 4
+    STATE_GET: 3,
+    STATE_SET: 4
 };
 
 class TransactionManager {
