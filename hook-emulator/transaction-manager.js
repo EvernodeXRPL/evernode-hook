@@ -1,6 +1,6 @@
 const { exec } = require("child_process");
 const codec = require('ripple-address-codec');
-const { XflHelpers } = require('./lib/xfl-helpers');
+const { XflHelpers } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
 
@@ -20,11 +20,11 @@ const MESSAGE_TYPES = {
 class TransactionManager {
     #hookWrapperPath = null;
     #stateManager = null;
-    #xrplAcc = null;
+    #hookAccount = null;
     #hookProcess = null;
 
-    constructor(xrplAcc, hookWrapperPath, stateManager) {
-        this.#xrplAcc = xrplAcc;
+    constructor(hookAccount, hookWrapperPath, stateManager) {
+        this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
     }
@@ -175,7 +175,10 @@ class TransactionManager {
     }
 
     processTransaction(transaction) {
-        const txBuf = this.#encodeTransaction(transaction);
+        let txBuf = this.#encodeTransaction(transaction);
+
+        // Append hook account id.
+        txBuf = Buffer.concat([codec.decodeAccountID(this.#hookAccount.address), txBuf]);
 
         this.#hookProcess = exec(this.#hookWrapperPath);
 
@@ -254,7 +257,7 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.KEYLET):
                 const request = this.#decodeKeyletRequest(content);
-                const lines = await this.#xrplAcc.getTrustLines(request.currency, request.issuer);
+                const lines = await this.#hookAccount.getTrustLines(request.currency, request.issuer);
                 this.#sendToProc(this.#encodeTrustLines(lines));
                 break;
             case (MESSAGE_TYPES.STATEGET):
