@@ -30,51 +30,68 @@ class TransactionManager {
     }
 
     #encodeTransaction(transaction) {
-        let txBuf = codec.decodeAccountID(transaction.Account);
-
         const isXrp = (typeof transaction.Amount === 'string');
-        let isXrpBuf = Buffer.allocUnsafe(1);
-        let amountBuf;
+
+        let txBuf = Buffer.allocUnsafe(42 + (isXrp ? 8 : 31))
+
+        let offset = 0;
+        codec.decodeAccountID(transaction.Account).copy(txBuf, offset);
+        offset += 20;
+
         if (isXrp) {
-            amountBuf = Buffer.allocUnsafe(8);
-            isXrpBuf.writeUInt8(1);
-            amountBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount));
+            txBuf.writeUInt8(1, offset++);
+            txBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount), offset);
+            offset += 8;
         }
         else {
-            isXrpBuf.writeUInt8(0);
-            let valueBuf = Buffer.allocUnsafe(8);
-            valueBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount.value))
-            amountBuf = Buffer.concat([
-                Buffer.from(codec.decodeAccountID(transaction.Amount.issuer)),
-                Buffer.from(transaction.Amount.currency),
-                valueBuf]);
+            txBuf.writeUInt8(0, offset++);
+            codec.decodeAccountID(transaction.Amount.issuer).copy(txBuf, offset);
+            offset += 20;
+            Buffer.from(transaction.Amount.currency).copy(txBuf, offset);
+            offset += 3;
+            txBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount.value), offset);
+            offset += 8;
         }
 
+        codec.decodeAccountID(transaction.Destination).copy(txBuf, offset);
+        offset += 20;
+
         const memos = transaction.Memos ? transaction.Memos : [];
-        let memoCountBuf = Buffer.allocUnsafe(1);
-        memoCountBuf.writeUInt8(memos.length);
-        txBuf = Buffer.concat([txBuf, isXrpBuf, amountBuf, codec.decodeAccountID(transaction.Destination), memoCountBuf]);
+        txBuf.writeUInt8(memos.length, offset++);
 
         for (const memo of memos) {
             const typeBuf = Buffer.from(memo.type ? memo.type : []);
-            let typeLenBuf = Buffer.allocUnsafe(1);
-            typeLenBuf.writeUInt8(typeBuf.length);
-
             const formatBuf = Buffer.from(memo.format ? memo.format : []);
-            let formatLenBuf = Buffer.allocUnsafe(1);
-            formatLenBuf.writeUInt8(formatBuf.length);
-
             const dataBuf = memo.data ? Buffer.from(memo.data, memo.format === 'hex' ? 'hex' : 'utf8') : Buffer.from([]);
-            let dataLenBuf = Buffer.allocUnsafe(1);
-            dataLenBuf.writeUInt8(dataBuf.length);
 
-            txBuf = Buffer.concat([txBuf, typeLenBuf, typeBuf, formatLenBuf, formatBuf, dataLenBuf, dataBuf]);
+            let memoBuf = Buffer.allocUnsafe(3 + typeBuf.length + formatBuf.length + dataBuf.length);
+
+            let memoBufOffset = 0;
+            memoBuf.writeUInt8(typeBuf.length, memoBufOffset++);
+            typeBuf.copy(memoBuf, memoBufOffset);
+            memoBufOffset += typeBuf.length;
+
+            memoBuf.writeUInt8(formatBuf.length, memoBufOffset++);
+            formatBuf.copy(memoBuf, memoBufOffset);
+            memoBufOffset += formatBuf.length;
+
+            memoBuf.writeUInt8(dataBuf.length, memoBufOffset++);
+            dataBuf.copy(memoBuf, memoBufOffset);
+            memoBufOffset += dataBuf.length;
+
+            txBuf = Buffer.concat([txBuf, memoBuf]);
         }
 
-        let ledgerIndexBuf = Buffer.allocUnsafe(8);
-        ledgerIndexBuf.writeBigUInt64BE(BigInt(transaction.LedgerIndex));
+        let returnBuf = Buffer.allocUnsafe(txBuf.length + 40);
 
-        return Buffer.concat([txBuf, Buffer.from(transaction.LedgerHash, 'hex'), ledgerIndexBuf]);
+        offset = 0;
+        txBuf.copy(returnBuf, offset);
+        offset += txBuf.length;
+        Buffer.from(transaction.LedgerHash, 'hex').copy(returnBuf, offset);
+        offset += 32;
+        returnBuf.writeBigUInt64BE(BigInt(transaction.LedgerIndex), offset);
+
+        return returnBuf;
     }
 
     #decodeTransaction(transactionBuf) {
@@ -125,7 +142,7 @@ class TransactionManager {
             });
         }
 
-        transaction.LedgerHash = transactionBuf.slice(offset, offset + 32).toString('hex');
+        transaction.LedgerHash = transactionBuf.slice(offset, offset + 32).toString('hex').toUpperCase();
         offset += 32;
 
         transaction.LedgerIndex = Number(transactionBuf.readBigUInt64BE(offset));
@@ -146,15 +163,20 @@ class TransactionManager {
 
     #encodeTrustLines(trustLines) {
         if (trustLines && trustLines.length) {
-            let buf = Buffer.concat([codec.decodeAccountID(trustLines[0].account), Buffer.from(trustLines[0].currency)]);
+            let buf = Buffer.allocUnsafe(39)
 
-            let balanceBuf = Buffer.allocUnsafe(8);
-            balanceBuf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance));
+            let offset = 0;
+            codec.decodeAccountID(trustLines[0].account).copy(buf, offset);
+            offset += 20;
+            Buffer.from(trustLines[0].currency).copy(buf, offset);
+            offset += 3;
 
-            let limitBuf = Buffer.allocUnsafe(8);
-            limitBuf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit));
+            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
+            offset += 8;
+            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
+            offset += 8;
 
-            return Buffer.concat([buf, balanceBuf, limitBuf]);
+            return buf;
         }
         else
             return Buffer.from([]);
