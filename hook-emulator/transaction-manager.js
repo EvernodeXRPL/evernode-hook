@@ -188,11 +188,13 @@ class TransactionManager {
         this.#hookProcess.stdin.write(Buffer.concat([lenBuf, data]));
     }
 
-    #terminateProc(success = false) {
+    async #terminateProc(success = false) {
         this.#hookProcess.stdin.end();
         this.#hookProcess = null;
 
-        if (!success)
+        if (success)
+            await this.#persistTransaction();
+        else
             this.#rollbackTransaction();
     }
 
@@ -215,23 +217,23 @@ class TransactionManager {
         return new Promise((resolve, reject) => {
             let completed = false;
 
-            const failTimeout = setTimeout(() => {
-                reject(ErrorCodes.TIMEOUT);
-                this.#terminateProc();
+            const failTimeout = setTimeout(async () => {
                 completed = true;
+                await this.#terminateProc();
+                reject(ErrorCodes.TIMEOUT);
             }, TX_WAIT_TIMEOUT);
 
             // Getting the exit code.
-            this.#hookProcess.on('close', (code) => {
+            this.#hookProcess.on('close', async (code) => {
                 if (!completed) {
+                    completed = true;
                     clearTimeout(failTimeout);
+                    await this.#terminateProc(code === 0);
                     if (code === 0)
                         resolve("SUCCESS");
                     else {
                         reject(ErrorCodes.TX_ERROR);
                     }
-                    this.#terminateProc(code === 0);
-                    completed = true;
                 }
             });
 
@@ -261,8 +263,12 @@ class TransactionManager {
         });
     }
 
-    #rollbackTransaction() {
+    async #persistTransaction() {
+        await this.#stateManager.persist();
+    }
 
+    #rollbackTransaction() {
+        this.#stateManager.rollback();
     }
 
     async #handleMessage(messageBuf) {

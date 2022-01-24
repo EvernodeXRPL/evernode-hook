@@ -98,7 +98,7 @@ class SqliteDatabase {
         return (await this.insertValues(tableName, [value]));
     }
 
-    async updateValue(tableName, value, filter = null) {
+    async updateValues(tableName, value, filter = null) {
         if (!this.db)
             throw 'Database connection is not open.';
 
@@ -123,6 +123,25 @@ class SqliteDatabase {
         filterStr = filterStr.slice(0, -5);
 
         const query = `UPDATE ${tableName} SET ${valueStr} WHERE ${filterStr};`;
+        return (await this.runQuery(query, values));
+    }
+
+    async deleteValues(tableName, filter = null) {
+        if (!this.db)
+            throw 'Database connection is not open.';
+
+        let values = [];
+        let filterStr = '1 AND '
+        if (filter) {
+            columnNames = Object.keys(filter);
+            for (const columnName of columnNames) {
+                filterStr += `${columnName} = ? AND `;
+                values.push(filter[columnName] ? filter[columnName] : 'NULL');
+            }
+        }
+        filterStr = filterStr.slice(0, -5);
+
+        const query = `DELETE FROM ${tableName} WHERE ${filterStr};`;
         return (await this.runQuery(query, values));
     }
 
