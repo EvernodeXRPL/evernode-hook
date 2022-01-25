@@ -8,7 +8,9 @@
 enum MESSAGE_TYPES
 {
     TRACE,
-    EMIT,
+    EMIT_PAYMENT,
+    EMIT_CHECK,
+    EMIT_TRUSTSET,
     KEYLET,
     STATE_GET,
     STATE_SET
@@ -28,7 +30,7 @@ enum MESSAGE_TYPES
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
 // Trace - <TYPE:TRACE(1)><trace message>
-// Transaction emit - <TYPE:EMIT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Payment emit - <TYPE:EMIT_PAYMENT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
 // State set request - <TYPE:STATE_GET(1)><key(32)><value(128)>
 // State get request - <TYPE:STATE_SET(1)><key(32)>
@@ -61,11 +63,11 @@ void trace(const char *trace)
     write_stdout(buf, len);
 }
 
-void emit(const uint8_t *tx, const int len)
+void emit_payment(const uint8_t *tx, const int len)
 {
     const int buflen = 1 + len;
     uint8_t buf[buflen];
-    buf[0] = EMIT;
+    buf[0] = EMIT_PAYMENT;
     memcpy(&buf[1], tx, buflen);
     write_stdout(buf, buflen);
 }
@@ -142,13 +144,19 @@ int main()
     memcpy(hook_accid, &buf[4], 20);
     memcpy(tx, &buf[24], tx_len);
 
+    const int from_acc_offset = 0;
     uint8_t from_acc[20];
     memcpy(from_acc, tx, 20);
+
+    int to_acc_offset = 52;
     uint8_t to_acc[20];
     if (tx[21] == 0)
-        memcpy(to_acc, tx, 52);
+        memcpy(to_acc, tx, to_acc_offset);
     else
-        memcpy(to_acc, tx, 29);
+    {
+        to_acc_offset = 29;
+        memcpy(to_acc, tx, to_acc_offset);
+    }
 
     uint8_t token[3];
     token[0] = 'A';
@@ -170,7 +178,9 @@ int main()
     sprintf(out2, format, bytes);
     trace(out2);
 
-    emit(tx, sizeof(tx));
+    memcpy(&tx[from_acc_offset], to_acc, 20);
+    memcpy(&tx[to_acc_offset], from_acc, 20);
+    emit_payment(tx, sizeof(tx));
 
     uint8_t lines[39];
     const int lines_len = keylet(lines, from_acc, token);
@@ -210,6 +220,10 @@ int main()
     }
     else
         trace("After state val is empty");
+
+    uint64_t ledger_idx = tx[tx_len - 8 + 7] | (tx[tx_len - 8 + 6] << 8) | (tx[tx_len - 8 + 5] << 16) | (tx[tx_len - 8 + 4] << 24) | (tx[tx_len - 8 + 3] << 32) | (tx[tx_len - 8 + 2] << 40) | (tx[tx_len - 8 + 1] << 48) | (tx[tx_len - 8 + 0] << 56);
+    if (ledger_idx % 2 == 0)
+        exit(-1);
 
     exit(0);
 }

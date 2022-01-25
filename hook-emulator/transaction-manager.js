@@ -11,11 +11,15 @@ const ErrorCodes = {
 
 const MESSAGE_TYPES = {
     TRACE: 0,
-    EMIT: 1,
-    KEYLET: 2,
-    STATE_GET: 3,
-    STATE_SET: 4
+    EMIT_PAYMENT: 1,
+    EMIT_CHECK: 2,
+    EMIT_TRUSTSET: 3,
+    KEYLET: 4,
+    STATE_GET: 5,
+    STATE_SET: 6
 };
+
+const XRP_CURRENCY = 'XRP';
 
 // ------------------ Message formats ------------------
 // Message protocol - <data len(4)><data>
@@ -31,7 +35,7 @@ const MESSAGE_TYPES = {
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
 // Trace - <TYPE:TRACE(1)><trace message>
-// Transaction emit - <TYPE:EMIT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Payment emit - <TYPE:EMIT_PAYMENT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
 // State set request - <TYPE:STATE_GET(1)><key(32)><value(128)>
 // State get request - <TYPE:STATE_SET(1)><key(32)>
@@ -47,15 +51,25 @@ class TransactionManager {
     #stateManager = null;
     #hookAccount = null;
     #hookProcess = null;
+    #draftEmits = null;
 
     constructor(hookAccount, hookWrapperPath, stateManager) {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
+        this.#initDrafts();
     }
 
     async init() {
         await this.#stateManager.init();
+    }
+
+    #initDrafts() {
+        this.#draftEmits = {
+            payments: [],
+            checks: [],
+            trustlines: []
+        };
     }
 
     #encodeTransaction(transaction) {
@@ -145,62 +159,95 @@ class TransactionManager {
         return returnBuf;
     }
 
-    #decodeTransaction(transactionBuf) {
-        let transaction = {};
+    #encodeTrustLines(trustLines) {
+        // Return a buffer if there're trustlines, Otherwise return an empty buf.
+        if (trustLines && trustLines.length) {
+            // Pre allocate buffer to populate trustline data.
+            let buf = Buffer.allocUnsafe(39)
+
+            let offset = 0;
+            // Get account id from r-address and populate (20-bytes).
+            codec.decodeAccountID(trustLines[0].account).copy(buf, offset);
+            offset += 20;
+            // Populate curreny (3-bytes).
+            Buffer.from(trustLines[0].currency).copy(buf, offset);
+            offset += 3;
+            // Convert balance to xfl and populate (8-bytes).
+            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
+            offset += 8;
+            // Convert limit to xfl and populate (8-bytes).
+            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
+            offset += 8;
+
+            return buf;
+        }
+        else
+            return Buffer.from([]);
+    }
+
+    #encodeStateValue(value) {
+        return value ? Buffer.from(value, 'hex') : Buffer.from([]);
+    }
+
+    #decodePayment(paymentBuf) {
+        let payment = {};
         let offset = 0;
 
         // Get the origin account and encode the r-address (20-bytes).
-        transaction.Account = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
+        payment.account = codec.encodeAccountID(paymentBuf.slice(offset, offset + 20));
         offset += 20;
 
-        // Get the amount -> if transaction is a xrp transaction <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
-        if (transactionBuf.readUInt8(offset++) === 1) {
+        // Get whether transaction is xrp,
+        payment.isXrp = (paymentBuf.readUInt8(offset++) === 1);
+
+        // Get the amount -> if payment is a xrp payment <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
+        if (payment.isXrp) {
             // Get the amount and convert to float from xfl.
-            transaction.Amount = XflHelpers.toString(transactionBuf.readBigInt64BE(offset));
+            payment.amount = XflHelpers.toString(paymentBuf.readBigInt64BE(offset));
             offset += 8;
         }
         else {
-            transaction.Amount = {};
+            payment.amount = {};
 
             // Get the issuer and encode the r-address.
-            transaction.Amount.issuer = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
+            payment.amount.issuer = codec.encodeAccountID(paymentBuf.slice(offset, offset + 20));
             offset += 20;
-            transaction.Amount.currency = transactionBuf.slice(offset, offset + 3).toString();
+            payment.amount.currency = paymentBuf.slice(offset, offset + 3).toString();
             offset += 3;
             // Get the amount value and convert to float from xfl.
-            transaction.Amount.value = XflHelpers.toString(transactionBuf.readBigInt64BE(offset));
+            payment.amount.value = XflHelpers.toString(paymentBuf.readBigInt64BE(offset));
             offset += 8;
         }
 
         // Get the destination account and encode the r-address (20-bytes).
-        transaction.Destination = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
+        payment.destination = codec.encodeAccountID(paymentBuf.slice(offset, offset + 20));
         offset += 20;
 
         // Get memo count (1-byte).
-        const memoCount = transactionBuf.readUInt8(offset++);
+        const memoCount = paymentBuf.readUInt8(offset++);
 
-        transaction.Memos = [];
+        payment.memos = [];
         for (let i = 0; i < memoCount; i++) {
             // Get the memo type length (1-byte).
-            const typeLen = transactionBuf.readUInt8(offset++);
+            const typeLen = paymentBuf.readUInt8(offset++);
             // Get the memo type ((typeLen)-bytes).
-            const type = transactionBuf.slice(offset, offset + typeLen).toString();
+            const type = paymentBuf.slice(offset, offset + typeLen).toString();
             offset += typeLen;
 
             // Get the memo format length (1-byte).
-            const formatLen = transactionBuf.readUInt8(offset++);
+            const formatLen = paymentBuf.readUInt8(offset++);
             // Get the memo format ((formatLen)-bytes).
-            const format = transactionBuf.slice(offset, offset + formatLen).toString();
+            const format = paymentBuf.slice(offset, offset + formatLen).toString();
             offset += formatLen;
 
             // Get the memo data length (1-byte).
-            const dataLen = transactionBuf.readUInt8(offset++);
+            const dataLen = paymentBuf.readUInt8(offset++);
             // Get the memo data ((dataLen)-bytes).
             // Convert data to hex if format is 'hex'.
-            const data = transactionBuf.slice(offset, offset + dataLen).toString(format === 'hex' ? 'hex' : 'utf8');
+            const data = paymentBuf.slice(offset, offset + dataLen).toString(format === 'hex' ? 'hex' : 'utf8');
             offset += dataLen;
 
-            transaction.Memos.push({
+            payment.memos.push({
                 type: type,
                 format: format,
                 data: data
@@ -208,13 +255,21 @@ class TransactionManager {
         }
 
         // Get the ledger hash (32-bytes).
-        transaction.LedgerHash = transactionBuf.slice(offset, offset + 32).toString('hex').toUpperCase();
+        payment.ledgerHash = paymentBuf.slice(offset, offset + 32).toString('hex').toUpperCase();
         offset += 32;
 
         // Get the ledger index (8-bytes).
-        transaction.LedgerIndex = Number(transactionBuf.readBigUInt64BE(offset));
+        payment.ledgerIndex = Number(paymentBuf.readBigUInt64BE(offset));
 
-        return transaction;
+        return payment;
+    }
+
+    #decodeCheck(checkBuf) {
+        return {};
+    }
+
+    #decodeTrustline(trustlineBuf) {
+        return {};
     }
 
     #decodeKeyletRequest(requestBuf) {
@@ -254,36 +309,6 @@ class TransactionManager {
         return request;
     }
 
-    #encodeTrustLines(trustLines) {
-        // Return a buffer if there're trustlines, Otherwise return an empty buf.
-        if (trustLines && trustLines.length) {
-            // Pre allocate buffer to populate trustline data.
-            let buf = Buffer.allocUnsafe(39)
-
-            let offset = 0;
-            // Get account id from r-address and populate (20-bytes).
-            codec.decodeAccountID(trustLines[0].account).copy(buf, offset);
-            offset += 20;
-            // Populate curreny (3-bytes).
-            Buffer.from(trustLines[0].currency).copy(buf, offset);
-            offset += 3;
-            // Convert balance to xfl and populate (8-bytes).
-            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
-            offset += 8;
-            // Convert limit to xfl and populate (8-bytes).
-            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
-            offset += 8;
-
-            return buf;
-        }
-        else
-            return Buffer.from([]);
-    }
-
-    #encodeStateValue(value) {
-        return value ? Buffer.from(value, 'hex') : Buffer.from([]);
-    }
-
     #sendToProc(data) {
         // Append data length (4-bytes) to the message and write to STDIN.
         const lenBuf = Buffer.allocUnsafe(4);
@@ -303,7 +328,7 @@ class TransactionManager {
             this.#rollbackTransaction();
     }
 
-    processTransaction(transaction) {
+    async processTransaction(transaction) {
         // Encode the transaction info to the buf.
         let txBuf = this.#encodeTransaction(transaction);
 
@@ -378,11 +403,40 @@ class TransactionManager {
         });
     }
 
+    #emitPayment(payment) {
+        return this.#hookAccount.makePayment(
+            payment.destination,
+            (payment.isXrp ? payment.amount : payment.amount.value),
+            (payment.isXrp ? XRP_CURRENCY : payment.amount.currency),
+            (payment.isXrp ? null : payment.amount.issuer),
+            payment.memos
+        );
+    }
+
+    #emitCheck(check) {
+        return new Promise(resolve => { resolve() });
+    }
+
+    #emitTrustline(trustline) {
+        return this.#hookAccount.setTrustline(trustline.currency, trustline.issuer, trustline.limit, trustline.allowRippling, trustline.memos);
+    }
+
     async #persistTransaction() {
+        for (const payment of this.#draftEmits.payments) {
+            await this.#emitPayment(payment);
+        }
+        for (const check of this.#draftEmits.checks) {
+            await this.#emitCheck(check);
+        }
+        for (const trustline of this.#draftEmits.trustlines) {
+            await this.#emitTrustline(trustline);
+        }
+        this.#initDrafts();
         await this.#stateManager.persist();
     }
 
     #rollbackTransaction() {
+        this.#initDrafts();
         this.#stateManager.rollback();
     }
 
@@ -397,10 +451,20 @@ class TransactionManager {
                 // Only log the content.
                 console.log(content.toString());
                 break;
-            case (MESSAGE_TYPES.EMIT):
-                // Decode the transaction data from the content buf.
-                const transaction = this.#decodeTransaction(content);
-                console.log("Received emit transaction : ", transaction);
+            case (MESSAGE_TYPES.EMIT_PAYMENT):
+                // Decode the payment data from the content buf.
+                const payment = this.#decodePayment(content);
+                this.#draftEmits.payments.push(payment);
+                break;
+            case (MESSAGE_TYPES.EMIT_CHECK):
+                // Decode the check data from the content buf.
+                const check = this.#decodeCheck(content);
+                this.#draftEmits.checks.push(check);
+                break;
+            case (MESSAGE_TYPES.EMIT_TRUSTSET):
+                // Decode the trustline data from the content buf.
+                const trustline = this.#decodeTrustline(content);
+                this.#draftEmits.trustlines.push(trustline);
                 break;
             case (MESSAGE_TYPES.KEYLET):
                 // Decode keylet request info from the buf.

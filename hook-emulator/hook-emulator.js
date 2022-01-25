@@ -18,7 +18,7 @@ class HookEmulator {
     #xrplApi = null;
     #xrplAcc = null;
 
-    constructor(rippledServer, hookAddress, hookWrapperPath, dbPath) {
+    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret = null) {
         this.#stateManager = new StateManager(dbPath);
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
@@ -26,7 +26,7 @@ class HookEmulator {
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new evernode.XrplAccount(hookAddress);
+        this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
     }
 
@@ -60,7 +60,7 @@ class HookEmulator {
 }
 
 async function main() {
-    let config = { hookAddress: "" };
+    let config = { hookAddress: "", hookSecret: "" };
 
     // Check if config file exists, write otherwise.
     if (!fs.existsSync(CONFIG_PATH))
@@ -69,14 +69,14 @@ async function main() {
         config = JSON.parse(fs.readFileSync(CONFIG_PATH).toString());
 
     // If hook address is empty, skip the execution.
-    if (!config.hookAddress) {
+    if (!config.hookAddress || !config.hookSecret) {
         console.log(`${CONFIG_PATH} not found, populate the config and restart the program.`);
         return;
     }
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
-    const emulator = new HookEmulator(RIPPLED_URL, config.hookAddress, HOOK_WRAPPER_PATH, DB_PATH);
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret);
     await emulator.init();
 }
 
