@@ -26,12 +26,15 @@ const MESSAGE_TYPES = {
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Keylet response - <issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// State get response - <value(128)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
 // Trace - <TYPE:TRACE(1)><trace message>
 // Transaction emit - <TYPE:EMIT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
+// State set request - <TYPE:STATE_GET(1)><key(32)><value(128)>
+// State get request - <TYPE:STATE_SET(1)><key(32)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 // -----------------------------------------------------
 
@@ -49,6 +52,10 @@ class TransactionManager {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
+    }
+
+    async init() {
+        await this.#stateManager.init();
     }
 
     #encodeTransaction(transaction) {
@@ -224,6 +231,29 @@ class TransactionManager {
         return request;
     }
 
+    #decodeStateGetRequest(requestBuf) {
+        let request = {};
+
+        // Get the key (32-bytes).
+        request.key = requestBuf.slice(0, 32).toString('hex').toUpperCase();
+
+        return request;
+    }
+
+    #decodeStateSetRequest(requestBuf) {
+        let request = {};
+
+        let offset = 0;
+        // Get the key (32-bytes).
+        request.key = requestBuf.slice(offset, offset + 32).toString('hex').toUpperCase();
+        offset += 32;
+
+        // Get the value (128-bytes).
+        request.value = requestBuf.slice(offset, offset + 128).toString('hex').toUpperCase();
+
+        return request;
+    }
+
     #encodeTrustLines(trustLines) {
         // Return a buffer if there're trustlines, Otherwise return an empty buf.
         if (trustLines && trustLines.length) {
@@ -248,6 +278,10 @@ class TransactionManager {
         }
         else
             return Buffer.from([]);
+    }
+
+    #encodeStateValue(value) {
+        return value ? Buffer.from(value, 'hex') : Buffer.from([]);
     }
 
     #sendToProc(data) {
@@ -329,7 +363,7 @@ class TransactionManager {
                         const msg = messageBuf.slice(offset, offset + msgLen);
                         offset += msgLen;
 
-                        await this.#handleMessage(msg);
+                        await this.#handleMessage(msg).catch(console.error);
                     }
                 }
             });
@@ -365,22 +399,27 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.EMIT):
                 // Decode the transaction data from the content buf.
-                const tx = this.#decodeTransaction(content);
-                console.log("Received emit transaction : ", tx);
+                const transaction = this.#decodeTransaction(content);
+                console.log("Received emit transaction : ", transaction);
                 break;
             case (MESSAGE_TYPES.KEYLET):
                 // Decode keylet request info from the buf.
-                const request = this.#decodeKeyletRequest(content);
+                const keyletInfo = this.#decodeKeyletRequest(content);
                 // Get trustlines from the hook account.
-                const lines = await this.#hookAccount.getTrustLines(request.currency, request.issuer);
+                const lines = await this.#hookAccount.getTrustLines(keyletInfo.currency, keyletInfo.issuer);
                 // Encode the trustline info to a buf and send to child process.
                 this.#sendToProc(this.#encodeTrustLines(lines));
                 break;
-            case (MESSAGE_TYPES.STATEGET):
-                this.#stateManager.get("key");
+            case (MESSAGE_TYPES.STATE_GET):
+                // Decode state get request info from the buf.
+                const stateGetInfo = this.#decodeStateGetRequest(content);
+                const value = await this.#stateManager.get(stateGetInfo.key);
+                this.#sendToProc(this.#encodeStateValue(value));
                 break;
-            case (MESSAGE_TYPES.STATESET):
-                this.#stateManager.set("key", "value");
+            case (MESSAGE_TYPES.STATE_SET):
+                // Decode state set request info from the buf.
+                const stateSetInfo = this.#decodeStateSetRequest(content);
+                this.#stateManager.set(stateSetInfo.key, stateSetInfo.value);
                 break;
             default:
                 break;

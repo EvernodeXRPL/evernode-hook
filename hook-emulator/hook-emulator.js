@@ -4,7 +4,7 @@ const { TransactionManager } = require('./transaction-manager');
 const evernode = require('evernode-js-client');
 
 const CONFIG_PATH = './hook-emulator.cfg';
-const DB_PATH = './mb-xrpl.sqlite';
+const DB_PATH = './hook-emulator.sqlite';
 const HOOK_WRAPPER_PATH = './c_wrappers/hook-wrapper';
 
 const RIPPLED_URL = "wss://s.altnet.rippletest.net:51233";
@@ -28,16 +28,17 @@ class HookEmulator {
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress);
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
-
-        // Handle the transaction when payment transaction is received.
-        // Note - This event will only receive the incoming payment transactions to the hook.
-        // We currently only need hook to execute incoming payment transactions. 
-        this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
     }
 
     async init() {
         console.log("Starting hook emulator.");
         await this.#xrplApi.connect();
+        await this.#transactionManager.init();
+
+        // Handle the transaction when payment transaction is received.
+        // Note - This event will only receive the incoming payment transactions to the hook.
+        // We currently only need hook to execute incoming payment transactions. 
+        this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
 
         // Subscribe for the transactions
         await this.#xrplAcc.subscribe();

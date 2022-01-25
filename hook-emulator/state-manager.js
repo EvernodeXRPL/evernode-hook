@@ -1,6 +1,7 @@
 const { SqliteDatabase, DataTypes } = require('./lib/sqlite-handler');
 
 const STATE_TABLE = 'state';
+const HEX_REGEXP = new RegExp(/^[0-9A-Fa-f]+$/);
 
 class StateManager {
     #draftStates = null;
@@ -16,7 +17,7 @@ class StateManager {
         this.#stateTable = STATE_TABLE;
 
         this.#db.open();
-        await this.db.createTableIfNotExists(this.#stateTable, [
+        await this.#db.createTableIfNotExists(this.#stateTable, [
             { name: 'id', type: DataTypes.INTEGER, notNull: true, primary: true },
             { name: 'key', type: DataTypes.TEXT, notNull: true, unique: true },
             { name: 'value', type: DataTypes.TEXT, notNull: true }
@@ -28,16 +29,22 @@ class StateManager {
         if (!key)
             throw 'State key cannot be empty.';
 
-        if (!/[0-9A-Fa-f]+/g.test(key) || (value && !/[0-9A-Fa-f]+/g.test(value)))
+        if (!HEX_REGEXP.test(key) || (value && !HEX_REGEXP.test(value)))
             throw 'State key and value should be hex.';
 
         key = key.toUpperCase();
         value = value ? value.toUpperCase() : null;
 
-        this.#draftStates[hexKey] = hexVal;
+        this.#draftStates[key] = value;
     }
 
     async get(key) {
+        if (!key)
+            throw 'State key cannot be empty.';
+
+        if (!HEX_REGEXP.test(key))
+            throw 'State key should be hex.';
+
         key = key.toUpperCase();
 
         // First check in drafts.
@@ -64,9 +71,9 @@ class StateManager {
                     }, { key: key });
                 }
                 else {
-                    await this.db.insertValue(this.#stateTable, {
+                    await this.#db.insertValue(this.#stateTable, {
                         key: key,
-                        value: value
+                        value: this.#draftStates[key]
                     });
                 }
             }
