@@ -7,7 +7,8 @@
   },
   "dependencies": {
     "sqlite3": "5.0.2",
-    "xrpl": "2.0.2"
+    "ripple-address-codec": "4.2.0",
+    "evernode-js-client": "0.4.4"
   },
   "devDependencies": {
     "eslint": "8.3.0"
