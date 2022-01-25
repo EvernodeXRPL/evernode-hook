@@ -258,9 +258,11 @@ class TransactionManager {
     }
 
     async #terminateProc(success = false) {
+        // Close the STDIN and clear the hook process.
         this.#hookProcess.stdin.end();
         this.#hookProcess = null;
 
+        // Rollback the hook execution if error.
         if (success)
             await this.#persistTransaction();
         else
@@ -290,18 +292,20 @@ class TransactionManager {
             // This flag is used to mark the promise as completed, so events won't get listened further.
             let completed = false;
 
+            // Set the transaction process timeout and reject the promise if reached.
             const failTimeout = setTimeout(async () => {
                 completed = true;
                 await this.#terminateProc();
                 reject(ErrorCodes.TIMEOUT);
             }, TX_WAIT_TIMEOUT);
 
-            // Getting the exit code.
+            // This is fired when child process is exited.
             this.#hookProcess.on('close', async (code) => {
                 if (!completed) {
                     completed = true;
                     clearTimeout(failTimeout);
                     await this.#terminateProc(code === 0);
+                    // Resolve of success, otherwise reject with error.
                     if (code === 0)
                         resolve("SUCCESS");
                     else {

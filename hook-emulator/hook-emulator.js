@@ -31,7 +31,7 @@ class HookEmulator {
 
         // Handle the transaction when payment transaction is received.
         // Note - This event will only receive the incoming payment transactions to the hook.
-        // We currently only need hook to execute in incoming payment transactions. 
+        // We currently only need hook to execute incoming payment transactions. 
         this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
     }
 
