@@ -1,0 +1,16 @@
+{
+  "name": "hook-emulator",
+  "scripts": {
+    "lint": "eslint ./hook-emulator.js",
+    "build:wrapper": "gcc ./c_wrappers/main.c -o ./c_wrappers/hook-wrapper",
+    "build": "npm run build:wrapper && npm run lint && ncc build hook-emulator.js --minify -o dist"
+  },
+  "dependencies": {
+    "sqlite3": "5.0.2",
+    "ripple-address-codec": "4.2.0",
+    "evernode-js-client": "0.4.4"
+  },
+  "devDependencies": {
+    "eslint": "8.3.0"
+  }
+}
