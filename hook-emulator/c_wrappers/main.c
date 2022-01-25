@@ -14,11 +14,23 @@ enum MESSAGE_TYPES
     STATE_SET
 };
 
-// Sample std in/out message formats
+// ------------------ Message formats ------------------
+// Message protocol - <data len(4)><data>
+// -----------------------------------------------------
+
+// --------------- Message data formats ----------------
+
+// ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
-// Transaction emit - <account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
-// Keylet request - <issuer(20)><currency(3)>
 // Keylet response - <issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// '''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+// ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
+// Trace - <TYPE:TRACE(1)><trace message>
+// Transaction emit - <TYPE:EMIT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
+// '''''''''''''''''''''''''''''''''''''''''''''''''''''
+// -----------------------------------------------------
 
 void write_stdout(const uint8_t *buf, const int len)
 {
