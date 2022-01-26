@@ -52,11 +52,15 @@ class TransactionManager {
     #hookAccount = null;
     #hookProcess = null;
     #draftEmits = null;
+    #pendingTransactions = null;
+    #queueProcessorActive = null;
 
     constructor(hookAccount, hookWrapperPath, stateManager) {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
+        this.#pendingTransactions = [];
+        this.#queueProcessorActive = false;
         this.#initDrafts();
     }
 
@@ -316,19 +320,58 @@ class TransactionManager {
         this.#hookProcess.stdin.write(Buffer.concat([lenBuf, data]));
     }
 
-    async #terminateProc(success = false) {
-        // Close the STDIN and clear the hook process.
-        this.#hookProcess.stdin.end();
-        this.#hookProcess = null;
+    processTransaction(transaction) {
+        const resolver = new Promise((resolve, reject) => {
+            this.#pendingTransactions.push({
+                resolve: resolve,
+                reject: reject,
+                transaction: transaction
+            });
+        });
+        console.log("Queued a transaction.");
 
-        // Rollback the hook execution if error.
-        if (success)
-            await this.#persistTransaction();
-        else
-            this.#rollbackTransaction();
+        // Start queue processor when item is added.
+        this.#processQueue();
+
+        return resolver;
     }
 
-    async processTransaction(transaction) {
+    async #processQueue() {
+        if (this.#queueProcessorActive)
+            return;
+
+        console.log("Transaction queue processor started...");
+        this.#queueProcessorActive = true;
+
+        let i = 1;
+        while (this.#pendingTransactions && this.#pendingTransactions.length > 0) {
+            console.log(`Processing transaction ${i}...`);
+            const task = this.#pendingTransactions.shift();
+
+            try {
+                const ret = await this.#executeHook(task.transaction);
+                await this.#persistTransaction();
+                task.resolve(ret);
+            }
+            catch (e) {
+                this.#rollbackTransaction();
+                task.reject(e);
+            }
+
+            // Close the STDIN and clear the hook process.
+            this.#hookProcess.stdin.end();
+            this.#hookProcess = null;
+            this.#initDrafts();
+
+            console.log(`Processed transaction  ${i}.`);
+            i++;
+        }
+
+        this.#queueProcessorActive = false;
+        console.log("Transaction queue processor ended.");
+    }
+
+    async #executeHook(transaction) {
         // Encode the transaction info to the buf.
         let txBuf = this.#encodeTransaction(transaction);
 
@@ -354,7 +397,6 @@ class TransactionManager {
             // Set the transaction process timeout and reject the promise if reached.
             const failTimeout = setTimeout(async () => {
                 completed = true;
-                await this.#terminateProc();
                 reject(ErrorCodes.TIMEOUT);
             }, TX_WAIT_TIMEOUT);
 
@@ -363,7 +405,6 @@ class TransactionManager {
                 if (!completed) {
                     completed = true;
                     clearTimeout(failTimeout);
-                    await this.#terminateProc(code === 0);
                     // Resolve of success, otherwise reject with error.
                     if (code === 0)
                         resolve("SUCCESS");
@@ -431,12 +472,10 @@ class TransactionManager {
         for (const trustline of this.#draftEmits.trustlines) {
             await this.#emitTrustline(trustline);
         }
-        this.#initDrafts();
         await this.#stateManager.persist();
     }
 
     #rollbackTransaction() {
-        this.#initDrafts();
         this.#stateManager.rollback();
     }
 
