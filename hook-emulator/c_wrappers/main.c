@@ -8,9 +8,7 @@
 enum MESSAGE_TYPES
 {
     TRACE,
-    EMIT_PAYMENT,
-    EMIT_CHECK,
-    EMIT_TRUSTSET,
+    EMIT,
     KEYLET,
     STATE_GET,
     STATE_SET
@@ -30,7 +28,7 @@ enum MESSAGE_TYPES
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
 // Trace - <TYPE:TRACE(1)><trace message>
-// Payment emit - <TYPE:EMIT_PAYMENT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Transaction emit - <TYPE:EMIT(1)><prepared transaction buf>
 // Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
 // State set request - <TYPE:STATE_GET(1)><key(32)><value(128)>
 // State get request - <TYPE:STATE_SET(1)><key(32)>
@@ -63,11 +61,11 @@ void trace(const char *trace)
     write_stdout(buf, len);
 }
 
-void emit_payment(const uint8_t *tx, const int len)
+void emit(const uint8_t *tx, const int len)
 {
     const int buflen = 1 + len;
     uint8_t buf[buflen];
-    buf[0] = EMIT_PAYMENT;
+    buf[0] = EMIT;
     memcpy(&buf[1], tx, buflen);
     write_stdout(buf, buflen);
 }
@@ -132,6 +130,8 @@ void bin_to_hex(char *hex, const uint8_t *bin, const int len)
 int main()
 {
     uint8_t buf[200000];
+    char *format = "";
+    int len = 0;
 
     trace("Enter a string: ");
 
@@ -165,8 +165,8 @@ int main()
 
     char bytes[2048];
     bin_to_hex(bytes, hook_accid, 20);
-    char *format = "Hook: %s";
-    int len = 13 + strlen(bytes);
+    format = "Hook: %s";
+    len = 13 + strlen(bytes);
     char out[len];
     sprintf(out, format, bytes);
     trace(out);
@@ -177,10 +177,6 @@ int main()
     char out2[len];
     sprintf(out2, format, bytes);
     trace(out2);
-
-    memcpy(&tx[from_acc_offset], to_acc, 20);
-    memcpy(&tx[to_acc_offset], from_acc, 20);
-    emit_payment(tx, sizeof(tx));
 
     uint8_t lines[39];
     const int lines_len = keylet(lines, from_acc, token);
@@ -198,7 +194,7 @@ int main()
     {
         uint64_t state_val = state[7] | (state[6] << 8) | (state[5] << 16) | (state[4] << 24) | (state[3] << 32) | (state[2] << 40) | (state[1] << 48) | (state[0] << 56);
         format = "Before state val: %d";
-        len = 18 + strlen(bytes);
+        len = 100;
         char out4[len];
         sprintf(out4, format, state_val);
         trace(out4);
@@ -213,7 +209,7 @@ int main()
     {
         uint64_t state_val = state[7] | (state[6] << 8) | (state[5] << 16) | (state[4] << 24) | (state[3] << 32) | (state[2] << 40) | (state[1] << 48) | (state[0] << 56);
         format = "After state val: %d";
-        len = 17 + strlen(bytes);
+        len = 100;
         char out4[len];
         sprintf(out4, format, state_val);
         trace(out4);
