@@ -1,5 +1,5 @@
-#include "../lib/hookapi.h"
-#include "constants.h"
+// #include "../lib/hookapi.h"
+#include "../lib/sim.h"
 #include "evernode.h"
 #include "statekeys.h"
 
@@ -318,7 +318,7 @@ int64_t hook(int64_t reserved)
                     if (state_set(SBUF(auditor_accid), SBUF(STP_AUDITOR_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for default auditor_id."), 1);
 
-                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE] = {0};
+                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE];
                     COPY_BUF(auditor_addr_buf, 0, auditor_id_buf, 0, 4);
                     AUDITOR_ADDR_KEY(auditor_accid);
                     if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
@@ -529,8 +529,8 @@ int64_t hook(int64_t reserved)
                             else if (pick_host_from_idx > pick_host_to_idx) // If range is like (4 to 1) {0, 1], 2, 3, [4, 5} -> |4, 5, 0, 1|.
                                 is_picked = i >= pick_host_from_idx || i < pick_host_to_idx;
 
-                            if (is_picked)
-                                EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 10);
+                            // if (is_picked)
+                            //     EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 10);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);
@@ -557,7 +557,7 @@ int64_t hook(int64_t reserved)
                             if (state(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                                 rollback(SBUF("Evernode: Host is not registered."), 1);
 
-                            EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 10);
+                            // EMIT_AUDIT_CHECK_GUARDM(cur_moment_start_idx, moment_seed_buf, conf_min_redeem, host_addr_ptr, host_addr_buf, account_field, pick_count, 10);
 
                             if (state_set(SBUF(host_addr_buf), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update audit moment for host_addr."), 1);

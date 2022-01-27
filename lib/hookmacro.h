@@ -3,7 +3,8 @@
  */
 
 #include <stdint.h>
-#include "hookapi.h"
+// #include "hookapi.h"
+#include "sim.h"
 #include "sfcodes.h"
 
 #ifndef HOOKMACROS_INCLUDED
@@ -229,7 +230,7 @@ int out_len = 0;\
      ((uint64_t)((buf)[4]) << 24) +\
      ((uint64_t)((buf)[5]) << 16) +\
      ((uint64_t)((buf)[6]) <<  8) +\
-     ((uint64_t)((buf)[7]) <<  0)) * (buf[0] & 0x80U ? -1 : 1))
+     ((uint64_t)((buf)[7]) <<  0)) * ((uint64_t)((buf)[0]) & 0x80U ? -1 : 1))
 
 #define INT64_TO_BUF(buf_raw, i)\
 {\

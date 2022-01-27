@@ -66,8 +66,10 @@ class TransactionManager {
         // Amount buf -> if transaction is a xrp transaction <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
         if (isXrp) {
             txBuf.writeUInt8(1, offset++);
+            const amount = parseFloat(transaction.Amount)/1000000;
+            console.log(amount.toString());
             // Convert amount to xfl and populate.
-            txBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount), offset);
+            txBuf.writeBigInt64BE(XflHelpers.getXfl(amount.toString()), offset);
             offset += 8;
         }
         else {
@@ -134,6 +136,9 @@ class TransactionManager {
 
         // Populate ledger index to the return buf (8-bytes).
         returnBuf.writeBigUInt64BE(BigInt(transaction.LedgerIndex), offset);
+
+
+        console.log(returnBuf.toString('hex'));
 
         return returnBuf;
     }
@@ -314,22 +319,23 @@ class TransactionManager {
 
             // This is fired when child process is writing to the STDOUT.
             this.#hookProcess.stdout.on('data', async (data) => {
-                if (!completed) {
-                    const messageBuf = Buffer.from(data, "binary");
+                console.log(data);
+                // if (!completed) {
+                //     const messageBuf = Buffer.from(data, "binary");
 
-                    // Data chuncks will be prefixed (4-bytes) with the data length.
-                    // Split data by lengths and handle seperately.
-                    let offset = 0;
-                    while (offset < messageBuf.length) {
-                        const msgLen = messageBuf.readUInt32BE(offset);
-                        offset += 4;
+                //     // Data chuncks will be prefixed (4-bytes) with the data length.
+                //     // Split data by lengths and handle seperately.
+                //     let offset = 0;
+                //     while (offset < messageBuf.length) {
+                //         const msgLen = messageBuf.readUInt32BE(offset);
+                //         offset += 4;
 
-                        const msg = messageBuf.slice(offset, offset + msgLen);
-                        offset += msgLen;
+                //         const msg = messageBuf.slice(offset, offset + msgLen);
+                //         offset += msgLen;
 
-                        await this.#handleMessage(msg);
-                    }
-                }
+                //         await this.#handleMessage(msg);
+                //     }
+                // }
             });
 
             // This is fired when child process is writing to the STDOUT.
