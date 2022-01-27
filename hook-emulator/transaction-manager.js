@@ -4,6 +4,7 @@ const rippleCodec = require('ripple-binary-codec');
 const { XflHelpers } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
+const TX_MAX_LEDGER_OFFSET = 10;
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -17,8 +18,6 @@ const MESSAGE_TYPES = {
     STATE_GET: 3,
     STATE_SET: 4
 };
-
-const XRP_CURRENCY = 'XRP';
 
 // ------------------ Message formats ------------------
 // Message protocol - <data len(4)><data>
@@ -248,6 +247,15 @@ class TransactionManager {
         return resolver;
     }
 
+    async #decodeAndSignEmitTransaction(transactionBuf) {
+        let txJson = rippleCodec.decode(transactionBuf.toString('hex'));
+        delete txJson.SigningPubKey;
+        delete txJson.FirstLedgerSequence;
+        txJson.Sequence = await this.#hookAccount.getNextSequence();
+        txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET;
+        return this.#hookAccount.wallet.sign(txJson);
+    }
+
     async #processQueue() {
         if (this.#queueProcessorActive)
             return;
@@ -357,12 +365,8 @@ class TransactionManager {
     }
 
     async #persistTransaction() {
-        for (const transaction of this.#draftEmits) {
-            let txJson = rippleCodec.decode(transaction.toString('hex'));
-            delete txJson.SigningPubKey;
-            const signedTx = this.#hookAccount.wallet.sign(txJson);
-            await this.#hookAccount.submitTransactionBlob(signedTx.tx_blob);
-        }
+        for (const transaction of this.#draftEmits)
+            await this.#hookAccount.submitTransactionBlob(transaction);
         await this.#stateManager.persist();
     }
 
@@ -382,7 +386,15 @@ class TransactionManager {
                 console.log(content.toString());
                 break;
             case (MESSAGE_TYPES.EMIT):
-                this.#draftEmits.push(content);
+                try {
+                    const signedTx = await this.#decodeAndSignEmitTransaction(content);
+                    this.#sendToProc(Buffer.from(signedTx.hash, 'hex'));
+                    this.#draftEmits.push(signedTx.tx_blob);
+                }
+                catch (e) {
+                    console.error(e);
+                    this.#sendToProc(Buffer.from([]));
+                }
                 break;
             case (MESSAGE_TYPES.KEYLET):
                 // Decode keylet request info from the buf.
