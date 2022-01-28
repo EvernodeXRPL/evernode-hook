@@ -156,7 +156,6 @@ int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint
         return -1;
 }
 
-// int64_t state(uint8_t *value, const uint8_t *key)
 int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len)
 {
     if (kread_len != state_key_len)
