@@ -253,7 +253,7 @@ class TransactionManager {
         delete txJson.FirstLedgerSequence;
         txJson.Sequence = await this.#hookAccount.getNextSequence();
         txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET;
-        return this.#hookAccount.wallet.sign(txJson);
+        return await this.#hookAccount.wallet.sign(txJson);
     }
 
     async #processQueue() {
