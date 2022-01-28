@@ -98,7 +98,7 @@ void state_set(const uint8_t *key, const uint8_t *value, const int value_len)
     write_stdout(buf, len);
 }
 
-int state_get(uint8_t *value, const uint8_t *key)
+int state(uint8_t *value, const uint8_t *key)
 {
     const int len = 33;
     uint8_t buf[len];
@@ -106,7 +106,7 @@ int state_get(uint8_t *value, const uint8_t *key)
     memcpy(&buf[1], key, 32);
     write_stdout(buf, len);
 
-    uint8_t read_buf[53];
+    uint8_t read_buf[132];
     read(STDIN_FILENO, read_buf, sizeof(read_buf));
     uint32_t value_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
 
@@ -188,15 +188,15 @@ int main()
     sprintf(out3, format, bytes);
     trace(out3);
 
-    uint8_t state[128];
-    int state_len = state_get(state, STATEKEY);
+    uint8_t state_val[128];
+    int state_len = state(state_val, STATEKEY);
     if (state_len > 0)
     {
-        uint64_t state_val = state[7] | (state[6] << 8) | (state[5] << 16) | (state[4] << 24) | (state[3] << 32) | (state[2] << 40) | (state[1] << 48) | (state[0] << 56);
+        uint64_t value = state_val[7] | (state_val[6] << 8) | (state_val[5] << 16) | (state_val[4] << 24) | (state_val[3] << 32) | (state_val[2] << 40) | (state_val[1] << 48) | (state_val[0] << 56);
         format = "Before state val: %d";
         len = 100;
         char out4[len];
-        sprintf(out4, format, state_val);
+        sprintf(out4, format, value);
         trace(out4);
     }
     else
@@ -204,14 +204,14 @@ int main()
 
     state_set(STATEKEY, &tx[tx_len - 8], 8);
 
-    state_len = state_get(state, STATEKEY);
+    state_len = state(state_val, STATEKEY);
     if (state_len > 0)
     {
-        uint64_t state_val = state[7] | (state[6] << 8) | (state[5] << 16) | (state[4] << 24) | (state[3] << 32) | (state[2] << 40) | (state[1] << 48) | (state[0] << 56);
+        uint64_t value = state_val[7] | (state_val[6] << 8) | (state_val[5] << 16) | (state_val[4] << 24) | (state_val[3] << 32) | (state_val[2] << 40) | (state_val[1] << 48) | (state_val[0] << 56);
         format = "After state val: %d";
         len = 100;
         char out4[len];
-        sprintf(out4, format, state_val);
+        sprintf(out4, format, value);
         trace(out4);
     }
     else
