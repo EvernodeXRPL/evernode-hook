@@ -183,10 +183,6 @@ class TransactionManager {
             return Buffer.from([]);
     }
 
-    #encodeStateValue(value) {
-        return value ? Buffer.from(value, 'hex') : Buffer.from([]);
-    }
-
     #decodeKeyletRequest(requestBuf) {
         let request = {};
 
@@ -205,7 +201,7 @@ class TransactionManager {
         let request = {};
 
         // Get the key (32-bytes).
-        request.key = requestBuf.slice(0, 32).toString('hex').toUpperCase();
+        request.key = requestBuf.slice(0, 32);
 
         return request;
     }
@@ -215,11 +211,11 @@ class TransactionManager {
 
         let offset = 0;
         // Get the key (32-bytes).
-        request.key = requestBuf.slice(offset, offset + 32).toString('hex').toUpperCase();
+        request.key = requestBuf.slice(offset, offset + 32);
         offset += 32;
 
         // Get the value (128-bytes).
-        request.value = requestBuf.slice(offset, offset + 128).toString('hex').toUpperCase();
+        request.value = requestBuf.slice(offset, offset + 128);
 
         return request;
     }
@@ -408,7 +404,7 @@ class TransactionManager {
                 // Decode state get request info from the buf.
                 const stateGetInfo = this.#decodeStateGetRequest(content);
                 const value = await this.#stateManager.get(stateGetInfo.key);
-                this.#sendToProc(this.#encodeStateValue(value));
+                this.#sendToProc(value);
                 break;
             case (MESSAGE_TYPES.STATE_SET):
                 // Decode state set request info from the buf.

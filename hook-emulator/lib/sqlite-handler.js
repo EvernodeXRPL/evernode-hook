@@ -3,6 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const DataTypes = {
     TEXT: 'TEXT',
     INTEGER: 'INTEGER',
+    BLOB: 'BLOB',
     NULL: 'NULL'
 }
 
