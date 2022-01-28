@@ -401,15 +401,28 @@ class TransactionManager {
                 this.#sendToProc(this.#encodeTrustLines(lines));
                 break;
             case (MESSAGE_TYPES.STATE_GET):
-                // Decode state get request info from the buf.
-                const stateGetInfo = this.#decodeStateGetRequest(content);
-                const value = await this.#stateManager.get(stateGetInfo.key);
-                this.#sendToProc(value);
+                try {
+                    // Decode state get request info from the buf.
+                    const stateGetInfo = this.#decodeStateGetRequest(content);
+                    const value = await this.#stateManager.get(stateGetInfo.key);
+                    this.#sendToProc(value);
+                }
+                catch (e) {
+                    console.error(e);
+                    this.#sendToProc(Buffer.from([]));
+                }
                 break;
             case (MESSAGE_TYPES.STATE_SET):
-                // Decode state set request info from the buf.
-                const stateSetInfo = this.#decodeStateSetRequest(content);
-                this.#stateManager.set(stateSetInfo.key, stateSetInfo.value);
+                try {
+                    // Decode state set request info from the buf.
+                    const stateSetInfo = this.#decodeStateSetRequest(content);
+                    this.#stateManager.set(stateSetInfo.key, stateSetInfo.value);
+                    this.#sendToProc(Buffer.from([0]));
+                }
+                catch (e) {
+                    console.error(e);
+                    this.#sendToProc(Buffer.from([-1]));
+                }
                 break;
             default:
                 break;
