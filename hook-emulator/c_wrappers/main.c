@@ -5,6 +5,11 @@
 #include <stdint.h>
 #include <fcntl.h>
 
+#include "../../lib/hookmacro.h";
+// #include "../../src/constants.h"
+// #include "../../src/evernode.h"
+// #include "../../src/statekeys.h"
+
 enum MESSAGE_TYPES
 {
     TRACE,
@@ -13,6 +18,13 @@ enum MESSAGE_TYPES
     STATE_GET,
     STATE_SET
 };
+
+static uint8_t const emit_details_len = 105;
+static uint8_t const hash_len = 32;
+static uint8_t const state_key_len = 32;
+static uint8_t const max_state_val_len = 128;
+
+#define DOESNT_EXIST -5
 
 // ------------------ Message formats ------------------
 // Message protocol - <data len(4)><data>
@@ -35,8 +47,6 @@ enum MESSAGE_TYPES
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 // -----------------------------------------------------
 
-const uint8_t STATEKEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
-
 void write_stdout(const uint8_t *buf, const int len)
 {
     const int outlen = 4 + len;
@@ -52,7 +62,7 @@ void write_stdout(const uint8_t *buf, const int len)
     fflush(stdout);
 }
 
-void trace(const char *trace)
+void trace_out(const char *trace)
 {
     const int len = 1 + strlen(trace);
     char buf[len];
@@ -61,13 +71,121 @@ void trace(const char *trace)
     write_stdout(buf, len);
 }
 
-void emit(const uint8_t *tx, const int len)
+int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32_t dread_len, uint32_t as_hex)
 {
-    const int buflen = 1 + len;
+    if (as_hex == 1)
+    {
+        char out[mread_len + (dread_len * 2) + 1];
+        sprintf(out, "%*.*s %*.*X", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+        trace_out(out);
+    }
+    else
+    {
+        char out[mread_len + dread_len + 1];
+        sprintf(out, "%*.*s %*.*s", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+        trace_out(out);
+    }
+    return 0;
+}
+
+int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number)
+{
+    char out[500];
+    sprintf(out, "%*.*s %lld", 0, read_len, read_ptr, number);
+    trace_out(out);
+    return 0;
+}
+
+int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
+{
+    char out[500];
+    sprintf(out, "%*.*s %lld", 0, mread_len, mread_ptr, float1);
+    trace_out(out);
+    return 0;
+}
+
+int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len)
+{
+    const int buflen = 1 + read_len - emit_details_len;
     uint8_t buf[buflen];
     buf[0] = EMIT;
-    memcpy(&buf[1], tx, buflen);
+    memcpy(&buf[1], read_ptr, read_len - emit_details_len);
     write_stdout(buf, buflen);
+
+    // Read the response from STDIN.
+    // Data length is added from the protocol in first 4 bytes, so we skip those.
+    uint8_t read_buf[4 + hash_len];
+    read(STDIN_FILENO, read_buf, sizeof(read_buf));
+    uint32_t data_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+
+    if (data_len == hash_len)
+    {
+        write_len = data_len;
+        memcpy(write_ptr, read_buf + 4, write_len);
+        return 1;
+    }
+    else
+    {
+        write_ptr = 0;
+        write_len = 0;
+        return -1;
+    }
+}
+
+int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint32_t kread_len)
+{
+    if (kread_len != state_key_len)
+        return -1;
+
+    const int len = 1 + kread_len + read_len;
+    uint8_t buf[len];
+    buf[0] = STATE_SET;
+    memcpy(&buf[1], kread_ptr, kread_len);
+    memcpy(&buf[1 + kread_len], read_ptr, read_len);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    // Data length is added from the protocol in first 4 bytes, so we skip those.
+    uint8_t read_buf[5];
+    read(STDIN_FILENO, read_buf, sizeof(read_buf));
+    uint32_t data_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+
+    if (data_len == 1)
+        return ((int8_t)read_buf[4] == 0) ? 0 : -1;
+    else
+        return -1;
+}
+
+// int64_t state(uint8_t *value, const uint8_t *key)
+int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len)
+{
+    if (kread_len != state_key_len)
+        return -1;
+
+    const int len = 1 + kread_len;
+    uint8_t buf[len];
+    buf[0] = STATE_GET;
+    memcpy(&buf[1], kread_ptr, kread_len);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    // Data length is added from the protocol in first 4 bytes, so we skip those.
+    uint8_t read_buf[4 + max_state_val_len];
+    read(STDIN_FILENO, read_buf, sizeof(read_buf));
+    uint32_t data_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+
+    if (data_len > 0)
+    {
+        write_len = data_len;
+        memcpy(write_ptr, read_buf + 4, write_len);
+        return write_len;
+    }
+    else
+    {
+        write_ptr = 0;
+        write_len = 0;
+        return DOESNT_EXIST;
+    }
 }
 
 int keylet(uint8_t *lines, const uint8_t *issuer, const uint8_t *currency)
@@ -88,52 +206,13 @@ int keylet(uint8_t *lines, const uint8_t *issuer, const uint8_t *currency)
     return lines_len;
 }
 
-void state_set(const uint8_t *key, const uint8_t *value, const int value_len)
-{
-    const int len = 33 + value_len;
-    uint8_t buf[len];
-    buf[0] = STATE_SET;
-    memcpy(&buf[1], key, 32);
-    memcpy(&buf[33], value, value_len);
-    write_stdout(buf, len);
-}
-
-int state(uint8_t *value, const uint8_t *key)
-{
-    const int len = 33;
-    uint8_t buf[len];
-    buf[0] = STATE_GET;
-    memcpy(&buf[1], key, 32);
-    write_stdout(buf, len);
-
-    uint8_t read_buf[132];
-    read(STDIN_FILENO, read_buf, sizeof(read_buf));
-    uint32_t value_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
-
-    memcpy(value, read_buf + 4, value_len);
-
-    return value_len;
-}
-
-void bin_to_hex(char *hex, const uint8_t *bin, const int len)
-{
-    strcpy(hex, "");
-    for (int i = 0; i < len; i++)
-    {
-        char n[20];
-        sprintf(n, "%02X", bin[i]);
-        strcat(hex, n);
-    }
-    strcat(hex, "\0");
-}
-
 int main()
 {
     uint8_t buf[200000];
     char *format = "";
     int len = 0;
 
-    trace("Enter a string: ");
+    trace(SBUF("Enter a string: "), 0, 0, 0);
 
     read(STDIN_FILENO, buf, sizeof(buf));
     const uint32_t read_len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
@@ -144,9 +223,9 @@ int main()
     memcpy(hook_accid, &buf[4], 20);
     memcpy(tx, &buf[24], tx_len);
 
-    const int from_acc_offset = 0;
-    uint8_t from_acc[20];
-    memcpy(from_acc, tx, 20);
+    const int account_field_offset = 0;
+    uint8_t account_field[20];
+    memcpy(account_field, tx, 20);
 
     int to_acc_offset = 52;
     uint8_t to_acc[20];
@@ -158,68 +237,111 @@ int main()
         memcpy(to_acc, tx, to_acc_offset);
     }
 
-    uint8_t token[3];
-    token[0] = 'A';
-    token[1] = 'B';
-    token[2] = 'C';
-
-    char bytes[2048];
-    bin_to_hex(bytes, hook_accid, 20);
-    format = "Hook: %s";
-    len = 13 + strlen(bytes);
-    char out[len];
-    sprintf(out, format, bytes);
-    trace(out);
-
-    bin_to_hex(bytes, tx, tx_len);
-    format = "Transaction: %s";
-    len = 13 + strlen(bytes);
-    char out2[len];
-    sprintf(out2, format, bytes);
-    trace(out2);
+    trace(SBUF("Hook"), SBUF(hook_accid), 1);
+    trace(SBUF("Transaction"), SBUF(tx), 1);
 
     uint8_t lines[39];
-    const int lines_len = keylet(lines, from_acc, token);
+    const int lines_len = keylet(lines, account_field, "ABC");
 
-    bin_to_hex(bytes, lines, lines_len);
-    format = "Trustlines: %s";
-    len = 13 + strlen(bytes);
-    char out3[len];
-    sprintf(out3, format, bytes);
-    trace(out3);
+    trace(SBUF("Trustlines"), SBUF(lines), 1);
 
-    uint8_t state_val[128];
-    int state_len = state(state_val, STATEKEY);
-    if (state_len > 0)
-    {
-        uint64_t value = state_val[7] | (state_val[6] << 8) | (state_val[5] << 16) | (state_val[4] << 24) | (state_val[3] << 32) | (state_val[2] << 40) | (state_val[1] << 48) | (state_val[0] << 56);
-        format = "Before state val: %d";
-        len = 100;
-        char out4[len];
-        sprintf(out4, format, value);
-        trace(out4);
-    }
+    // etxn_reserve(1);
+
+    // //////////////// Payment ////////////////
+
+    // int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_SIZE);
+
+    // // Finally create the outgoing txn.
+    // uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_SIZE];
+    // PREPARE_PAYMENT_SIMPLE(txn_out, 1, fee, account_field, 0, 0);
+
+    // uint8_t emithash[32];
+    // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+    //     rollback(SBUF("Evernode: Emitting transaction failed."), 1);
+
+    // //////////////// Trustline ////////////////
+
+    // // Calculate fee for trustline transaction.
+    // int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
+
+    // uint8_t amt_out[48] = {
+    //     213, 67, 141, 126, 164, 198, 128, 0, 0, 0, 0,
+    //     0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 89, 90, 0, 0, 0, 0, 0, 176, 206, 249, 3, 178,
+    //     132, 222, 155, 235, 20, 236, 133, 1, 41, 70, 140,
+    //     185, 225, 186, 216};
+
+    // // Preparing trustline transaction.
+    // uint8_t trust_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
+    // PREPARE_SIMPLE_TRUSTLINE(trust_out, amt_out, fee);
+
+    // uint8_t emithash[32];
+    // if (emit(SBUF(emithash), SBUF(trust_out)) < 0)
+    //     rollback(SBUF("Evernode: Emitting txn failed"), 1);
+
+    // //////////////// Check ////////////////
+
+    // int64_t fee = etxn_fee_base(PREPARE_SIMPLE_CHECK_SIZE);
+
+    // uint8_t chk_amt_out[48] = {
+    //     213, 67, 141, 126, 164, 198, 128, 0, 0, 0, 0,
+    //     0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 89, 90, 0, 0, 0, 0, 0, 176, 206, 249, 3, 178,
+    //     132, 222, 155, 235, 20, 236, 133, 1, 41, 70, 140,
+    //     185, 225, 186, 216};
+    // // Finally create the outgoing txn.
+    // uint8_t chk_out[PREPARE_SIMPLE_CHECK_SIZE];
+    // PREPARE_SIMPLE_CHECK(chk_out, chk_amt_out, fee, account_field);
+
+    // uint8_t emithash[32];
+    // if (emit(SBUF(emithash), SBUF(chk_out)) < 0)
+    //     rollback(SBUF("Evernode: Emitting transaction failed."), 1);
+
+    // //////////////// Trust Transaction ////////////////
+
+    // int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+
+    // uint8_t trst_amt_out[48] = {
+    //     213, 67, 141, 126, 164, 198, 128, 0, 0, 0, 0,
+    //     0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 89, 90, 0, 0, 0, 0, 0, 176, 206, 249, 3, 178,
+    //     132, 222, 155, 235, 20, 236, 133, 1, 41, 70, 140,
+    //     185, 225, 186, 216};
+    // // Finally create the outgoing txn.
+    // uint8_t trst_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+    // PREPARE_PAYMENT_SIMPLE_TRUSTLINE(trst_out, trst_amt_out, fee, account_field, 0, 0);
+
+    // uint8_t emithash[32];
+    // if (emit(SBUF(emithash), SBUF(trst_out)) < 0)
+    //     rollback(SBUF("Evernode: Emitting transaction failed."), 1);
+
+    // //////////////// Trust Transaction ////////////////
+
+    const uint8_t STATEKEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+
+    uint8_t res_buf[8];
+    int64_t res = 0;
+    if (state(SBUF(res_buf), SBUF(STATEKEY)) == DOESNT_EXIST)
+        trace(SBUF("No state."), 0, 0, 0);
     else
-        trace("Before state val is empty");
-
-    state_set(STATEKEY, &tx[tx_len - 8], 8);
-
-    state_len = state(state_val, STATEKEY);
-    if (state_len > 0)
     {
-        uint64_t value = state_val[7] | (state_val[6] << 8) | (state_val[5] << 16) | (state_val[4] << 24) | (state_val[3] << 32) | (state_val[2] << 40) | (state_val[1] << 48) | (state_val[0] << 56);
-        format = "After state val: %d";
-        len = 100;
-        char out4[len];
-        sprintf(out4, format, value);
-        trace(out4);
+        res = INT64_FROM_BUF(res_buf);
+        trace_num(SBUF("Before value"), res);
     }
-    else
-        trace("After state val is empty");
 
-    uint64_t ledger_idx = tx[tx_len - 8 + 7] | (tx[tx_len - 8 + 6] << 8) | (tx[tx_len - 8 + 5] << 16) | (tx[tx_len - 8 + 4] << 24) | (tx[tx_len - 8 + 3] << 32) | (tx[tx_len - 8 + 2] << 40) | (tx[tx_len - 8 + 1] << 48) | (tx[tx_len - 8 + 0] << 56);
-    if (ledger_idx % 2 == 0)
+    uint8_t seq_buf[8];
+    memcpy(seq_buf, &tx[tx_len - 8], 8);
+    if (state_set(SBUF(seq_buf), SBUF(STATEKEY)) < 0)
+    {
+        trace(SBUF("Could not create the state."), 0, 0, 0);
         exit(-1);
+    }
+
+    res = 0;
+    if (state(SBUF(res_buf), SBUF(STATEKEY)) == DOESNT_EXIST)
+        trace(SBUF("No state."), 0, 0, 0);
+    else
+    {
+        res = INT64_FROM_BUF(res_buf);
+        trace_num(SBUF("After value"), res);
+    }
 
     exit(0);
 }
