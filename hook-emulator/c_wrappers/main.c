@@ -19,12 +19,21 @@ enum MESSAGE_TYPES
     STATE_SET
 };
 
+enum RETURN_CODES
+{
+    RES_SUCCESS = 0,
+    RES_INTERNAL_ERROR = -1,
+    RES_NOT_FOUND = -2
+};
+
 static uint8_t const emit_details_len = 105;
 static uint8_t const hash_len = 32;
 static uint8_t const state_key_len = 32;
 static uint8_t const max_state_val_len = 128;
 
-#define DOESNT_EXIST -5
+#define MAX_READ_LEN 1024
+
+#define DOESNT_EXIST -5 // This can be found in the hook_macro when it's included.
 
 // ------------------ Message formats ------------------
 // Message protocol - <data len(4)><data>
@@ -34,8 +43,10 @@ static uint8_t const max_state_val_len = 128;
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
-// Keylet response - <issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
-// State get response - <value(128)>
+// Emit response - <return code(1)><tx hash(32)>
+// Keylet response - <return code(1)><issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// State get response - <return code(1)><value(128)>
+// State set response - <return code(1)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
@@ -47,28 +58,66 @@ static uint8_t const max_state_val_len = 128;
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 // -----------------------------------------------------
 
-void write_stdout(const uint8_t *buf, const int len)
+int write_stdout(const uint8_t *write_buf, const int write_len)
 {
-    const int outlen = 4 + len;
+    const int outlen = 4 + write_len;
     char out[outlen];
-    out[0] = len >> 24;
-    out[1] = len >> 16;
-    out[2] = len >> 8;
-    out[3] = len;
-    for (int i = 0; i < len; i++)
-        out[i + 4] = buf[i];
 
-    write(STDOUT_FILENO, out, outlen);
-    fflush(stdout);
+    // Populate the data length as prefix.
+    out[0] = write_len >> 24;
+    out[1] = write_len >> 16;
+    out[2] = write_len >> 8;
+    out[3] = write_len;
+
+    // Populate the data.
+    memcpy(&out[4], write_buf, write_len);
+
+    return (write(STDOUT_FILENO, out, outlen) == -1 || fflush(stdout) == -1) ? -1 : 0;
 }
 
-void trace_out(const char *trace)
+int read_stdin(uint8_t **read_buf)
+{
+    // Read the response from STDIN.
+    // Data length is added from the protocol in first 4 bytes, so we skip those.
+    uint8_t buf[MAX_READ_LEN];
+
+    if (read(STDIN_FILENO, buf, sizeof(buf)) == -1)
+        return -1;
+
+    // Read the data length.
+    uint32_t len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
+
+    // Populate the data to buffer.
+    *read_buf = (uint8_t *)malloc(len);
+    memcpy(*read_buf, &buf[4], len);
+
+    return len;
+}
+
+int trace_out(const char *trace)
 {
     const int len = 1 + strlen(trace);
     char buf[len];
     buf[0] = TRACE;
     sprintf(&buf[1], "%s", trace);
-    write_stdout(buf, len);
+    return write_stdout(buf, len);
+}
+
+int fetch_result(const uint8_t *data_buf, const uint64_t data_len, uint8_t **result, uint64_t *result_len)
+{
+    const int ret_val = (int8_t)*data_buf;
+    if (ret_val < 0)
+        return ret_val;
+
+    *result_len = data_len - 1;
+    if (*result_len > 0)
+    {
+        *result = (uint8_t *)malloc(*result_len);
+        memcpy(*result, data_buf + 1, *result_len);
+    }
+    else
+        *result = 0;
+    return ret_val;
 }
 
 int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32_t dread_len, uint32_t as_hex)
@@ -76,7 +125,9 @@ int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32
     if (as_hex == 1)
     {
         char out[mread_len + (dread_len * 2) + 1];
-        sprintf(out, "%*.*s %*.*X", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+        sprintf(out, "%*.*s ", 0, mread_len, mread_ptr);
+        for (int i = 0; i < dread_len; i++)
+            sprintf(&out[mread_len + (i * 2)], "%02X", *(uint8_t *)(dread_ptr + i));
         trace_out(out);
     }
     else
@@ -113,22 +164,53 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     write_stdout(buf, buflen);
 
     // Read the response from STDIN.
-    // Data length is added from the protocol in first 4 bytes, so we skip those.
-    uint8_t read_buf[4 + hash_len];
-    read(STDIN_FILENO, read_buf, sizeof(read_buf));
-    uint32_t data_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+    uint8_t *data_buf, *res;
+    uint64_t res_len;
+    uint64_t data_len = read_stdin(&data_buf);
+    int ret = fetch_result(data_buf, data_len, &res, &res_len);
 
-    if (data_len == hash_len)
+    if (ret < 0)
     {
-        write_len = data_len;
-        memcpy(write_ptr, read_buf + 4, write_len);
-        return 1;
+        write_ptr = 0;
+        return -1;
     }
     else
     {
+        if (res_len > 0)
+            memcpy(write_ptr, res, res_len);
+        else
+            write_ptr = 0;
+        return 1;
+    }
+}
+
+int keylet(uint32_t write_ptr, uint32_t write_len, const uint8_t *issuer, const uint8_t *currency)
+{
+    const int len = 24;
+    uint8_t buf[len];
+    buf[0] = KEYLET;
+    memcpy(&buf[1], issuer, 20);
+    memcpy(&buf[21], currency, 3);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t *data_buf, *res;
+    uint64_t res_len;
+    uint64_t data_len = read_stdin(&data_buf);
+    int ret = fetch_result(data_buf, data_len, &res, &res_len);
+
+    if (ret < 0)
+    {
         write_ptr = 0;
-        write_len = 0;
         return -1;
+    }
+    else
+    {
+        if (res_len > 0)
+            memcpy(write_ptr, res, res_len);
+        else
+            write_ptr = 0;
+        return 1;
     }
 }
 
@@ -145,15 +227,13 @@ int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    // Data length is added from the protocol in first 4 bytes, so we skip those.
-    uint8_t read_buf[5];
-    read(STDIN_FILENO, read_buf, sizeof(read_buf));
-    uint32_t data_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+    // Read the response from STDIN.
+    uint8_t *data_buf, *res;
+    uint64_t res_len;
+    uint64_t data_len = read_stdin(&data_buf);
+    int ret = fetch_result(data_buf, data_len, &res, &res_len);
 
-    if (data_len == 1)
-        return ((int8_t)read_buf[4] == 0) ? 0 : -1;
-    else
-        return -1;
+    return (ret < 0) ? -1 : 1;
 }
 
 int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len)
@@ -168,59 +248,42 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    // Data length is added from the protocol in first 4 bytes, so we skip those.
-    uint8_t read_buf[4 + max_state_val_len];
-    read(STDIN_FILENO, read_buf, sizeof(read_buf));
-    uint32_t data_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
+    uint8_t *data_buf, *res;
+    uint64_t res_len;
+    uint64_t data_len = read_stdin(&data_buf);
+    int ret = fetch_result(data_buf, data_len, &res, &res_len);
 
-    if (data_len > 0)
+    if (ret < 0)
     {
-        write_len = data_len;
-        memcpy(write_ptr, read_buf + 4, write_len);
-        return write_len;
+        write_ptr = 0;
+        return (ret == RES_NOT_FOUND) ? DOESNT_EXIST : -1;
     }
     else
     {
-        write_ptr = 0;
-        write_len = 0;
-        return DOESNT_EXIST;
+        if (res_len > 0)
+            memcpy(write_ptr, res, res_len);
+        else
+            write_ptr = 0;
+        return 1;
     }
-}
-
-int keylet(uint8_t *lines, const uint8_t *issuer, const uint8_t *currency)
-{
-    const int len = 24;
-    uint8_t buf[len];
-    buf[0] = KEYLET;
-    memcpy(&buf[1], issuer, 20);
-    memcpy(&buf[21], currency, 3);
-    write_stdout(buf, len);
-
-    uint8_t read_buf[53];
-    read(STDIN_FILENO, read_buf, sizeof(read_buf));
-    uint32_t lines_len = read_buf[3] | (read_buf[2] << 8) | (read_buf[1] << 16) | (read_buf[0] << 24);
-
-    memcpy(lines, read_buf + 4, lines_len);
-
-    return lines_len;
 }
 
 int main()
 {
-    uint8_t buf[200000];
     char *format = "";
     int len = 0;
 
     trace(SBUF("Enter a string: "), 0, 0, 0);
 
-    read(STDIN_FILENO, buf, sizeof(buf));
-    const uint32_t read_len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
-    const uint32_t tx_len = read_len - 20;
+    uint8_t *data_buf;
+    int data_len = read_stdin(&data_buf);
+
+    const uint32_t tx_len = data_len - 20;
 
     uint8_t hook_accid[20];
     uint8_t tx[tx_len];
-    memcpy(hook_accid, &buf[4], 20);
-    memcpy(tx, &buf[24], tx_len);
+    memcpy(hook_accid, data_buf, 20);
+    memcpy(tx, data_buf + 20, tx_len);
 
     const int account_field_offset = 0;
     uint8_t account_field[20];
@@ -240,7 +303,7 @@ int main()
     trace(SBUF("Transaction"), SBUF(tx), 1);
 
     uint8_t lines[39];
-    const int lines_len = keylet(lines, account_field, "ABC");
+    const int lines_len = keylet(SBUF(lines), account_field, "ABC");
 
     trace(SBUF("Trustlines"), SBUF(lines), 1);
 

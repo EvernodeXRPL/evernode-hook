@@ -64,13 +64,13 @@ class StateManager {
         // First check in drafts.
         // Else check in the db.
         if (hexKey in this.#draftStates)
-            return this.#draftStates[hexKey] ? this.#draftStates[hexKey] : Buffer.from([]);
+            return this.#draftStates[hexKey] ? this.#draftStates[hexKey] : null;
         else {
             this.#db.open();
             const states = await this.#db.getValues(this.#stateTable, { key: keyBuf });
             this.#db.close();
 
-            return (states && states.length > 0) ? states[0].value : Buffer.from([]);
+            return (states && states.length > 0) ? states[0].value : null;
         }
     }
 

@@ -19,6 +19,12 @@ const MESSAGE_TYPES = {
     STATE_SET: 4
 };
 
+const RETURN_CODES = {
+    SUCCESS: 0,
+    INTERNAL_ERROR: -1,
+    NOT_FOUND: -2
+}
+
 // ------------------ Message formats ------------------
 // Message protocol - <data len(4)><data>
 // -----------------------------------------------------
@@ -27,8 +33,10 @@ const MESSAGE_TYPES = {
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
-// Keylet response - <issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
-// State get response - <value(128)>
+// Emit response - <return code(1)><tx hash(32)>
+// Keylet response - <return code(1)><issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// State get response - <return code(1)><value(128)>
+// State set response - <return code(1)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
@@ -180,7 +188,15 @@ class TransactionManager {
             return buf;
         }
         else
-            return Buffer.from([]);
+            return null;
+    }
+
+    #encodeReturnCode(retCode, dataBuf = null) {
+        let resBuf = Buffer.alloc((dataBuf ? dataBuf.length : 0) + 1);
+        resBuf.writeInt8(retCode);
+        if (dataBuf)
+            dataBuf.copy(resBuf, 1);
+        return resBuf;
     }
 
     #decodeKeyletRequest(requestBuf) {
@@ -384,32 +400,41 @@ class TransactionManager {
             case (MESSAGE_TYPES.EMIT):
                 try {
                     const signedTx = await this.#decodeAndSignEmitTransaction(content);
-                    this.#sendToProc(Buffer.from(signedTx.hash, 'hex'));
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.from(signedTx.hash, 'hex')));
                     this.#draftEmits.push(signedTx.tx_blob);
                 }
                 catch (e) {
                     console.error(e);
-                    this.#sendToProc(Buffer.from([]));
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }
                 break;
             case (MESSAGE_TYPES.KEYLET):
-                // Decode keylet request info from the buf.
-                const keyletInfo = this.#decodeKeyletRequest(content);
-                // Get trustlines from the hook account.
-                const lines = await this.#hookAccount.getTrustLines(keyletInfo.currency, keyletInfo.issuer);
-                // Encode the trustline info to a buf and send to child process.
-                this.#sendToProc(this.#encodeTrustLines(lines));
+                try {
+                    // Decode keylet request info from the buf.
+                    const keyletInfo = this.#decodeKeyletRequest(content);
+                    // Get trustlines from the hook account.
+                    const lines = await this.#hookAccount.getTrustLines(keyletInfo.currency, keyletInfo.issuer);
+                    // Encode the trustline info to a buf and send to child process.
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeTrustLines(lines)));
+                }
+                catch (e) {
+                    console.error(e);
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
                 break;
             case (MESSAGE_TYPES.STATE_GET):
                 try {
                     // Decode state get request info from the buf.
                     const stateGetInfo = this.#decodeStateGetRequest(content);
                     const value = await this.#stateManager.get(stateGetInfo.key);
-                    this.#sendToProc(value);
+                    if (value)
+                        this.#sendToProc(this.#encodeReturnCode(value, value));
+                    else
+                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
                 }
                 catch (e) {
                     console.error(e);
-                    this.#sendToProc(Buffer.from([]));
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }
                 break;
             case (MESSAGE_TYPES.STATE_SET):
@@ -417,11 +442,11 @@ class TransactionManager {
                     // Decode state set request info from the buf.
                     const stateSetInfo = this.#decodeStateSetRequest(content);
                     this.#stateManager.set(stateSetInfo.key, stateSetInfo.value);
-                    this.#sendToProc(Buffer.from([0]));
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS));
                 }
                 catch (e) {
                     console.error(e);
-                    this.#sendToProc(Buffer.from([-1]));
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }
                 break;
             default:
