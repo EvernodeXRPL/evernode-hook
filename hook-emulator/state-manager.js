@@ -12,6 +12,9 @@ const STATE_ERROR_CODES = {
     DOES_NOT_EXIST: 'DOES_NOT_EXIST'
 }
 
+/**
+ * State manager manages the hook states in a SQLITE db.
+ */
 class StateManager {
     #draftStates = null;
     #db = null;
