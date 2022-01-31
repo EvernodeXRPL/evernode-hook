@@ -319,7 +319,7 @@ class TransactionManager {
             let completed = false;
 
             // Set the transaction process timeout and reject the promise if reached.
-            const failTimeout = setTimeout(async () => {
+            const failTimeout = setTimeout(() => {
                 completed = true;
                 reject(ErrorCodes.TIMEOUT);
             }, TX_WAIT_TIMEOUT);
