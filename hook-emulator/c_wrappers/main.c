@@ -62,7 +62,7 @@ etxn_inf = {0, 0};
 // Message request format - <TYPE(1)><DATA>
 // Trace request - <type:TRACE(1)><trace message>
 // Transaction emit request - <type:EMIT(1)><prepared transaction buf>
-// Trustline request - <type:TRUSTLINE(1)><issuer(20)><currency(3)>
+// Trustline request - <type:TRUSTLINE(1)><address(20)><issuer(20)><currency(3)>
 // State set request - <type:STATE_GET(1)><key(32)><value(128)>
 // State get request - <type:STATE_SET(1)><key(32)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -163,21 +163,23 @@ int trace_out(const uint8_t *trace)
 
 /**
  * Get trustlines of the running account.
+ * @param address Source address of the trustlines.
  * @param issuer Issuer of the trustline currency.
  * @param currency Issued currency.
  * @param balance_float Float balance to be populated.
  * @param limit_float Limit float to be populated.
 */
-int get_trustlines(const uint8_t *issuer, const uint8_t *currency, int64_t *balance_float, int64_t *limit_float)
+int get_trustlines(const uint8_t *address, const uint8_t *issuer, const uint8_t *currency, int64_t *balance_float, int64_t *limit_float)
 {
     // Send the emit request.
-    const int len = 24;
+    const int len = 44;
     uint8_t buf[len];
     // Populate the type header.
     buf[0] = KEYLET;
-    // Populate the issuer and currency.
-    memcpy(&buf[1], issuer, 20);
-    memcpy(&buf[21], currency, 3);
+    // Populate the address, issuer and currency.
+    memcpy(&buf[1], address, 20);
+    memcpy(&buf[21], issuer, 20);
+    memcpy(&buf[41], currency, 3);
     write_stdout(buf, len);
 
     // Read the response from STDIN.
@@ -410,17 +412,29 @@ int main()
     trace(SBUF("Hook"), SBUF(hook_accid), 1);
     trace(SBUF("Account"), SBUF(account_field), 1);
 
-    // Test trustlines.
+    // Test trustlines 1.
     int64_t balance, limit;
-    int trustline_res = get_trustlines(account_field, "XYZ", &balance, &limit);
+    int trustline_res = get_trustlines(hook_accid, account_field, "XYZ", &balance, &limit);
     if (trustline_res == DOESNT_EXIST)
-        trace(SBUF("No trustlines."), 0, 0, 0);
+        trace(SBUF("No in trustlines."), 0, 0, 0);
     else if (trustline_res < 0)
-        trace_num(SBUF("Trustline error"), trustline_res);
+        trace_num(SBUF("In trustline error"), trustline_res);
     else
     {
-        trace_num(SBUF("Trustlines balance"), balance);
-        trace_num(SBUF("Trustlines limit"), limit);
+        trace_num(SBUF("In trustlines balance"), balance);
+        trace_num(SBUF("In trustlines limit"), limit);
+    }
+
+    // Test trustlines 2.
+    trustline_res = get_trustlines(account_field, hook_accid, "XYZ", &balance, &limit);
+    if (trustline_res == DOESNT_EXIST)
+        trace(SBUF("No out trustlines."), 0, 0, 0);
+    else if (trustline_res < 0)
+        trace_num(SBUF("Out trustline error"), trustline_res);
+    else
+    {
+        trace_num(SBUF("Out trustlines balance"), balance);
+        trace_num(SBUF("Out trustlines limit"), limit);
     }
 
     // Test state set and get.

@@ -47,7 +47,7 @@ const RETURN_CODES = {
 // Message request format - <TYPE(1)><DATA>
 // Trace request - <type:TRACE(1)><trace message>
 // Transaction emit request - <type:EMIT(1)><prepared transaction buf>
-// Trustline request - <type:TRUSTLINE(1)><issuer(20)><currency(3)>
+// Trustline request - <type:TRUSTLINE(1)><address(20)><issuer(20)><currency(3)>
 // State set request - <type:STATE_GET(1)><key(32)><value(128)>
 // State get request - <type:STATE_SET(1)><key(32)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -197,6 +197,10 @@ class TransactionManager {
         let request = {};
 
         let offset = 0;
+        // Get the address and encode the r-address (20-bytes)
+        request.address = codec.encodeAccountID(requestBuf.slice(offset, offset + 20));
+        offset += 20;
+
         // Get the issuer and encode the r-address (20-bytes)
         request.issuer = codec.encodeAccountID(requestBuf.slice(offset, offset + 20));
         offset += 20;
@@ -407,7 +411,11 @@ class TransactionManager {
                     // Decode trustline request info from the buf.
                     const trustlineInfo = this.#decodeTrustlineRequest(content);
                     // Get trustlines from the hook account.
-                    const lines = await this.#hookAccount.getTrustLines(trustlineInfo.currency, trustlineInfo.issuer);
+                    let lines = await this.#hookAccount.xrplApi.getTrustlines(trustlineInfo.address, {
+                        limit: 399,
+                        peer: trustlineInfo.issuer
+                    });
+                    lines = lines.filter(l => l.currency === trustlineInfo.currency);
                     // Encode the trustline info to a buf and send to child process.
                     if (!lines || !lines.length)
                         this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
