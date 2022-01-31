@@ -261,6 +261,8 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     else if (etxn_inf.etxn_reserves == 0)
         return TOO_MANY_EMITTED_TXN;
 
+    etxn_inf.etxn_reserves--;
+
     // Send the emit request.
     // Note: when transaction is prepared in hook logic, it populats additional emit details at the end.
     // Skip the emit deatils since those aren't recognized in the xrpl lib.
@@ -300,13 +302,17 @@ int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint
         return TOO_SMALL;
 
     // Send the state set request.
-    const int len = 1 + kread_len + read_len;
+    const int len = 1 + STATE_KEY_LEN + read_len;
     uint8_t buf[len];
     // Populate the type header.
     buf[0] = STATE_SET;
     // Populate the state data.
     memcpy(&buf[1], kread_ptr, kread_len);
-    memcpy(&buf[1 + kread_len], read_ptr, read_len);
+    // If kread_len is less than STATE_KEY_LEN, populate o's to the rest.
+    if (kread_len < STATE_KEY_LEN)
+        memset(&buf[1 + kread_len], 0, STATE_KEY_LEN - kread_len);
+    // Populate the data to rest.
+    memcpy(&buf[1 + STATE_KEY_LEN], read_ptr, read_len);
     write_stdout(buf, len);
 
     // Read the response from STDIN.
@@ -401,20 +407,8 @@ int main()
     uint8_t account_field[20];
     memcpy(account_field, tx, 20);
 
-    int dest_field_offset = 52;
-    uint8_t dest_field[20];
-    if (tx[21] == 0)
-        memcpy(dest_field, tx, dest_field_offset);
-    else
-    {
-        dest_field_offset = 29;
-        memcpy(dest_field, tx, dest_field_offset);
-    }
-
     trace(SBUF("Hook"), SBUF(hook_accid), 1);
-    trace(SBUF("Transaction"), SBUF(tx), 1);
     trace(SBUF("Account"), SBUF(account_field), 1);
-    trace(SBUF("Destination"), SBUF(dest_field), 1);
 
     // Test trustlines.
     int64_t balance, limit;
@@ -422,84 +416,18 @@ int main()
     if (trustline_res == DOESNT_EXIST)
         trace(SBUF("No trustlines."), 0, 0, 0);
     else if (trustline_res < 0)
-        trace_num(SBUF("Trustline internal error."), trustline_res);
+        trace_num(SBUF("Trustline error"), trustline_res);
     else
     {
         trace_num(SBUF("Trustlines balance"), balance);
         trace_num(SBUF("Trustlines limit"), limit);
     }
 
-    // etxn_reserve(1);
+    // Test state set and get.
 
-    // //////////////// Payment ////////////////
+    const uint8_t STATEKEY[24] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-    // int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_SIZE);
-
-    // // Finally create the outgoing txn.
-    // uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_SIZE];
-    // PREPARE_PAYMENT_SIMPLE(txn_out, 1, fee, account_field, 0, 0);
-
-    // uint8_t emithash[32];
-    // if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-    //     rollback(SBUF("Evernode: Emitting transaction failed."), 1);
-
-    // //////////////// Trustline ////////////////
-
-    // // Calculate fee for trustline transaction.
-    // int64_t fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
-
-    // uint8_t amt_out[48] = {
-    //     213, 67, 141, 126, 164, 198, 128, 0, 0, 0, 0,
-    //     0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 89, 90, 0, 0, 0, 0, 0, 176, 206, 249, 3, 178,
-    //     132, 222, 155, 235, 20, 236, 133, 1, 41, 70, 140,
-    //     185, 225, 186, 216};
-
-    // // Preparing trustline transaction.
-    // uint8_t trust_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
-    // PREPARE_SIMPLE_TRUSTLINE(trust_out, amt_out, fee);
-
-    // uint8_t emithash[32];
-    // if (emit(SBUF(emithash), SBUF(trust_out)) < 0)
-    //     rollback(SBUF("Evernode: Emitting txn failed"), 1);
-
-    // //////////////// Check ////////////////
-
-    // int64_t fee = etxn_fee_base(PREPARE_SIMPLE_CHECK_SIZE);
-
-    // uint8_t chk_amt_out[48] = {
-    //     213, 67, 141, 126, 164, 198, 128, 0, 0, 0, 0,
-    //     0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 89, 90, 0, 0, 0, 0, 0, 176, 206, 249, 3, 178,
-    //     132, 222, 155, 235, 20, 236, 133, 1, 41, 70, 140,
-    //     185, 225, 186, 216};
-    // // Finally create the outgoing txn.
-    // uint8_t chk_out[PREPARE_SIMPLE_CHECK_SIZE];
-    // PREPARE_SIMPLE_CHECK(chk_out, chk_amt_out, fee, account_field);
-
-    // uint8_t emithash[32];
-    // if (emit(SBUF(emithash), SBUF(chk_out)) < 0)
-    //     rollback(SBUF("Evernode: Emitting transaction failed."), 1);
-
-    // //////////////// Trust Transaction ////////////////
-
-    // int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
-
-    // uint8_t trst_amt_out[48] = {
-    //     213, 67, 141, 126, 164, 198, 128, 0, 0, 0, 0,
-    //     0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 89, 90, 0, 0, 0, 0, 0, 176, 206, 249, 3, 178,
-    //     132, 222, 155, 235, 20, 236, 133, 1, 41, 70, 140,
-    //     185, 225, 186, 216};
-    // // Finally create the outgoing txn.
-    // uint8_t trst_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-    // PREPARE_PAYMENT_SIMPLE_TRUSTLINE(trst_out, trst_amt_out, fee, account_field, 0, 0);
-
-    // uint8_t emithash[32];
-    // if (emit(SBUF(emithash), SBUF(trst_out)) < 0)
-    //     rollback(SBUF("Evernode: Emitting transaction failed."), 1);
-
-    // //////////////// Trust Transaction ////////////////
-
-    const uint8_t STATEKEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
-
+    // Get state example - check the state value before state set.
     uint8_t res_buf[8];
     int64_t res = 0;
     int state_res = state(SBUF(res_buf), SBUF(STATEKEY));
@@ -508,7 +436,7 @@ int main()
         if (state_res == DOESNT_EXIST)
             trace(SBUF("No state."), 0, 0, 0);
         else
-            trace_num(SBUF("State internal error."), state_res);
+            trace_num(SBUF("State error"), state_res);
     }
     else
     {
@@ -516,6 +444,7 @@ int main()
         trace_num(SBUF("Before value"), res);
     }
 
+    // Set state example - set the ledger seq in the transaction as state.
     uint8_t seq_buf[8];
     memcpy(seq_buf, &tx[tx_len - 8], 8);
     if (state_set(SBUF(seq_buf), SBUF(STATEKEY)) < 0)
@@ -524,6 +453,7 @@ int main()
         exit(-1);
     }
 
+    // Get state example - check the state value after setting.
     res = 0;
     state_res = state(SBUF(res_buf), SBUF(STATEKEY));
     if (state_res < 0)
@@ -531,13 +461,84 @@ int main()
         if (state_res == DOESNT_EXIST)
             trace(SBUF("No state."), 0, 0, 0);
         else
-            trace_num(SBUF("State internal error."), state_res);
+            trace_num(SBUF("State error"), state_res);
     }
     else
     {
         res = INT64_FROM_BUF(res_buf);
         trace_num(SBUF("After value"), res);
     }
+
+    ////////////////////////////////////////////
+
+    // etxn_reserve(2);
+
+    // // //////////////// Payment ////////////////
+
+    // int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_SIZE);
+
+    // // Finally create the outgoing txn.
+    // uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_SIZE];
+    // PREPARE_PAYMENT_SIMPLE(txn_out, 1, fee, account_field, 0, 0);
+
+    // uint8_t emithash1[32];
+    // if (emit(SBUF(emithash1), SBUF(txn_out)) < 0)
+    //     rollback(SBUF("Emitting transaction failed."), 1);
+    // trace(SBUF("payment emit hash"), SBUF(emithash1), 1);
+
+    // // //////////////// Trustline ////////////////
+
+    // // // Calculate fee for trustline transaction.
+    // fee = etxn_fee_base(PREPARE_SIMPLE_TRUSTLINE_SIZE);
+
+    // int64_t trust_limit = float_set(3, 10);
+    // uint8_t amt_out[AMOUNT_BUF_SIZE];
+    // SET_AMOUNT_OUT(amt_out, "XYZ", account_field, trust_limit);
+
+    // // Preparing trustline transaction.
+    // uint8_t trust_out[PREPARE_SIMPLE_TRUSTLINE_SIZE];
+    // PREPARE_SIMPLE_TRUSTLINE(trust_out, amt_out, fee);
+
+    // uint8_t emithash2[32];
+    // if (emit(SBUF(emithash2), SBUF(trust_out)) < 0)
+    //     rollback(SBUF("Emitting txn failed"), 1);
+    // trace(SBUF("trustline emit hash"), SBUF(emithash2), 1);
+
+    // // //////////////// Check ////////////////
+
+    // fee = etxn_fee_base(PREPARE_SIMPLE_CHECK_SIZE);
+
+    // uint8_t chk_amt_out[48];
+    // // Finally create the outgoing txn.
+    // int64_t amount = float_set(1, 1);
+    // SET_AMOUNT_OUT(chk_amt_out, "XYZ", account_field, amount);
+
+    // uint8_t chk_out[PREPARE_SIMPLE_CHECK_SIZE];
+    // PREPARE_SIMPLE_CHECK(chk_out, chk_amt_out, fee, account_field);
+
+    // uint8_t emithash3[32];
+    // if (emit(SBUF(emithash3), SBUF(chk_out)) < 0)
+    //     rollback(SBUF("Emitting transaction failed."), 1);
+    // trace(SBUF("check emit hash"), SBUF(emithash3), 1);
+
+    // // //////////////// Trust Payment ////////////////
+
+    // fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+
+    // amount = float_set(1, 10);
+    // uint8_t trst_amt_out[AMOUNT_BUF_SIZE];
+    // SET_AMOUNT_OUT(trst_amt_out, "XYZ", account_field, amount);
+
+    // // Finally create the outgoing txn.
+    // uint8_t trst_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+    // PREPARE_PAYMENT_SIMPLE_TRUSTLINE(trst_out, trst_amt_out, fee, account_field, 0, 0);
+
+    // uint8_t emithash4[32];
+    // if (emit(SBUF(emithash4), SBUF(trst_out)) < 0)
+    //     rollback(SBUF("Emitting transaction failed."), 1);
+    // trace(SBUF("trust payment emit hash"), SBUF(emithash4), 1);
+
+    // // /////////////////////////////////////////////////////
 
     exit(0);
 }
