@@ -28,10 +28,6 @@ const RETURN_CODES = {
     UNDERFLOW: -4
 }
 
-// ------------------ Message formats ------------------
-// Message protocol - <data len(4)><data>
-// -----------------------------------------------------
-
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
@@ -44,6 +40,7 @@ const RETURN_CODES = {
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
+// Message protocol - <data len(4)><data>
 // Message request format - <TYPE(1)><DATA>
 // Trace request - <type:TRACE(1)><trace message>
 // Transaction emit request - <type:EMIT(1)><prepared transaction buf>
@@ -235,10 +232,7 @@ class TransactionManager {
     }
 
     #sendToProc(data) {
-        // Append data length (4-bytes) to the message and write to STDIN.
-        const lenBuf = Buffer.allocUnsafe(4);
-        lenBuf.writeUInt32BE(data.length);
-        this.#hookProcess.stdin.write(Buffer.concat([lenBuf, data]));
+        this.#hookProcess.stdin.write(data);
     }
 
     processTransaction(transaction) {

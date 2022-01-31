@@ -43,10 +43,6 @@ struct etxn_info
 
 etxn_inf = {0, 0};
 
-// ------------------ Message formats ------------------
-// Message protocol - <data len(4)><data>
-// -----------------------------------------------------
-
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
@@ -59,6 +55,7 @@ etxn_inf = {0, 0};
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
+// Message protocol - <data len(4)><data>
 // Message request format - <TYPE(1)><DATA>
 // Trace request - <type:TRACE(1)><trace message>
 // Transaction emit request - <type:EMIT(1)><prepared transaction buf>
@@ -95,52 +92,13 @@ int write_stdout(const uint8_t *write_buf, const int write_len)
 /**
  * Read data from STDIN to the buffer.
  * @param read_buf Buffer to be read.
+ * @param read_len Length of the buffer.
  * @return -1 if error, otherwise read length.
 */
-int read_stdin(uint8_t **read_buf)
+int read_stdin(uint8_t *read_buf, const int read_len)
 {
     // Read the response from STDIN.
-    // Data length is added from the protocol in first 4 bytes, so we skip those.
-    uint8_t buf[MAX_READ_LEN];
-
-    if (read(STDIN_FILENO, buf, sizeof(buf)) == -1)
-        return -1;
-
-    // Read the data length.
-    uint32_t len = buf[3] | (buf[2] << 8) | (buf[1] << 16) | (buf[0] << 24);
-
-    // Populate the data to buffer.
-    *read_buf = (uint8_t *)malloc(len);
-    memcpy(*read_buf, &buf[4], len);
-
-    return len;
-}
-
-/**
- * Fetch return code and the data from the data buffer.
- * @param data_buf Data buffer to be decoded.
- * @param data_len Data buffer length.
- * @param result Result buffer pointer to be populated.
- * @param result_len Result length to be populated.
- * @return return code in the data buffer.
-*/
-int fetch_result(const uint8_t *data_buf, const uint64_t data_len, uint8_t **result, uint64_t *result_len)
-{
-    // Convert the firts byte to int8_t to get the return code.
-    const int ret_val = (int8_t)*data_buf;
-    if (ret_val < 0)
-        return ret_val;
-
-    // If the result length is greater than 0, allocate memory and populate the data to result.
-    *result_len = data_len - 1;
-    if (*result_len > 0)
-    {
-        *result = (uint8_t *)malloc(*result_len);
-        memcpy(*result, data_buf + 1, *result_len);
-    }
-    else
-        *result = 0;
-    return ret_val;
+    return read(STDIN_FILENO, read_buf, read_len);
 }
 
 /**
@@ -183,12 +141,12 @@ int get_trustlines(const uint8_t *address, const uint8_t *issuer, const uint8_t 
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    uint8_t *data_buf, *res;
-    uint64_t res_len;
-    uint64_t data_len = read_stdin(&data_buf);
-    int ret = fetch_result(data_buf, data_len, &res, &res_len);
+    uint8_t data_buf[TRUSTLINE_LEN + 1];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
 
-    if (ret < 0 || res_len != TRUSTLINE_LEN)
+    if (ret < 0 || ((data_len - 1) != TRUSTLINE_LEN))
     {
         *balance_float = 0;
         *limit_float = 0;
@@ -202,6 +160,37 @@ int get_trustlines(const uint8_t *address, const uint8_t *issuer, const uint8_t 
     *balance_float = INT64_FROM_BUF(res);
     *limit_float = INT64_FROM_BUF((res + 8));
     return 0;
+}
+
+int32_t get_exponent(int64_t float1)
+{
+    if (float1 < 0)
+        return INVALID_FLOAT;
+    if (float1 == 0)
+        return 0;
+    if (float1 < 0)
+        return INVALID_FLOAT;
+    uint64_t float_in = (uint64_t)float1;
+    float_in >>= 54U;
+    float_in &= 0xFFU;
+    return ((int32_t)float_in) - 97;
+}
+
+uint64_t get_mantissa(int64_t float1)
+{
+    if (float1 < 0)
+        return INVALID_FLOAT;
+    if (float1 == 0)
+        return 0;
+    if (float1 < 0)
+        return INVALID_FLOAT;
+    float1 -= ((((uint64_t)float1) >> 54U) << 54U);
+    return float1;
+}
+
+int is_negative(int64_t float1)
+{
+    return (float1 >> 62U) != 0 ? 0 : 1;
 }
 
 int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32_t dread_len, uint32_t as_hex)
@@ -234,10 +223,47 @@ int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number)
 
 int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 {
-    char out[500];
-    sprintf(out, "%*.*s %lld", 0, mread_len, mread_ptr, float1);
-    trace_out(out);
-    return 0;
+    const int32_t mantissa = get_mantissa(float1);
+    const int32_t exponent = get_exponent(float1);
+
+    char mantissa_str[50];
+    sprintf(mantissa_str, "%lld\0", get_mantissa(float1));
+    const int mantissa_len = strlen(mantissa_str);
+
+    char float_str[100];
+    if (mantissa == 0)
+        strcpy(float_str, "0\0");
+    else
+    {
+        int offset = 0;
+        if (is_negative(float1))
+            strcpy(&float_str[offset++], "-");
+
+        if (exponent == 0)
+        {
+            strncpy(&float_str[offset], mantissa_str, mantissa_len);
+            float_str[mantissa_len] = '\0';
+        }
+        else if (exponent > 0)
+        {
+            strncpy(&float_str[offset], mantissa_str, mantissa_len);
+            memset(&float_str[mantissa_len], '0', exponent);
+            float_str[mantissa_len + exponent] = '\0';
+        }
+        else
+        {
+            const int decimal_idx = offset + mantissa_len + exponent;
+            strncpy(&float_str[offset], mantissa_str, decimal_idx);
+            strcpy(&float_str[decimal_idx], ".");
+            strncpy(&float_str[decimal_idx + 1], &mantissa_str[decimal_idx], -exponent);
+            char *p = &float_str[mantissa_len];
+            while (*p == '0')
+                p--;
+            *(p + ((*p = '.') ? 0 : 1)) = '\0';
+        }
+    }
+
+    return trace(mread_ptr, mread_len, SBUF(float_str), 0);
 }
 
 int64_t etxn_reserve(uint32_t count)
@@ -276,20 +302,20 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     write_stdout(buf, buflen);
 
     // Read the response from STDIN.
-    uint8_t *data_buf, *res;
-    uint64_t res_len;
-    uint64_t data_len = read_stdin(&data_buf);
-    int ret = fetch_result(data_buf, data_len, &res, &res_len);
+    uint8_t data_buf[TRANSACTION_HASH_LEN + 1];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
 
     // If result code is 0 return EMISSION_FAILURE.
-    if (ret < 0 || res_len != TRANSACTION_HASH_LEN)
+    if (ret < 0 || (data_len - 1) != TRANSACTION_HASH_LEN)
     {
         write_ptr = 0;
         return EMISSION_FAILURE;
     }
 
     // Populate the received transaction hash to the write pointer.
-    memcpy(write_ptr, res, res_len);
+    memcpy(write_ptr, res, TRANSACTION_HASH_LEN);
     return 0;
 }
 
@@ -318,10 +344,8 @@ int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    uint8_t *data_buf, *res;
-    uint64_t res_len;
-    uint64_t data_len = read_stdin(&data_buf);
-    int ret = fetch_result(data_buf, data_len, &res, &res_len);
+    int8_t ret;
+    const int data_len = read_stdin(&ret, 1);
 
     // Return the error code according to the return code.
     if (ret == RET_OVERFLOW)
@@ -351,10 +375,10 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    uint8_t *data_buf, *res;
-    uint64_t res_len;
-    uint64_t data_len = read_stdin(&data_buf);
-    int ret = fetch_result(data_buf, data_len, &res, &res_len);
+    uint8_t data_buf[MAX_READ_LEN];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
 
     if (ret < 0)
     {
@@ -369,14 +393,14 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
 
         return -1;
     }
-    else if (res_len > write_len)
+    else if ((data_len - 1) > write_len)
     {
         // If the output buffer was too small to store the Hook State data return TOO_SMALL.
         write_ptr = 0;
         return TOO_SMALL;
     }
-    else if (res_len > 0)
-        memcpy(write_ptr, res, res_len); // Populate only if res_len > 0;
+    else if ((data_len - 1) > 0)
+        memcpy(write_ptr, res, (data_len - 1)); // Populate only if res_len > 0;
     else
         write_ptr = 0;
 
@@ -392,8 +416,8 @@ int main()
     trace(SBUF("Enter a string: "), 0, 0, 0);
 
     // Read the transaction from STDIN.
-    uint8_t *data_buf;
-    int data_len = read_stdin(&data_buf);
+    uint8_t data_buf[MAX_READ_LEN];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
 
     // Test transaction content.
     const uint32_t tx_len = data_len - 20;
@@ -421,8 +445,8 @@ int main()
         trace_num(SBUF("In trustline error"), trustline_res);
     else
     {
-        trace_num(SBUF("In trustlines balance"), balance);
-        trace_num(SBUF("In trustlines limit"), limit);
+        trace_float(SBUF("In trustlines balance"), balance);
+        trace_float(SBUF("In trustlines limit"), limit);
     }
 
     // Test trustlines 2.
@@ -433,8 +457,8 @@ int main()
         trace_num(SBUF("Out trustline error"), trustline_res);
     else
     {
-        trace_num(SBUF("Out trustlines balance"), balance);
-        trace_num(SBUF("Out trustlines limit"), limit);
+        trace_float(SBUF("Out trustlines balance"), balance);
+        trace_float(SBUF("Out trustlines limit"), limit);
     }
 
     // Test state set and get.
