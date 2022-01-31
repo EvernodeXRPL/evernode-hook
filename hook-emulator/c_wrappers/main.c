@@ -425,7 +425,7 @@ int main()
 
     // Test state set and get.
 
-    const uint8_t STATEKEY[24] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    const uint8_t STATEKEY[25] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     // Get state example - check the state value before state set.
     uint8_t res_buf[8];
@@ -471,7 +471,7 @@ int main()
 
     ////////////////////////////////////////////
 
-    // etxn_reserve(2);
+    // etxn_reserve(4);
 
     // // //////////////// Payment ////////////////
 
