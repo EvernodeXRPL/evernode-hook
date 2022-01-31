@@ -1,6 +1,7 @@
 const { exec } = require("child_process");
 const codec = require('ripple-address-codec');
 const rippleCodec = require('ripple-binary-codec');
+const { STATE_ERROR_CODES } = require('./state-manager');
 const { XflHelpers } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
@@ -14,7 +15,7 @@ const ErrorCodes = {
 const MESSAGE_TYPES = {
     TRACE: 0,
     EMIT: 1,
-    KEYLET: 2,
+    TRUSTLINE: 2,
     STATE_GET: 3,
     STATE_SET: 4
 };
@@ -22,7 +23,9 @@ const MESSAGE_TYPES = {
 const RETURN_CODES = {
     SUCCESS: 0,
     INTERNAL_ERROR: -1,
-    NOT_FOUND: -2
+    NOT_FOUND: -2,
+    OVERFLOW: -3,
+    UNDERFLOW: -4
 }
 
 // ------------------ Message formats ------------------
@@ -33,18 +36,20 @@ const RETURN_CODES = {
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Message response format - <RETURN CODE(1)><DATA>
 // Emit response - <return code(1)><tx hash(32)>
-// Keylet response - <return code(1)><issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
 // State get response - <return code(1)><value(128)>
 // State set response - <return code(1)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
-// Trace - <TYPE:TRACE(1)><trace message>
-// Transaction emit - <TYPE:EMIT(1)><prepared transaction buf>
-// Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
-// State set request - <TYPE:STATE_GET(1)><key(32)><value(128)>
-// State get request - <TYPE:STATE_SET(1)><key(32)>
+// Message request format - <TYPE(1)><DATA>
+// Trace request - <type:TRACE(1)><trace message>
+// Transaction emit request - <type:EMIT(1)><prepared transaction buf>
+// Trustline request - <type:TRUSTLINE(1)><issuer(20)><currency(3)>
+// State set request - <type:STATE_GET(1)><key(32)><value(128)>
+// State get request - <type:STATE_SET(1)><key(32)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 // -----------------------------------------------------
 
@@ -166,29 +171,18 @@ class TransactionManager {
     }
 
     #encodeTrustLines(trustLines) {
-        // Return a buffer if there're trustlines, Otherwise return an empty buf.
-        if (trustLines && trustLines.length) {
-            // Pre allocate buffer to populate trustline data.
-            let buf = Buffer.allocUnsafe(39)
+        // Pre allocate buffer to populate trustline data.
+        let buf = Buffer.allocUnsafe(16)
 
-            let offset = 0;
-            // Get account id from r-address and populate (20-bytes).
-            codec.decodeAccountID(trustLines[0].account).copy(buf, offset);
-            offset += 20;
-            // Populate curreny (3-bytes).
-            Buffer.from(trustLines[0].currency).copy(buf, offset);
-            offset += 3;
-            // Convert balance to xfl and populate (8-bytes).
-            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
-            offset += 8;
-            // Convert limit to xfl and populate (8-bytes).
-            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
-            offset += 8;
+        let offset = 0;
+        // Convert balance to xfl and populate (8-bytes).
+        buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
+        offset += 8;
+        // Convert limit to xfl and populate (8-bytes).
+        buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
+        offset += 8;
 
-            return buf;
-        }
-        else
-            return null;
+        return buf;
     }
 
     #encodeReturnCode(retCode, dataBuf = null) {
@@ -199,7 +193,7 @@ class TransactionManager {
         return resBuf;
     }
 
-    #decodeKeyletRequest(requestBuf) {
+    #decodeTrustlineRequest(requestBuf) {
         let request = {};
 
         let offset = 0;
@@ -408,14 +402,17 @@ class TransactionManager {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }
                 break;
-            case (MESSAGE_TYPES.KEYLET):
+            case (MESSAGE_TYPES.TRUSTLINE):
                 try {
-                    // Decode keylet request info from the buf.
-                    const keyletInfo = this.#decodeKeyletRequest(content);
+                    // Decode trustline request info from the buf.
+                    const trustlineInfo = this.#decodeTrustlineRequest(content);
                     // Get trustlines from the hook account.
-                    const lines = await this.#hookAccount.getTrustLines(keyletInfo.currency, keyletInfo.issuer);
+                    const lines = await this.#hookAccount.getTrustLines(trustlineInfo.currency, trustlineInfo.issuer);
                     // Encode the trustline info to a buf and send to child process.
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeTrustLines(lines)));
+                    if (!lines || !lines.length)
+                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
+                    else
+                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeTrustLines(lines)));
                 }
                 catch (e) {
                     console.error(e);
@@ -427,14 +424,19 @@ class TransactionManager {
                     // Decode state get request info from the buf.
                     const stateGetInfo = this.#decodeStateGetRequest(content);
                     const value = await this.#stateManager.get(stateGetInfo.key);
-                    if (value)
-                        this.#sendToProc(this.#encodeReturnCode(value, value));
-                    else
-                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
+                    this.#sendToProc(this.#encodeReturnCode(value, value));
                 }
                 catch (e) {
                     console.error(e);
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                    let retCode = RETURN_CODES.INTERNAL_ERROR;
+                    if (e.code === STATE_ERROR_CODES.DOES_NOT_EXIST)
+                        retCode = RETURN_CODES.NOT_FOUND;
+                    else if (e.code === STATE_ERROR_CODES.KEY_TOO_SMALL)
+                        retCode = RETURN_CODES.UNDERFLOW;
+                    else if (e.code === STATE_ERROR_CODES.KEY_TOO_BIG)
+                        retCode = RETURN_CODES.OVERFLOW;
+
+                    this.#sendToProc(this.#encodeReturnCode(retCode));
                 }
                 break;
             case (MESSAGE_TYPES.STATE_SET):
@@ -446,7 +448,13 @@ class TransactionManager {
                 }
                 catch (e) {
                     console.error(e);
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                    let retCode = RETURN_CODES.INTERNAL_ERROR;
+                    if (e.code === STATE_ERROR_CODES.KEY_TOO_BIG || e.code === STATE_ERROR_CODES.VALUE_TOO_BIG)
+                        retCode = RETURN_CODES.OVERFLOW;
+                    else if (e.code === STATE_ERROR_CODES.KEY_TOO_SMALL)
+                        retCode = RETURN_CODES.UNDERFLOW;
+
+                    this.#sendToProc(this.#encodeReturnCode(retCode));
                 }
                 break;
             default:

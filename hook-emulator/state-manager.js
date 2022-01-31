@@ -4,6 +4,14 @@ const STATE_TABLE = 'state';
 const MAX_KEY_SIZE = 32;
 const MAX_VALUE_SIZE = 128;
 
+const STATE_ERROR_CODES = {
+    KEY_TOO_BIG: 'KEY_TOO_BIG',
+    KEY_TOO_SMALL: 'KEY_TOO_SMALL',
+    VALUE_TOO_BIG: 'VALUE_TOO_BIG',
+    VALUE_TOO_SMALL: 'VALUE_TOO_SMALL',
+    DOES_NOT_EXIST: 'DOES_NOT_EXIST'
+}
+
 class StateManager {
     #draftStates = null;
     #db = null;
@@ -28,11 +36,11 @@ class StateManager {
 
     set(key, value) {
         if (!key || !key.length || (key.findIndex(e => e != 0) < 0))
-            throw 'State key cannot be empty.';
+            throw { code: STATE_ERROR_CODES.KEY_TOO_SMALL, error: 'State key cannot be empty.' };
         else if (key.length > MAX_KEY_SIZE)
-            throw `State key size should be less than ${MAX_KEY_SIZE}.`;
+            throw { code: STATE_ERROR_CODES.KEY_TOO_BIG, error: `State key size should be less than ${MAX_KEY_SIZE}.` };
         else if (value.length > MAX_VALUE_SIZE)
-            throw `State value size should be less than ${MAX_VALUE_SIZE}.`;
+            throw { code: STATE_ERROR_CODES.VALUE_TOO_BIG, error: `State value size should be less than ${MAX_VALUE_SIZE}.` };
 
         let keyBuf = key;
         if (key.length < MAX_KEY_SIZE) {
@@ -49,9 +57,9 @@ class StateManager {
 
     async get(key) {
         if (!key || !key.length || (key.findIndex(e => e != 0) < 0))
-            throw 'State key cannot be empty.';
+            throw { code: STATE_ERROR_CODES.KEY_TOO_SMALL, error: 'State key cannot be empty.' };
         else if (key.length > MAX_KEY_SIZE)
-            throw `State key size should be less than ${MAX_KEY_SIZE}.`;
+            throw { code: STATE_ERROR_CODES.KEY_TOO_BIG, error: `State key size should be less than ${MAX_KEY_SIZE}.` };
 
         let keyBuf = key;
         if (key.length < MAX_KEY_SIZE) {
@@ -63,14 +71,21 @@ class StateManager {
 
         // First check in drafts.
         // Else check in the db.
-        if (hexKey in this.#draftStates)
-            return this.#draftStates[hexKey] ? this.#draftStates[hexKey] : null;
+        if (hexKey in this.#draftStates) {
+            if (this.#draftStates[hexKey])
+                return this.#draftStates[hexKey];
+            else
+                throw { code: STATE_ERROR_CODES.DOES_NOT_EXIST, error: `State with this key ${hexKey} does not exist.` };
+        }
         else {
             this.#db.open();
             const states = await this.#db.getValues(this.#stateTable, { key: keyBuf });
             this.#db.close();
 
-            return (states && states.length > 0) ? states[0].value : null;
+            if (states && states.length > 0)
+                return states[0].value;
+            else
+                throw { code: STATE_ERROR_CODES.DOES_NOT_EXIST, error: `State with this key ${hexKey} does not exist.` };
         }
     }
 
@@ -107,5 +122,6 @@ class StateManager {
 }
 
 module.exports = {
-    StateManager
+    StateManager,
+    STATE_ERROR_CODES
 }

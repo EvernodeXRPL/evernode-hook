@@ -23,17 +23,25 @@ enum RETURN_CODES
 {
     RES_SUCCESS = 0,
     RES_INTERNAL_ERROR = -1,
-    RES_NOT_FOUND = -2
+    RES_NOT_FOUND = -2,
+    RET_OVERFLOW = -3,
+    RET_UNDERFLOW = -4
 };
 
-static uint8_t const emit_details_len = 105;
-static uint8_t const hash_len = 32;
-static uint8_t const state_key_len = 32;
-static uint8_t const max_state_val_len = 128;
-
+#define EMIT_DETAILS_LEN 105
+#define TRANSACTION_HASH_LEN 32
+#define STATE_KEY_LEN 32
+#define MAX_STATE_VAL_LEN 128
 #define MAX_READ_LEN 1024
+#define TRUSTLINE_LEN 16
 
-#define DOESNT_EXIST -5 // This can be found in the hook_macro when it's included.
+struct etxn_info
+{
+    uint32_t etxn_reserves;
+    int etxn_reserved;
+}
+
+etxn_inf = {0, 0};
 
 // ------------------ Message formats ------------------
 // Message protocol - <data len(4)><data>
@@ -43,21 +51,30 @@ static uint8_t const max_state_val_len = 128;
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Message response format - <RETURN CODE(1)><DATA>
 // Emit response - <return code(1)><tx hash(32)>
-// Keylet response - <return code(1)><issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
 // State get response - <return code(1)><value(128)>
 // State set response - <return code(1)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
-// Trace - <TYPE:TRACE(1)><trace message>
-// Transaction emit - <TYPE:EMIT(1)><prepared transaction buf>
-// Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
-// State set request - <TYPE:STATE_GET(1)><key(32)><value(128)>
-// State get request - <TYPE:STATE_SET(1)><key(32)>
+// Message request format - <TYPE(1)><DATA>
+// Trace request - <type:TRACE(1)><trace message>
+// Transaction emit request - <type:EMIT(1)><prepared transaction buf>
+// Trustline request - <type:TRUSTLINE(1)><issuer(20)><currency(3)>
+// State set request - <type:STATE_GET(1)><key(32)><value(128)>
+// State get request - <type:STATE_SET(1)><key(32)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 // -----------------------------------------------------
 
+/**
+ * Write given buffer to the STDOUT.
+ * Adds the data length as a prefix according to the message protocol.
+ * @param write_buf Buffer to be sent.
+ * @param write_len Length of the buffer.
+ * @return -1 if error, otherwise write length.
+*/
 int write_stdout(const uint8_t *write_buf, const int write_len)
 {
     const int outlen = 4 + write_len;
@@ -72,9 +89,14 @@ int write_stdout(const uint8_t *write_buf, const int write_len)
     // Populate the data.
     memcpy(&out[4], write_buf, write_len);
 
-    return (write(STDOUT_FILENO, out, outlen) == -1 || fflush(stdout) == -1) ? -1 : 0;
+    return (write(STDOUT_FILENO, out, outlen) == -1 || fflush(stdout) == -1) ? -1 : write_len;
 }
 
+/**
+ * Read data from STDIN to the buffer.
+ * @param read_buf Buffer to be read.
+ * @return -1 if error, otherwise read length.
+*/
 int read_stdin(uint8_t **read_buf)
 {
     // Read the response from STDIN.
@@ -94,21 +116,22 @@ int read_stdin(uint8_t **read_buf)
     return len;
 }
 
-int trace_out(const char *trace)
-{
-    const int len = 1 + strlen(trace);
-    char buf[len];
-    buf[0] = TRACE;
-    sprintf(&buf[1], "%s", trace);
-    return write_stdout(buf, len);
-}
-
+/**
+ * Fetch return code and the data from the data buffer.
+ * @param data_buf Data buffer to be decoded.
+ * @param data_len Data buffer length.
+ * @param result Result buffer pointer to be populated.
+ * @param result_len Result length to be populated.
+ * @return return code in the data buffer.
+*/
 int fetch_result(const uint8_t *data_buf, const uint64_t data_len, uint8_t **result, uint64_t *result_len)
 {
+    // Convert the firts byte to int8_t to get the return code.
     const int ret_val = (int8_t)*data_buf;
     if (ret_val < 0)
         return ret_val;
 
+    // If the result length is greater than 0, allocate memory and populate the data to result.
     *result_len = data_len - 1;
     if (*result_len > 0)
     {
@@ -120,10 +143,70 @@ int fetch_result(const uint8_t *data_buf, const uint64_t data_len, uint8_t **res
     return ret_val;
 }
 
+/**
+ * Send the trace request.
+ * Appdends the trace type header.
+ * @param trace Data buffer to be traced.
+ * @return -1 if error, otherwise write length.
+*/
+int trace_out(const uint8_t *trace)
+{
+    const int len = 1 + strlen(trace);
+    char buf[len];
+
+    // Populate the type header.
+    buf[0] = TRACE;
+
+    sprintf(&buf[1], "%s", trace);
+    return write_stdout(buf, len);
+}
+
+/**
+ * Get trustlines of the running account.
+ * @param issuer Issuer of the trustline currency.
+ * @param currency Issued currency.
+ * @param balance_float Float balance to be populated.
+ * @param limit_float Limit float to be populated.
+*/
+int get_trustlines(const uint8_t *issuer, const uint8_t *currency, int64_t *balance_float, int64_t *limit_float)
+{
+    // Send the emit request.
+    const int len = 24;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = KEYLET;
+    // Populate the issuer and currency.
+    memcpy(&buf[1], issuer, 20);
+    memcpy(&buf[21], currency, 3);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t *data_buf, *res;
+    uint64_t res_len;
+    uint64_t data_len = read_stdin(&data_buf);
+    int ret = fetch_result(data_buf, data_len, &res, &res_len);
+
+    if (ret < 0 || res_len != TRUSTLINE_LEN)
+    {
+        *balance_float = 0;
+        *limit_float = 0;
+        // Return the error code according to the return code.
+        if (ret == RES_NOT_FOUND)
+            return DOESNT_EXIST;
+
+        return -1;
+    }
+
+    *balance_float = INT64_FROM_BUF(res);
+    *limit_float = INT64_FROM_BUF((res + 8));
+    return 0;
+}
+
 int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32_t dread_len, uint32_t as_hex)
 {
     if (as_hex == 1)
     {
+        // If hex (byte => 2 ascci characters) allocate a buffer and populate the hex characters in the loop.
         char out[mread_len + (dread_len * 2) + 1];
         sprintf(out, "%*.*s ", 0, mread_len, mread_ptr);
         for (int i = 0; i < dread_len; i++)
@@ -155,12 +238,37 @@ int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
     return 0;
 }
 
+int64_t etxn_reserve(uint32_t count)
+{
+    // Acording to the xrpl hook specs,
+    // The hook already called this function earlier, return ALREADY_SET.
+    if (etxn_inf.etxn_reserved > 1)
+        return ALREADY_SET;
+
+    etxn_inf.etxn_reserved = 1;
+    etxn_inf.etxn_reserves += count;
+
+    return etxn_inf.etxn_reserves;
+}
+
 int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len)
 {
-    const int buflen = 1 + read_len - emit_details_len;
+    // Acording to the xrpl hook specs,
+    // If the hook didn't call etxn_reserve, return PREREQUISITE_NOT_MET.
+    // If the number of promised transactions are not enough, return TOO_MANY_EMITTED_TXN.
+    if (etxn_inf.etxn_reserved == 0)
+        return PREREQUISITE_NOT_MET;
+    else if (etxn_inf.etxn_reserves == 0)
+        return TOO_MANY_EMITTED_TXN;
+
+    // Send the emit request.
+    // Note: when transaction is prepared in hook logic, it populats additional emit details at the end.
+    // Skip the emit deatils since those aren't recognized in the xrpl lib.
+    const int buflen = 1 + read_len - EMIT_DETAILS_LEN;
     uint8_t buf[buflen];
+    // Populate the type header.
     buf[0] = EMIT;
-    memcpy(&buf[1], read_ptr, read_len - emit_details_len);
+    memcpy(&buf[1], read_ptr, buflen - 1);
     write_stdout(buf, buflen);
 
     // Read the response from STDIN.
@@ -169,81 +277,68 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     uint64_t data_len = read_stdin(&data_buf);
     int ret = fetch_result(data_buf, data_len, &res, &res_len);
 
-    if (ret < 0)
+    // If result code is 0 return EMISSION_FAILURE.
+    if (ret < 0 || res_len != TRANSACTION_HASH_LEN)
     {
         write_ptr = 0;
-        return -1;
+        return EMISSION_FAILURE;
     }
-    else
-    {
-        if (res_len > 0)
-            memcpy(write_ptr, res, res_len);
-        else
-            write_ptr = 0;
-        return 1;
-    }
-}
 
-int keylet(uint32_t write_ptr, uint32_t write_len, const uint8_t *issuer, const uint8_t *currency)
-{
-    const int len = 24;
-    uint8_t buf[len];
-    buf[0] = KEYLET;
-    memcpy(&buf[1], issuer, 20);
-    memcpy(&buf[21], currency, 3);
-    write_stdout(buf, len);
-
-    // Read the response from STDIN.
-    uint8_t *data_buf, *res;
-    uint64_t res_len;
-    uint64_t data_len = read_stdin(&data_buf);
-    int ret = fetch_result(data_buf, data_len, &res, &res_len);
-
-    if (ret < 0)
-    {
-        write_ptr = 0;
-        return -1;
-    }
-    else
-    {
-        if (res_len > 0)
-            memcpy(write_ptr, res, res_len);
-        else
-            write_ptr = 0;
-        return 1;
-    }
+    // Populate the received transaction hash to the write pointer.
+    memcpy(write_ptr, res, res_len);
+    return 0;
 }
 
 int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint32_t kread_len)
 {
-    if (kread_len != state_key_len)
-        return -1;
+    // Acording to the xrpl hook specs,
+    // If kread_len is greater than max key len or read len is greater than max data len, return TOO_BIG.
+    // If kread_len is 0, return TOO_SMALL.
+    if (kread_len > STATE_KEY_LEN || read_len > MAX_STATE_VAL_LEN)
+        return TOO_BIG;
+    else if (kread_len == 0)
+        return TOO_SMALL;
 
+    // Send the state set request.
     const int len = 1 + kread_len + read_len;
     uint8_t buf[len];
+    // Populate the type header.
     buf[0] = STATE_SET;
+    // Populate the state data.
     memcpy(&buf[1], kread_ptr, kread_len);
     memcpy(&buf[1 + kread_len], read_ptr, read_len);
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    // Read the response from STDIN.
     uint8_t *data_buf, *res;
     uint64_t res_len;
     uint64_t data_len = read_stdin(&data_buf);
     int ret = fetch_result(data_buf, data_len, &res, &res_len);
 
-    return (ret < 0) ? -1 : 1;
+    // Return the error code according to the return code.
+    if (ret == RET_OVERFLOW)
+        return TOO_BIG;
+    else if (ret == RET_UNDERFLOW)
+        return TOO_SMALL;
+    else if (ret < -1)
+        return -1;
+
+    return 0;
 }
 
 int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len)
 {
-    if (kread_len != state_key_len)
-        return -1;
+    // Acording to the xrpl hook specs,
+    // If kread_len is greater than max key len, return TOO_BIG.
+    if (kread_len > STATE_KEY_LEN)
+        return TOO_BIG;
 
+    // Send the state set request.
     const int len = 1 + kread_len;
     uint8_t buf[len];
+    // Populate the type header.
     buf[0] = STATE_GET;
+    // Populate the state key.
     memcpy(&buf[1], kread_ptr, kread_len);
     write_stdout(buf, len);
 
@@ -256,56 +351,83 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
     if (ret < 0)
     {
         write_ptr = 0;
-        return (ret == RES_NOT_FOUND) ? DOESNT_EXIST : -1;
+        // Return the error code according to the return code.
+        if (ret == RES_NOT_FOUND)
+            return DOESNT_EXIST;
+        else if (ret == RET_OVERFLOW)
+            return TOO_BIG;
+        else if (ret == RET_UNDERFLOW)
+            return TOO_SMALL;
+
+        return -1;
     }
-    else
+    else if (res_len > write_len)
     {
-        if (res_len > 0)
-            memcpy(write_ptr, res, res_len);
-        else
-            write_ptr = 0;
-        return 1;
+        // If the output buffer was too small to store the Hook State data return TOO_SMALL.
+        write_ptr = 0;
+        return TOO_SMALL;
     }
+    else if (res_len > 0)
+        memcpy(write_ptr, res, res_len); // Populate only if res_len > 0;
+    else
+        write_ptr = 0;
+
+    return 0;
 }
 
+/**
+ * Temporary main method for testing.
+*/
 int main()
 {
-    char *format = "";
-    int len = 0;
-
+    // Trace test.
     trace(SBUF("Enter a string: "), 0, 0, 0);
 
+    // Read the transaction from STDIN.
     uint8_t *data_buf;
     int data_len = read_stdin(&data_buf);
 
+    // Test transaction content.
     const uint32_t tx_len = data_len - 20;
-
     uint8_t hook_accid[20];
     uint8_t tx[tx_len];
+
+    // Get hook account.
     memcpy(hook_accid, data_buf, 20);
+    // Get transaction.
     memcpy(tx, data_buf + 20, tx_len);
 
     const int account_field_offset = 0;
     uint8_t account_field[20];
     memcpy(account_field, tx, 20);
 
-    int to_acc_offset = 52;
-    uint8_t to_acc[20];
+    int dest_field_offset = 52;
+    uint8_t dest_field[20];
     if (tx[21] == 0)
-        memcpy(to_acc, tx, to_acc_offset);
+        memcpy(dest_field, tx, dest_field_offset);
     else
     {
-        to_acc_offset = 29;
-        memcpy(to_acc, tx, to_acc_offset);
+        dest_field_offset = 29;
+        memcpy(dest_field, tx, dest_field_offset);
     }
 
     trace(SBUF("Hook"), SBUF(hook_accid), 1);
     trace(SBUF("Transaction"), SBUF(tx), 1);
+    trace(SBUF("Account"), SBUF(account_field), 1);
+    trace(SBUF("Destination"), SBUF(dest_field), 1);
 
-    uint8_t lines[39];
-    const int lines_len = keylet(SBUF(lines), account_field, "ABC");
-
-    trace(SBUF("Trustlines"), SBUF(lines), 1);
+    // Test trustlines.
+    int64_t balance, limit;
+    int trustline_res = get_trustlines(account_field, "XYZ", &balance, &limit);
+    if (trustline_res == DOESNT_EXIST)
+        trace(SBUF("No trustlines."), 0, 0, 0);
+    else if (trustline_res < 0)
+        trace_num(SBUF("Trustline internal error."), trustline_res);
+    else
+    {
+        trace_num(SBUF("Trustlines balance"), balance);
+        trace_num(SBUF("Trustlines limit"), limit);
+    }
 
     // etxn_reserve(1);
 
@@ -380,8 +502,14 @@ int main()
 
     uint8_t res_buf[8];
     int64_t res = 0;
-    if (state(SBUF(res_buf), SBUF(STATEKEY)) == DOESNT_EXIST)
-        trace(SBUF("No state."), 0, 0, 0);
+    int state_res = state(SBUF(res_buf), SBUF(STATEKEY));
+    if (state_res < 0)
+    {
+        if (state_res == DOESNT_EXIST)
+            trace(SBUF("No state."), 0, 0, 0);
+        else
+            trace_num(SBUF("State internal error."), state_res);
+    }
     else
     {
         res = INT64_FROM_BUF(res_buf);
@@ -397,8 +525,14 @@ int main()
     }
 
     res = 0;
-    if (state(SBUF(res_buf), SBUF(STATEKEY)) == DOESNT_EXIST)
-        trace(SBUF("No state."), 0, 0, 0);
+    state_res = state(SBUF(res_buf), SBUF(STATEKEY));
+    if (state_res < 0)
+    {
+        if (state_res == DOESNT_EXIST)
+            trace(SBUF("No state."), 0, 0, 0);
+        else
+            trace_num(SBUF("State internal error."), state_res);
+    }
     else
     {
         res = INT64_FROM_BUF(res_buf);
