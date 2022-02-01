@@ -224,39 +224,11 @@ int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number)
 int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 {
     const uint64_t mantissa = get_mantissa(float1);
-    const int32_t exponent = get_exponent(float1);
-
-    char float_str[200];
-    if (mantissa == 0)
-        sprintf(float_str, "%lld", mantissa);
-    else
-    {
-        sprintf(float_str, is_negative(float1) ? "-%lld" : "%lld", mantissa);
-        if (exponent > 0)
-        {
-            const int len = strlen(float_str);
-            memset(&float_str[len], '0', exponent);
-            float_str[len + exponent] = '\0';
-        }
-        else if (exponent < 0)
-        {
-            const int len = strlen(float_str);
-            const int decimal_idx = len + exponent;
-            char decimal_str[200];
-            // Take the decimal places to temp string.
-            strncpy(decimal_str, &float_str[decimal_idx], -exponent);
-            // Populate the . in float.
-            strcpy(&float_str[decimal_idx], ".");
-            // Populate the decimal places.
-            strncpy(&float_str[decimal_idx + 1], decimal_str, -exponent);
-            char *p = &float_str[len];
-            while (*p == '0')
-                p--;
-            *(p + ((*p = '.') ? 0 : 1)) = '\0';
-        }
-    }
-
-    return trace(mread_ptr, mread_len, SBUF(float_str), 0);
+    char out[500];
+    sprintf(out, (mantissa != 0 && is_negative(float1)) ? "%*.*s Float -%lld*10^(%ld)" : "%*.*s Float %lld*10^(%ld)",
+            0, mread_len, mread_ptr, mantissa, get_exponent(float1));
+    trace_out(out);
+    return 0;
 }
 
 int64_t etxn_reserve(uint32_t count)
