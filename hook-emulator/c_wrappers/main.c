@@ -340,7 +340,7 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    uint8_t data_buf[MAX_READ_LEN];
+    uint8_t data_buf[MAX_STATE_VAL_LEN];
     const int data_len = read_stdin(data_buf, sizeof(data_buf));
     const int ret = (int8_t)*data_buf;
     const uint8_t *res = &data_buf[1];
