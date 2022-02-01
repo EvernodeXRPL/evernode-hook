@@ -4,7 +4,7 @@ const { TransactionManager } = require('./transaction-manager');
 const evernode = require('evernode-js-client');
 
 const CONFIG_PATH = './hook-emulator.cfg';
-const DB_PATH = './mb-xrpl.sqlite';
+const DB_PATH = './hook-emulator.sqlite';
 const HOOK_WRAPPER_PATH = './c_wrappers/hook-wrapper';
 
 const RIPPLED_URL = "wss://s.altnet.rippletest.net:51233";
@@ -18,7 +18,7 @@ class HookEmulator {
     #xrplApi = null;
     #xrplAcc = null;
 
-    constructor(rippledServer, hookAddress, hookWrapperPath, dbPath) {
+    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret = null) {
         this.#stateManager = new StateManager(dbPath);
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
@@ -26,18 +26,19 @@ class HookEmulator {
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new evernode.XrplAccount(hookAddress);
+        this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
-
-        // Handle the transaction when payment transaction is received.
-        // Note - This event will only receive the incoming payment transactions to the hook.
-        // We currently only need hook to execute incoming payment transactions. 
-        this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
     }
 
     async init() {
         console.log("Starting hook emulator.");
         await this.#xrplApi.connect();
+        await this.#transactionManager.init();
+
+        // Handle the transaction when payment transaction is received.
+        // Note - This event will only receive the incoming payment transactions to the hook.
+        // We currently only need hook to execute incoming payment transactions. 
+        this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
 
         // Subscribe for the transactions
         await this.#xrplAcc.subscribe();
@@ -59,7 +60,7 @@ class HookEmulator {
 }
 
 async function main() {
-    let config = { hookAddress: "" };
+    let config = { hookAddress: "", hookSecret: "" };
 
     // Check if config file exists, write otherwise.
     if (!fs.existsSync(CONFIG_PATH))
@@ -68,14 +69,14 @@ async function main() {
         config = JSON.parse(fs.readFileSync(CONFIG_PATH).toString());
 
     // If hook address is empty, skip the execution.
-    if (!config.hookAddress) {
+    if (!config.hookAddress || !config.hookSecret) {
         console.log(`${CONFIG_PATH} not found, populate the config and restart the program.`);
         return;
     }
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
-    const emulator = new HookEmulator(RIPPLED_URL, config.hookAddress, HOOK_WRAPPER_PATH, DB_PATH);
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret);
     await emulator.init();
 }
 
