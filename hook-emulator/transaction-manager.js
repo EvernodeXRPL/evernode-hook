@@ -1,8 +1,11 @@
 const { exec } = require("child_process");
 const codec = require('ripple-address-codec');
+const rippleCodec = require('ripple-binary-codec');
+const { STATE_ERROR_CODES } = require('./state-manager');
 const { XflHelpers } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
+const TX_MAX_LEDGER_OFFSET = 10;
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -12,26 +15,38 @@ const ErrorCodes = {
 const MESSAGE_TYPES = {
     TRACE: 0,
     EMIT: 1,
-    KEYLET: 2,
+    TRUSTLINE: 2,
     STATE_GET: 3,
     STATE_SET: 4
 };
 
-// ------------------ Message formats ------------------
-// Message protocol - <data len(4)><data>
-// -----------------------------------------------------
+const RETURN_CODES = {
+    SUCCESS: 0,
+    INTERNAL_ERROR: -1,
+    NOT_FOUND: -2,
+    OVERFLOW: -3,
+    UNDERFLOW: -4
+}
 
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
 // Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
-// Keylet response - <issuer(20)><currency(3)><balance(8)XFL><limit(8)XFL>
+// Message response format - <RETURN CODE(1)><DATA>
+// Emit response - <return code(1)><tx hash(32)>
+// Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
+// State get response - <return code(1)><value(128)>
+// State set response - <return code(1)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 // ' C_WRAPPER --> JS (Write to STDOUT from C_WRAPPER) '
-// Trace - <TYPE:TRACE(1)><trace message>
-// Transaction emit - <TYPE:EMIT(1)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
-// Keylet request - <TYPE:KEYLET(1)><issuer(20)><currency(3)>
+// Message protocol - <data len(4)><data>
+// Message request format - <TYPE(1)><DATA>
+// Trace request - <type:TRACE(1)><trace message>
+// Transaction emit request - <type:EMIT(1)><prepared transaction buf>
+// Trustline request - <type:TRUSTLINE(1)><address(20)><issuer(20)><currency(3)>
+// State set request - <type:STATE_GET(1)><key(32)><value(128)>
+// State get request - <type:STATE_SET(1)><key(32)>
 // '''''''''''''''''''''''''''''''''''''''''''''''''''''
 // -----------------------------------------------------
 
@@ -44,11 +59,25 @@ class TransactionManager {
     #stateManager = null;
     #hookAccount = null;
     #hookProcess = null;
+    #draftEmits = null;
+    #pendingTransactions = null;
+    #queueProcessorActive = null;
 
     constructor(hookAccount, hookWrapperPath, stateManager) {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
+        this.#pendingTransactions = [];
+        this.#queueProcessorActive = false;
+        this.#initDrafts();
+    }
+
+    async init() {
+        await this.#stateManager.init();
+    }
+
+    #initDrafts() {
+        this.#draftEmits = [];
     }
 
     #encodeTransaction(transaction) {
@@ -143,82 +172,37 @@ class TransactionManager {
         return returnBuf;
     }
 
-    #decodeTransaction(transactionBuf) {
-        let transaction = {};
+    #encodeTrustLines(trustLines) {
+        // Pre allocate buffer to populate trustline data.
+        let buf = Buffer.allocUnsafe(16)
+
         let offset = 0;
+        // Convert balance to xfl and populate (8-bytes).
+        buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
+        offset += 8;
+        // Convert limit to xfl and populate (8-bytes).
+        buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
+        offset += 8;
 
-        // Get the origin account and encode the r-address (20-bytes).
-        transaction.Account = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
-        offset += 20;
-
-        // Get the amount -> if transaction is a xrp transaction <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
-        if (transactionBuf.readUInt8(offset++) === 1) {
-            // Get the amount and convert to float from xfl.
-            transaction.Amount = XflHelpers.toString(transactionBuf.readBigInt64BE(offset));
-            offset += 8;
-        }
-        else {
-            transaction.Amount = {};
-
-            // Get the issuer and encode the r-address.
-            transaction.Amount.issuer = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
-            offset += 20;
-            transaction.Amount.currency = transactionBuf.slice(offset, offset + 3).toString();
-            offset += 3;
-            // Get the amount value and convert to float from xfl.
-            transaction.Amount.value = XflHelpers.toString(transactionBuf.readBigInt64BE(offset));
-            offset += 8;
-        }
-
-        // Get the destination account and encode the r-address (20-bytes).
-        transaction.Destination = codec.encodeAccountID(transactionBuf.slice(offset, offset + 20));
-        offset += 20;
-
-        // Get memo count (1-byte).
-        const memoCount = transactionBuf.readUInt8(offset++);
-
-        transaction.Memos = [];
-        for (let i = 0; i < memoCount; i++) {
-            // Get the memo type length (1-byte).
-            const typeLen = transactionBuf.readUInt8(offset++);
-            // Get the memo type ((typeLen)-bytes).
-            const type = transactionBuf.slice(offset, offset + typeLen).toString();
-            offset += typeLen;
-
-            // Get the memo format length (1-byte).
-            const formatLen = transactionBuf.readUInt8(offset++);
-            // Get the memo format ((formatLen)-bytes).
-            const format = transactionBuf.slice(offset, offset + formatLen).toString();
-            offset += formatLen;
-
-            // Get the memo data length (1-byte).
-            const dataLen = transactionBuf.readUInt8(offset++);
-            // Get the memo data ((dataLen)-bytes).
-            // Convert data to hex if format is 'hex'.
-            const data = transactionBuf.slice(offset, offset + dataLen).toString(format === 'hex' ? 'hex' : 'utf8');
-            offset += dataLen;
-
-            transaction.Memos.push({
-                type: type,
-                format: format,
-                data: data
-            });
-        }
-
-        // Get the ledger hash (32-bytes).
-        transaction.LedgerHash = transactionBuf.slice(offset, offset + 32).toString('hex').toUpperCase();
-        offset += 32;
-
-        // Get the ledger index (8-bytes).
-        transaction.LedgerIndex = Number(transactionBuf.readBigUInt64BE(offset));
-
-        return transaction;
+        return buf;
     }
 
-    #decodeKeyletRequest(requestBuf) {
+    #encodeReturnCode(retCode, dataBuf = null) {
+        let resBuf = Buffer.alloc((dataBuf ? dataBuf.length : 0) + 1);
+        resBuf.writeInt8(retCode);
+        if (dataBuf)
+            dataBuf.copy(resBuf, 1);
+        return resBuf;
+    }
+
+    #decodeTrustlineRequest(requestBuf) {
         let request = {};
 
         let offset = 0;
+        // Get the address and encode the r-address (20-bytes)
+        request.address = codec.encodeAccountID(requestBuf.slice(offset, offset + 20));
+        offset += 20;
+
         // Get the issuer and encode the r-address (20-bytes)
         request.issuer = codec.encodeAccountID(requestBuf.slice(offset, offset + 20));
         offset += 20;
@@ -229,50 +213,94 @@ class TransactionManager {
         return request;
     }
 
-    #encodeTrustLines(trustLines) {
-        // Return a buffer if there're trustlines, Otherwise return an empty buf.
-        if (trustLines && trustLines.length) {
-            // Pre allocate buffer to populate trustline data.
-            let buf = Buffer.allocUnsafe(39)
+    #decodeStateGetRequest(requestBuf) {
+        let request = {};
 
-            let offset = 0;
-            // Get account id from r-address and populate (20-bytes).
-            codec.decodeAccountID(trustLines[0].account).copy(buf, offset);
-            offset += 20;
-            // Populate curreny (3-bytes).
-            Buffer.from(trustLines[0].currency).copy(buf, offset);
-            offset += 3;
-            // Convert balance to xfl and populate (8-bytes).
-            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].balance), offset);
-            offset += 8;
-            // Convert limit to xfl and populate (8-bytes).
-            buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
-            offset += 8;
+        // Get the key (32-bytes).
+        request.key = requestBuf.slice(0, 32);
 
-            return buf;
-        }
-        else
-            return Buffer.from([]);
+        return request;
+    }
+
+    #decodeStateSetRequest(requestBuf) {
+        let request = {};
+
+        let offset = 0;
+        // Get the key (32-bytes).
+        request.key = requestBuf.slice(offset, offset + 32);
+        offset += 32;
+
+        // Get the value (128-bytes).
+        request.value = requestBuf.slice(offset, offset + 128);
+
+        return request;
     }
 
     #sendToProc(data) {
-        // Append data length (4-bytes) to the message and write to STDIN.
-        const lenBuf = Buffer.allocUnsafe(4);
-        lenBuf.writeUInt32BE(data.length);
-        this.#hookProcess.stdin.write(Buffer.concat([lenBuf, data]));
-    }
-
-    #terminateProc(success = false) {
-        // Close the STDIN and clear the hook process.
-        this.#hookProcess.stdin.end();
-        this.#hookProcess = null;
-
-        // Rollback the hook execution if error.
-        if (!success)
-            this.#rollbackTransaction();
+        this.#hookProcess.stdin.write(data);
     }
 
     processTransaction(transaction) {
+        const resolver = new Promise((resolve, reject) => {
+            this.#pendingTransactions.push({
+                resolve: resolve,
+                reject: reject,
+                transaction: transaction
+            });
+        });
+        console.log("Queued a transaction.");
+
+        // Start queue processor when item is added.
+        this.#processQueue();
+
+        return resolver;
+    }
+
+    async #decodeAndSignEmitTransaction(transactionBuf) {
+        let txJson = rippleCodec.decode(transactionBuf.toString('hex'));
+        delete txJson.SigningPubKey;
+        delete txJson.FirstLedgerSequence;
+        txJson.Sequence = await this.#hookAccount.getNextSequence();
+        txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET;
+        return await this.#hookAccount.wallet.sign(txJson);
+    }
+
+    async #processQueue() {
+        if (this.#queueProcessorActive)
+            return;
+
+        console.log("Transaction queue processor started...");
+        this.#queueProcessorActive = true;
+
+        let i = 1;
+        while (this.#pendingTransactions && this.#pendingTransactions.length > 0) {
+            console.log(`Processing transaction ${i}...`);
+            const task = this.#pendingTransactions.shift();
+
+            try {
+                const ret = await this.#executeHook(task.transaction);
+                await this.#persistTransaction();
+                task.resolve(ret);
+            }
+            catch (e) {
+                this.#rollbackTransaction();
+                task.reject(e);
+            }
+
+            // Close the STDIN and clear the hook process.
+            this.#hookProcess.stdin.end();
+            this.#hookProcess = null;
+            this.#initDrafts();
+
+            console.log(`Processed transaction  ${i}.`);
+            i++;
+        }
+
+        this.#queueProcessorActive = false;
+        console.log("Transaction queue processor ended.");
+    }
+
+    async #executeHook(transaction) {
         // Encode the transaction info to the buf.
         let txBuf = this.#encodeTransaction(transaction);
 
@@ -298,16 +326,14 @@ class TransactionManager {
             // Set the transaction process timeout and reject the promise if reached.
             const failTimeout = setTimeout(() => {
                 completed = true;
-                this.#terminateProc();
                 reject(ErrorCodes.TIMEOUT);
             }, TX_WAIT_TIMEOUT);
 
             // This is fired when child process is exited.
-            this.#hookProcess.on('close', (code) => {
+            this.#hookProcess.on('close', async (code) => {
                 if (!completed) {
                     completed = true;
                     clearTimeout(failTimeout);
-                    this.#terminateProc(code === 0);
                     // Resolve of success, otherwise reject with error.
                     if (code === 0)
                         resolve("SUCCESS");
@@ -319,23 +345,22 @@ class TransactionManager {
 
             // This is fired when child process is writing to the STDOUT.
             this.#hookProcess.stdout.on('data', async (data) => {
-                console.log(data);
-                // if (!completed) {
-                //     const messageBuf = Buffer.from(data, "binary");
+                if (!completed) {
+                    const messageBuf = Buffer.from(data, "binary");
 
-                //     // Data chuncks will be prefixed (4-bytes) with the data length.
-                //     // Split data by lengths and handle seperately.
-                //     let offset = 0;
-                //     while (offset < messageBuf.length) {
-                //         const msgLen = messageBuf.readUInt32BE(offset);
-                //         offset += 4;
+                    // Data chuncks will be prefixed (4-bytes) with the data length.
+                    // Split data by lengths and handle seperately.
+                    let offset = 0;
+                    while (offset < messageBuf.length) {
+                        const msgLen = messageBuf.readUInt32BE(offset);
+                        offset += 4;
 
-                //         const msg = messageBuf.slice(offset, offset + msgLen);
-                //         offset += msgLen;
+                        const msg = messageBuf.slice(offset, offset + msgLen);
+                        offset += msgLen;
 
-                //         await this.#handleMessage(msg);
-                //     }
-                // }
+                        await this.#handleMessage(msg).catch(console.error);
+                    }
+                }
             });
 
             // This is fired when child process is writing to the STDOUT.
@@ -348,8 +373,14 @@ class TransactionManager {
         });
     }
 
-    #rollbackTransaction() {
+    async #persistTransaction() {
+        for (const transaction of this.#draftEmits)
+            await this.#hookAccount.submitTransactionBlob(transaction);
+        await this.#stateManager.persist();
+    }
 
+    #rollbackTransaction() {
+        this.#stateManager.rollback();
     }
 
     async #handleMessage(messageBuf) {
@@ -364,23 +395,74 @@ class TransactionManager {
                 console.log(content.toString());
                 break;
             case (MESSAGE_TYPES.EMIT):
-                // Decode the transaction data from the content buf.
-                const tx = this.#decodeTransaction(content);
-                console.log("Received emit transaction : ", tx);
+                try {
+                    const signedTx = await this.#decodeAndSignEmitTransaction(content);
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.from(signedTx.hash, 'hex')));
+                    this.#draftEmits.push(signedTx.tx_blob);
+                }
+                catch (e) {
+                    console.error(e);
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
                 break;
-            case (MESSAGE_TYPES.KEYLET):
-                // Decode keylet request info from the buf.
-                const request = this.#decodeKeyletRequest(content);
-                // Get trustlines from the hook account.
-                const lines = await this.#hookAccount.getTrustLines(request.currency, request.issuer);
-                // Encode the trustline info to a buf and send to child process.
-                this.#sendToProc(this.#encodeTrustLines(lines));
+            case (MESSAGE_TYPES.TRUSTLINE):
+                try {
+                    // Decode trustline request info from the buf.
+                    const trustlineInfo = this.#decodeTrustlineRequest(content);
+                    // Get trustlines from the hook account.
+                    let lines = await this.#hookAccount.xrplApi.getTrustlines(trustlineInfo.address, {
+                        limit: 399,
+                        peer: trustlineInfo.issuer
+                    });
+                    lines = lines.filter(l => l.currency === trustlineInfo.currency);
+                    // Encode the trustline info to a buf and send to child process.
+                    if (!lines || !lines.length)
+                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
+                    else
+                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeTrustLines(lines)));
+                }
+                catch (e) {
+                    console.error(e);
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
                 break;
-            case (MESSAGE_TYPES.STATEGET):
-                this.#stateManager.get("key");
+            case (MESSAGE_TYPES.STATE_GET):
+                try {
+                    // Decode state get request info from the buf.
+                    const stateGetInfo = this.#decodeStateGetRequest(content);
+                    const value = await this.#stateManager.get(stateGetInfo.key);
+                    this.#sendToProc(this.#encodeReturnCode(value, value));
+                }
+                catch (e) {
+                    console.error(e);
+                    let retCode = RETURN_CODES.INTERNAL_ERROR;
+                    if (e.code === STATE_ERROR_CODES.DOES_NOT_EXIST)
+                        retCode = RETURN_CODES.NOT_FOUND;
+                    else if (e.code === STATE_ERROR_CODES.KEY_TOO_SMALL)
+                        retCode = RETURN_CODES.UNDERFLOW;
+                    else if (e.code === STATE_ERROR_CODES.KEY_TOO_BIG)
+                        retCode = RETURN_CODES.OVERFLOW;
+
+                    this.#sendToProc(this.#encodeReturnCode(retCode));
+                }
                 break;
-            case (MESSAGE_TYPES.STATESET):
-                this.#stateManager.set("key", "value");
+            case (MESSAGE_TYPES.STATE_SET):
+                try {
+                    // Decode state set request info from the buf.
+                    const stateSetInfo = this.#decodeStateSetRequest(content);
+                    this.#stateManager.set(stateSetInfo.key, stateSetInfo.value);
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS));
+                }
+                catch (e) {
+                    console.error(e);
+                    let retCode = RETURN_CODES.INTERNAL_ERROR;
+                    if (e.code === STATE_ERROR_CODES.KEY_TOO_BIG || e.code === STATE_ERROR_CODES.VALUE_TOO_BIG)
+                        retCode = RETURN_CODES.OVERFLOW;
+                    else if (e.code === STATE_ERROR_CODES.KEY_TOO_SMALL)
+                        retCode = RETURN_CODES.UNDERFLOW;
+
+                    this.#sendToProc(this.#encodeReturnCode(retCode));
+                }
                 break;
             default:
                 break;
