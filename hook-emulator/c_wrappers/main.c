@@ -223,40 +223,33 @@ int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number)
 
 int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 {
-    const int32_t mantissa = get_mantissa(float1);
+    const uint64_t mantissa = get_mantissa(float1);
     const int32_t exponent = get_exponent(float1);
 
-    char mantissa_str[50];
-    sprintf(mantissa_str, "%lld\0", get_mantissa(float1));
-    const int mantissa_len = strlen(mantissa_str);
-
-    char float_str[100];
+    char float_str[200];
     if (mantissa == 0)
-        strcpy(float_str, "0\0");
+        sprintf(float_str, "%lld", mantissa);
     else
     {
-        int offset = 0;
-        if (is_negative(float1))
-            strcpy(&float_str[offset++], "-");
-
-        if (exponent == 0)
+        sprintf(float_str, is_negative(float1) ? "-%lld" : "%lld", mantissa);
+        if (exponent > 0)
         {
-            strncpy(&float_str[offset], mantissa_str, mantissa_len);
-            float_str[mantissa_len] = '\0';
+            const int len = strlen(float_str);
+            memset(&float_str[len], '0', exponent);
+            float_str[len + exponent] = '\0';
         }
-        else if (exponent > 0)
+        else if (exponent < 0)
         {
-            strncpy(&float_str[offset], mantissa_str, mantissa_len);
-            memset(&float_str[mantissa_len], '0', exponent);
-            float_str[mantissa_len + exponent] = '\0';
-        }
-        else
-        {
-            const int decimal_idx = offset + mantissa_len + exponent;
-            strncpy(&float_str[offset], mantissa_str, decimal_idx);
+            const int len = strlen(float_str);
+            const int decimal_idx = len + exponent;
+            char decimal_str[200];
+            // Take the decimal places to temp string.
+            strncpy(decimal_str, &float_str[decimal_idx], -exponent);
+            // Populate the . in float.
             strcpy(&float_str[decimal_idx], ".");
-            strncpy(&float_str[decimal_idx + 1], &mantissa_str[decimal_idx], -exponent);
-            char *p = &float_str[mantissa_len];
+            // Populate the decimal places.
+            strncpy(&float_str[decimal_idx + 1], decimal_str, -exponent);
+            char *p = &float_str[len];
             while (*p == '0')
                 p--;
             *(p + ((*p = '.') ? 0 : 1)) = '\0';
