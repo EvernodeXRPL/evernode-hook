@@ -17,7 +17,8 @@ const MESSAGE_TYPES = {
     EMIT: 1,
     TRUSTLINE: 2,
     STATE_GET: 3,
-    STATE_SET: 4
+    STATE_SET: 4,
+    ACCID: 5
 };
 
 const RETURN_CODES = {
@@ -95,7 +96,7 @@ class TransactionManager {
         // Amount buf -> if transaction is a xrp transaction <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
         if (isXrp) {
             txBuf.writeUInt8(1, offset++);
-            const amount = parseFloat(transaction.Amount)/1000000;
+            const amount = parseFloat(transaction.Amount) / 1000000;
             console.log(amount.toString());
             // Convert amount to xfl and populate.
             txBuf.writeBigInt64BE(XflHelpers.getXfl(amount.toString()), offset);
@@ -462,6 +463,14 @@ class TransactionManager {
                         retCode = RETURN_CODES.UNDERFLOW;
 
                     this.#sendToProc(this.#encodeReturnCode(retCode));
+                }
+                break;
+            case (MESSAGE_TYPES.ACCID):
+                try {
+                    const accountId = codec.decodeAccountID(content.toString());
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, accountId));
+                } catch (error) {
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }
                 break;
             default:

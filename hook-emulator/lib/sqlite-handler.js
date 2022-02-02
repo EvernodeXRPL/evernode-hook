@@ -84,7 +84,7 @@ class SqliteDatabase {
                 }
 
                 rows.push(row);
-            }, function (err, count) {
+            }, function (err) {
                 if (err) {
                     reject(err);
                     return;
@@ -134,7 +134,7 @@ class SqliteDatabase {
         let values = [];
         let filterStr = '1 AND '
         if (filter) {
-            columnNames = Object.keys(filter);
+            const columnNames = Object.keys(filter);
             for (const columnName of columnNames) {
                 filterStr += `${columnName} = ? AND `;
                 values.push(filter[columnName] ? filter[columnName] : 'NULL');

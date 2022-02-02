@@ -1,6 +1,6 @@
 .PHONY: all build
 
-all: build em
+all: build upload
 
 build:
 	mkdir -p build

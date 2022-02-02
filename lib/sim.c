@@ -2,6 +2,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#define EMIT_DETAILS_LEN 105
+#define TRANSACTION_HASH_LEN 32
+#define STATE_KEY_LEN 32
+#define MAX_STATE_VAL_LEN 128
+#define MAX_READ_LEN 1024
+#define TRUSTLINE_LEN 16
 
 #define MANTISSA_OVERSIZED -26
 #define EXPONENT_OVERSIZED -28
@@ -12,8 +21,55 @@ static int64_t const maxMantissa = 9999999999999999ull;
 static int32_t const minExponent = -96;
 static int32_t const maxExponent = 80;
 
+// Globals.
 struct Transaction *txn;
 uint8_t hook_accid[ACCOUNT_LEN];
+int64_t slots_arr[255];
+uint8_t sl_count = 0;
+
+struct etxn_info etxn_inf = {0, 0};
+
+// Local function definitions.
+uint64_t get_mantissa(int64_t float1);
+int32_t get_exponent(int64_t float1);
+int is_negative(int64_t float1);
+int write_stdout(const uint8_t *write_buf, const int write_len);
+
+/**
+ * Read data from STDIN to the buffer.
+ * @param read_buf Buffer to be read.
+ * @param read_len Length of the buffer.
+ * @return -1 if error, otherwise read length.
+*/
+int read_stdin(uint8_t *read_buf, const int read_len)
+{
+    // Read the response from STDIN.
+    return read(STDIN_FILENO, read_buf, read_len);
+}
+
+/**
+ * Write given buffer to the STDOUT.
+ * Adds the data length as a prefix according to the message protocol.
+ * @param write_buf Buffer to be sent.
+ * @param write_len Length of the buffer.
+ * @return -1 if error, otherwise write length.
+*/
+int write_stdout(const uint8_t *write_buf, const int write_len)
+{
+    const int outlen = 4 + write_len;
+    char out[outlen];
+
+    // Populate the data length as prefix.
+    out[0] = write_len >> 24;
+    out[1] = write_len >> 16;
+    out[2] = write_len >> 8;
+    out[3] = write_len;
+
+    // Populate the data.
+    memcpy(&out[4], write_buf, write_len);
+
+    return (write(STDOUT_FILENO, out, outlen) == -1 || fflush(stdout) == -1) ? -1 : write_len;
+}
 
 int32_t _g(uint32_t id, uint32_t maxiter)
 {
@@ -22,7 +78,7 @@ int32_t _g(uint32_t id, uint32_t maxiter)
 
 int64_t accept(uint32_t read_ptr, uint32_t read_len, int64_t error_code)
 {
-    printf("accept code: %d\n", error_code);
+    trace(SBUF("Accept: "), read_ptr, read_len, 0);
     exit(0);
     return 0;
 }
@@ -38,16 +94,24 @@ int64_t etxn_details(uint32_t write_ptr, uint32_t write_len)
 }
 int64_t etxn_reserve(uint32_t count)
 {
-    return 0;
+    // Acording to the xrpl hook specs,
+    // The hook already called this function earlier, return ALREADY_SET.
+    if (etxn_inf.etxn_reserved > 1)
+        return ALREADY_SET;
+
+    etxn_inf.etxn_reserved = 1;
+    etxn_inf.etxn_reserves += count;
+
+    return etxn_inf.etxn_reserves;
 }
 
 int64_t float_compare(int64_t float1, int64_t float2, uint32_t mode)
 {
     uint64_t mantissa_1 = get_mantissa(float1);
-    int64_t exponent_1 = get_exponent(float1);
+    int32_t exponent_1 = get_exponent(float1);
 
     uint64_t mantissa_2 = get_mantissa(float2);
-    int64_t exponent_2 = get_exponent(float2);
+    int32_t exponent_2 = get_exponent(float2);
 
     if (exponent_1 > exponent_2)
     {
@@ -146,18 +210,23 @@ int64_t float_compare(int64_t float1, int64_t float2, uint32_t mode)
 
 int64_t float_divide(int64_t float1, int64_t float2)
 {
-    uint64_t mentissa_1 = get_mantissa(float1);
-    uint64_t mentissa_2 = get_mantissa(float2);
+    const uint64_t mantissa_1 = get_mantissa(float1);
+    const uint64_t mantissa_2 = get_mantissa(float2);
 
-    int64_t exponent_1 = get_exponent(float1);
-    int64_t exponent_2 = get_exponent(float2);
+    const int32_t exponent_1 = get_exponent(float1);
+    const int32_t exponent_2 = get_exponent(float2);
 
-    if (mentissa_1 == 0 || mentissa_2 == 0)
-    {
-        return 0;
-    }
+    if (mantissa_2 == 0)
+        return DIVISION_BY_ZERO;
 
-    return 0;
+    const uint64_t ans_mantissa = mantissa_1 / mantissa_2;
+    const int64_t ans_exponent = exponent_1 - exponent_2;
+    int64_t ans = float_set(ans_exponent, ans_mantissa);
+
+    if (is_negative(float1) ^ is_negative(float2))
+        ans = float_negate(ans);
+
+    return ans;
 }
 int64_t float_int(int64_t float1, uint32_t decimal_places, uint32_t abs)
 {
@@ -166,16 +235,10 @@ int64_t float_int(int64_t float1, uint32_t decimal_places, uint32_t abs)
     else if (decimal_places == 0)
         return 0;
 
-    int64_t ret = 0;
+    const uint64_t mantissa = get_mantissa(float1);
+    const int32_t exponent = get_exponent(float1) + decimal_places;
 
-    uint64_t mantissa = get_mantissa(float1);
-    printf("mantissa: %lld\n", mantissa);
-    int64_t exponent = get_exponent(float1);
-    printf("exponent: %lld\n", exponent);
-
-    exponent = exponent + decimal_places;
-
-    ret = mantissa;
+    int64_t ret = mantissa;
     if (exponent < 0)
     {
         for (size_t i = 0; i < (exponent * -1); i++)
@@ -187,13 +250,12 @@ int64_t float_int(int64_t float1, uint32_t decimal_places, uint32_t abs)
             ret = ret * 10;
     }
 
-    int neg = is_negative(float1);
-    printf("neg: %d\n", neg);
-    printf("abs: %d\n", abs);
-    if (neg && !abs)
+    if (is_negative(float1) && !abs)
         return CANT_RETURN_NEGATIVE;
+
     return ret;
 }
+
 int32_t get_exponent(int64_t float1)
 {
     if (float1 < 0)
@@ -202,11 +264,13 @@ int32_t get_exponent(int64_t float1)
         return 0;
     if (float1 < 0)
         return INVALID_FLOAT;
+
     uint64_t float_in = (uint64_t)float1;
     float_in >>= 54U;
     float_in &= 0xFFU;
     return ((int32_t)float_in) - 97;
 }
+
 uint64_t get_mantissa(int64_t float1)
 {
     if (float1 < 0)
@@ -276,6 +340,7 @@ int64_t make_float(int64_t mantissa, int32_t exponent)
     out = set_sign(out, neg);
     return out;
 }
+
 int64_t float_set(int32_t exponent, int64_t mantissa)
 {
     if (mantissa == 0)
@@ -303,13 +368,14 @@ int64_t float_set(int32_t exponent, int64_t mantissa)
 
     return make_float((neg ? -1LL : 1LL) * mantissa, exponent);
 }
+
 int64_t float_sum(int64_t float1, int64_t float2)
 {
     uint64_t mantissa_1 = get_mantissa(float1);
-    int64_t exponent_1 = get_exponent(float1);
+    int32_t exponent_1 = get_exponent(float1);
 
     uint64_t mantissa_2 = get_mantissa(float2);
-    int64_t exponent_2 = get_exponent(float2);
+    int32_t exponent_2 = get_exponent(float2);
 
     if (exponent_1 > exponent_2)
     {
@@ -365,14 +431,36 @@ int64_t float_sum(int64_t float1, int64_t float2)
 
     return answer;
 }
+
 int64_t float_sto(uint32_t write_ptr, uint32_t write_len, uint32_t cread_ptr, uint32_t cread_len, uint32_t iread_ptr, uint32_t iread_len, int64_t float1, uint32_t field_code)
 {
+    if (field_code != -1)
+    {
+        trace(SBUF("Error: Only field code == -1 case is implemented."), 0, 0, 0);
+        return -1;
+    }
+    uint8_t amount_buf[8];
+    uint64_t one = 1;
+    int64_t to_write = (float1 | (one << 63));
+    INT64_TO_BUF(amount_buf, to_write);
+    memcpy(write_ptr, amount_buf, sizeof(amount_buf));
+
+    if (field_code > 0)
+    {
+        if (cread_len == 20)
+            memcpy(write_ptr + 8, cread_ptr, cread_len);
+
+        if (iread_len == 20)
+            memcpy(write_ptr + 28, iread_ptr, iread_len);
+    }
     return 0;
 }
+
 int64_t float_multiply(int64_t float1, int64_t float2)
 {
     uint64_t mantissa_1 = get_mantissa(float1);
-    int64_t exponent_1 = get_exponent(float1);
+    int32_t exponent_1 = get_exponent(float1);
+    // Reduce trailing zeros to prevent overflow when multiplying.
     while (mantissa_1 % 10 == 0)
     {
         mantissa_1 /= 10;
@@ -380,7 +468,8 @@ int64_t float_multiply(int64_t float1, int64_t float2)
     }
 
     uint64_t mantissa_2 = get_mantissa(float2);
-    int64_t exponent_2 = get_exponent(float2);
+    int32_t exponent_2 = get_exponent(float2);
+    // Reduce trailing zeros to prevent overflow when multiplying.
     while (mantissa_2 % 10 == 0)
     {
         mantissa_2 /= 10;
@@ -395,20 +484,10 @@ int64_t float_multiply(int64_t float1, int64_t float2)
         answer_float = invert_sign(answer_float);
     return answer_float;
 }
+
 int64_t float_negate(int64_t float1)
 {
     return invert_sign(float1);
-}
-
-void print_bytes(char *heading, uint8_t *write_ptr, uint32_t write_len)
-{
-    // uint32_t * ptr = &write_ptr;
-    printf("%s: ", heading);
-    for (int i = 0; i < write_len; i++)
-    {
-        printf("%02hhX", write_ptr[i]);
-    }
-    printf("\n");
 }
 
 int64_t hook_account(uint32_t write_ptr, uint32_t write_len)
@@ -416,17 +495,16 @@ int64_t hook_account(uint32_t write_ptr, uint32_t write_len)
     memcpy(write_ptr, hook_accid, sizeof(hook_accid));
     return sizeof(hook_accid);
 }
-// May be will need to hardcode the address. Since this is used to detect incomming or outgoing transactions.
 
-// Not sure.
 int64_t ledger_seq(void)
 {
     return txn->ledger_index;
 }
+
 int64_t ledger_last_hash(uint32_t write_ptr, uint32_t write_len)
 {
-    memcpy(write_ptr, txn->ledger_hash, write_len);
-    return 0;
+    memcpy(write_ptr, txn->ledger_hash, HASH_SIZE_1);
+    return HASH_SIZE_1;
 }
 
 int64_t otxn_field(uint32_t write_ptr, uint32_t write_len, uint32_t field_id)
@@ -449,38 +527,61 @@ int64_t otxn_field(uint32_t write_ptr, uint32_t write_len, uint32_t field_id)
     }
 
     default:
+        trace(SBUF("Error: Only supports sfAccount and sfMemos as field_id"), 0, 0, 0);
         break;
     }
     return ret;
 }
+
 int64_t otxn_id(uint32_t write_ptr, uint32_t write_len, uint32_t flags)
 {
     memcpy((uint32_t *)write_ptr, txn->ledger_hash, HASH_SIZE_1);
     return HASH_SIZE_1;
 }
+
 int64_t otxn_slot(uint32_t slot)
 {
-    if (slot == 0)
-    {
-        return txn;
-    }
-    return 0;
+    // Memory address of txn object is used as the slot number.
+    return txn;
 }
+
 int64_t otxn_type(void)
 {
+    // Only the payment transactions are handled in our scenario.
     return ttPAYMENT;
 }
-// 1. Receive transaction as a string format and load it to a struct.
 
 int64_t util_accid(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len)
 {
-    return 0;
+    if (write_len < 20)
+        return TOO_SMALL;
+
+    if (read_len > 35)
+        return TOO_BIG;
+
+    const int len = 1 + strlen(read_ptr);
+    char buf[len];
+
+    // Populate the type header.
+    buf[0] = ACCID;
+
+    sprintf(&buf[1], "%s", read_ptr);
+    const int write_res = write_stdout(buf, len);
+    if (write_res < 0)
+        return -1;
+
+    // Read return code of the response.
+    int8_t ret;
+    if (read_stdin(&ret, 1) < 0 || ret < 0)
+        return -1;
+
+    return read_stdin(write_ptr, write_len);
 }
 
 int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
 {
+    // Assuming the slot contains an amount struct object.
     struct Amount *amt = (struct Amount *)slot;
-    // <val><currency><issuer>
     if (amt->is_xrp)
     {
         if (write_len < 8)
@@ -499,11 +600,12 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
         uint8_t amount_buf[8];
         INT64_TO_BUF(amount_buf, amt->iou.amount);
         memcpy(write_ptr, amount_buf, 8);
-        memcpy(write_ptr + 8, amt->iou.currency, 3);
+        memcpy(write_ptr + 8, amt->iou.currency, 20);
         memcpy(write_ptr + 28, amt->iou.issuer, 20);
         return 48;
     }
 }
+
 int64_t slot_float(uint32_t slot)
 {
     struct Amount *amt = (struct Amount *)slot;
@@ -512,16 +614,24 @@ int64_t slot_float(uint32_t slot)
     else
         return amt->iou.amount;
 }
+
 int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot)
 {
+    // Only the required field_ids are handled.
     if (field_id == sfAmount)
     {
         struct Transaction *tx = (struct Transaction *)parent_slot;
         return &tx->amount;
     }
+    else if (field_id == sfBalance)
+    {
+        struct Trustline *tl = (struct Trustline *)parent_slot;
+        return &tl->amount;
+    }
 
     return -1;
 }
+
 int64_t slot_type(uint32_t slot, uint32_t flags)
 {
     if (flags == 1) // We only intrested in detecting whether amount is xrp or not.
@@ -529,39 +639,117 @@ int64_t slot_type(uint32_t slot, uint32_t flags)
         struct Amount *amt = (struct Amount *)slot;
         return amt->is_xrp;
     }
-    return 0;
+    return -1;
 }
 int64_t slot_set(uint32_t read_ptr, uint32_t read_len, int32_t slot)
 {
-    return 0;
+    // Retrieve the memory address of the struct from keylet buffer given.
+    int64_t ptr = INT64_FROM_BUF((uint8_t *)read_ptr);
+    // Keep track of slots so we can cleanup before the program exits.
+    slots_arr[sl_count++] = ptr;
+    return ptr;
 }
+
 int64_t sto_subarray(uint32_t read_ptr, uint32_t read_len, uint32_t array_id)
 {
-    return 0;
+    printf("Currently support only memos...\n");
+    struct Memo *list = (struct Memo *)read_ptr;
+    int64_t offset = sizeof(struct Memo) * array_id;
+    int64_t len = sizeof(struct Memo);
+    int64_t ans = offset << 32;
+    ans = ans | len;
+    return ans;
 }
+
 int64_t sto_subfield(uint32_t read_ptr, uint32_t read_len, uint32_t field_id)
 {
-    return 0;
+    if (field_id == sfMemo)
+    {
+        int64_t ans = read_ptr << 32;
+        ans = ans | read_len;
+        return ans;
+    }
+    else if (field_id == sfMemoType)
+    {
+        struct Memo *memo = (struct Memo *)read_ptr;
+        int64_t ans = ((int64_t)memo->type - read_ptr) << 32;
+        ans = ans | (int64_t)memo->type_len;
+        return ans;
+    }
+    else if (field_id == sfMemoData)
+    {
+        struct Memo *memo = (struct Memo *)read_ptr;
+        int64_t ans = ((int64_t)memo->data - read_ptr) << 32;
+        ans = ans | (int64_t)memo->data_len;
+        return ans;
+    }
+    else if (field_id == sfMemoFormat)
+    {
+        struct Memo *memo = (struct Memo *)read_ptr;
+        int64_t ans = ((int64_t)memo->format - read_ptr) << 32;
+        ans = ans | (int64_t)memo->format_len;
+        return ans;
+    }
+    else
+    {
+        trace(SBUF("Error: Currently support only memo related fields..."), 0, 0, 0);
+        return -1;
+    }
+}
+
+/**
+ * Send the trace request.
+ * Appdends the trace type header.
+ * @param trace Data buffer to be traced.
+ * @return -1 if error, otherwise write length.
+*/
+int trace_out(const uint8_t *trace)
+{
+    const int len = 1 + strlen(trace);
+    char buf[len];
+
+    // Populate the type header.
+    buf[0] = TRACE;
+
+    sprintf(&buf[1], "%s", trace);
+    return write_stdout(buf, len);
 }
 
 int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32_t dread_len, uint32_t as_hex)
 {
     if (as_hex == 1)
-        printf("%*.*s %*.*X\n", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+    {
+        // If hex (byte => 2 ascci characters) allocate a buffer and populate the hex characters in the loop.
+        char out[mread_len + (dread_len * 2) + 1];
+        sprintf(out, "%*.*s ", 0, mread_len, mread_ptr);
+        for (int i = 0; i < dread_len; i++)
+            sprintf(&out[mread_len + (i * 2)], "%02X", *(uint8_t *)(dread_ptr + i));
+        trace_out(out);
+    }
     else
-        printf("%*.*s %*.*s\n", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+    {
+        char out[mread_len + dread_len + 1];
+        sprintf(out, "%*.*s %*.*s", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+        trace_out(out);
+    }
     return 0;
 }
 
 int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number)
 {
-    printf("%*.*s %lld\n", 0, read_len, read_ptr, number);
+    char out[500];
+    sprintf(out, "%*.*s %lld", 0, read_len, read_ptr, number);
+    trace_out(out);
     return 0;
 }
 
 int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 {
-    printf("%*.*s %lld\n", 0, mread_len, mread_ptr, float1);
+    const uint64_t mantissa = get_mantissa(float1);
+    char out[500];
+    sprintf(out, (mantissa != 0 && is_negative(float1)) ? "%*.*s Float -%lld*10^(%ld)" : "%*.*s Float %lld*10^(%ld)",
+            0, mread_len, mread_ptr, mantissa, get_exponent(float1));
+    trace_out(out);
     return 0;
 }
 
@@ -569,37 +757,213 @@ int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 
 int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len)
 {
+    // Acording to the xrpl hook specs,
+    // If the hook didn't call etxn_reserve, return PREREQUISITE_NOT_MET.
+    // If the number of promised transactions are not enough, return TOO_MANY_EMITTED_TXN.
+    if (etxn_inf.etxn_reserved == 0)
+        return PREREQUISITE_NOT_MET;
+    else if (etxn_inf.etxn_reserves == 0)
+        return TOO_MANY_EMITTED_TXN;
+
+    etxn_inf.etxn_reserves--;
+
+    // Send the emit request.
+    // Note: when transaction is prepared in hook logic, it populats additional emit details at the end.
+    // Skip the emit deatils since those aren't recognized in the xrpl lib.
+    const int buflen = 1 + read_len - EMIT_DETAILS_LEN;
+    uint8_t buf[buflen];
+    // Populate the type header.
+    buf[0] = EMIT;
+    memcpy(&buf[1], read_ptr, buflen - 1);
+    write_stdout(buf, buflen);
+
+    // Read the response from STDIN.
+    uint8_t data_buf[TRANSACTION_HASH_LEN + 1];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
+
+    // If result code is 0 return EMISSION_FAILURE.
+    if (ret < 0 || (data_len - 1) != TRANSACTION_HASH_LEN)
+    {
+        write_ptr = 0;
+        return EMISSION_FAILURE;
+    }
+
+    // Populate the received transaction hash to the write pointer.
+    memcpy(write_ptr, res, TRANSACTION_HASH_LEN);
     return 0;
 }
 
-// Reading trustline data.
-int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f)
+/**
+ * Get trustlines of the running account.
+ * @param address Source address of the trustlines.
+ * @param issuer Issuer of the trustline currency.
+ * @param currency Issued currency.
+ * @param balance_float Float balance to be populated.
+ * @param limit_float Limit float to be populated.
+*/
+int get_trustlines(const uint8_t *address, const uint8_t *issuer, const uint8_t *currency, int64_t *balance_float, int64_t *limit_float)
 {
+    // Send the emit request.
+    const int len = 44;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = KEYLET;
+    // Populate the address, issuer and currency.
+    memcpy(&buf[1], address, 20);
+    memcpy(&buf[21], issuer, 20);
+    memcpy(&buf[41], currency + 12, 3);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t data_buf[TRUSTLINE_LEN + 1];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
+
+    if (ret < 0 || ((data_len - 1) != TRUSTLINE_LEN))
+    {
+        *balance_float = 0;
+        *limit_float = 0;
+        // Return the error code according to the return code.
+        if (ret == RES_NOT_FOUND)
+            return DOESNT_EXIST;
+
+        return -1;
+    }
+
+    *balance_float = INT64_FROM_BUF(res);
+    *limit_float = INT64_FROM_BUF((res + 8));
     return 0;
 }
-// 1. send the request to console.
-// 2. listen to stdin for response.
+
+int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f)
+{
+    if (keylet_type != KEYLET_LINE)
+    {
+        trace(SBUF("Error: Only KEYLET_LINE is supported."), 0, 0, 0);
+        return -1;
+    }
+    if (b != 20 | d != 20 | f != 20)
+    {
+        trace(SBUF("Error: High account, low account and currency length should be 20."), 0, 0, 0);
+        return -1;
+    }
+    int64_t balance, limit;
+    int trustline_res = get_trustlines(a, c, e, &balance, &limit);
+    if (trustline_res < 0)
+        return trustline_res;
+
+    struct Trustline *tl = (struct Trustline *)malloc(sizeof(struct Trustline));
+    memcpy(tl->high_account, a, b);
+    memcpy(tl->low_account, c, d);
+    memcpy(tl->amount.iou.issuer, c, d);
+    tl->amount.is_xrp = 0;
+    memcpy(tl->amount.iou.currency, e, f);
+    tl->amount.iou.amount = balance;
+    tl->limit = limit;
+
+    const int64_t addr = (int64_t)tl;
+    // Write trustline struct address to the write_ptr so it can be retrieved in the slot_set for future use.
+    // Memory locations will be cleaned in the FREE_TRANSACTION_OBJ macro.
+    INT64_TO_BUF(write_ptr, addr);
+    memset(write_ptr + 8, 0, write_len - 8);
+
+    return write_len;
+}
 
 int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint32_t kread_len)
 {
+    // Acording to the xrpl hook specs,
+    // If kread_len is greater than max key len or read len is greater than max data len, return TOO_BIG.
+    // If kread_len is 0, return TOO_SMALL.
+    if (kread_len > STATE_KEY_LEN || read_len > MAX_STATE_VAL_LEN)
+        return TOO_BIG;
+    else if (kread_len == 0)
+        return TOO_SMALL;
+
+    // Send the state set request.
+    const int len = 1 + STATE_KEY_LEN + read_len;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = STATE_SET;
+    // Populate the state data.
+    memcpy(&buf[1], kread_ptr, kread_len);
+    // If kread_len is less than STATE_KEY_LEN, populate o's to the rest.
+    if (kread_len < STATE_KEY_LEN)
+        memset(&buf[1 + kread_len], 0, STATE_KEY_LEN - kread_len);
+    // Populate the data to rest.
+    memcpy(&buf[1 + STATE_KEY_LEN], read_ptr, read_len);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    int8_t ret;
+    const int data_len = read_stdin(&ret, 1);
+
+    // Return the error code according to the return code.
+    if (ret == RET_OVERFLOW)
+        return TOO_BIG;
+    else if (ret == RET_UNDERFLOW)
+        return TOO_SMALL;
+    else if (ret < -1)
+        return -1;
+
     return 0;
 }
-// 1. Send the request to JS.
-// 2. Keep data in memory until the C program finishes.
-// 3. Commit to sqlite based on the return code of C program.
 
 int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len)
 {
+    // Acording to the xrpl hook specs,
+    // If kread_len is greater than max key len, return TOO_BIG.
+    if (kread_len > STATE_KEY_LEN)
+        return TOO_BIG;
+
+    // Send the state set request.
+    const int len = 1 + kread_len;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = STATE_GET;
+    // Populate the state key.
+    memcpy(&buf[1], kread_ptr, kread_len);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t data_buf[MAX_STATE_VAL_LEN];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
+
+    if (ret < 0)
+    {
+        write_ptr = 0;
+        // Return the error code according to the return code.
+        if (ret == RES_NOT_FOUND)
+            return DOESNT_EXIST;
+        else if (ret == RET_OVERFLOW)
+            return TOO_BIG;
+        else if (ret == RET_UNDERFLOW)
+            return TOO_SMALL;
+
+        return -1;
+    }
+    else if ((data_len - 1) > write_len)
+    {
+        // If the output buffer was too small to store the Hook State data return TOO_SMALL.
+        write_ptr = 0;
+        return TOO_SMALL;
+    }
+    else if ((data_len - 1) > 0)
+        memcpy(write_ptr, res, (data_len - 1)); // Populate only if res_len > 0;
+    else
+        write_ptr = 0;
+
     return 0;
 }
-// 1. Send the request to JS.
-// 2. First look in in memory location.
-// 3. If not found, look in sqlite.
-// 4. If not found, send NOT_FOUND.
 
 int64_t rollback(uint32_t read_ptr, uint32_t read_len, int64_t error_code)
 {
-    trace(SBUF("rollback: "), read_ptr, read_len, 0);
+    trace(SBUF("Rollback: "), read_ptr, read_len, 0);
     exit(-1);
     return 0;
 }

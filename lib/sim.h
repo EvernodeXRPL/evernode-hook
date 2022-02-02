@@ -7,6 +7,7 @@
 #define HASH_SIZE_1 32
 
 #define FREE_TRANSACTION_OBJ                               \
+    if (txn)                                               \
     {                                                      \
         for (size_t i = 0; i < txn->memos.memo_count; i++) \
         {                                                  \
@@ -30,10 +31,21 @@
         free(txn);                                         \
     }
 
+#define FREE_SLOTS                              \
+    if (sl_count > 0)                         \
+    {                                           \
+        for (size_t i = 0; i < sl_count; i++) \
+            free(slots_arr[i]);                 \
+    }
+
+#define CLEAN_EMULATOR   \
+    FREE_TRANSACTION_OBJ \
+    FREE_SLOTS
+
 struct IOU
 {
     uint8_t issuer[ACCOUNT_LEN];
-    uint8_t currency[3];
+    uint8_t currency[20];
     int64_t amount;
 };
 
@@ -55,8 +67,11 @@ struct Amount
 struct Memo
 {
     uint8_t *type;
+    uint8_t type_len;
     uint8_t *format;
+    uint8_t format_len;
     uint8_t *data;
+    uint8_t data_len;
 };
 struct Memos
 {
@@ -67,31 +82,97 @@ struct Transaction
 {
     uint8_t account[ACCOUNT_LEN];
     struct Amount amount;
-    // int is_xrp;
-    // int64_t xrp_amount;
-    // struct IOU iou_amount;
     uint8_t destination[ACCOUNT_LEN];
     struct Memos memos;
     uint8_t ledger_hash[HASH_SIZE_1];
     uint64_t ledger_index;
 };
 
+struct Trustline
+{
+    uint8_t high_account[ACCOUNT_LEN];
+    uint8_t low_account[ACCOUNT_LEN];
+    int64_t limit;
+    struct Amount amount;
+};
+
+enum MESSAGE_TYPES
+{
+    TRACE,
+    EMIT,
+    KEYLET,
+    STATE_GET,
+    STATE_SET,
+    ACCID
+};
+
+enum RETURN_CODES
+{
+    RES_SUCCESS = 0,
+    RES_INTERNAL_ERROR = -1,
+    RES_NOT_FOUND = -2,
+    RET_OVERFLOW = -3,
+    RET_UNDERFLOW = -4
+};
+
+struct etxn_info
+{
+    uint32_t etxn_reserves;
+    int etxn_reserved;
+};
+
 extern struct Transaction *txn;
 extern uint8_t hook_accid[ACCOUNT_LEN];
-int64_t hook(int64_t reserved);
-void print_bytes(char *heading, uint8_t *write_ptr, uint32_t write_len);
-uint64_t get_mantissa(int64_t float1);
-int32_t get_exponent(int64_t float1);
-int is_negative(int64_t float1);
-// C
-// These C functions will read the transaction sent from the JS side which was saved in memory by the caller function.
+extern int64_t slots_arr[255];
+extern uint8_t sl_count;
 
+int64_t hook(int64_t reserved);
+
+/**
+ * Guard function. Each time a loop appears in your code a call to this must be the first branch instruction after the
+ * beginning of the loop.
+ * @param id The identifier of the guard (typically the line number).
+ * @param maxiter The maximum number of times this loop will iterate across the life of the hook.
+ * @return Can be ignored. If the guard is violated the hook will terminate.
+ */
 int32_t _g(uint32_t id, uint32_t maxiter);
 
+/**
+ * Accept the originating transaction and commit all hook state changes and submit all emitted transactions.
+ * @param read_ptr An optional string to use as a return comment. May be 0.
+ * @param read_len The length of the string. May be 0.
+ * @return Will never return, terminates the hook.
+ */
 int64_t accept(uint32_t read_ptr, uint32_t read_len, int64_t error_code);
 
+/**
+ * Rollback the originating transaction, discard all hook state changes and emitted transactions.
+ * @param read_ptr An optional string to use as a return comment. May be 0.
+ * @param read_len The length of the string. May be 0.
+ * @return Will never return, terminates the hook.
+ */
+int64_t rollback(uint32_t read_ptr, uint32_t read_len, int64_t error_code);
+
+/**
+ * Compute the minimum fee required to be paid by a hypothetically emitted transaction based on its size in bytes.
+ * @param The size of the emitted transaction in bytes
+ * @return The minimum fee in drops this transaction should pay to succeed
+ */
 int64_t etxn_fee_base(uint32_t tx_byte_count);
+
+/**
+ * Write a full emit_details stobject into the buffer specified.
+ * @param write_ptr A sufficiently large buffer to write into.
+ * @param write_len The length of that buffer.
+ * @return The number of bytes written or a negative integer indicating an error.
+ */
 int64_t etxn_details(uint32_t write_ptr, uint32_t write_len);
+
+/**
+ * Inform xrpld that you will be emitting at most @count@ transactions during the course of this hook execution.
+ * @param count The number of transactions you intend to emit from this  hook.
+ * @return If a negaitve integer an error has occured
+ */
 int64_t etxn_reserve(uint32_t count);
 
 int64_t float_compare(int64_t float1, int64_t float2, uint32_t mode);
@@ -103,20 +184,55 @@ int64_t float_sto(uint32_t write_ptr, uint32_t write_len, uint32_t cread_ptr, ui
 int64_t float_multiply(int64_t float1, int64_t float2);
 int64_t float_negate(int64_t float1);
 
+/**
+ * Retrieve the account the hook is running on.
+ * @param write_ptr A buffer of at least 20 bytes to write into.
+ * @param write_len The length of that buffer
+ * @return The number of bytes written into the buffer of a negative integer if an error occured.
+ */
 int64_t hook_account(uint32_t write_ptr, uint32_t write_len);
-// May be will need to hardcode the address. Since this is used to detect incomming or outgoing transactions.
 
-// Not sure.
+/**
+ * Retrieve the current ledger sequence number
+ */
 int64_t ledger_seq(void);
 int64_t ledger_last_hash(uint32_t write_ptr, uint32_t write_len);
 
+/**
+ * Retrieve a field from the originating transaction in its raw serialized form.
+ * @param write_ptr A buffer to output the field into
+ * @param write_len The length of the buffer.
+ * @param field_if The field code of the field being requested
+ * @return The number of bytes written to write_ptr or a negative integer if an error occured.
+ */
 int64_t otxn_field(uint32_t write_ptr, uint32_t write_len, uint32_t field_id);
 
+/**
+ * Retrieve the TXNID of the originating transaction.
+ * @param write_ptr A buffer at least 32 bytes long
+ * @param write_len The length of the buffer.
+ * @return The number of bytes written into the buffer or a negative integer on failure.
+ */
 int64_t otxn_id(uint32_t write_ptr, uint32_t write_len, uint32_t flags);
-int64_t otxn_slot(uint32_t slot);
-int64_t otxn_type(void);
-// 1. Receive transaction as a string format and load it to a struct.
 
+int64_t otxn_slot(uint32_t slot);
+
+/**
+ * Retrieve the Transaction Type (e.g. ttPayment = 0) of the originating transaction.
+ * @return The Transaction Type (tt-code)
+ */
+int64_t otxn_type(void);
+
+/**
+ * Read an r-address from the memory pointed to by read_ptr of length read_len and decode it to a 20 byte account id
+ * and write to write_ptr
+ * @param read_ptr The memory address of the r-address
+ * @param read_len The byte length of the r-address
+ * @param write_ptr The memory address of a suitable buffer to write the decoded account id into.
+ * @param write_len The size of the write buffer.
+ * @return On success 20 will be returned indicating the bytes written. On failure a negative integer is returned
+ *         indicating what went wrong.
+ */
 int64_t util_accid(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len);
 
 int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot);
@@ -124,34 +240,92 @@ int64_t slot_float(uint32_t slot);
 int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot);
 int64_t slot_type(uint32_t slot, uint32_t flags);
 int64_t slot_set(uint32_t read_ptr, uint32_t read_len, int32_t slot);
+
+/**
+ * Index into a xrpld serialized array and return the location and length of an index. Unlike sto_subfield this api
+ * always returns the offset and length of the whole object at that index (not its payload.) Use SUB_OFFSET and
+ * SUB_LENGTH macros to extract return value.
+ * @param read_ptr The memory location of the stobject
+ * @param read_len The length of the stobject
+ * @param array_id The index requested
+ * @return high-word (most significant 4 bytes excluding the most significant bit (MSB)) is the field offset relative
+ *         to read_ptr and the low-word (least significant 4 bytes) is its length. MSB is sign bit, if set (negative)
+ *         return value indicates error (typically error means could not find.)
+ */
 int64_t sto_subarray(uint32_t read_ptr, uint32_t read_len, uint32_t array_id);
+
+/**
+ * Index into a xrpld serialized object and return the location and length of a subfield. Except for Array subtypes
+ * the offset and length refer to the **payload** of the subfield not the entire subfield. Use SUB_OFFSET and
+ * SUB_LENGTH macros to extract return value.
+ * @param read_ptr The memory location of the stobject
+ * @param read_len The length of the stobject
+ * @param field_id The Field Code of the subfield
+ * @return high-word (most significant 4 bytes excluding the most significant bit (MSB)) is the field offset relative
+ *         to read_ptr and the low-word (least significant 4 bytes) is its length. MSB is sign bit, if set (negative)
+ *         return value indicates error (typically error means could not find.)
+ */
 int64_t sto_subfield(uint32_t read_ptr, uint32_t read_len, uint32_t field_id);
 
+/**
+ * Print some output to the trace log on xrpld. Any xrpld instance set to "trace" log level will see this.
+ * @param read_ptr A buffer containing either data or text (in either utf8, or utf16le)
+ * @param read_len The byte length of the data/text to send to the trace log
+ * @param as_hex If 0 treat the read_ptr as pointing at a string of text, otherwise treat it as data and print hex
+ * @return The number of bytes output or a negative integer if an error occured.
+ */
 int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32_t dread_len, uint32_t as_hex);
+
+/**
+ * Print some output to the trace log on xrpld along with a decimal number. Any xrpld instance set to "trace" log
+ * level will see this.
+ * @param read_ptr A pointer to the string to output
+ * @param read_len The length of the string to output
+ * @param number Any integer you wish to display after the text
+ * @return A negative value on error
+ */
 int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number);
+
+/**
+ * Print some output to the trace log on xrpld along with a float in scientfic notation. Any xrpld instance set to "trace" log
+ * level will see this.
+ * @param read_ptr A pointer to the string to output
+ * @param read_len The length of the string to output
+ * @param number Any float in xfl format you wish to display after the text
+ * @return A negative value on error
+ */
 int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1);
 
-// JS
-
+/**
+ * Emit a transaction from this hook.
+ * @param read_ptr Memory location of a buffer containing the fully formed binary transaction to emit.
+ * @param read_len The length of the transaction.
+ * @return A negative integer if the emission failed.
+ */
 int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len);
 
-// Reading trustline data.
 int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f);
-// 1. send the request to console.
-// 2. listen to stdin for response.
 
+/**
+ * In the hook's state key-value map, set the value for the key pointed at by kread_ptr.
+ * @param read_ptr A buffer containing the data to store
+ * @param read_len The length of the data
+ * @param kread_ptr A buffer containing the key
+ * @param kread_len The length of the key
+ * @return The number of bytes stored or a negative integer if an error occured
+ */
 int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint32_t kread_len);
-// 1. Send the request to JS.
-// 2. Keep data in memory until the C program finishes.
-// 3. Commit to sqlite based on the return code of C program.
 
+/**
+ * Retrieve a value from the hook's key-value map.
+ * @param write_ptr A buffer to write the state value into
+ * @param write_len The length of that buffer
+ * @param kread_ptr A buffer to read the state key from
+ * @param kread_len The length of that key
+ * @return The number of bytes written or a negative integer if an error occured.
+ */
 int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len);
-// 1. Send the request to JS.
-// 2. First look in in memory location.
-// 3. If not found, look in sqlite.
-// 4. If not found, send NOT_FOUND.
 
-int64_t rollback(uint32_t read_ptr, uint32_t read_len, int64_t error_code);
 
 #define SUCCESS 0                // return codes > 0 are reserved for hook apis to return "success"
 #define OUT_OF_BOUNDS -1         // could not read or write to a pointer to provided by hook
@@ -175,6 +349,7 @@ int64_t rollback(uint32_t read_ptr, uint32_t read_len, int64_t error_code);
 #define RC_ROLLBACK -19          // used internally by hook api to indicate a rollback
 #define RC_ACCEPT -20            // used internally by hook api to indicate an accept
 #define NO_SUCH_KEYLET -21       // the specified keylet or keylet type does not exist or could not be computed
+#define DIVISION_BY_ZERO -25     // API call would result in a division by zero, so API ended early.
 #define CANT_RETURN_NEGATIVE -33 // An API would have returned a negative integer except that negative integers are reserved for error codes (i.e. what you are reading.)
 
 #define INVALID_FLOAT -10024 // if the mantissa or exponent are outside normalized ranges
