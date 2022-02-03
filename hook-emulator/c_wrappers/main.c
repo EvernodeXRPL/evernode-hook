@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <fcntl.h>
 
-#include "../../lib/hookmacro.h"
+#include "../../lib/sim.h"
 
 #define MAX_READ_LEN 1024
 
