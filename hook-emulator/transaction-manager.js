@@ -97,7 +97,6 @@ class TransactionManager {
         if (isXrp) {
             txBuf.writeUInt8(1, offset++);
             const amount = parseFloat(transaction.Amount) / 1000000;
-            console.log(amount.toString());
             // Convert amount to xfl and populate.
             txBuf.writeBigInt64BE(XflHelpers.getXfl(amount.toString()), offset);
             offset += 8;
@@ -166,9 +165,6 @@ class TransactionManager {
 
         // Populate ledger index to the return buf (8-bytes).
         returnBuf.writeBigUInt64BE(BigInt(transaction.LedgerIndex), offset);
-
-
-        console.log(returnBuf.toString('hex'));
 
         return returnBuf;
     }
