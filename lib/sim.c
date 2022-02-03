@@ -34,6 +34,7 @@ uint64_t get_mantissa(int64_t float1);
 int32_t get_exponent(int64_t float1);
 int is_negative(int64_t float1);
 int write_stdout(const uint8_t *write_buf, const int write_len);
+int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t *balance_float, int64_t *limit_float);
 
 /**
  * Read data from STDIN to the buffer.
@@ -443,15 +444,15 @@ int64_t float_sto(uint32_t write_ptr, uint32_t write_len, uint32_t cread_ptr, ui
     uint64_t one = 1;
     int64_t to_write = (float1 | (one << 63));
     INT64_TO_BUF(amount_buf, to_write);
-    memcpy(write_ptr, amount_buf, sizeof(amount_buf));
+    memcpy((uint32_t *)write_ptr, amount_buf, sizeof(amount_buf));
 
     if (field_code > 0)
     {
         if (cread_len == 20)
-            memcpy(write_ptr + 8, cread_ptr, cread_len);
+            memcpy((uint32_t *)(write_ptr + 8), cread_ptr, cread_len);
 
         if (iread_len == 20)
-            memcpy(write_ptr + 28, iread_ptr, iread_len);
+            memcpy((uint32_t *)(write_ptr + 28), iread_ptr, iread_len);
     }
     return 0;
 }
@@ -492,7 +493,7 @@ int64_t float_negate(int64_t float1)
 
 int64_t hook_account(uint32_t write_ptr, uint32_t write_len)
 {
-    memcpy(write_ptr, hook_accid, sizeof(hook_accid));
+    memcpy((uint32_t *)write_ptr, hook_accid, sizeof(hook_accid));
     return sizeof(hook_accid);
 }
 
@@ -503,7 +504,7 @@ int64_t ledger_seq(void)
 
 int64_t ledger_last_hash(uint32_t write_ptr, uint32_t write_len)
 {
-    memcpy(write_ptr, txn->ledger_hash, HASH_SIZE_1);
+    memcpy((uint32_t *)write_ptr, txn->ledger_hash, HASH_SIZE_1);
     return HASH_SIZE_1;
 }
 
@@ -559,13 +560,13 @@ int64_t util_accid(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, ui
     if (read_len > 35)
         return TOO_BIG;
 
-    const int len = 1 + strlen(read_ptr);
+    const int len = 1 + strlen((char *)read_ptr);
     char buf[len];
 
     // Populate the type header.
     buf[0] = ACCID;
 
-    sprintf(&buf[1], "%s", read_ptr);
+    sprintf(&buf[1], "%s", (char *)read_ptr);
     const int write_res = write_stdout(buf, len);
     if (write_res < 0)
         return -1;
@@ -589,7 +590,7 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
 
         uint8_t amount_buf[8];
         INT64_TO_BUF(amount_buf, amt->xrp.amount);
-        memcpy(write_ptr, amount_buf, sizeof(amount_buf));
+        memcpy((uint32_t*)write_ptr, amount_buf, sizeof(amount_buf));
         return sizeof(amount_buf);
     }
     else
@@ -599,9 +600,9 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
 
         uint8_t amount_buf[8];
         INT64_TO_BUF(amount_buf, amt->iou.amount);
-        memcpy(write_ptr, amount_buf, 8);
-        memcpy(write_ptr + 8, amt->iou.currency, 20);
-        memcpy(write_ptr + 28, amt->iou.issuer, 20);
+        memcpy((uint32_t*)write_ptr, amount_buf, 8);
+        memcpy((uint32_t*)(write_ptr + 8), amt->iou.currency, 20);
+        memcpy((uint32_t*)(write_ptr + 28), amt->iou.issuer, 20);
         return 48;
     }
 }
@@ -721,7 +722,7 @@ int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32
     {
         // If hex (byte => 2 ascci characters) allocate a buffer and populate the hex characters in the loop.
         char out[mread_len + (dread_len * 2) + 1];
-        sprintf(out, "%*.*s ", 0, mread_len, mread_ptr);
+        sprintf(out, "%*.*s ", 0, mread_len, (char*)mread_ptr);
         for (int i = 0; i < dread_len; i++)
             sprintf(&out[mread_len + (i * 2)], "%02X", *(uint8_t *)(dread_ptr + i));
         trace_out(out);
@@ -729,7 +730,7 @@ int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32
     else
     {
         char out[mread_len + dread_len + 1];
-        sprintf(out, "%*.*s %*.*s", 0, mread_len, mread_ptr, 0, dread_len, dread_ptr);
+        sprintf(out, "%*.*s %*.*s", 0, mread_len, (char*)mread_ptr, 0, dread_len, (char*)dread_ptr);
         trace_out(out);
     }
     return 0;
@@ -738,7 +739,7 @@ int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32
 int64_t trace_num(uint32_t read_ptr, uint32_t read_len, int64_t number)
 {
     char out[500];
-    sprintf(out, "%*.*s %lld", 0, read_len, read_ptr, number);
+    sprintf(out, "%*.*s %lld", 0, read_len, (char *)read_ptr, number);
     trace_out(out);
     return 0;
 }
@@ -747,8 +748,8 @@ int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 {
     const uint64_t mantissa = get_mantissa(float1);
     char out[500];
-    sprintf(out, (mantissa != 0 && is_negative(float1)) ? "%*.*s Float -%lld*10^(%ld)" : "%*.*s Float %lld*10^(%ld)",
-            0, mread_len, mread_ptr, mantissa, get_exponent(float1));
+    sprintf(out, (mantissa != 0 && is_negative(float1)) ? "%*.*s Float -%lld*10^(%d)" : "%*.*s Float %lld*10^(%d)",
+            0, mread_len, (char *)mread_ptr, mantissa, get_exponent(float1));
     trace_out(out);
     return 0;
 }
@@ -774,7 +775,7 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     uint8_t buf[buflen];
     // Populate the type header.
     buf[0] = EMIT;
-    memcpy(&buf[1], read_ptr, buflen - 1);
+    memcpy(&buf[1], (uint32_t*)read_ptr, buflen - 1);
     write_stdout(buf, buflen);
 
     // Read the response from STDIN.
@@ -791,7 +792,7 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     }
 
     // Populate the received transaction hash to the write pointer.
-    memcpy(write_ptr, res, TRANSACTION_HASH_LEN);
+    memcpy((uint32_t*)write_ptr, res, TRANSACTION_HASH_LEN);
     return 0;
 }
 
@@ -803,7 +804,7 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
  * @param balance_float Float balance to be populated.
  * @param limit_float Limit float to be populated.
 */
-int get_trustlines(const uint8_t *address, const uint8_t *issuer, const uint8_t *currency, int64_t *balance_float, int64_t *limit_float)
+int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t *balance_float, int64_t *limit_float)
 {
     // Send the emit request.
     const int len = 44;
@@ -811,9 +812,9 @@ int get_trustlines(const uint8_t *address, const uint8_t *issuer, const uint8_t 
     // Populate the type header.
     buf[0] = KEYLET;
     // Populate the address, issuer and currency.
-    memcpy(&buf[1], address, 20);
-    memcpy(&buf[21], issuer, 20);
-    memcpy(&buf[41], currency + 12, 3);
+    memcpy(&buf[1], (uint32_t *)address, 20);
+    memcpy(&buf[21], (uint32_t *)issuer, 20);
+    memcpy(&buf[41], (uint32_t *)(currency + 12), 3);
     write_stdout(buf, len);
 
     // Read the response from STDIN.
@@ -856,11 +857,11 @@ int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type
         return trustline_res;
 
     struct Trustline *tl = (struct Trustline *)malloc(sizeof(struct Trustline));
-    memcpy(tl->high_account, a, b);
-    memcpy(tl->low_account, c, d);
-    memcpy(tl->amount.iou.issuer, c, d);
+    memcpy(tl->high_account, (uint32_t *)a, b);
+    memcpy(tl->low_account, (uint32_t *)c, d);
+    memcpy(tl->amount.iou.issuer, (uint32_t *)c, d);
     tl->amount.is_xrp = 0;
-    memcpy(tl->amount.iou.currency, e, f);
+    memcpy(tl->amount.iou.currency, (uint32_t *)e, f);
     tl->amount.iou.amount = balance;
     tl->limit = limit;
 
@@ -868,7 +869,7 @@ int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type
     // Write trustline struct address to the write_ptr so it can be retrieved in the slot_set for future use.
     // Memory locations will be cleaned in the FREE_TRANSACTION_OBJ macro.
     INT64_TO_BUF(write_ptr, addr);
-    memset(write_ptr + 8, 0, write_len - 8);
+    memset((uint32_t *)(write_ptr + 8), 0, write_len - 8);
 
     return write_len;
 }
@@ -889,12 +890,12 @@ int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint
     // Populate the type header.
     buf[0] = STATE_SET;
     // Populate the state data.
-    memcpy(&buf[1], kread_ptr, kread_len);
+    memcpy(&buf[1], (uint32_t *)kread_ptr, kread_len);
     // If kread_len is less than STATE_KEY_LEN, populate o's to the rest.
     if (kread_len < STATE_KEY_LEN)
         memset(&buf[1 + kread_len], 0, STATE_KEY_LEN - kread_len);
     // Populate the data to rest.
-    memcpy(&buf[1 + STATE_KEY_LEN], read_ptr, read_len);
+    memcpy(&buf[1 + STATE_KEY_LEN], (uint32_t *)read_ptr, read_len);
     write_stdout(buf, len);
 
     // Read the response from STDIN.
@@ -925,7 +926,7 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
     // Populate the type header.
     buf[0] = STATE_GET;
     // Populate the state key.
-    memcpy(&buf[1], kread_ptr, kread_len);
+    memcpy(&buf[1], (uint32_t *)kread_ptr, kread_len);
     write_stdout(buf, len);
 
     // Read the response from STDIN.
@@ -954,7 +955,7 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
         return TOO_SMALL;
     }
     else if ((data_len - 1) > 0)
-        memcpy(write_ptr, res, (data_len - 1)); // Populate only if res_len > 0;
+        memcpy((uint32_t *)write_ptr, res, (data_len - 1)); // Populate only if res_len > 0;
     else
         write_ptr = 0;
 
