@@ -292,6 +292,7 @@ int64_t invert_sign(int64_t float1)
 {
     return float1 ^ (1ULL << 62U);
 }
+
 int64_t set_sign(int64_t float1, int set_negative)
 {
     int neg = is_negative(float1);
@@ -754,8 +755,6 @@ int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
     return 0;
 }
 
-// JS
-
 int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len)
 {
     // Acording to the xrpl hook specs,
@@ -784,7 +783,7 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     const int ret = (int8_t)*data_buf;
     const uint8_t *res = &data_buf[1];
 
-    // If result code is 0 return EMISSION_FAILURE.
+    // If result code is less than 0 return EMISSION_FAILURE.
     if (ret < 0 || (data_len - 1) != TRANSACTION_HASH_LEN)
     {
         write_ptr = 0;
