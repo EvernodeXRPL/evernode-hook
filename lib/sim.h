@@ -31,11 +31,11 @@
         free(txn);                                         \
     }
 
-#define FREE_SLOTS                              \
+#define FREE_SLOTS                            \
     if (sl_count > 0)                         \
-    {                                           \
+    {                                         \
         for (size_t i = 0; i < sl_count; i++) \
-            free(slots_arr[i]);                 \
+            free(slots_arr[i]);               \
     }
 
 #define CLEAN_EMULATOR   \
@@ -125,6 +125,8 @@ extern struct Transaction *txn;
 extern uint8_t hook_accid[ACCOUNT_LEN];
 extern int64_t slots_arr[255];
 extern uint8_t sl_count;
+
+int read_stdin(uint8_t *read_buf, const int read_len);
 
 int64_t hook(int64_t reserved);
 
@@ -325,7 +327,6 @@ int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint
  * @return The number of bytes written or a negative integer if an error occured.
  */
 int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32_t kread_len);
-
 
 #define SUCCESS 0                // return codes > 0 are reserved for hook apis to return "success"
 #define OUT_OF_BOUNDS -1         // could not read or write to a pointer to provided by hook
