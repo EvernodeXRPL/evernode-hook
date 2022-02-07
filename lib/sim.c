@@ -396,42 +396,9 @@ int64_t float_sum(int64_t float1, int64_t float2)
         }
     }
 
-    const int neg_1 = is_negative(float1);
-    const int neg_2 = is_negative(float2);
-
-    uint64_t mantissa_sum = 0;
-    int make_neg = 0;
-    if (neg_1 && neg_2)
-    {
-        mantissa_sum = mantissa_1 + mantissa_2;
-        make_neg = 1;
-    }
-    else if (neg_1 || neg_2)
-    {
-        if (mantissa_1 > mantissa_2)
-        {
-            mantissa_sum = mantissa_1 - mantissa_2;
-            make_neg = neg_1;
-        }
-        else
-        {
-            mantissa_sum = mantissa_2 - mantissa_1;
-            make_neg = neg_2;
-        }
-    }
-    else
-    {
-        mantissa_sum = mantissa_1 + mantissa_2;
-        make_neg = 0;
-    }
-
-    const int64_t exponent_sum = exponent_1;
-
-    int64_t answer = float_set(exponent_sum, mantissa_sum);
-    if (make_neg)
-        answer = set_sign(answer, 1);
-
-    return answer;
+    const int64_t num_1 = mantissa_1 * (is_negative(float1) ? -1 : 1);
+    const int64_t num_2 = mantissa_2 * (is_negative(float2) ? -1 : 1);
+    return float_set(exponent_1, num_1 + num_2);
 }
 
 int64_t float_sto(uint32_t write_ptr, uint32_t write_len, uint32_t cread_ptr, uint32_t cread_len, uint32_t iread_ptr, uint32_t iread_len, int64_t float1, uint32_t field_code)
@@ -591,7 +558,7 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
 
         uint8_t amount_buf[8];
         INT64_TO_BUF(amount_buf, amt->xrp.amount);
-        memcpy((uint32_t*)write_ptr, amount_buf, sizeof(amount_buf));
+        memcpy((uint32_t *)write_ptr, amount_buf, sizeof(amount_buf));
         return sizeof(amount_buf);
     }
     else
@@ -601,9 +568,9 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
 
         uint8_t amount_buf[8];
         INT64_TO_BUF(amount_buf, amt->iou.amount);
-        memcpy((uint32_t*)write_ptr, amount_buf, 8);
-        memcpy((uint32_t*)(write_ptr + 8), amt->iou.currency, 20);
-        memcpy((uint32_t*)(write_ptr + 28), amt->iou.issuer, 20);
+        memcpy((uint32_t *)write_ptr, amount_buf, 8);
+        memcpy((uint32_t *)(write_ptr + 8), amt->iou.currency, 20);
+        memcpy((uint32_t *)(write_ptr + 28), amt->iou.issuer, 20);
         return 48;
     }
 }
@@ -654,7 +621,7 @@ int64_t slot_set(uint32_t read_ptr, uint32_t read_len, int32_t slot)
 
 int64_t sto_subarray(uint32_t read_ptr, uint32_t read_len, uint32_t array_id)
 {
-    printf("Currently support only memos...\n");
+    trace(SBUF("Currently support only memos..."), 0, 0, 0);
     struct Memo *list = (struct Memo *)read_ptr;
     int64_t offset = sizeof(struct Memo) * array_id;
     int64_t len = sizeof(struct Memo);
@@ -723,7 +690,7 @@ int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32
     {
         // If hex (byte => 2 ascci characters) allocate a buffer and populate the hex characters in the loop.
         char out[mread_len + (dread_len * 2) + 1];
-        sprintf(out, "%*.*s ", 0, mread_len, (char*)mread_ptr);
+        sprintf(out, "%*.*s ", 0, mread_len, (char *)mread_ptr);
         for (int i = 0; i < dread_len; i++)
             sprintf(&out[mread_len + (i * 2)], "%02X", *(uint8_t *)(dread_ptr + i));
         trace_out(out);
@@ -731,7 +698,7 @@ int64_t trace(uint32_t mread_ptr, uint32_t mread_len, uint32_t dread_ptr, uint32
     else
     {
         char out[mread_len + dread_len + 1];
-        sprintf(out, "%*.*s %*.*s", 0, mread_len, (char*)mread_ptr, 0, dread_len, (char*)dread_ptr);
+        sprintf(out, "%*.*s %*.*s", 0, mread_len, (char *)mread_ptr, 0, dread_len, (char *)dread_ptr);
         trace_out(out);
     }
     return 0;
@@ -749,7 +716,7 @@ int64_t trace_float(uint32_t mread_ptr, uint32_t mread_len, int64_t float1)
 {
     const uint64_t mantissa = get_mantissa(float1);
     char out[500];
-    sprintf(out, (mantissa != 0 && is_negative(float1)) ? "%*.*s Float -%lld*10^(%d)" : "%*.*s Float %lld*10^(%d)",
+    sprintf(out, (mantissa != 0 && is_negative(float1)) ? "%*.*s Float -%lld*10^(%d)" : "%*.*s Float %lld*10^(%d)\n",
             0, mread_len, (char *)mread_ptr, mantissa, get_exponent(float1));
     trace_out(out);
     return 0;
@@ -774,7 +741,7 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     uint8_t buf[buflen];
     // Populate the type header.
     buf[0] = EMIT;
-    memcpy(&buf[1], (uint32_t*)read_ptr, buflen - 1);
+    memcpy(&buf[1], (uint32_t *)read_ptr, buflen - 1);
     write_stdout(buf, buflen);
 
     // Read the response from STDIN.
@@ -791,7 +758,7 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
     }
 
     // Populate the received transaction hash to the write pointer.
-    memcpy((uint32_t*)write_ptr, res, TRANSACTION_HASH_LEN);
+    memcpy((uint32_t *)write_ptr, res, TRANSACTION_HASH_LEN);
     return 0;
 }
 
@@ -929,7 +896,7 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    uint8_t data_buf[MAX_STATE_VAL_LEN];
+    uint8_t data_buf[MAX_STATE_VAL_LEN + 1];
     const int data_len = read_stdin(data_buf, sizeof(data_buf));
     const int ret = (int8_t)*data_buf;
     const uint8_t *res = &data_buf[1];
