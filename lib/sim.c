@@ -33,6 +33,7 @@ struct etxn_info etxn_inf = {0, 0};
 uint64_t get_mantissa(int64_t float1);
 int32_t get_exponent(int64_t float1);
 int is_negative(int64_t float1);
+int64_t invert_sign(int64_t float1);
 int write_stdout(const uint8_t *write_buf, const int write_len);
 int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t *balance_float, int64_t *limit_float);
 
@@ -108,105 +109,22 @@ int64_t etxn_reserve(uint32_t count)
 
 int64_t float_compare(int64_t float1, int64_t float2, uint32_t mode)
 {
-    uint64_t mantissa_1 = get_mantissa(float1);
-    int32_t exponent_1 = get_exponent(float1);
-
-    uint64_t mantissa_2 = get_mantissa(float2);
-    int32_t exponent_2 = get_exponent(float2);
-
-    if (exponent_1 > exponent_2)
-    {
-        for (size_t i = 0; i < (exponent_1 - exponent_2); i++)
-        {
-            mantissa_1 *= 10;
-            exponent_1--;
-        }
-    }
-    else if (exponent_1 < exponent_2)
-    {
-        for (size_t i = 0; i < (exponent_2 - exponent_1); i++)
-        {
-            mantissa_2 *= 10;
-            exponent_2--;
-        }
-    }
-
-    const int neg_1 = is_negative(float1);
-    const int neg_2 = is_negative(float2);
+    const int64_t sum = float_sum(float1, invert_sign(float2));
 
     if (mode == COMPARE_LESS)
-    {
-        if (neg_1 || neg_2)
-        {
-            if (neg_1 && neg_2)
-                return (mantissa_1 > mantissa_2) ? 1 : 0;
-
-            return (neg_1) ? 1 : 0;
-        }
-        else
-            return mantissa_1 < mantissa_2 ? 1 : 0;
-    }
+        return (sum != 0 && is_negative(sum)) ? 1 : 0;
     else if (mode == COMPARE_EQUAL)
-    {
-        if (neg_1 || neg_2)
-        {
-            if (neg_1 && neg_2)
-                return (mantissa_1 == mantissa_2) ? 1 : 0;
-
-            return 0;
-        }
-        else
-            return mantissa_1 == mantissa_2 ? 1 : 0;
-    }
+        return sum == 0 ? 1 : 0;
     else if (mode == COMPARE_GREATER)
-    {
-        if (neg_1 || neg_2)
-        {
-            if (neg_1 && neg_2)
-                return (mantissa_1 < mantissa_2) ? 1 : 0;
-
-            return (neg_1) ? 0 : 1;
-        }
-        else
-            return mantissa_1 > mantissa_2 ? 1 : 0;
-    }
+        return (sum != 0 && !is_negative(sum)) ? 1 : 0;
     else if (mode == (COMPARE_LESS | COMPARE_GREATER)) // Not equal.
-    {
-        if (neg_1 || neg_2)
-        {
-            if (neg_1 && neg_2)
-                return (mantissa_1 != mantissa_2) ? 1 : 0;
-
-            return 1;
-        }
-        else
-            return mantissa_1 != mantissa_2 ? 1 : 0;
-    }
+        return sum != 0 ? 1 : 0;
     else if (mode == (COMPARE_LESS | COMPARE_EQUAL)) // Less than or equal to.
-    {
-        if (neg_1 || neg_2)
-        {
-            if (neg_1 && neg_2)
-                return (mantissa_1 >= mantissa_2) ? 1 : 0;
-
-            return (neg_1) ? 1 : 0;
-        }
-        else
-            return mantissa_1 <= mantissa_2 ? 1 : 0;
-    }
+        return (sum == 0 || is_negative(sum)) ? 1 : 0;
     else if (mode == (COMPARE_GREATER | COMPARE_EQUAL)) // Greater than or equal.
-    {
-        if (neg_1 || neg_2)
-        {
-            if (neg_1 && neg_2)
-                return (mantissa_1 <= mantissa_2) ? 1 : 0;
-
-            return (neg_1) ? 0 : 1;
-        }
-        else
-            return mantissa_1 >= mantissa_2 ? 1 : 0;
-    }
-    return 0;
+        return (sum == 0 || !is_negative(sum)) ? 1 : 0;
+    else
+        return INVALID_ARGUMENT;
 }
 
 int64_t float_divide(int64_t float1, int64_t float2)
