@@ -1,6 +1,8 @@
 #ifndef EVERNODE_INCLUDED
 #define EVERNODE_INCLUDED 1
 
+#include "constants.h"
+
 /****** Field and Type codes ******/
 #define ARRAY 0xF0U
 #define OBJECT 0xE0U

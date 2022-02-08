@@ -2,8 +2,9 @@
   "name": "hook-emulator",
   "scripts": {
     "lint": "eslint ./hook-emulator.js",
-    "build:wrapper": "gcc -m32 ./c_wrappers/main.c -o ./c_wrappers/hook-wrapper",
-    "build": "npm run build:wrapper && npm run lint && ncc build hook-emulator.js --minify -o dist"
+    "build:wrapper": "gcc -m32 ./c_wrappers/main.c ../src/evernode.c ../lib/emulatorapi.c -o ./c_wrappers/hook-wrapper",
+    "build": "npm run build:wrapper && npm run lint && ncc build hook-emulator.js --minify -o dist",
+    "start": "npm run build:wrapper && node hook-emulator.js"
   },
   "dependencies": {
     "evernode-js-client": "0.4.5",

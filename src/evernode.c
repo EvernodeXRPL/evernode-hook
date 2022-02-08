@@ -1,5 +1,5 @@
-#include "../lib/hookapi.h"
-#include "constants.h"
+// #include "../lib/hookapi.h"
+#include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
 
@@ -318,7 +318,7 @@ int64_t hook(int64_t reserved)
                     if (state_set(SBUF(auditor_accid), SBUF(STP_AUDITOR_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for default auditor_id."), 1);
 
-                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE] = {0};
+                    uint8_t auditor_addr_buf[AUDITOR_ADDR_VAL_SIZE];
                     COPY_BUF(auditor_addr_buf, 0, auditor_id_buf, 0, 4);
                     AUDITOR_ADDR_KEY(auditor_accid);
                     if (state_set(SBUF(auditor_addr_buf), SBUF(STP_AUDITOR_ADDR)) < 0)
