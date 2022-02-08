@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 // #include "hookapi.h"
-#include "sim.h"
+#include "emulatorapi.h"
 #include "sfcodes.h"
 
 #ifndef HOOKMACROS_INCLUDED

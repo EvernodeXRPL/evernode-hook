@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <fcntl.h>
 
-#include "../../lib/sim.h"
+#include "../../lib/emulatorapi.h"
 
 #define MAX_READ_LEN 1024
 
