@@ -66,18 +66,18 @@ async function main () {
         sleep(5000);
         
         // Initialte Trust Lines and Currencies trnasfers
-        const lines_issuer_to_foundation = await newAccounts[0].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[1].xrplAcc.address);
+        const lines_issuer_to_foundation = await newAccounts[1].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (lines_issuer_to_foundation.length === 0) {
-            await newAccounts[0].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[1].xrplAcc.address, TOTAL_MINTED_EVRS);
+            await newAccounts[1].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
-        const lines_foundation_to_comm_bank = await newAccounts[1].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[2].xrplAcc.address);
+        const lines_foundation_to_comm_bank = await newAccounts[2].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[2].xrplAcc.address);
 
         if (lines_foundation_to_comm_bank.length === 0) {
-            await newAccounts[1].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[2].xrplAcc.address, FOUNDATION_EVRS);
+            await newAccounts[2].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, FOUNDATION_EVRS);
         }
-        
+      
     } catch (err) {
         console.log(err);
         console.log("Evernode account setup exiting with an error.");
@@ -87,8 +87,3 @@ async function main () {
 }
 
 main().catch(console.error);
-
-
-
-
-
