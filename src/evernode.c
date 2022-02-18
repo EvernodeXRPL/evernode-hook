@@ -67,8 +67,8 @@ int64_t hook(int64_t reserved)
             if (is_initialize)
             {
                 uint8_t foundation_accid[20];
-                const int accid_len = util_accid(SBUF(foundation_accid), FOUNDATION_ADDR, 35);
-                if (accid_len < 20)
+                const int foundation_accid_len = util_accid(SBUF(foundation_accid), FOUNDATION_ADDR, 35);
+                if (foundation_accid_len < 20)
                     rollback(SBUF("Evernode: Could not convert foundation account id."), 1);
 
                 int is_foundation = 0;
