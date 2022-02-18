@@ -21,6 +21,9 @@ const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 /////////// Repetitive state keys. ///////////
 
+// Token id keys (Host registration nft token id entries for lookup)
+uint8_t STP_TOKEN_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 // Host address keys (Host registration entries for xrpl address-based lookup). Last 20 bytes will be replaced by host address in runtime.
 uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -62,10 +65,22 @@ const uint8_t CONF_HOST_HEARTBEAT_FREQ[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0
             STP_HOST_ADDR[i] = host_addr[i - 12]; \
     }
 
+#define TOKEN_ID_KEY(token_id)                  \
+    {                                           \
+        for (int i = 3; GUARD(28), i < 32; i++) \
+            STP_TOKEN_ID[i] = token_id[i - 3];  \
+    }
+
 #define HOST_ADDR_KEY_GUARD(host_addr, n)            \
     {                                                \
         for (int i = 12; GUARD(21 * n), i < 32; i++) \
             STP_HOST_ADDR[i] = host_addr[i - 12];    \
+    }
+
+#define TOKEN_ID_KEY_GUARD(token_id, n)             \
+    {                                               \
+        for (int i = 3; GUARD(29 * n), i < 32; i++) \
+            STP_TOKEN_ID[i] = token_id[i - 3];      \
     }
 
 #define CONF_KEY(buf, conf_key)                        \

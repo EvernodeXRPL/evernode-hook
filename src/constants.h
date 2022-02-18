@@ -14,7 +14,9 @@
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
+#define ttNFT_MINT 25
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
+#define tfTransferable 0x00000008
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
@@ -40,18 +42,21 @@ const uint32_t DESCRIPTION_LEN = 26;
 
 // State value offsets
 // HOST_ADDR
-const uint32_t HOST_TOKEN_OFFSET = 0;
-const uint32_t HOST_COUNTRY_CODE_OFFSET = 3;
-const uint32_t HOST_CPU_MICROSEC_OFFSET = 5;
-const uint32_t HOST_RAM_MB_OFFSET = 9;
-const uint32_t HOST_DISK_MB_OFFSET = 13;
-const uint32_t HOST_RESERVED_OFFSET = 17;
-const uint32_t HOST_DESCRIPTION_OFFSET = 25;
-const uint32_t HOST_REG_LEDGER_OFFSET = 51;
-const uint32_t HOST_TOT_INS_COUNT_OFFSET = 59;
-const uint32_t HOST_ACT_INS_COUNT_OFFSET = 63;
-const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 67;
+const uint32_t HOST_TOKEN_ID_OFFSET = 0;
+const uint32_t HOST_TOKEN_OFFSET = 32;
+const uint32_t HOST_COUNTRY_CODE_OFFSET = 35;
+const uint32_t HOST_CPU_MICROSEC_OFFSET = 37;
+const uint32_t HOST_RAM_MB_OFFSET = 41;
+const uint32_t HOST_DISK_MB_OFFSET = 45;
+const uint32_t HOST_RESERVED_OFFSET = 49;
+const uint32_t HOST_DESCRIPTION_OFFSET = 57;
+const uint32_t HOST_REG_LEDGER_OFFSET = 83;
+const uint32_t HOST_REG_FEE_OFFSET = 91;
+const uint32_t HOST_TOT_INS_COUNT_OFFSET = 99;
+const uint32_t HOST_ACT_INS_COUNT_OFFSET = 104;
+const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 108;
 
+const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0};
 const uint64_t MIN_DROPS = 1;
 const char *empty_ptr = 0;
 

@@ -1,5 +1,5 @@
-// #include "../lib/hookapi.h"
-#include "../lib/emulatorapi.h"
+#include "../lib/hookapi.h"
+// #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
 
@@ -24,10 +24,64 @@ int64_t hook(int64_t reserved)
         rollback(SBUF("Evernode: sfAccount field is missing."), 1);
 
     // Accept any outgoing transactions without further processing.
-    int is_outgoing = 0;
-    BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
-    if (is_outgoing)
-        accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
+    // int is_outgoing = 0;
+    // BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
+    // if (is_outgoing)
+    //     accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
+
+    trace(SBUF("Evernode: Tessssssss."), 0, 0, 0);
+
+    // uint8_t keylet[34];
+    // if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
+    //     rollback(SBUF("Notary: Internal error, could not generate keylet"), 10);
+
+    // trace(SBUF("Keylet"), SBUF(keylet), 1);
+
+    // int64_t slot_no = slot_set(SBUF(keylet), 0);
+    // TRACEVAR(slot_no);
+    // if (slot_no < 0)
+    //     rollback(SBUF("Notary: Could not set keylet in slot"), 10);
+
+    // int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
+    // if (seq_slot < 0)
+    //     rollback(SBUF("Notary: Could not find sfSequence on hook account"), 20);
+
+    // uint8_t buf[4];
+    // seq_slot = slot(SBUF(buf), seq_slot);
+    // uint32_t seq = UINT32_FROM_BUF(buf);
+
+    // trace_num(SBUF("Sequence"), seq);
+
+    // int64_t oslot = otxn_slot(0);
+    // if (oslot < 0)
+    //     rollback(SBUF("Evernode: Could not slot originating txn."), 1);
+
+    // int64_t tx_seq_slot = slot_subfield(oslot, sfSequence, 0);
+    // if (tx_seq_slot < 0)
+    //     rollback(SBUF("Evernode: Could not slot otxn.sfSequence"), 1);
+
+    // uint8_t tx_buf[4];
+    // tx_seq_slot = slot(SBUF(tx_buf), tx_seq_slot);
+    // uint32_t tx_seq = UINT32_FROM_BUF(tx_buf);
+
+    // trace_num(SBUF("Transaction Sequence"), tx_seq);
+
+    etxn_reserve(1);
+
+    uint8_t uri[20] = "this is test uri abc";
+    int64_t fee_base = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
+    unsigned char tx[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
+
+    PREPARE_NFT_MINT(tx, fee_base, hook_accid, 10, 2, uri, sizeof(uri));
+
+    trace(SBUF("Transaction: "), SBUF(tx), 1);
+
+    uint8_t emithash[32];
+    if (emit(SBUF(emithash), SBUF(tx)) < 0)
+        rollback(SBUF("Evernode: Emitting txn failed"), 1);
+    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+    accept(SBUF("Evernode: XRP transaction."), 0);
 
     int64_t txn_type = otxn_type();
     if (txn_type == ttPAYMENT)
@@ -120,7 +174,7 @@ int64_t hook(int64_t reserved)
 
                 // Checking whether this host is already registered.
                 HOST_ADDR_KEY(account_field);
-                // <hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)>
+                // <token_id(32)><hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                 // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
@@ -150,7 +204,14 @@ int64_t hook(int64_t reserved)
                     TRACEVAR(conf_host_heartbeat_freq);
                 }
 
+                uint8_t token_id_arr[32];
+                uint8_t *token_id_key_ptr = &token_id_arr[3];
+                TOKEN_ID_KEY(token_id_key_ptr);
+                if (state_set(SBUF(account_field), SBUF(STP_TOKEN_ID)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for token_id."), 1);
+
                 CLEARBUF(host_addr);
+                COPY_BUF(host_addr, 0, token_id_arr, 0, 4);
                 COPY_BUF(host_addr, HOST_TOKEN_OFFSET, data_ptr, 0, 3);
                 COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 4, COUNTRY_CODE_LEN);
 
@@ -216,6 +277,7 @@ int64_t hook(int64_t reserved)
                 if (description_len < DESCRIPTION_LEN)
                     CLEAR_BUF(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len);
                 INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
+                INT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
 
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
@@ -242,8 +304,13 @@ int64_t hook(int64_t reserved)
                 conf_max_reg = UINT32_FROM_BUF(max_reg_buf);
                 TRACEVAR(conf_max_reg);
 
+                uint8_t issuer_accid[20];
+                util_accid(SBUF(issuer_accid), SBUF(DEF_ISSUER_ADDR));
+
                 if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg * 50 / 100))
                 {
+                    etxn_reserve(host_count + 1);
+
                     uint8_t state_buf[8] = {0};
 
                     host_reg_fee /= 2;
@@ -257,24 +324,27 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
 
                     // Refund the EVR balance.
+                    // TODO: Transfer the halved host reg fee to all the registered hosts excluding this host.
+                }
+                else
                     etxn_reserve(1);
 
-                    uint8_t issuer_accid[20];
-                    util_accid(SBUF(issuer_accid), SBUF(DEF_ISSUER_ADDR));
+                uint8_t foundation_accid[20];
+                util_accid(SBUF(foundation_accid), SBUF(DEF_FOUNDATION_ADDR));
 
-                    uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee));
-                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+                // Froward 5 EVRs to foundation.
+                uint8_t amt_out[AMOUNT_BUF_SIZE];
+                SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, conf_fixed_reg_fee);
+                int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
-                    // Create the outgoing hosting token txn.
-                    uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, account_field, 0, 0);
+                // Create the outgoing hosting token txn.
+                uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+                PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, foundation_accid, 0, 0);
 
-                    uint8_t emithash[HASH_SIZE];
-                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                        rollback(SBUF("Evernode: Emitting txn failed"), 1);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
-                }
+                uint8_t emithash[HASH_SIZE];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 host_count += 1;
                 UINT32_TO_BUF(host_count_buf, host_count);

@@ -196,6 +196,24 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 /**************************MEMO related MACROS*****************************/
 /**************************************************************************/
 
+#define ENCODE_TXON_SIZE 3
+#define ENCODE_TXON(buf_out, to)         \
+    {                                    \
+        uint8_t uto = to;                \
+        buf_out[0] = 0x14U;              \
+        buf_out[1] = (uto >> 8) & 0xFFU; \
+        buf_out[2] = (uto >> 0) & 0xFFU; \
+        buf_out += ENCODE_TXON_SIZE;     \
+    }
+#define _01_04_ENCODE_TXON(buf_out, to) \
+    ENCODE_TXON(buf_out, to);
+
+#define ENCODE_TF_SIZE 6U
+#define ENCODE_TF(buf_out, tf) \
+    ENCODE_UINT32_UNCOMMON(buf_out, tf, 0x2A);
+#define _02_42_ENCODE_TF(buf_out, tf) \
+    ENCODE_TF(buf_out, tf);
+
 #define ENCODE_FIELDS_SIZE 1U
 #define ENCODE_FIELDS(buf_out, type, field) \
     {                                       \
@@ -203,6 +221,18 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         buf_out[0] = type + (uf & 0x0FU);   \
         buf_out += ENCODE_FIELDS_SIZE;      \
     }
+
+#define ENCODE_URI(buf_out, uri, uri_len)                                              \
+    {                                                                                  \
+        buf_out[0] = 0x75U;                                                            \
+        buf_out[1] = uri_len;                                                          \
+        for (int i = 0; GUARD(uri_len / 8 + (uri_len % 8 != 0)), i < uri_len; i += 8) \
+            *(uint64_t *)(buf_out + i + 2) = *(uint64_t *)(uri + i);                   \
+        buf_out += uri_len + 2;                                                        \
+    }
+
+#define _07_05_ENCODE_URI(buf_out, uri, uri_len) \
+    ENCODE_URI(buf_out, uri, uri_len);
 
 #define ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m)         \
     {                                                                             \
@@ -397,6 +427,31 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);  /* pk      | size  35 */ \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);     /* account | size  22 */ \
         etxn_details((uint32_t)buf_out, 105);        /* emitdet | size 105 */ \
+    }
+
+/////////// Macro to prepare a nft mint. ///////////
+
+#define PREPARE_NFT_MINT_SIZE(uri_len) \
+    (uri_len + 207)
+#define PREPARE_NFT_MINT(buf_out_master, drops_fee_raw, account, transfer_fee, taxon, uri, uri_len) \
+    {                                                                                               \
+        uint8_t *buf_out = buf_out_master;                                                          \
+        uint8_t acc[20];                                                                            \
+        uint64_t drops_fee = (drops_fee_raw);                                                       \
+        uint32_t cls = (uint32_t)ledger_seq();                                                      \
+        hook_account(SBUF(acc));                                                                    \
+        _01_02_ENCODE_TT(buf_out, ttNFT_MINT);        /* uint16  | size   3 */                      \
+        _01_04_ENCODE_TXON(buf_out, taxon);           /* uint16  | size   3 */                      \
+        _02_02_ENCODE_FLAGS(buf_out, tfTransferable); /* uint32  | size   5 */                      \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);           /* uint32  | size   5 */                      \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);          /* uint32  | size   6 */                      \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);          /* uint32  | size   6 */                      \
+        _02_42_ENCODE_TF(buf_out, transfer_fee);      /* uint32  | size   6 */                      \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);  /* amount  | size   9 */                      \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);   /* pk      | size  35 */                      \
+        _07_05_ENCODE_URI(buf_out, uri, uri_len);     /* account | size  uri_len + 2 */             \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);      /* account | size  22 */                      \
+        etxn_details((uint32_t)buf_out, 105);         /* emitdet | size 105 */                      \
     }
 
 /**************************************************************************/
