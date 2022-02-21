@@ -6,7 +6,6 @@ const { XrplAccount, XrplApi } = evernode;
 
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_PROGRAM_EVRS = "51609600";
-//const AIR_DROP_AMOUNT = TOTAL_MINTED_EVRS - FOUNDATION_EVRS;
 
 // Testnets --------------------------------------------------------------
 const FAUCETS_URL = 'https://faucet-nft.ripple.com/accounts';
@@ -34,14 +33,6 @@ function httpPost(url) {
     })
 }
 
-// TODO : Need to revisit
-function sleep(milliseconds) {
-    const date = Date.now();
-    let currentDate = null;
-    do {
-      currentDate = Date.now();
-    } while (currentDate - date < milliseconds);
-}
 
 async function main () {
     try {
@@ -60,6 +51,7 @@ async function main () {
             const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
 
             if (item === "ISSUER") {
+                await new Promise(r => setTimeout(r, 2000));
                 await acc.setDefaultRippling(true);
                 console.log('Enabled Rippling in ISSUER Account');
             }
@@ -73,8 +65,8 @@ async function main () {
         const newAccounts = await Promise.all(unresolved);
         // END - Account Creation
 
-        // 5 millisecond wait in order to sync the accounts
-        sleep(5000);
+        // 5 second wait in order to sync the accounts
+        await new Promise(r => setTimeout(r, 5000));
         
         // BEGIN - Trust Lines initiation
         const foundation_lines = await newAccounts[1].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
