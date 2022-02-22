@@ -19,7 +19,6 @@
 #define ttNFT_OFFER 27
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
 #define tfTransferable 0x00000008
-#define tfBuyToken 0x00000000
 #define tfSellToken 0x00000001
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.

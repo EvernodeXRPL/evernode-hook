@@ -71,15 +71,15 @@ int64_t hook(int64_t reserved)
         rollback(SBUF("Evernode: Emitting txn failed"), 1);
     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-    fee = etxn_fee_base(PREPARE_NFT_OFFER_SIZE);
-    unsigned char tx2[PREPARE_NFT_OFFER_SIZE];
+    fee = etxn_fee_base(PREPARE_NFT_SELL_OFFER_SIZE);
+    unsigned char tx2[PREPARE_NFT_SELL_OFFER_SIZE];
 
     uint8_t accid[20];
-    const int accid_len = util_accid(SBUF(accid), SBUF("reRaMwNGJcyz5fLoYnWuCw9Xits63vtUY"));
+    const int accid_len = util_accid(SBUF(accid), SBUF("rKtwPkSUNQ3X9vsZLqNcYUGwa7vJ5bG7kA"));
     trace(SBUF("ACCID: "), SBUF(accid), 1);
 
     uint8_t tknid[32] = {0, 8, 0, 0, 162, 41, 141, 52, 207, 250, 179, 111, 54, 174, 245, 55, 40, 82, 183, 39, 216, 197, 232, 2, 193, 180, 83, 197, 0, 0, 0, 42};
-    PREPARE_NFT_OFFER(tx2, 1, fee, accid, tknid, 1);
+    PREPARE_NFT_SELL_OFFER(tx2, 1, fee, accid, tknid);
 
     trace(SBUF("Transaction: "), SBUF(tx2), 1);
 
