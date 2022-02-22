@@ -11,6 +11,7 @@
 #define MAX_STATE_VAL_LEN 128
 #define MAX_READ_LEN 1024
 #define TRUSTLINE_LEN 16
+#define SEQUENCE_LEN 4
 
 #define MANTISSA_OVERSIZED -26
 #define EXPONENT_OVERSIZED -28
@@ -428,8 +429,11 @@ int64_t otxn_id(uint32_t write_ptr, uint32_t write_len, uint32_t flags)
 
 int64_t otxn_slot(uint32_t slot)
 {
-    // Memory address of txn object is used as the slot number.
-    return txn;
+    uint8_t *ptr = (uint8_t *)malloc(4 + sizeof(struct Transaction));
+    UINT32_TO_BUF(ptr, SLOT_TRANSACTION);
+    memcpy(ptr + 4, (uint8_t *)txn, sizeof(struct Transaction));
+    // Keep track of slots so we can cleanup before the program exits.
+    slots_arr[sl_count++] = ptr;
 }
 
 int64_t otxn_type(void)
@@ -467,53 +471,112 @@ int64_t util_accid(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, ui
 
 int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
 {
-    // Assuming the slot contains an amount struct object.
-    struct Amount *amt = (struct Amount *)slot;
-    if (amt->is_xrp)
-    {
-        if (write_len < 8)
-            return TOO_SMALL;
+    uint8_t *slot_ptr = (uint32_t *)slot;
+    uint32_t type = UINT32_FROM_BUF(slot_ptr);
 
-        uint8_t amount_buf[8];
-        INT64_TO_BUF(amount_buf, amt->xrp.amount);
-        memcpy((uint32_t *)write_ptr, amount_buf, sizeof(amount_buf));
-        return sizeof(amount_buf);
+    if (type == SLOT_AMOUNT)
+    {
+        struct Amount *amt = (struct Amount *)(slot_ptr + 4);
+        if (amt->is_xrp)
+        {
+            if (write_len < 8)
+                return TOO_SMALL;
+
+            uint8_t amount_buf[8];
+            INT64_TO_BUF(amount_buf, amt->xrp.amount);
+            memcpy((uint32_t *)write_ptr, amount_buf, sizeof(amount_buf));
+            return sizeof(amount_buf);
+        }
+        else
+        {
+            if (write_len < 48)
+                return TOO_SMALL;
+
+            uint8_t amount_buf[8];
+            INT64_TO_BUF(amount_buf, amt->iou.amount);
+            memcpy((uint32_t *)write_ptr, amount_buf, 8);
+            memcpy((uint32_t *)(write_ptr + 8), amt->iou.currency, 20);
+            memcpy((uint32_t *)(write_ptr + 28), amt->iou.issuer, 20);
+            return 48;
+        }
     }
-    else
+    else if (type == SLOT_SEQUENCE)
     {
-        if (write_len < 48)
-            return TOO_SMALL;
-
-        uint8_t amount_buf[8];
-        INT64_TO_BUF(amount_buf, amt->iou.amount);
-        memcpy((uint32_t *)write_ptr, amount_buf, 8);
-        memcpy((uint32_t *)(write_ptr + 8), amt->iou.currency, 20);
-        memcpy((uint32_t *)(write_ptr + 28), amt->iou.issuer, 20);
-        return 48;
+        memcpy((uint32_t *)write_ptr, (slot_ptr + 4), 4);
+        return 4;
     }
 }
 
 int64_t slot_float(uint32_t slot)
 {
-    struct Amount *amt = (struct Amount *)slot;
-    if (amt->is_xrp)
-        return amt->xrp.amount;
-    else
-        return amt->iou.amount;
+    uint8_t *slot_ptr = (uint32_t *)slot;
+    uint32_t type = UINT32_FROM_BUF(slot_ptr);
+
+    if (type == SLOT_AMOUNT)
+    {
+        struct Amount *amt = (struct Amount *)(slot_ptr + 4);
+        if (amt->is_xrp)
+            return amt->xrp.amount;
+        else
+            return amt->iou.amount;
+    }
+    else if (type == SLOT_BALANCE)
+    {
+        return INT64_FROM_BUF(slot_ptr + 4);
+    }
+    else if (type == SLOT_LIMIT)
+    {
+        return INT64_FROM_BUF(slot_ptr + 4);
+    }
 }
 
 int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot)
 {
-    // Only the required field_ids are handled.
-    if (field_id == sfAmount)
+    uint8_t *slot_ptr = (uint32_t *)parent_slot;
+    uint32_t type = UINT32_FROM_BUF(slot_ptr);
+
+    if (type == SLOT_TRANSACTION)
     {
-        struct Transaction *tx = (struct Transaction *)parent_slot;
-        return &tx->amount;
+        struct Transaction *tx = (struct Transaction *)(slot_ptr + 4);
+
+        if (field_id == sfAmount)
+        {
+            int len = 4 + sizeof(struct Amount);
+            uint8_t slot_buf[len];
+            UINT32_TO_BUF(slot_buf, SLOT_AMOUNT);
+            memcpy(slot_buf + 4, (uint8_t *)tx, sizeof(struct Amount));
+            return slot_set(SBUF(slot_buf), new_slot);
+        }
     }
-    else if (field_id == sfBalance)
+    else if (type == KEYLET_LINE)
     {
-        struct Trustline *tl = (struct Trustline *)parent_slot;
-        return &tl->amount;
+        if (field_id == sfBalance)
+        {
+            int len = 8;
+            uint8_t slot_buf[len];
+            UINT32_TO_BUF(slot_buf, SLOT_BALANCE);
+            memcpy(slot_buf + 4, (slot_ptr + 4), 8);
+            return slot_set(SBUF(slot_buf), new_slot);
+        }
+        else if (field_id == sfLimitAmount)
+        {
+            int len = 8;
+            uint8_t slot_buf[len];
+            UINT32_TO_BUF(slot_buf, SLOT_LIMIT);
+            memcpy(slot_buf + 4, (slot_ptr + 12), 8);
+            return slot_set(SBUF(slot_buf), new_slot);
+        }
+    }
+    else if (type == KEYLET_ACCOUNT)
+    {
+        if (field_id == sfSequence)
+        {
+            int len = 8;
+            uint8_t slot_buf[len];
+            UINT32_TO_BUF(slot_buf, SLOT_SEQUENCE);
+            memcpy(slot_buf + 4, (slot_ptr + 4), 4);
+            return slot_set(SBUF(slot_buf), new_slot);
+        }
     }
 
     return -1;
@@ -521,17 +584,19 @@ int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot
 
 int64_t slot_type(uint32_t slot, uint32_t flags)
 {
-    if (flags == 1) // We only intrested in detecting whether amount is xrp or not.
+    uint8_t *slot_ptr = (uint8_t *)slot;
+    uint32_t type = UINT16_FROM_BUF(slot_ptr);
+    if (type == SLOT_AMOUNT)
     {
-        struct Amount *amt = (struct Amount *)slot;
+        struct Amount *amt = (struct Amount *)(slot_ptr + 4);
         return amt->is_xrp;
     }
     return -1;
 }
 int64_t slot_set(uint32_t read_ptr, uint32_t read_len, int32_t slot)
 {
-    // Retrieve the memory address of the struct from keylet buffer given.
-    int64_t ptr = INT64_FROM_BUF((uint8_t *)read_ptr);
+    uint8_t *ptr = (uint8_t *)malloc(read_len);
+    memcpy(ptr, (uint32_t *)read_ptr, read_len);
     // Keep track of slots so we can cleanup before the program exits.
     slots_arr[sl_count++] = ptr;
     return ptr;
@@ -723,39 +788,102 @@ int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t
     return 0;
 }
 
-int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f)
+/**
+ * Get sequence number of the given account.
+ * @param address Source address of the sequence.
+ * @param sequence Limit float to be populated.
+*/
+int get_sequence(uint32_t address, uint32_t *sequence)
 {
-    if (keylet_type != KEYLET_LINE)
+    // Send the sequence request.
+    const int len = 21;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = SEQUENCE;
+    // Populate the address.
+    memcpy(&buf[1], (uint32_t *)address, 20);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t data_buf[TRUSTLINE_LEN + 1];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
+
+    if (ret < 0 || ((data_len - 1) != SEQUENCE_LEN))
     {
-        trace(SBUF("Error: Only KEYLET_LINE is supported."), 0, 0, 0);
+        *sequence = 0;
         return -1;
     }
-    if (b != 20 | d != 20 | f != 20)
+
+    *sequence = UINT32_FROM_BUF(res);
+    return 0;
+}
+
+int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f)
+{
+    if (keylet_type != KEYLET_LINE && keylet_type != KEYLET_ACCOUNT)
+    {
+        trace(SBUF("Error: Only KEYLET_LINE and KEYLET_ACCOUNT is supported."), 0, 0, 0);
+        return -1;
+    }
+    else if (keylet_type == KEYLET_LINE && (b != 20 | d != 20 | f != 20))
     {
         trace(SBUF("Error: High account, low account and currency length should be 20."), 0, 0, 0);
         return -1;
     }
-    int64_t balance, limit;
-    int trustline_res = get_trustlines(a, c, e, &balance, &limit);
-    if (trustline_res < 0)
-        return trustline_res;
+    else if (keylet_type == KEYLET_ACCOUNT && (b != 20))
+    {
+        trace(SBUF("Error: Account length should be 20."), 0, 0, 0);
+        return -1;
+    }
 
-    struct Trustline *tl = (struct Trustline *)malloc(sizeof(struct Trustline));
-    memcpy(tl->high_account, (uint32_t *)a, b);
-    memcpy(tl->low_account, (uint32_t *)c, d);
-    memcpy(tl->amount.iou.issuer, (uint32_t *)c, d);
-    tl->amount.is_xrp = 0;
-    memcpy(tl->amount.iou.currency, (uint32_t *)e, f);
-    tl->amount.iou.amount = balance;
-    tl->limit = limit;
+    if (keylet_type == KEYLET_LINE)
+    {
+        if (b != 20 | d != 20 | f != 20)
+        {
+            trace(SBUF("Error: High account, low account and currency length should be 20."), 0, 0, 0);
+            return -1;
+        }
 
-    const int64_t addr = (int64_t)tl;
-    // Write trustline struct address to the write_ptr so it can be retrieved in the slot_set for future use.
-    // Memory locations will be cleaned in the FREE_TRANSACTION_OBJ macro.
-    INT64_TO_BUF(write_ptr, addr);
-    memset((uint32_t *)(write_ptr + 8), 0, write_len - 8);
+        int64_t balance, limit;
+        int trustline_res = get_trustlines(a, c, e, &balance, &limit);
+        if (trustline_res < 0)
+            return trustline_res;
 
-    return write_len;
+        uint8_t buf[20];
+        UINT32_TO_BUF((uint32_t *)(write_ptr), keylet_type);
+        INT64_TO_BUF((uint32_t *)(write_ptr + 4), balance);
+        INT64_TO_BUF((uint32_t *)(write_ptr + 12), limit);
+        memset((uint32_t *)(write_ptr + 20), 0, write_len - 20);
+
+        return write_len;
+    }
+    else if (keylet_type == KEYLET_ACCOUNT)
+    {
+        if (b != 20)
+        {
+            trace(SBUF("Error: Account length should be 20."), 0, 0, 0);
+            return -1;
+        }
+
+        uint32_t sequence;
+        int sequence_res = get_sequence(a, &sequence);
+        if (sequence_res < 0)
+            return sequence_res;
+
+        uint8_t buf[8];
+        UINT32_TO_BUF((uint32_t *)(write_ptr), keylet_type);
+        UINT32_TO_BUF((uint32_t *)(write_ptr + 4), sequence);
+        memset((uint32_t *)(write_ptr + 8), 0, write_len - 8);
+
+        return write_len;
+    }
+    else
+    {
+        trace(SBUF("Error: Only KEYLET_LINE and KEYLET_ACCOUNT is supported."), 0, 0, 0);
+        return -1;
+    }
 }
 
 int64_t state_set(uint32_t read_ptr, uint32_t read_len, uint32_t kread_ptr, uint32_t kread_len)

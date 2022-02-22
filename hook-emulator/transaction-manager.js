@@ -18,7 +18,8 @@ const MESSAGE_TYPES = {
     TRUSTLINE: 2,
     STATE_GET: 3,
     STATE_SET: 4,
-    ACCID: 5
+    ACCID: 5,
+    SEQUENCE: 6
 };
 
 const RETURN_CODES = {
@@ -181,6 +182,13 @@ class TransactionManager {
         buf.writeBigInt64BE(XflHelpers.getXfl(trustLines[0].limit), offset);
         offset += 8;
 
+        return buf;
+    }
+
+    #encodeUint32(number) {
+        // Pre allocate buffer to populate number data.
+        let buf = Buffer.allocUnsafe(4)
+        buf.writeUInt32BE(number, 0);
         return buf;
     }
 
@@ -465,6 +473,14 @@ class TransactionManager {
                 try {
                     const accountId = codec.decodeAccountID(content.toString());
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, accountId));
+                } catch (error) {
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
+                break;
+            case (MESSAGE_TYPES.SEQUENCE):
+                try {
+                    const sequence = await this.#hookAccount.getSequence();
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(sequence)));
                 } catch (error) {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }

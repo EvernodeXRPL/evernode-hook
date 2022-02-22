@@ -24,33 +24,31 @@ int64_t hook(int64_t reserved)
         rollback(SBUF("Evernode: sfAccount field is missing."), 1);
 
     // Accept any outgoing transactions without further processing.
-    // int is_outgoing = 0;
-    // BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
-    // if (is_outgoing)
-    //     accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
+    int is_outgoing = 0;
+    BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
+    if (is_outgoing)
+        accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
 
-    trace(SBUF("Evernode: Tessssssss."), 0, 0, 0);
+    uint8_t keylet[34];
+    if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
+        rollback(SBUF("Notary: Internal error, could not generate keylet"), 10);
 
-    // uint8_t keylet[34];
-    // if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
-    //     rollback(SBUF("Notary: Internal error, could not generate keylet"), 10);
+    trace(SBUF("Keylet"), SBUF(keylet), 1);
 
-    // trace(SBUF("Keylet"), SBUF(keylet), 1);
+    int64_t slot_no = slot_set(SBUF(keylet), 0);
+    TRACEVAR(slot_no);
+    if (slot_no < 0)
+        rollback(SBUF("Notary: Could not set keylet in slot"), 10);
 
-    // int64_t slot_no = slot_set(SBUF(keylet), 0);
-    // TRACEVAR(slot_no);
-    // if (slot_no < 0)
-    //     rollback(SBUF("Notary: Could not set keylet in slot"), 10);
+    int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
+    if (seq_slot < 0)
+        rollback(SBUF("Notary: Could not find sfSequence on hook account"), 20);
 
-    // int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
-    // if (seq_slot < 0)
-    //     rollback(SBUF("Notary: Could not find sfSequence on hook account"), 20);
+    uint8_t buf[4];
+    seq_slot = slot(SBUF(buf), seq_slot);
+    uint32_t seq = UINT32_FROM_BUF(buf);
 
-    // uint8_t buf[4];
-    // seq_slot = slot(SBUF(buf), seq_slot);
-    // uint32_t seq = UINT32_FROM_BUF(buf);
-
-    // trace_num(SBUF("Sequence"), seq);
+    trace_num(SBUF("Sequence"), seq);
 
     // int64_t oslot = otxn_slot(0);
     // if (oslot < 0)
