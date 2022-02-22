@@ -109,7 +109,7 @@ int64_t hook(int64_t reserved)
 
             // Host deregistration.
             int is_host_de_reg = 0;
-            BUFFER_EQUAL_STR_GUARD(is_host_de_reg, type_ptr, type_len, HOST_DE_REG, 2);
+            BUFFER_EQUAL_STR_GUARD(is_host_de_reg, type_ptr, type_len, HOST_DE_REG, 1);
             if (is_host_de_reg)
             {
                 accept(SBUF("Evernode: Host de-registration successful."), 0);
