@@ -16,8 +16,11 @@
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
 #define ttNFT_MINT 25
+#define ttNFT_OFFER 27
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
 #define tfTransferable 0x00000008
+#define tfBuyToken 0x00000000
+#define tfSellToken 0x00000001
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
@@ -32,9 +35,10 @@ const uint16_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 115;;
+const uint32_t HOST_ADDR_VAL_SIZE = 115;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
+const uint32_t NFT_TOKEN_ID_SIZE = 32;
 const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
 
@@ -54,7 +58,7 @@ const uint32_t HOST_TOT_INS_COUNT_OFFSET = 99;
 const uint32_t HOST_ACT_INS_COUNT_OFFSET = 104;
 const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 108;
 
-const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0};
+const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
 const char *empty_ptr = 0;
 
