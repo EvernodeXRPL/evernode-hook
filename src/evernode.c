@@ -113,6 +113,52 @@ int64_t hook(int64_t reserved)
 
         if (is_xrp)
         {
+            // Host initialization.
+            int is_initialize = 0;
+            BUFFER_EQUAL_STR_GUARD(is_initialize, type_ptr, type_len, INITIALIZE, 1);
+            if (is_initialize)
+            {
+                uint8_t foundation_accid[20];
+                const int foundation_accid_len = util_accid(SBUF(foundation_accid), FOUNDATION_ADDR, 35);
+                if (foundation_accid_len < 20)
+                    rollback(SBUF("Evernode: Could not convert foundation account id."), 1);
+
+                int is_foundation = 0;
+                BUFFER_EQUAL(is_foundation, foundation_accid, account_field, 20);
+                if (!is_foundation)
+                    rollback(SBUF("Evernode: Only foundation is allowed to initialize state."), 1);
+
+                // First check if the states are already initialized by checking one state key for existence.
+                uint8_t host_count_buf[8];
+                if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: State is already initialized."), 1);
+
+                // Initialize the state.
+                const uint64_t zero = 0;
+                SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
+                SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_IDX, "Evernode: Could not initialize state for moment base index.");
+                SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
+                SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+
+                uint8_t issuer_accid[20];
+                const int issuer_accid_len = util_accid(SBUF(issuer_accid), ISSUER_ADDR, 35);
+                if (issuer_accid_len < 20)
+                    rollback(SBUF("Evernode: Could not convert issuer account id."), 1);
+
+                if (state_set(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
+
+                if (state_set(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
+
+                SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+                SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
+                SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
+                SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
+
+                accept(SBUF("Evernode: Initialization successful."), 0);
+            }
+
             // Host deregistration.
             int is_host_de_reg = 0;
             BUFFER_EQUAL_STR_GUARD(is_host_de_reg, type_ptr, type_len, HOST_DE_REG, 1);
@@ -164,7 +210,7 @@ int64_t hook(int64_t reserved)
 
                 // Take the host reg fee from config.
                 int64_t host_reg_fee;
-                GET_FLOAT_CONF_VALUE(host_reg_fee, DEF_HOST_REG_FEE_M, DEF_HOST_REG_FEE_E, STK_HOST_REG_FEE, "Evernode: Could not set default state for host reg fee.");
+                GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
                 TRACEVAR(host_reg_fee);
 
                 if (float_compare(amt, host_reg_fee, COMPARE_LESS) == 1)
@@ -188,17 +234,17 @@ int64_t hook(int64_t reserved)
                 {
                     // Set moment base index.
                     uint64_t moment_base_idx;
-                    GET_CONF_VALUE(moment_base_idx, DEF_MOMENT_BASE_IDX, STK_MOMENT_BASE_IDX, "Evernode: Could not set default state for moment base idx.");
+                    GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_IDX, "Evernode: Could not get moment base idx state.");
                     TRACEVAR(moment_base_idx);
 
                     // Set moment size.
                     uint16_t conf_moment_size;
-                    GET_CONF_VALUE(conf_moment_size, DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not set default state for moment size.");
+                    GET_CONF_VALUE(conf_moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get default moment size state.");
                     TRACEVAR(conf_moment_size);
 
                     // Set host heartbeat frequency.
                     uint16_t conf_host_heartbeat_freq;
-                    GET_CONF_VALUE(conf_host_heartbeat_freq, DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not set default state for host heartbeat freq.");
+                    GET_CONF_VALUE(conf_host_heartbeat_freq, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not get host heartbeat freq state.");
                     TRACEVAR(conf_host_heartbeat_freq);
                 }
 
@@ -282,7 +328,7 @@ int64_t hook(int64_t reserved)
 
                 // Take the fixed reg fee from config.
                 int64_t conf_fixed_reg_fee;
-                GET_FLOAT_CONF_VALUE(conf_fixed_reg_fee, DEF_FIXED_REG_FEE_M, DEF_FIXED_REG_FEE_E, CONF_FIXED_REG_FEE, "Evernode: Could not set default state for fixed reg fee.");
+                GET_CONF_VALUE(conf_fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee state.");
                 TRACEVAR(conf_fixed_reg_fee);
 
                 // Take the fixed theoritical maximum registrants value from config.
@@ -292,10 +338,10 @@ int64_t hook(int64_t reserved)
                 {
                     // Take the mint limit from config.
                     uint64_t conf_mint_limit;
-                    GET_CONF_VALUE(conf_mint_limit, DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not set default state for mint limit.");
+                    GET_CONF_VALUE(conf_mint_limit, CONF_MINT_LIMIT, "Evernode: Could not get mint limit state.");
                     TRACEVAR(conf_mint_limit);
 
-                    UINT64_TO_BUF(max_reg_buf, conf_mint_limit / DEF_HOST_REG_FEE_M);
+                    UINT64_TO_BUF(max_reg_buf, conf_mint_limit / host_reg_fee);
                     if (state_set(SBUF(max_reg_buf), SBUF(STK_MAX_REG)) < 0)
                         rollback(SBUF("Evernode: Could not set default state for max theoritical registrants."), 1);
                 }
@@ -303,7 +349,8 @@ int64_t hook(int64_t reserved)
                 TRACEVAR(conf_max_reg);
 
                 uint8_t issuer_accid[20];
-                util_accid(SBUF(issuer_accid), SBUF(DEF_ISSUER_ADDR));
+                if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: Could not get issuer address state."), 1);
 
                 if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg * 50 / 100))
                 {
@@ -328,7 +375,8 @@ int64_t hook(int64_t reserved)
                     etxn_reserve(1);
 
                 uint8_t foundation_accid[20];
-                util_accid(SBUF(foundation_accid), SBUF(DEF_FOUNDATION_ADDR));
+                if (state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: Could not get foundation account address state."), 1);
 
                 // Froward 5 EVRs to foundation.
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
