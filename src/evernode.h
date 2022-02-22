@@ -458,49 +458,50 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 /////////// Macros for common logics. ///////////
+#define SET_UINT_STATE_VALUE(value, key, error_buf)                  \
+    {                                                                \
+        uint8_t size = sizeof(value);                                \
+        uint8_t value_buf[size];                                     \
+        switch (size)                                                \
+        {                                                            \
+        case 2:                                                      \
+            UINT16_TO_BUF(value_buf, value);                         \
+            break;                                                   \
+        case 4:                                                      \
+            UINT32_TO_BUF(value_buf, value);                         \
+            break;                                                   \
+        case 8:                                                      \
+            UINT64_TO_BUF(value_buf, value);                         \
+            break;                                                   \
+        default:                                                     \
+            rollback(SBUF("Evernode: Invalid state value set."), 1); \
+            break;                                                   \
+        }                                                            \
+        if (state_set(SBUF(value_buf), SBUF(key)) < 0)               \
+            rollback(SBUF(error_buf), 1);                            \
+    }
 
-#define GET_CONF_VALUE(value, def_value, key, error_buf)         \
+#define GET_CONF_VALUE(value, key, error_buf)                    \
     {                                                            \
         uint8_t size = sizeof(value);                            \
         uint8_t value_buf[size];                                 \
         int64_t state_res = state(SBUF(value_buf), SBUF(key));   \
+        if (state_res < 0)                                       \
+            rollback(SBUF(error_buf), 1);                        \
         switch (size)                                            \
         {                                                        \
         case 2:                                                  \
-            if (state_res == DOESNT_EXIST)                       \
-            {                                                    \
-                value = def_value;                               \
-                UINT16_TO_BUF(value_buf, value);                 \
-            }                                                    \
-            else                                                 \
-                value = UINT16_FROM_BUF(value_buf);              \
+            value = UINT16_FROM_BUF(value_buf);                  \
             break;                                               \
         case 4:                                                  \
-            if (state_res == DOESNT_EXIST)                       \
-            {                                                    \
-                value = def_value;                               \
-                UINT32_TO_BUF(value_buf, value);                 \
-            }                                                    \
-            else                                                 \
-                value = UINT32_FROM_BUF(value_buf);              \
+            value = UINT32_FROM_BUF(value_buf);                  \
             break;                                               \
         case 8:                                                  \
-            if (state_res == DOESNT_EXIST)                       \
-            {                                                    \
-                value = def_value;                               \
-                UINT64_TO_BUF(value_buf, value);                 \
-            }                                                    \
-            else                                                 \
-                value = UINT64_FROM_BUF(value_buf);              \
+            value = UINT64_FROM_BUF(value_buf);                  \
             break;                                               \
         default:                                                 \
             rollback(SBUF("Evernode: Invalid state value."), 1); \
             break;                                               \
-        }                                                        \
-        if (state_res == DOESNT_EXIST)                           \
-        {                                                        \
-            if (state_set(SBUF(value_buf), SBUF(key)) < 0)       \
-                rollback(SBUF(error_buf), 1);                    \
         }                                                        \
     }
 
