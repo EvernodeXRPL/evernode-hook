@@ -196,23 +196,23 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 /***************************NFT related MACROS*****************************/
 /**************************************************************************/
 
-#define ENCODE_TXON_SIZE 3
-#define ENCODE_TXON(buf_out, to)         \
+#define ENCODE_TF_SIZE 3
+#define ENCODE_TF(buf_out, to)           \
     {                                    \
         uint8_t uto = to;                \
         buf_out[0] = 0x14U;              \
         buf_out[1] = (uto >> 8) & 0xFFU; \
         buf_out[2] = (uto >> 0) & 0xFFU; \
-        buf_out += ENCODE_TXON_SIZE;     \
+        buf_out += ENCODE_TF_SIZE;       \
     }
-#define _01_04_ENCODE_TXON(buf_out, to) \
-    ENCODE_TXON(buf_out, to);
+#define _01_04_ENCODE_TF(buf_out, to) \
+    ENCODE_TF(buf_out, to);
 
-#define ENCODE_TF_SIZE 6U
-#define ENCODE_TF(buf_out, tf) \
+#define ENCODE_TXON_SIZE 6U
+#define ENCODE_TXON(buf_out, tf) \
     ENCODE_UINT32_UNCOMMON(buf_out, tf, 0x2A);
-#define _02_42_ENCODE_TF(buf_out, tf) \
-    ENCODE_TF(buf_out, tf);
+#define _02_42_ENCODE_TXON(buf_out, tf) \
+    ENCODE_TXON(buf_out, tf);
 
 #define ENCODE_URI(buf_out, uri, uri_len)                                             \
     {                                                                                 \
@@ -466,12 +466,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint32_t cls = (uint32_t)ledger_seq();                                             \
         hook_account(SBUF(acc));                                                           \
         _01_02_ENCODE_TT(buf_out, ttNFT_MINT);        /* uint16  | size   3 */             \
-        _01_04_ENCODE_TXON(buf_out, taxon);           /* uint16  | size   3 */             \
+        _01_04_ENCODE_TF(buf_out, transfer_fee);      /* uint16  | size   3 */             \
         _02_02_ENCODE_FLAGS(buf_out, tfTransferable); /* uint32  | size   5 */             \
         _02_04_ENCODE_SEQUENCE(buf_out, 0);           /* uint32  | size   5 */             \
         _02_26_ENCODE_FLS(buf_out, cls + 1);          /* uint32  | size   6 */             \
         _02_27_ENCODE_LLS(buf_out, cls + 5);          /* uint32  | size   6 */             \
-        _02_42_ENCODE_TF(buf_out, transfer_fee);      /* uint32  | size   6 */             \
+        _02_42_ENCODE_TXON(buf_out, taxon);           /* uint32  | size   6 */             \
         _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);  /* amount  | size   9 */             \
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);   /* pk      | size  35 */             \
         _07_05_ENCODE_URI(buf_out, uri, uri_len);     /* account | size  uri_len + 2 */    \
@@ -717,6 +717,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         /* Update the host's audit assigned state. */                                                                       \
         COPY_BUF_GUARDM(host_addr_buf, HOST_AUDIT_IDX_OFFSET, moment_seed_buf, 0, 8, n, m + 5);                             \
         COPY_BUF_GUARDM(host_addr_buf, HOST_AUDITOR_OFFSET, to_addr, 0, 20, n, m + 6);                                      \
+    }
+
+#define GENERATE_NFT_TOKEN_ID(token_id, transaction_fee, accid, taxon, token_seq)        \
+    {                                                                                    \
+        UINT16_TO_BUF(token_id, tfTransferable);                                         \
+        UINT16_TO_BUF(token_id + 2, transaction_fee);                                    \
+        COPY_BUF(token_id, 4, accid, 0, 20);                                             \
+        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C)); \
+        UINT32_TO_BUF(token_id + 28, token_seq);                                         \
     }
 
 #endif

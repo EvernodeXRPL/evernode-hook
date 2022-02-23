@@ -35,6 +35,7 @@ const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 115;
+const uint32_t TOKEN_ID_VAL_SIZE = 20;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
 const uint32_t NFT_TOKEN_ID_SIZE = 32;
@@ -59,6 +60,8 @@ const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 108;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
+const uint32_t NFT_TAXON_M = 384160001;
+const uint32_t NFT_TAXON_C = 2459;
 const char *empty_ptr = 0;
 
 #endif

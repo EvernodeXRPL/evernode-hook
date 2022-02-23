@@ -35,59 +35,57 @@ int64_t hook(int64_t reserved)
     if (txid_len < HASH_SIZE)
         rollback(SBUF("Evernode: transaction id missing."), 1);
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    uint8_t keylet[34];
-    if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
-        rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
-
-    int64_t slot_no = slot_set(SBUF(keylet), 0);
-    if (slot_no < 0)
-        rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
-
-    int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
-    if (seq_slot < 0)
-        rollback(SBUF("Evernode: Could not find sfSequence on hook account"), 20);
-
-    uint8_t sequence_buf[4];
-    seq_slot = slot(SBUF(sequence_buf), seq_slot);
-    uint32_t sequence = UINT32_FROM_BUF(sequence_buf);
-    TRACEVAR(sequence);
-
     /////////////////////////////////////// Tests ///////////////////////////////////////
 
-    etxn_reserve(2);
+    // uint8_t keylet[34];
+    // if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
+    //     rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
 
-    uint8_t uri[20] = "this is test uri abc";
-    int64_t fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
-    uint8_t tx[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
+    // int64_t slot_no = slot_set(SBUF(keylet), 0);
+    // if (slot_no < 0)
+    //     rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
 
-    PREPARE_NFT_MINT(tx, fee, 0, 0, uri, sizeof(uri));
+    // int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
+    // if (seq_slot < 0)
+    //     rollback(SBUF("Evernode: Could not find sfSequence on hook account"), 20);
 
-    trace(SBUF("Mint transaction: "), SBUF(tx), 1);
+    // uint8_t sequence_buf[4];
+    // seq_slot = slot(SBUF(sequence_buf), seq_slot);
+    // uint32_t sequence = UINT32_FROM_BUF(sequence_buf);
+    // TRACEVAR(sequence);
 
-    uint8_t txemithash[32];
-    if (emit(SBUF(txemithash), SBUF(tx)) < 0)
-        rollback(SBUF("Evernode: Emitting txn failed"), 1);
-    trace(SBUF("emit hash: "), SBUF(txemithash), 1);
+    // int64_t token_seq_slot1 = slot_subfield(slot_no, sfMintedTokens, 0);
+    // if (token_seq_slot1 < 0)
+    //     rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
 
-    fee = etxn_fee_base(PREPARE_NFT_SELL_OFFER_SIZE);
-    uint8_t tx2[PREPARE_NFT_SELL_OFFER_SIZE];
+    // uint8_t token_seq_buf1[4];
+    // token_seq_slot1 = slot(SBUF(token_seq_buf1), token_seq_slot1);
+    // uint32_t token_seq1 = UINT32_FROM_BUF(token_seq_buf1);
+    // TRACEVAR(token_seq1);
 
-    uint8_t accid[20];
-    const int accid_len = util_accid(SBUF(accid), SBUF("rKtwPkSUNQ3X9vsZLqNcYUGwa7vJ5bG7kA"));
-    trace(SBUF("ACCID: "), SBUF(accid), 1);
+    // etxn_reserve(2);
 
-    uint8_t tknid[32] = {0, 8, 0, 2, 162, 41, 141, 52, 207, 250, 179, 111, 54, 174, 245, 55, 40, 82, 183, 39, 216, 197, 232, 2, 143, 200, 172, 196, 0, 0, 0, 51};
-    PREPARE_NFT_SELL_OFFER(tx2, 0, fee, accid, tknid);
+    // uint32_t taxon1 = 5;
+    // uint16_t tffee1 = 10;
 
-    trace(SBUF("Offer transaction: "), SBUF(tx2), 1);
+    // uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
+    // GENERATE_NFT_TOKEN_ID(nft_token_id, tffee1, hook_accid, taxon1, token_seq1);
+    // trace(SBUF("NFT token id:"), SBUF(nft_token_id), 1);
 
-    if (emit(SBUF(txemithash), SBUF(tx2)) < 0)
-        rollback(SBUF("Evernode: Emitting txn failed"), 1);
-    trace(SBUF("emit hash: "), SBUF(txemithash), 1);
+    // uint8_t uri[21] = "this is test uri abc7";
+    // int64_t fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
+    // uint8_t tx[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
 
-    accept(SBUF("Host registration successful."), 0);
+    // PREPARE_NFT_MINT(tx, fee, tffee1, taxon1, uri, sizeof(uri));
+
+    // trace(SBUF("Mint transaction: "), SBUF(tx), 1);
+
+    // uint8_t txemithash[32];
+    // if (emit(SBUF(txemithash), SBUF(tx)) < 0)
+    //     rollback(SBUF("Evernode: Emitting txn failed"), 1);
+    // trace(SBUF("emit hash: "), SBUF(txemithash), 1);
+
+    // accept(SBUF("Host registration successful."), 0);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -240,29 +238,29 @@ int64_t hook(int64_t reserved)
                 if (slot_no < 0)
                     rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
 
-                int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
-                if (seq_slot < 0)
-                    rollback(SBUF("Evernode: Could not find sfSequence on hook account"), 20);
+                int64_t token_seq_slot = slot_subfield(slot_no, sfMintedTokens, 0);
+                if (token_seq_slot < 0)
+                    rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
 
-                uint8_t sequence_buf[4];
-                seq_slot = slot(SBUF(sequence_buf), seq_slot);
-                uint32_t sequence = UINT32_FROM_BUF(sequence_buf);
-                TRACEVAR(sequence);
+                uint8_t token_seq_buf[4];
+                token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
+                uint32_t token_seq = UINT32_FROM_BUF(token_seq_buf);
+                TRACEVAR(token_seq);
 
-                uint8_t nft_tkn_id[NFT_TOKEN_ID_SIZE];
+                // Transfer fee and Taxon will be 0 for the minted NFT.
+                uint32_t taxon = 0;
+                uint16_t tffee = 0;
 
-                COPY_BUF(nft_tkn_id, 0, TOKEN_ID_PREFIX, 0, 4);
-                COPY_BUF(nft_tkn_id, 4, hook_accid, 0, 20);
-                CLEAR_BUF(nft_tkn_id, 24, 4);
-                UINT32_TO_BUF(nft_tkn_id + 28, sequence);
-                trace(SBUF("NFT token id:"), SBUF(nft_tkn_id), 1);
+                uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
+                GENERATE_NFT_TOKEN_ID(nft_token_id, tffee, hook_accid, taxon, token_seq);
+                trace(SBUF("NFT token id:"), SBUF(nft_token_id), 1);
 
-                TOKEN_ID_KEY(nft_tkn_id);
+                TOKEN_ID_KEY(nft_token_id);
                 if (state_set(SBUF(account_field), SBUF(STP_TOKEN_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
                 CLEARBUF(host_addr);
-                COPY_BUF(host_addr, 0, nft_tkn_id, 0, 4);
+                COPY_BUF(host_addr, 0, nft_token_id, 0, 4);
                 COPY_BUF(host_addr, HOST_TOKEN_OFFSET, data_ptr, 0, 3);
                 COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 4, COUNTRY_CODE_LEN);
 
@@ -383,9 +381,8 @@ int64_t hook(int64_t reserved)
                 // Transaction URI would be the registration transaction hash.
                 fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(txid)));
 
-                // Transfer fee and Taxon will be 0.
                 uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(txid))];
-                PREPARE_NFT_MINT(nft_txn_out, fee, 0, 0, txid, sizeof(txid));
+                PREPARE_NFT_MINT(nft_txn_out, fee, tffee, taxon, txid, sizeof(txid));
 
                 if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
                     rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
@@ -396,7 +393,7 @@ int64_t hook(int64_t reserved)
 
                 // Amount will be 0.
                 uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
-                PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, fee, accid, tknid);
+                PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, fee, account_field, nft_token_id);
 
                 if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
                     rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
@@ -417,21 +414,30 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
 
                     // Refund the EVR balance.
-                    for (int i = 1; GUARD(host_count), i <= host_count; ++i)
+                    for (int i = 0; GUARD(token_seq + 1), i <= token_seq; ++i)
                     {
+                        // Loop through all the possible token sequences and generate the token ids.
+                        uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
+                        GENERATE_NFT_TOKEN_ID(lookup_id, tffee, hook_accid, taxon, i);
+
+                        // If the token id exists in the state (host is still registered),
+                        // Rebate the halved registration fee.
+                        TOKEN_ID_KEY(lookup_id);
                         uint8_t host_accid[20] = {0};
+                        if (state(SBUF(host_accid), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
+                        {
+                            uint8_t amt_out[AMOUNT_BUF_SIZE];
+                            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, host_reg_fee);
+                            fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
-                        uint8_t amt_out[AMOUNT_BUF_SIZE];
-                        SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, host_reg_fee);
-                        fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+                            // Create the outgoing hosting token txn.
+                            uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+                            PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, host_accid, 0, 0);
 
-                        // Create the outgoing hosting token txn.
-                        uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                        PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, host_accid, 0, 0);
-
-                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                            rollback(SBUF("Evernode: Emitting txn failed"), 1);
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                                rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                        }
                     }
                 }
 

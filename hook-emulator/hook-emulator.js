@@ -1,5 +1,7 @@
 const fs = require('fs');
+const { SqliteDatabase } = require('./lib/sqlite-handler');
 const { StateManager } = require('./state-manager');
+const { AccountManager } = require('./account-manager');
 const { TransactionManager } = require('./transaction-manager');
 const evernode = require('evernode-js-client');
 
@@ -13,13 +15,17 @@ const RIPPLED_URL = "wss://xls20-sandbox.rippletest.net:51233";
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
  */
 class HookEmulator {
+    #db = null;
     #stateManager = null;
+    #accountManager = null;
     #transactionManager = null;
     #xrplApi = null;
     #xrplAcc = null;
 
     constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret = null) {
-        this.#stateManager = new StateManager(dbPath);
+        this.#db = new SqliteDatabase(dbPath);
+        this.#stateManager = new StateManager(this.#db);
+        this.#accountManager = new AccountManager(this.#db);
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
             hookAddress: hookAddress,
@@ -27,7 +33,7 @@ class HookEmulator {
             xrplApi: this.#xrplApi
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
-        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
+        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
     }
 
     async init() {

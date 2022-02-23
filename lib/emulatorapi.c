@@ -12,6 +12,8 @@
 #define MAX_READ_LEN 1024
 #define TRUSTLINE_LEN 16
 #define SEQUENCE_LEN 4
+#define MINTED_TOKENS_LEN 4
+
 
 #define MANTISSA_OVERSIZED -26
 #define EXPONENT_OVERSIZED -28
@@ -500,7 +502,7 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
             return 48;
         }
     }
-    else if (type == SLOT_SEQUENCE)
+    else if (type == SLOT_SEQUENCE || type == SLOT_MINTED_TOKENS)
     {
         memcpy((uint32_t *)write_ptr, (slot_ptr + 4), 4);
         return 4;
@@ -577,6 +579,14 @@ int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot
             memcpy(slot_buf + 4, (slot_ptr + 4), 4);
             return slot_set(SBUF(slot_buf), new_slot);
         }
+        else if (field_id == sfMintedTokens)
+        {
+            int len = 8;
+            uint8_t slot_buf[len];
+            UINT32_TO_BUF(slot_buf, SLOT_MINTED_TOKENS);
+            memcpy(slot_buf + 4, (slot_ptr + 8), 4);
+            return slot_set(SBUF(slot_buf), new_slot);
+        }
     }
 
     return -1;
@@ -585,7 +595,7 @@ int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot
 int64_t slot_type(uint32_t slot, uint32_t flags)
 {
     uint8_t *slot_ptr = (uint8_t *)slot;
-    uint32_t type = UINT16_FROM_BUF(slot_ptr);
+    uint32_t type = UINT32_FROM_BUF(slot_ptr);
     if (type == SLOT_AMOUNT)
     {
         struct Amount *amt = (struct Amount *)(slot_ptr + 4);
@@ -791,7 +801,7 @@ int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t
 /**
  * Get sequence number of the given account.
  * @param address Source address of the sequence.
- * @param sequence Limit float to be populated.
+ * @param sequence Seqence value to be populated.
 */
 int get_sequence(uint32_t address, uint32_t *sequence)
 {
@@ -805,7 +815,7 @@ int get_sequence(uint32_t address, uint32_t *sequence)
     write_stdout(buf, len);
 
     // Read the response from STDIN.
-    uint8_t data_buf[TRUSTLINE_LEN + 1];
+    uint8_t data_buf[SEQUENCE_LEN + 1];
     const int data_len = read_stdin(data_buf, sizeof(data_buf));
     const int ret = (int8_t)*data_buf;
     const uint8_t *res = &data_buf[1];
@@ -817,6 +827,38 @@ int get_sequence(uint32_t address, uint32_t *sequence)
     }
 
     *sequence = UINT32_FROM_BUF(res);
+    return 0;
+}
+
+/**
+ * Get minted tokens number of the given account.
+ * @param address Source address of the minted tokens.
+ * @param minted_tokens Minted tokens value to be populated.
+*/
+int get_minted_tokens(uint32_t address, uint32_t *minted_tokens)
+{
+    // Send the minted tokens request.
+    const int len = 21;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = MINTED_TOKENS;
+    // Populate the address.
+    memcpy(&buf[1], (uint32_t *)address, 20);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t data_buf[MINTED_TOKENS_LEN + 1];
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
+
+    if (ret < 0 || ((data_len - 1) != MINTED_TOKENS_LEN))
+    {
+        *minted_tokens = 0;
+        return -1;
+    }
+
+    *minted_tokens = UINT32_FROM_BUF(res);
     return 0;
 }
 
@@ -867,16 +909,23 @@ int64_t util_keylet(uint32_t write_ptr, uint32_t write_len, uint32_t keylet_type
             return -1;
         }
 
-        uint32_t sequence;
-        int sequence_res = get_sequence(a, &sequence);
-        if (sequence_res < 0)
-            return sequence_res;
-
-        uint8_t buf[8];
+        uint8_t buf[12];
         UINT32_TO_BUF((uint32_t *)(write_ptr), keylet_type);
-        UINT32_TO_BUF((uint32_t *)(write_ptr + 4), sequence);
-        memset((uint32_t *)(write_ptr + 8), 0, write_len - 8);
 
+        // Get the sequence.
+        uint32_t value;
+        int res = get_sequence(a, &value);
+        if (res < 0)
+            return res;
+        UINT32_TO_BUF((uint32_t *)(write_ptr + 4), value);
+
+        // Get the minted tokens.
+        res = get_minted_tokens(a, &value);
+        if (res < 0)
+            return res;
+        UINT32_TO_BUF((uint32_t *)(write_ptr + 8), value);
+
+        memset((uint32_t *)(write_ptr + 12), 0, write_len - 8);
         return write_len;
     }
     else

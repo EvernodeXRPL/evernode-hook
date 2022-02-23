@@ -1,4 +1,4 @@
-const { SqliteDatabase, DataTypes } = require('./lib/sqlite-handler');
+const { DataTypes } = require('./lib/sqlite-handler');
 
 const STATE_TABLE = 'state';
 const MAX_KEY_SIZE = 32;
@@ -20,8 +20,8 @@ class StateManager {
     #db = null;
     #stateTable = null;
 
-    constructor(dbPath) {
-        this.#db = new SqliteDatabase(dbPath);
+    constructor(db) {
+        this.#db = db;
         this.#draftStates = {};
     }
 

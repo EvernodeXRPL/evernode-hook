@@ -19,7 +19,8 @@ const MESSAGE_TYPES = {
     STATE_GET: 3,
     STATE_SET: 4,
     ACCID: 5,
-    SEQUENCE: 6
+    SEQUENCE: 6,
+    MINTED_TOKENS: 7
 };
 
 const RETURN_CODES = {
@@ -59,16 +60,18 @@ const RETURN_CODES = {
 class TransactionManager {
     #hookWrapperPath = null;
     #stateManager = null;
+    #accountManager = null;
     #hookAccount = null;
     #hookProcess = null;
     #draftEmits = null;
     #pendingTransactions = null;
     #queueProcessorActive = null;
 
-    constructor(hookAccount, hookWrapperPath, stateManager) {
+    constructor(hookAccount, hookWrapperPath, stateManager, accountManager) {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
+        this.#accountManager = accountManager;
         this.#pendingTransactions = [];
         this.#queueProcessorActive = false;
         this.#initDrafts();
@@ -76,6 +79,7 @@ class TransactionManager {
 
     async init() {
         await this.#stateManager.init();
+        await this.#accountManager.init();
     }
 
     #initDrafts() {
@@ -263,6 +267,9 @@ class TransactionManager {
 
     async #decodeAndSignEmitTransaction(transactionBuf) {
         let txJson = rippleCodec.decode(transactionBuf.toString('hex'));
+        // If transaction is a NFT mint, Increment the mint counter.
+        if (txJson.TransactionType === 'NFTokenMint')
+            this.#accountManager.incrementMintedTokensSeq();
         delete txJson.SigningPubKey;
         delete txJson.FirstLedgerSequence;
         txJson.Sequence = await this.#hookAccount.getNextSequence();
@@ -288,7 +295,7 @@ class TransactionManager {
                 task.resolve(ret);
             }
             catch (e) {
-                this.#rollbackTransaction();
+                await this.#rollbackTransaction().catch(e => task.reject(e))
                 task.reject(e);
             }
 
@@ -382,10 +389,12 @@ class TransactionManager {
         for (const transaction of this.#draftEmits)
             await this.#hookAccount.submitTransactionBlob(transaction);
         await this.#stateManager.persist();
+        await this.#accountManager.persist();
     }
 
-    #rollbackTransaction() {
+    async #rollbackTransaction() {
         this.#stateManager.rollback();
+        await this.#accountManager.rollback();
     }
 
     async #handleMessage(messageBuf) {
@@ -479,8 +488,16 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.SEQUENCE):
                 try {
-                    const sequence = await this.#hookAccount.getSequence();
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(sequence)));
+                    const value = await this.#hookAccount.getSequence();
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
+                } catch (error) {
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
+                break;
+            case (MESSAGE_TYPES.MINTED_TOKENS):
+                try {
+                    const value = await this.#accountManager.getMintedTokensSeq();
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
                 } catch (error) {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }

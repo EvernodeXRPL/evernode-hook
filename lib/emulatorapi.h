@@ -104,7 +104,8 @@ enum MESSAGE_TYPES
     STATE_GET,
     STATE_SET,
     ACCID,
-    SEQUENCE
+    SEQUENCE,
+    MINTED_TOKENS
 };
 
 enum RETURN_CODES
@@ -356,11 +357,14 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
 
 #define INVALID_FLOAT -10024 // if the mantissa or exponent are outside normalized ranges
 
+#define sfMintedTokens 0xf0012UL // This is not the corrent value for sfMintedTokens, just a dummy value outside of current sf range.
+
 #define SLOT_TRANSACTION 0
 #define SLOT_AMOUNT 23
 #define SLOT_BALANCE 24
 #define SLOT_LIMIT 25
 #define SLOT_SEQUENCE 26
+#define SLOT_MINTED_TOKENS 27
 
 #define KEYLET_HOOK 1
 #define KEYLET_HOOK_STATE 2
