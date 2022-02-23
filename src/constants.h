@@ -3,20 +3,7 @@
 
 #define HOST_REG "evnHostReg"
 #define HOST_DE_REG "evnHostDereg"
-#define REDEEM "evnRedeem"
-#define REDEEM_ORIGIN "evnRedeemOrigin"
-#define REDEEM_REF "evnRedeemRef"
-#define REDEEM_SUCCESS "evnRedeemSuccess"
-#define REDEEM_ERROR "evnRedeemError"
-#define REFUND "evnRefund"
-#define REFUND_SUCCESS "evnRefundSuccess"
-#define REFUND_ERROR "evnRefundError"
-#define AUDIT "evnAudit"
-#define AUDIT_ASSIGNMENT "evnAuditAssignment"
-#define AUDIT_SUCCESS "evnAuditSuccess"
-#define AUDIT_FAILED "evnAuditFailed"
-#define REWARD "evnReward"
-#define RECHARGE "evnRecharge"
+#define INITIALIZE "evnInitialize"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -32,29 +19,21 @@
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 // Default values.
+const uint8_t ISSUER_ADDR[35] = "r35PTP1rmshmhp7dsMLmJsyftBxXgNBTH6";
+const uint8_t FOUNDATION_ADDR[35] = "rnK3nF9TdzNmMJZmACo23Zva5a4f6hFoEe";
 const uint16_t DEF_MOMENT_SIZE = 72;
-const uint64_t DEF_MINT_LIMIT = 25804800;
-const int64_t DEF_HOST_REG_FEE_M = 87654321;
-const int32_t DEF_HOST_REG_FEE_E = -8;
-const uint16_t DEF_MIN_REDEEM = 1;
-const uint16_t DEF_REDEEM_WINDOW = 24;
-const int64_t DEF_REWARD_M = 64;
-const int32_t DEF_REWARD_E = 0;
-const uint16_t DEF_MAX_REWARD = 20;
-const uint16_t DEF_MAX_AUDIT = 5;
+const uint64_t DEF_MINT_LIMIT = 72253440;
+const uint64_t DEF_HOST_REG_FEE = 5120;
+const uint64_t DEF_FIXED_REG_FEE = 5;
+const uint16_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (72253440/5120)
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
-const uint8_t DEF_AUDITOR_ADDR[35] = "rUWDtXPk4gAp8L6dNS51hLArnwFk4bRxky"; // This is a hard coded value, can be changed later.
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 115;
-const uint32_t AUDITOR_ADDR_VAL_SIZE = 32;
-const uint32_t REDEEM_STATE_VAL_SIZE = 59;
-const uint32_t MOMENT_SEED_VAL_SIZE = 40;
+const uint32_t HOST_ADDR_VAL_SIZE = 115;;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
 const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
-const uint32_t REDEEM_ORIGIN_DATA_LEN = 63;
 
 // State value offsets
 // HOST_ADDR
@@ -65,12 +44,6 @@ const uint32_t HOST_RAM_MB_OFFSET = 13;
 const uint32_t HOST_DISK_MB_OFFSET = 17;
 const uint32_t HOST_RESERVED_OFFSET = 21;
 const uint32_t HOST_DESCRIPTION_OFFSET = 29;
-const uint32_t HOST_AUDIT_IDX_OFFSET = 55;
-const uint32_t HOST_AUDITOR_OFFSET = 63;
-const uint32_t HOST_REWARD_IDX_OFFSET = 83;
-const uint32_t HOST_ACCUMULATED_AMT_OFFSET = 91;
-const uint32_t HOST_LOCKED_TOKEN_AMT_OFFSET = 99;
-const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 107;
 
 const uint64_t MIN_DROPS = 1;
 const char *empty_ptr = 0;

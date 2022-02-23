@@ -7,7 +7,7 @@ const CONFIG_PATH = './hook-emulator.cfg';
 const DB_PATH = './hook-emulator.sqlite';
 const HOOK_WRAPPER_PATH = './c_wrappers/hook-wrapper';
 
-const RIPPLED_URL = "wss://s.altnet.rippletest.net:51233";
+const RIPPLED_URL = "wss://xls20-sandbox.rippletest.net:51233";
 
 /**
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.

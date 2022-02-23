@@ -52,7 +52,7 @@ class StateManager {
         }
 
         let valueBuf = null;
-        if (value && (value.length > 0) && (value.findIndex(e => e != 0) >= 0))
+        if (value && (value.length > 0))
             valueBuf = value;
 
         this.#draftStates[keyBuf.toString('hex')] = valueBuf;
