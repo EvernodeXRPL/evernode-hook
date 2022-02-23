@@ -34,7 +34,7 @@ const RETURN_CODES = {
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
-// Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Transaction origin - <hookid(20)><hash(32)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Message response format - <RETURN CODE(1)><DATA>
 // Emit response - <return code(1)><tx hash(32)>
 // Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
@@ -91,9 +91,13 @@ class TransactionManager {
         const isXrp = (typeof transaction.Amount === 'string');
 
         // Pre allocate a buffer to propulate transaction info. allocUnsafe since it's faster and the whole buffer will be allocated in the later part.
-        let txBuf = Buffer.allocUnsafe(42 + (isXrp ? 8 : 31))
+        let txBuf = Buffer.allocUnsafe(74 + (isXrp ? 8 : 31))
 
         let offset = 0;
+        // Populate the transaction hash (32-bytes).
+        Buffer.from(transaction.hash, 'hex').copy(txBuf, offset);
+        offset += 32;
+        
         // Get origin account id from r-address and populate (20-bytes).
         codec.decodeAccountID(transaction.Account).copy(txBuf, offset);
         offset += 20;
@@ -448,7 +452,10 @@ class TransactionManager {
                     this.#sendToProc(this.#encodeReturnCode(value, value));
                 }
                 catch (e) {
-                    console.error(e);
+                    // Log the errors other than does not exist.
+                    if (e.code !== STATE_ERROR_CODES.DOES_NOT_EXIST)
+                        console.log(e);
+
                     let retCode = RETURN_CODES.INTERNAL_ERROR;
                     if (e.code === STATE_ERROR_CODES.DOES_NOT_EXIST)
                         retCode = RETURN_CODES.NOT_FOUND;

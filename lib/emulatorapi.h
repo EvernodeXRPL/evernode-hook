@@ -80,6 +80,7 @@ struct Memos
 };
 struct Transaction
 {
+    uint8_t hash[HASH_SIZE_1];
     uint8_t account[ACCOUNT_LEN];
     struct Amount amount;
     uint8_t destination[ACCOUNT_LEN];

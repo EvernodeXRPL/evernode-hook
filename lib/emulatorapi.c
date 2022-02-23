@@ -14,7 +14,6 @@
 #define SEQUENCE_LEN 4
 #define MINTED_TOKENS_LEN 4
 
-
 #define MANTISSA_OVERSIZED -26
 #define EXPONENT_OVERSIZED -28
 #define EXPONENT_UNDERSIZED -29
@@ -425,7 +424,7 @@ int64_t otxn_field(uint32_t write_ptr, uint32_t write_len, uint32_t field_id)
 
 int64_t otxn_id(uint32_t write_ptr, uint32_t write_len, uint32_t flags)
 {
-    memcpy((uint32_t *)write_ptr, txn->ledger_hash, HASH_SIZE_1);
+    memcpy((uint32_t *)write_ptr, txn->hash, HASH_SIZE_1);
     return HASH_SIZE_1;
 }
 
@@ -484,19 +483,15 @@ int64_t slot(uint32_t write_ptr, uint32_t write_len, uint32_t slot)
             if (write_len < 8)
                 return TOO_SMALL;
 
-            uint8_t amount_buf[8];
-            INT64_TO_BUF(amount_buf, amt->xrp.amount);
-            memcpy((uint32_t *)write_ptr, amount_buf, sizeof(amount_buf));
-            return sizeof(amount_buf);
+            INT64_TO_BUF((uint32_t *)write_ptr, amt->xrp.amount);
+            return 8;
         }
         else
         {
             if (write_len < 48)
                 return TOO_SMALL;
 
-            uint8_t amount_buf[8];
-            INT64_TO_BUF(amount_buf, amt->iou.amount);
-            memcpy((uint32_t *)write_ptr, amount_buf, 8);
+            INT64_TO_BUF((uint32_t *)write_ptr, amt->iou.amount);
             memcpy((uint32_t *)(write_ptr + 8), amt->iou.currency, 20);
             memcpy((uint32_t *)(write_ptr + 28), amt->iou.issuer, 20);
             return 48;
@@ -546,7 +541,7 @@ int64_t slot_subfield(uint32_t parent_slot, uint32_t field_id, uint32_t new_slot
             int len = 4 + sizeof(struct Amount);
             uint8_t slot_buf[len];
             UINT32_TO_BUF(slot_buf, SLOT_AMOUNT);
-            memcpy(slot_buf + 4, (uint8_t *)tx, sizeof(struct Amount));
+            memcpy(slot_buf + 4, (uint8_t *)&(tx->amount), sizeof(struct Amount));
             return slot_set(SBUF(slot_buf), new_slot);
         }
     }
@@ -614,7 +609,6 @@ int64_t slot_set(uint32_t read_ptr, uint32_t read_len, int32_t slot)
 
 int64_t sto_subarray(uint32_t read_ptr, uint32_t read_len, uint32_t array_id)
 {
-    trace(SBUF("Currently support only memos..."), 0, 0, 0);
     struct Memo *list = (struct Memo *)read_ptr;
     int64_t offset = sizeof(struct Memo) * array_id;
     int64_t len = sizeof(struct Memo);

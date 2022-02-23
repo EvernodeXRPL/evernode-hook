@@ -22,13 +22,13 @@
 
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
-// Checks for EVR currency issued by hook account.
-#define IS_EVR(is_evr, amount_buffer, hook_accid)      \
+// Checks for EVR currency issued by issuer account.
+#define IS_EVR(is_evr, amount_buffer, issuer_accid)    \
     is_evr = 1;                                        \
     for (int i = 0; GUARD(20), i < 20; ++i)            \
     {                                                  \
         if (amount_buffer[i + 8] != evr_currency[i] || \
-            amount_buffer[i + 28] != hook_accid[i])    \
+            amount_buffer[i + 28] != issuer_accid[i])  \
         {                                              \
             is_evr = 0;                                \
             break;                                     \

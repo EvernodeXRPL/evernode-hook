@@ -194,8 +194,12 @@ int64_t hook(int64_t reserved)
             if (result != AMOUNT_BUF_SIZE)
                 rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
 
+            uint8_t issuer_accid[20];
+            if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                rollback(SBUF("Evernode: Could not get issuer address state."), 1);
+
             int is_evr;
-            IS_EVR(is_evr, amount_buffer, hook_accid);
+            IS_EVR(is_evr, amount_buffer, issuer_accid);
 
             // Host registration.
             int is_host_reg = 0;
@@ -346,10 +350,6 @@ int64_t hook(int64_t reserved)
                 GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
                 TRACEVAR(conf_max_reg);
 
-                uint8_t issuer_accid[20];
-                if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) != DOESNT_EXIST)
-                    rollback(SBUF("Evernode: Could not get issuer address state."), 1);
-
                 int max_reached = 0;
                 if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg * 50 / 100))
                 {
@@ -361,11 +361,11 @@ int64_t hook(int64_t reserved)
 
                 // Froward 5 EVRs to foundation.
                 uint8_t foundation_accid[20];
-                if (state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) != DOESNT_EXIST)
+                if (state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not get foundation account address state."), 1);
 
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
-                SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, conf_fixed_reg_fee);
+                SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee));
                 int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                 // Create the outgoing hosting token txn.
@@ -427,7 +427,7 @@ int64_t hook(int64_t reserved)
                         if (state(SBUF(host_accid), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
                         {
                             uint8_t amt_out[AMOUNT_BUF_SIZE];
-                            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, host_reg_fee);
+                            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee));
                             fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                             // Create the outgoing hosting token txn.
