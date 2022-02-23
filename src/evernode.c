@@ -60,32 +60,32 @@ int64_t hook(int64_t reserved)
 
     uint8_t uri[20] = "this is test uri abc";
     int64_t fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
-    unsigned char tx[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
+    uint8_t tx[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
 
-    PREPARE_NFT_MINT(tx, fee, 10, 2, uri, sizeof(uri));
+    PREPARE_NFT_MINT(tx, fee, 0, 0, uri, sizeof(uri));
 
-    trace(SBUF("Transaction: "), SBUF(tx), 1);
+    trace(SBUF("Mint transaction: "), SBUF(tx), 1);
 
-    uint8_t emithash[32];
-    if (emit(SBUF(emithash), SBUF(tx)) < 0)
+    uint8_t txemithash[32];
+    if (emit(SBUF(txemithash), SBUF(tx)) < 0)
         rollback(SBUF("Evernode: Emitting txn failed"), 1);
-    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+    trace(SBUF("emit hash: "), SBUF(txemithash), 1);
 
     fee = etxn_fee_base(PREPARE_NFT_SELL_OFFER_SIZE);
-    unsigned char tx2[PREPARE_NFT_SELL_OFFER_SIZE];
+    uint8_t tx2[PREPARE_NFT_SELL_OFFER_SIZE];
 
     uint8_t accid[20];
     const int accid_len = util_accid(SBUF(accid), SBUF("rKtwPkSUNQ3X9vsZLqNcYUGwa7vJ5bG7kA"));
     trace(SBUF("ACCID: "), SBUF(accid), 1);
 
-    uint8_t tknid[32] = {0, 8, 0, 0, 162, 41, 141, 52, 207, 250, 179, 111, 54, 174, 245, 55, 40, 82, 183, 39, 216, 197, 232, 2, 193, 180, 83, 197, 0, 0, 0, 42};
-    PREPARE_NFT_SELL_OFFER(tx2, 1, fee, accid, tknid);
+    uint8_t tknid[32] = {0, 8, 0, 2, 162, 41, 141, 52, 207, 250, 179, 111, 54, 174, 245, 55, 40, 82, 183, 39, 216, 197, 232, 2, 143, 200, 172, 196, 0, 0, 0, 51};
+    PREPARE_NFT_SELL_OFFER(tx2, 0, fee, accid, tknid);
 
-    trace(SBUF("Transaction: "), SBUF(tx2), 1);
+    trace(SBUF("Offer transaction: "), SBUF(tx2), 1);
 
-    if (emit(SBUF(emithash), SBUF(tx2)) < 0)
+    if (emit(SBUF(txemithash), SBUF(tx2)) < 0)
         rollback(SBUF("Evernode: Emitting txn failed"), 1);
-    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+    trace(SBUF("emit hash: "), SBUF(txemithash), 1);
 
     accept(SBUF("Host registration successful."), 0);
 
@@ -356,10 +356,10 @@ int64_t hook(int64_t reserved)
                 if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg * 50 / 100))
                 {
                     max_reached = 1;
-                    etxn_reserve(host_count + 2);
+                    etxn_reserve(host_count + 3);
                 }
                 else
-                    etxn_reserve(2);
+                    etxn_reserve(3);
 
                 // Froward 5 EVRs to foundation.
                 uint8_t foundation_accid[20];
@@ -374,21 +374,32 @@ int64_t hook(int64_t reserved)
                 uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
                 PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, foundation_accid, 0, 0);
 
+                uint8_t emithash[32];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting EVR forward txn failed"), 1);
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
                 // Mint the nft token.
                 // Transaction URI would be the registration transaction hash.
                 fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(txid)));
-                unsigned char tx[PREPARE_NFT_MINT_SIZE(sizeof(txid))];
 
                 // Transfer fee and Taxon will be 0.
-                PREPARE_NFT_MINT(tx, fee, 0, 0, txid, sizeof(txid));
+                uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(txid))];
+                PREPARE_NFT_MINT(nft_txn_out, fee, 0, 0, txid, sizeof(txid));
 
-                uint8_t emithash[32];
-                if (emit(SBUF(emithash), SBUF(tx)) < 0)
-                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                // Create sell offer for the nft token.
+                fee = etxn_fee_base(PREPARE_NFT_SELL_OFFER_SIZE);
+
+                // Amount will be 0.
+                uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
+                PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, fee, accid, tknid);
+
+                if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 if (max_reached)
