@@ -100,7 +100,7 @@ async function main () {
 
         await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_PROGRAM_EVRS, evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${PURCHASER_PROGRAM_EVRS}/- EVR amount was transfered to Community Contract Bank Account`);
+        console.log(`${PURCHASER_PROGRAM_EVRS}/- EVR amount was transfered to Community Contract Bank Account by the Foundation`);
         // END - Transfer Currency
 
         // ISSUER Blackholing	
@@ -113,9 +113,6 @@ async function main () {
         newAccounts.forEach(element => {            
             console.log(`Account name :${element.name}`);
             console.log(`Address : ${element.xrplAcc.address}`);
-            if (element.name  !== "ISSUER") {
-                console.log(`Secret : ${element.xrplAcc.secret}`);
-            }
 
             console.log('-----------------------------------------------------------------------');
             
