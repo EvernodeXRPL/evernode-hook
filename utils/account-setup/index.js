@@ -7,12 +7,15 @@ const { XrplAccount, XrplApi } = evernode;
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_PROGRAM_EVRS = "51609600";
 
-// Testnets --------------------------------------------------------------
+// End Points --------------------------------------------------------------
 const FAUCETS_URL = 'https://faucet-nft.ripple.com/accounts';
-const rippledServer = 'wss://xls20-sandbox.rippletest.net:51233';
+const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Account names 
-const accounts = ["ISSUER", "FOUNDATION", "COMMUNITY_BANK", "REGISTRY"];
+const accounts = ["ISSUER", "FOUNDATION", "COMMUNITY_CONTRACT_BANK", "REGISTRY"];
+
+// XRP Pre-defined Special Address -> Blackhole
+const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
 
 function httpPost(url) {
     return new Promise((resolve, reject) => {
@@ -35,13 +38,13 @@ function httpPost(url) {
 
 
 async function main () {
-    try {
 
-        // BEGIN - Connect to XRPL API 
-        const xrplApi = new XrplApi(rippledServer);
-        await xrplApi.connect();
-        // END - Connect to XRPL API
-        
+    // BEGIN - Connect to XRPL API 
+    const xrplApi = new XrplApi(RIPPLED_URL);
+    await xrplApi.connect();
+    // END - Connect to XRPL API
+
+    try {       
 
         // BEGIN - Account Creation 
         console.log('Started to create XRP Accounts');
@@ -97,8 +100,12 @@ async function main () {
 
         await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_PROGRAM_EVRS, evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${PURCHASER_PROGRAM_EVRS}/- EVR amount was transfered to Community Bank Account"`);
+        console.log(`${PURCHASER_PROGRAM_EVRS}/- EVR amount was transfered to Community Contract Bank Account`);
         // END - Transfer Currency
+
+        // ISSUER Blackholing	
+        await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
+        console.log("Blackholed ISSUER");
 
         // BEGIN - Log Account Details
         console.log('\nAccount Details -------------------------------------------------------');
@@ -114,15 +121,16 @@ async function main () {
             
         });
         // END - Log Account Details
-
-        process.exit();
       
     } catch (err) {
         console.log(err);
         console.log("Evernode account setup exiting with an error.");
         process.exit(1);
     }
-
+    finally {
+        await xrplApi.disconnect();
+        process.exit();
+    }
 }
 
 main().catch(console.error);
