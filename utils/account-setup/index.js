@@ -12,7 +12,7 @@ const FAUCETS_URL = 'https://faucet-nft.ripple.com/accounts';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Account names 
-const accounts = ["ISSUER", "FOUNDATION", "COMMUNITY_CONTRACT_BANK", "REGISTRY"];
+const accounts = ["ISSUER", "FOUNDATION", "COMMUNITY_CONTRACT_BANK", "REGISTRY", "PURCHASER"];
 
 // XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
@@ -88,6 +88,12 @@ async function main () {
 
         if (registry_lines.length === 0) {
             await newAccounts[3].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        }
+
+        const purchaser_lines = await newAccounts[4].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+
+        if (purchaser_lines.length === 0) {
+            await newAccounts[4].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
         }
 
         console.log("Trust Lines initiated");
