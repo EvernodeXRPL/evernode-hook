@@ -1,5 +1,5 @@
-#include "../lib/hookapi.h"
-// #include "../lib/emulatorapi.h"
+// #include "../lib/hookapi.h"
+#include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
 
@@ -34,60 +34,6 @@ int64_t hook(int64_t reserved)
     int32_t txid_len = otxn_id(SBUF(txid), 0);
     if (txid_len < HASH_SIZE)
         rollback(SBUF("Evernode: transaction id missing."), 1);
-
-    /////////////////////////////////////// Tests ///////////////////////////////////////
-
-    // uint8_t keylet[34];
-    // if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
-    //     rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
-
-    // int64_t slot_no = slot_set(SBUF(keylet), 0);
-    // if (slot_no < 0)
-    //     rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
-
-    // int64_t seq_slot = slot_subfield(slot_no, sfSequence, 0);
-    // if (seq_slot < 0)
-    //     rollback(SBUF("Evernode: Could not find sfSequence on hook account"), 20);
-
-    // uint8_t sequence_buf[4];
-    // seq_slot = slot(SBUF(sequence_buf), seq_slot);
-    // uint32_t sequence = UINT32_FROM_BUF(sequence_buf);
-    // TRACEVAR(sequence);
-
-    // int64_t token_seq_slot1 = slot_subfield(slot_no, sfMintedTokens, 0);
-    // if (token_seq_slot1 < 0)
-    //     rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
-
-    // uint8_t token_seq_buf1[4];
-    // token_seq_slot1 = slot(SBUF(token_seq_buf1), token_seq_slot1);
-    // uint32_t token_seq1 = UINT32_FROM_BUF(token_seq_buf1);
-    // TRACEVAR(token_seq1);
-
-    // etxn_reserve(2);
-
-    // uint32_t taxon1 = 5;
-    // uint16_t tffee1 = 10;
-
-    // uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
-    // GENERATE_NFT_TOKEN_ID(nft_token_id, tffee1, hook_accid, taxon1, token_seq1);
-    // trace(SBUF("NFT token id:"), SBUF(nft_token_id), 1);
-
-    // uint8_t uri[21] = "this is test uri abc7";
-    // int64_t fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
-    // uint8_t tx[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
-
-    // PREPARE_NFT_MINT(tx, fee, tffee1, taxon1, uri, sizeof(uri));
-
-    // trace(SBUF("Mint transaction: "), SBUF(tx), 1);
-
-    // uint8_t txemithash[32];
-    // if (emit(SBUF(txemithash), SBUF(tx)) < 0)
-    //     rollback(SBUF("Evernode: Emitting txn failed"), 1);
-    // trace(SBUF("emit hash: "), SBUF(txemithash), 1);
-
-    // accept(SBUF("Host registration successful."), 0);
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     int64_t txn_type = otxn_type();
     if (txn_type == ttPAYMENT)
@@ -264,7 +210,7 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
                 CLEARBUF(host_addr);
-                COPY_BUF(host_addr, 0, nft_token_id, 0, 4);
+                COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
                 COPY_BUF(host_addr, HOST_TOKEN_OFFSET, data_ptr, 0, 3);
                 COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 4, COUNTRY_CODE_LEN);
 
@@ -272,8 +218,8 @@ int64_t hook(int64_t reserved)
                 // We cannot predict the lengths of the numarical values.
                 // So we scan bytes and keep pointers and lengths to set in host address buffer.
                 uint32_t section_number = 0;
-                uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *description_ptr;
-                uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, description_len = 0;
+                uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *description_ptr;
+                uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, description_len = 0;
 
                 for (int i = 6; GUARD(data_len - 6), i < data_len; ++i)
                 {
@@ -309,6 +255,12 @@ int64_t hook(int64_t reserved)
                     }
                     else if (section_number == 4)
                     {
+                        if (total_ins_count_len == 0)
+                            total_ins_count_ptr = str_ptr;
+                        total_ins_count_len++;
+                    }
+                    else if (section_number == 5)
+                    {
                         if (description_len == 0)
                             description_ptr = str_ptr;
                         description_len++;
@@ -316,10 +268,11 @@ int64_t hook(int64_t reserved)
                 }
 
                 // Take the unsigned int values.
-                uint32_t cpu_microsec, ram_mb, disk_mb;
+                uint32_t cpu_microsec, ram_mb, disk_mb, total_ins_count;
                 STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
                 STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
                 STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
+                STR_TO_UINT(total_ins_count, total_ins_count_ptr, total_ins_count_len);
 
                 // Populate the values to the buffer.
                 UINT32_TO_BUF(&host_addr[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
@@ -331,6 +284,7 @@ int64_t hook(int64_t reserved)
                     CLEAR_BUF(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len);
                 INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                 INT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
 
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);

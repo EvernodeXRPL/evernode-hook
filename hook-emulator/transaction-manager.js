@@ -97,7 +97,7 @@ class TransactionManager {
         // Populate the transaction hash (32-bytes).
         Buffer.from(transaction.hash, 'hex').copy(txBuf, offset);
         offset += 32;
-        
+
         // Get origin account id from r-address and populate (20-bytes).
         codec.decodeAccountID(transaction.Account).copy(txBuf, offset);
         offset += 20;
@@ -278,6 +278,7 @@ class TransactionManager {
         delete txJson.FirstLedgerSequence;
         txJson.Sequence = await this.#hookAccount.getNextSequence();
         txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET;
+        // Todo: Transaction need to be validated.
         return await this.#hookAccount.wallet.sign(txJson);
     }
 
@@ -299,7 +300,7 @@ class TransactionManager {
                 task.resolve(ret);
             }
             catch (e) {
-                this.#rollbackTransaction();
+                await this.#rollbackTransaction(task.transaction).catch(console.error);
                 task.reject(e);
             }
 
@@ -396,7 +397,15 @@ class TransactionManager {
         this.#accountManager.persist();
     }
 
-    #rollbackTransaction() {
+    async #rollbackTransaction(transaction) {
+        // Send back the transaction amount to the sender.
+        const isXrp = (typeof transaction.Amount === 'string');
+        const amount = isXrp ? transaction.Amount : transaction.Amount.value;
+        const currency = isXrp ? 'XRP' : transaction.Amount.currency;
+        const issuer = isXrp ? null : transaction.Amount.issuer;
+        await this.#hookAccount.makePayment(transaction.Account, amount, currency, issuer);
+
+        // Rollback the state changes.
         this.#stateManager.rollback();
         this.#accountManager.rollback();
     }
