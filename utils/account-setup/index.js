@@ -1,8 +1,6 @@
-const evernode = require('evernode-js-client');
 const https = require('https'); 
-
-const { XrplAccount, XrplApi } = evernode;
-
+const process = require('process'); 
+const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_PROGRAM_EVRS = "51609600";
@@ -54,8 +52,9 @@ async function main () {
             const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
 
             if (item === "ISSUER") {
-                await new Promise(r => setTimeout(r, 2000));
-                await acc.setDefaultRippling(true);
+                await new Promise(r => setTimeout(r, 5000));
+                await acc.setAccountFields({ Flags: { asfDefaultRipple : true} });
+
                 console.log('Enabled Rippling in ISSUER Account');
             }
 
@@ -72,45 +71,47 @@ async function main () {
         await new Promise(r => setTimeout(r, 5000));
         
         // BEGIN - Trust Lines initiation
-        const foundation_lines = await newAccounts[1].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        const foundation_lines = await newAccounts[1].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (foundation_lines.length === 0) {
-            await newAccounts[1].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            await newAccounts[1].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
-        const comm_bank_lines = await newAccounts[2].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        const comm_bank_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (comm_bank_lines.length === 0) {
-            await newAccounts[2].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
+            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
         }
 
-        const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (registry_lines.length === 0) {
-            await newAccounts[3].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            await newAccounts[3].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
-        const purchaser_lines = await newAccounts[4].xrplAcc.getTrustLines(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        const purchaser_lines = await newAccounts[4].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (purchaser_lines.length === 0) {
-            await newAccounts[4].xrplAcc.setTrustLine(evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
+            await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
         }
 
         console.log("Trust Lines initiated");
         // END - Trust Lines initiation
 
         // BEGIN - Transfer Currency
-        await newAccounts[0].xrplAcc.makePayment(newAccounts[1].xrplAcc.address, TOTAL_MINTED_EVRS, evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        await newAccounts[0].xrplAcc.makePayment(newAccounts[1].xrplAcc.address, TOTAL_MINTED_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${TOTAL_MINTED_EVRS}/- EVR amount was issued to EVERNODE Foundation`);
+        console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
 
-        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_PROGRAM_EVRS, evernode.EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_PROGRAM_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${PURCHASER_PROGRAM_EVRS}/- EVR amount was transfered to Community Contract Bank Account by the Foundation`);
+        console.log(`${PURCHASER_PROGRAM_EVRS} EVRs were transferred to Community Contract Bank Account by the Foundation`);
         // END - Transfer Currency
 
         // ISSUER Blackholing	
         await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
+        await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster : true} });
+
         console.log("Blackholed ISSUER");
 
         // BEGIN - Log Account Details
@@ -119,7 +120,9 @@ async function main () {
         newAccounts.forEach(element => {            
             console.log(`Account name :${element.name}`);
             console.log(`Address : ${element.xrplAcc.address}`);
-
+            if (element.name  !== "ISSUER") {
+                console.log(`Secret : ${element.xrplAcc.secret}`);
+            }
             console.log('-----------------------------------------------------------------------');
             
         });
