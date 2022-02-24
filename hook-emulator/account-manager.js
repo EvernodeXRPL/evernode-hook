@@ -1,82 +1,58 @@
-const { DataTypes } = require('./lib/sqlite-handler');
+const fs = require('fs');
 
-const ACCOUNT_TABLE = 'account';
-
-const SFCODES = {
-    sfMintedTokens: 'sfMintedTokens'
-}
+const FILE_NAME = 'hook-root.json';
 
 /**
- * Account manager manages the hook root values in a SQLITE db.
+ * Root data manager manages the hook root values in a json file.
  * This can be removed once fetching sfMintedTokens from the xrpl lib is implemented.
  */
 class AccountManager {
-    #mintedTokensSeq = null;
-    #db = null;
-    #accountTable = null;
+    #jsonFile = null;
+    #rootData = null;
+    #initialized = false;
 
-    constructor(db) {
-        this.#db = db;
+    constructor() {
+        this.#rootData = {
+            sfMintedTokens: 0
+        };
+        this.#jsonFile = FILE_NAME;
     }
 
     async init() {
-        this.#accountTable = ACCOUNT_TABLE;
-
-        this.#db.open();
-        await this.#db.createTableIfNotExists(this.#accountTable, [
-            { name: 'id', type: DataTypes.INTEGER, notNull: true, primary: true },
-            { name: 'sfcode', type: DataTypes.TEXT, notNull: true, unique: true },
-            { name: 'value', type: DataTypes.BLOB, notNull: true }
-        ]);
-        const values = await this.#db.getValues(this.#accountTable, { sfcode: SFCODES.sfMintedTokens });
-        if (values && values.length > 0)
-            this.#mintedTokensSeq = values[0].value.readUInt32BE();
-        else {
-            this.#mintedTokensSeq = 0;
-            let buf = Buffer.allocUnsafe(4);
-            buf.writeUInt32BE(this.#mintedTokensSeq);
-            await this.#db.insertValue(this.#accountTable, { sfcode: SFCODES.sfMintedTokens, value: buf });
-        }
-        this.#db.close();
+        // Check if data file exists, write otherwise.
+        if (!fs.existsSync(this.#jsonFile))
+            fs.writeFileSync(this.#jsonFile, JSON.stringify(this.#rootData, null, 4));
+        else
+            this.#rootData = JSON.parse(fs.readFileSync(this.#jsonFile).toString());
+        this.#initialized = true;
     }
 
     incrementMintedTokensSeq() {
-        if (this.#mintedTokensSeq != 0 && !this.#mintedTokensSeq)
+        if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
-        this.#mintedTokensSeq++;
+        this.#rootData.sfMintedTokens++;
     }
 
     getMintedTokensSeq() {
-        if (this.#mintedTokensSeq != 0 && !this.#mintedTokensSeq)
+        if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
-        return this.#mintedTokensSeq;
+        return this.#rootData.sfMintedTokens;
     }
 
     async persist() {
-        if (this.#mintedTokensSeq != 0 && !this.#mintedTokensSeq)
+        if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
-        let buf = Buffer.allocUnsafe(4);
-        buf.writeUInt32BE(this.#mintedTokensSeq);
-        this.#db.open();
-        await this.#db.updateValues(this.#accountTable, { value: buf }, { sfcode: SFCODES.sfMintedTokens });
-        this.#db.close();
+        fs.writeFileSync(this.#jsonFile, JSON.stringify(this.#rootData, null, 4));
     }
 
     async rollback() {
-        if (this.#mintedTokensSeq != 0 && !this.#mintedTokensSeq)
+        if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
-        this.#db.open();
-        const values = await this.#db.getValues(this.#accountTable, { sfcode: SFCODES.sfMintedTokens });
-        this.#db.close();
-        
-        if (values && values.length > 0)
-            this.#mintedTokensSeq = values[0].value.readUInt32BE();
-        else
-            this.#mintedTokensSeq = 0;
+        this.#rootData = JSON.parse(fs.readFileSync(this.#jsonFile).toString());
     }
 }
 

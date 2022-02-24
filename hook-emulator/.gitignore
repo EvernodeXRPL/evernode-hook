@@ -1,5 +1,6 @@
 node_modules
 hook-emulator.cfg
 hook-emulator.sqlite
+hook-root.json
 dist
 hook-wrapper
