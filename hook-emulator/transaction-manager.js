@@ -79,7 +79,7 @@ class TransactionManager {
 
     async init() {
         await this.#stateManager.init();
-        await this.#accountManager.init();
+        this.#accountManager.init();
     }
 
     #initDrafts() {
@@ -299,7 +299,7 @@ class TransactionManager {
                 task.resolve(ret);
             }
             catch (e) {
-                await this.#rollbackTransaction().catch(e => task.reject(e))
+                this.#rollbackTransaction();
                 task.reject(e);
             }
 
@@ -393,12 +393,12 @@ class TransactionManager {
         for (const transaction of this.#draftEmits)
             await this.#hookAccount.submitTransactionBlob(transaction);
         await this.#stateManager.persist();
-        await this.#accountManager.persist();
+        this.#accountManager.persist();
     }
 
-    async #rollbackTransaction() {
+    #rollbackTransaction() {
         this.#stateManager.rollback();
-        await this.#accountManager.rollback();
+        this.#accountManager.rollback();
     }
 
     async #handleMessage(messageBuf) {
@@ -503,7 +503,7 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.MINTED_TOKENS):
                 try {
-                    const value = await this.#accountManager.getMintedTokensSeq();
+                    const value = this.#accountManager.getMintedTokensSeq();
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
                 } catch (error) {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));

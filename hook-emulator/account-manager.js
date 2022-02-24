@@ -18,7 +18,7 @@ class AccountManager {
         this.#jsonFile = FILE_NAME;
     }
 
-    async init() {
+    init() {
         // Check if data file exists, write otherwise.
         if (!fs.existsSync(this.#jsonFile))
             fs.writeFileSync(this.#jsonFile, JSON.stringify(this.#rootData, null, 4));
@@ -41,14 +41,14 @@ class AccountManager {
         return this.#rootData.sfMintedTokens;
     }
 
-    async persist() {
+    persist() {
         if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
         fs.writeFileSync(this.#jsonFile, JSON.stringify(this.#rootData, null, 4));
     }
 
-    async rollback() {
+    rollback() {
         if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
