@@ -305,7 +305,7 @@ int64_t hook(int64_t reserved)
                 TRACEVAR(conf_max_reg);
 
                 int max_reached = 0;
-                if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg * 50 / 100))
+                if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg / 2))
                 {
                     max_reached = 1;
                     etxn_reserve(host_count + 3);

@@ -27,11 +27,18 @@ class AccountManager {
         this.#initialized = true;
     }
 
-    incrementMintedTokensSeq() {
+    increaseMintedTokensSeq() {
         if (!this.#initialized)
             throw 'Account manager is not initialized.'
 
         this.#rootData.sfMintedTokens++;
+    }
+
+    decreaseMintedTokensSeq() {
+        if (!this.#initialized)
+            throw 'Account manager is not initialized.'
+
+        this.#rootData.sfMintedTokens--;
     }
 
     getMintedTokensSeq() {

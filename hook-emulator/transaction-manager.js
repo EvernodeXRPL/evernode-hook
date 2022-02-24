@@ -6,6 +6,7 @@ const { XflHelpers } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
 const TX_MAX_LEDGER_OFFSET = 10;
+const TX_NFT_MINT = 'NFTokenMint'
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -271,15 +272,15 @@ class TransactionManager {
 
     async #decodeAndSignEmitTransaction(transactionBuf) {
         let txJson = rippleCodec.decode(transactionBuf.toString('hex'));
-        // If transaction is a NFT mint, Increment the mint counter.
-        if (txJson.TransactionType === 'NFTokenMint')
-            this.#accountManager.incrementMintedTokensSeq();
         delete txJson.SigningPubKey;
         delete txJson.FirstLedgerSequence;
         txJson.Sequence = await this.#hookAccount.getNextSequence();
-        txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET;
+        // Since transactions are emitted sequentially, We need to increace last ledger sequence
+        // if there are already existing transactions in the drafts.
+        txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET + this.#draftEmits.length;
         // Todo: Transaction need to be validated.
-        return await this.#hookAccount.wallet.sign(txJson);
+        const signed = await this.#hookAccount.wallet.sign(txJson);
+        return { txType: txJson.TransactionType, txHash: signed.hash, txBlob: signed.tx_blob }
     }
 
     async #processQueue() {
@@ -296,7 +297,7 @@ class TransactionManager {
 
             try {
                 const ret = await this.#executeHook(task.transaction);
-                await this.#persistTransaction();
+                await this.#persistTransaction().catch(console.error);
                 task.resolve(ret);
             }
             catch (e) {
@@ -391,8 +392,17 @@ class TransactionManager {
     }
 
     async #persistTransaction() {
-        for (const transaction of this.#draftEmits)
-            await this.#hookAccount.submitTransactionBlob(transaction);
+        for (const transaction of this.#draftEmits) {
+            try {
+                await this.#hookAccount.submitTransactionBlob(transaction.txBlob);
+            }
+            catch (e) {
+                // If failed transaction is a NFT mint, Decrement the mint counter.
+                if (transaction.txType === TX_NFT_MINT)
+                    this.#accountManager.decreaseMintedTokensSeq();
+                console.error(e);
+            }
+        }
         await this.#stateManager.persist();
         this.#accountManager.persist();
     }
@@ -424,8 +434,12 @@ class TransactionManager {
             case (MESSAGE_TYPES.EMIT):
                 try {
                     const signedTx = await this.#decodeAndSignEmitTransaction(content);
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.from(signedTx.hash, 'hex')));
-                    this.#draftEmits.push(signedTx.tx_blob);
+                    // If transaction is a NFT mint, Increment the mint counter.
+                    if (signedTx.txType === TX_NFT_MINT)
+                        this.#accountManager.increaseMintedTokensSeq();
+
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.from(signedTx.txHash, 'hex')));
+                    this.#draftEmits.push(signedTx);
                 }
                 catch (e) {
                     console.error(e);
