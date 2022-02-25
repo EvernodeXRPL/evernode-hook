@@ -1,4 +1,4 @@
-const { SqliteDatabase, DataTypes } = require('./lib/sqlite-handler');
+const { SqliteDatabase, DataTypes } = require('./sqlite-handler');
 
 const STATE_TABLE = 'state';
 const MAX_KEY_SIZE = 32;

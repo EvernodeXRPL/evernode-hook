@@ -78,11 +78,6 @@ class TransactionManager {
         this.#initDrafts();
     }
 
-    async init() {
-        await this.#stateManager.init();
-        this.#accountManager.init();
-    }
-
     #initDrafts() {
         this.#draftEmits = [];
     }

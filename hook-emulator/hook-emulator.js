@@ -1,12 +1,15 @@
 const fs = require('fs');
-const { StateManager } = require('./state-manager');
-const { AccountManager } = require('./account-manager');
-const { TransactionManager } = require('./transaction-manager');
+const process = require('process');
+const { StateManager } = require('./lib/state-manager');
+const { AccountManager } = require('./lib/account-manager');
+const { TransactionManager } = require('./lib/transaction-manager');
+const { ApiManager } = require('./lib/api-manager');
 const evernode = require('evernode-js-client');
 
 const CONFIG_PATH = './hook-emulator.cfg';
 const DB_PATH = './hook-emulator.sqlite';
 const HOOK_WRAPPER_PATH = './c_wrappers/hook-wrapper';
+const API_PORT = 8080;
 
 const RIPPLED_URL = "wss://xls20-sandbox.rippletest.net:51233";
 
@@ -17,10 +20,11 @@ class HookEmulator {
     #stateManager = null;
     #accountManager = null;
     #transactionManager = null;
+    #apiManager = null;
     #xrplApi = null;
     #xrplAcc = null;
 
-    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret = null) {
+    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret, apiPort) {
         this.#stateManager = new StateManager(dbPath);
         this.#accountManager = new AccountManager();
         this.#xrplApi = new evernode.XrplApi(rippledServer);
@@ -31,12 +35,16 @@ class HookEmulator {
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
+        this.#apiManager = new ApiManager(apiPort)
     }
 
     async init() {
         console.log("Starting hook emulator.");
         await this.#xrplApi.connect();
-        await this.#transactionManager.init();
+
+        await this.#stateManager.init();
+        this.#accountManager.init();
+        this.#apiManager.init();
 
         // Handle the transaction when payment transaction is received.
         // Note - This event will only receive the incoming payment transactions to the hook.
@@ -46,6 +54,7 @@ class HookEmulator {
         // Subscribe for the transactions
         await this.#xrplAcc.subscribe();
         console.log(`Listening to hook address ${evernode.Defaults.get().hookAddress} on ${evernode.Defaults.get().rippledServer}`);
+
     }
 
     async #handleTransaction(tx, error) {
@@ -79,7 +88,7 @@ async function main() {
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret);
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret, (process.env.API_PORT || API_PORT));
     await emulator.init();
 }
 
