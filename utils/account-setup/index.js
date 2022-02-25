@@ -6,7 +6,7 @@ const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_PROGRAM_EVRS = "51609600";
 
 // End Points --------------------------------------------------------------
-const FAUCETS_URL = 'https://faucet-nft.ripple.com/accounts';
+const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Account names 
