@@ -270,17 +270,12 @@ class TransactionManager {
         return resolver;
     }
 
-    async #decodeAndSignEmitTransaction(transactionBuf) {
+    #decodeTransactionBuf(transactionBuf) {
         let txJson = rippleCodec.decode(transactionBuf.toString('hex'));
-        delete txJson.SigningPubKey;
+        // First ledger sequence and signing pub key are populated by hook. So we remove those.
         delete txJson.FirstLedgerSequence;
-        txJson.Sequence = await this.#hookAccount.getNextSequence();
-        // Since transactions are emitted sequentially, We need to increace last ledger sequence
-        // if there are already existing transactions in the drafts.
-        txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET + this.#draftEmits.length;
-        // Todo: Transaction need to be validated.
-        const signed = await this.#hookAccount.wallet.sign(txJson);
-        return { txType: txJson.TransactionType, txHash: signed.hash, txBlob: signed.tx_blob }
+        delete txJson.SigningPubKey;
+        return txJson;
     }
 
     async #processQueue() {
@@ -392,13 +387,17 @@ class TransactionManager {
     }
 
     async #persistTransaction() {
-        for (const transaction of this.#draftEmits) {
+        for (let transaction of this.#draftEmits) {
             try {
-                await this.#hookAccount.submitTransactionBlob(transaction.txBlob);
+                // Update the sequence and last ledger sequence values.
+                const sequence = await this.#hookAccount.getSequence();
+                transaction.Sequence = sequence;
+                transaction.LastLedgerSequence = this.#hookAccount.xrplApi.ledgerIndex + TX_MAX_LEDGER_OFFSET;
+                await this.#hookAccount.xrplApi.submitAndVerify(transaction, { wallet: this.#hookAccount.wallet });
             }
             catch (e) {
                 // If failed transaction is a NFT mint, Decrement the mint counter.
-                if (transaction.txType === TX_NFT_MINT)
+                if (transaction.TransactionType === TX_NFT_MINT)
                     this.#accountManager.decreaseMintedTokensSeq();
                 console.error(e);
             }
@@ -433,13 +432,15 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.EMIT):
                 try {
-                    const signedTx = await this.#decodeAndSignEmitTransaction(content);
-                    // If transaction is a NFT mint, Increment the mint counter.
-                    if (signedTx.txType === TX_NFT_MINT)
+                    const txJson = this.#decodeTransactionBuf(content);
+                    // If transaction is a NFT mint, Increment the mint counter before adding to drafts.
+                    if (txJson.TransactionType === TX_NFT_MINT)
                         this.#accountManager.increaseMintedTokensSeq();
 
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.from(signedTx.txHash, 'hex')));
-                    this.#draftEmits.push(signedTx);
+                    // We cannot pre calculate the hash since we are updating the sequence and last ledger sequence at the transaction submission.
+                    // So, send an empty buffer as the transaction hash.
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.alloc(32, 0)));
+                    this.#draftEmits.push(txJson);
                 }
                 catch (e) {
                     console.error(e);
