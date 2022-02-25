@@ -358,7 +358,8 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
 
 #define INVALID_FLOAT -10024 // if the mantissa or exponent are outside normalized ranges
 
-#define sfMintedTokens 0xf0012UL // This is not the corrent value for sfMintedTokens, just a dummy value outside of current sf range.
+// sfMintedTokens is not implemented in hook, so here we use just a dummy value outside of current sf range until it's provided in hook.
+#define sfMintedTokens 0xf0012UL
 
 #define SLOT_TRANSACTION 0
 #define SLOT_AMOUNT 23

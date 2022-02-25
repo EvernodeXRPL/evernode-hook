@@ -24,13 +24,13 @@
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 // Default values.
-const uint8_t ISSUER_ADDR[35] = "rGkQNy3VdRitUCobTkL6vWx2jWgQ1KnFaD";
-const uint8_t FOUNDATION_ADDR[35] = "rQUX3K6LYr5ct6x1FXck6qaT4QEP3Av4aW";
+const uint8_t ISSUER_ADDR[35] = "rn9oCmiKPW7QTPQTwHC3Bd6fS3riWKjiet";
+const uint8_t FOUNDATION_ADDR[35] = "rMuoqQA58AYo2BiyeRpp9UbxfmUZLLMqVD";
 const uint16_t DEF_MOMENT_SIZE = 72;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;
-const uint16_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (72253440/5120)
+const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (72253440/5120)
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 
 // Constants
@@ -55,8 +55,8 @@ const uint32_t HOST_DESCRIPTION_OFFSET = 57;
 const uint32_t HOST_REG_LEDGER_OFFSET = 83;
 const uint32_t HOST_REG_FEE_OFFSET = 91;
 const uint32_t HOST_TOT_INS_COUNT_OFFSET = 99;
-const uint32_t HOST_ACT_INS_COUNT_OFFSET = 104;
-const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 108;
+const uint32_t HOST_ACT_INS_COUNT_OFFSET = 103;
+const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 107;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;

@@ -391,6 +391,17 @@ int64_t hook(int64_t reserved)
                             if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                                 rollback(SBUF("Evernode: Emitting txn failed"), 1);
                             trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                            // Updating the current reg fee in the host state.
+                            HOST_ADDR_KEY(host_accid);
+                            // <token_id(32)><hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                            // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                            uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
+                            if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                                rollback(SBUF("Evernode: Could not get host address state."), 1);
+                            INT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                            if (state_set(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                                rollback(SBUF("Evernode: Could not update host address state."), 1);
                         }
                     }
                 }

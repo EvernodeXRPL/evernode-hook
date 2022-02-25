@@ -430,11 +430,11 @@ int64_t otxn_id(uint32_t write_ptr, uint32_t write_len, uint32_t flags)
 
 int64_t otxn_slot(uint32_t slot)
 {
-    uint8_t *ptr = (uint8_t *)malloc(4 + sizeof(struct Transaction));
-    UINT32_TO_BUF(ptr, SLOT_TRANSACTION);
-    memcpy(ptr + 4, (uint8_t *)txn, sizeof(struct Transaction));
-    // Keep track of slots so we can cleanup before the program exits.
-    slots_arr[sl_count++] = ptr;
+    int len = 4 + sizeof(struct Transaction);
+    uint8_t slot_buf[len];
+    UINT32_TO_BUF(slot_buf, SLOT_TRANSACTION);
+    memcpy(slot_buf + 4, (uint8_t *)txn, sizeof(struct Transaction));
+    return slot_set(SBUF(slot_buf), 0);
 }
 
 int64_t otxn_type(void)
