@@ -368,32 +368,33 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
 
                     // Refund the EVR balance.
-                    for (int i = 0; GUARD(token_seq + 1), i <= token_seq; ++i)
+                    const int outer_guard = token_seq + 1;
+                    for (int i = 0; GUARD(outer_guard), i < outer_guard; ++i)
                     {
                         // Loop through all the possible token sequences and generate the token ids.
                         uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
-                        GENERATE_NFT_TOKEN_ID(lookup_id, tffee, hook_accid, taxon, i);
+                        GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tffee, hook_accid, taxon, i, outer_guard);
 
                         // If the token id exists in the state (host is still registered),
                         // Rebate the halved registration fee.
-                        TOKEN_ID_KEY(lookup_id);
+                        TOKEN_ID_KEY_GUARD(lookup_id, outer_guard);
                         uint8_t host_accid[20] = {0};
                         if (state(SBUF(host_accid), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
                         {
                             uint8_t amt_out[AMOUNT_BUF_SIZE];
-                            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee));
+                            SET_AMOUNT_OUT_GUARD(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee), host_count);
                             fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                             // Create the outgoing hosting token txn.
                             uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                            PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, host_accid, 0, 0);
+                            PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(txn_out, amt_out, fee, host_accid, host_count);
 
                             if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                                 rollback(SBUF("Evernode: Emitting txn failed"), 1);
                             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                             // Updating the current reg fee in the host state.
-                            HOST_ADDR_KEY(host_accid);
+                            HOST_ADDR_KEY_GUARD(host_accid, host_count);
                             // <token_id(32)><hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
                             uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];

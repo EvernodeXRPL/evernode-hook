@@ -325,6 +325,11 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define _06_09_ENCODE_TL_SENDMAX_GUARDM(buf_out, drops, n, m) \
     ENCODE_TL_SENDMAX_GUARDM(buf_out, drops, n, n);
 
+#define ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m) \
+    ENCODE_TL_GUARDM(buf_out, drops, amAMOUNT, n, m);
+#define _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m) \
+    ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m);
+
 /////////// Macros to prepare a simple transaction with memos. ///////////
 
 #define POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address) \
@@ -371,24 +376,31 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 /////////// Macros to prepare a trustline transaction with memos. ///////////
 
-#define POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address) \
-    {                                                                                       \
-        uint8_t acc[20];                                                                    \
-        uint64_t drops_fee = (drops_fee_raw);                                               \
-        uint32_t cls = (uint32_t)ledger_seq();                                              \
-        hook_account(SBUF(acc));                                                            \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);           /* uint16  | size   3 */            \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);      /* uint32  | size   5 */            \
-        _02_03_ENCODE_TAG_SRC(buf_out, 0);              /* uint32  | size   5 */            \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */            \
-        _02_14_ENCODE_TAG_DST(buf_out, 0);              /* uint32  | size   5 */            \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */            \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */            \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);        /* amount  | size  48 */            \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */            \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */            \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */            \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */            \
+#define POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON_GUARDM(buf_out, tlamt, drops_fee_raw, to_address, n, m) \
+    {                                                                                                    \
+        uint8_t acc[20];                                                                                 \
+        uint64_t drops_fee = (drops_fee_raw);                                                            \
+        uint32_t cls = (uint32_t)ledger_seq();                                                           \
+        hook_account(SBUF(acc));                                                                         \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                 /* uint16  | size   3 */                   \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);            /* uint32  | size   5 */                   \
+        _02_03_ENCODE_TAG_SRC(buf_out, 0);                    /* uint32  | size   5 */                   \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                   /* uint32  | size   5 */                   \
+        _02_14_ENCODE_TAG_DST(buf_out, 0);                    /* uint32  | size   5 */                   \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);                  /* uint32  | size   6 */                   \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);                  /* uint32  | size   6 */                   \
+        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, tlamt, n, m); /* amount  | size  48 */                   \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);          /* amount  | size   9 */                   \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);           /* pk      | size  35 */                   \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);              /* account | size  22 */                   \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);       /* account | size  22 */                   \
+    }
+
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(buf_out_master, tlamt, drops_fee_raw, to_address, n)       \
+    {                                                                                                     \
+        uint8_t *buf_out = buf_out_master;                                                                \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON_GUARDM(buf_out, tlamt, drops_fee_raw, to_address, n, 1); \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                    \
     }
 
 #define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
@@ -396,7 +408,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len, m) \
     {                                                                                                                                                            \
         uint8_t *buf_out = buf_out_master;                                                                                                                       \
-        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                                     \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON_GUARDM(buf_out, tlamt, drops_fee_raw, to_address, 1, 1);                                                        \
         _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                    \
         etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                           \
     }
@@ -719,13 +731,16 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         COPY_BUF_GUARDM(host_addr_buf, HOST_AUDITOR_OFFSET, to_addr, 0, 20, n, m + 6);                                      \
     }
 
-#define GENERATE_NFT_TOKEN_ID(token_id, transaction_fee, accid, taxon, token_seq)        \
-    {                                                                                    \
-        UINT16_TO_BUF(token_id, tfTransferable);                                         \
-        UINT16_TO_BUF(token_id + 2, transaction_fee);                                    \
-        COPY_BUF(token_id, 4, accid, 0, 20);                                             \
-        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C)); \
-        UINT32_TO_BUF(token_id + 28, token_seq);                                         \
+#define GENERATE_NFT_TOKEN_ID_GUARD(token_id, transaction_fee, accid, taxon, token_seq, n) \
+    {                                                                                      \
+        UINT16_TO_BUF(token_id, tfTransferable);                                           \
+        UINT16_TO_BUF(token_id + 2, transaction_fee);                                      \
+        COPY_BUF_GUARD(token_id, 4, accid, 0, 20, n);                                      \
+        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));   \
+        UINT32_TO_BUF(token_id + 28, token_seq);                                           \
     }
+
+#define GENERATE_NFT_TOKEN_ID(token_id, transaction_fee, accid, taxon, token_seq) \
+    GENERATE_NFT_TOKEN_ID_GUARD(token_id, transaction_fee, accid, taxon, token_seq, 1)
 
 #endif
