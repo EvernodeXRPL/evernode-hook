@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { StateManager } = require('./state-manager');
+const { AccountManager } = require('./account-manager');
 const { TransactionManager } = require('./transaction-manager');
 const evernode = require('evernode-js-client');
 
@@ -14,12 +15,14 @@ const RIPPLED_URL = "wss://xls20-sandbox.rippletest.net:51233";
  */
 class HookEmulator {
     #stateManager = null;
+    #accountManager = null;
     #transactionManager = null;
     #xrplApi = null;
     #xrplAcc = null;
 
     constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret = null) {
         this.#stateManager = new StateManager(dbPath);
+        this.#accountManager = new AccountManager();
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
             hookAddress: hookAddress,
@@ -27,7 +30,7 @@ class HookEmulator {
             xrplApi: this.#xrplApi
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
-        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
+        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
     }
 
     async init() {

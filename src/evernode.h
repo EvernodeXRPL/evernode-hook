@@ -22,13 +22,13 @@
 
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
-// Checks for EVR currency issued by hook account.
-#define IS_EVR(is_evr, amount_buffer, hook_accid)      \
+// Checks for EVR currency issued by issuer account.
+#define IS_EVR(is_evr, amount_buffer, issuer_accid)    \
     is_evr = 1;                                        \
     for (int i = 0; GUARD(20), i < 20; ++i)            \
     {                                                  \
         if (amount_buffer[i + 8] != evr_currency[i] || \
-            amount_buffer[i + 28] != hook_accid[i])    \
+            amount_buffer[i + 28] != issuer_accid[i])  \
         {                                              \
             is_evr = 0;                                \
             break;                                     \
@@ -193,6 +193,59 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 /**************************************************************************/
+/***************************NFT related MACROS*****************************/
+/**************************************************************************/
+
+#define ENCODE_TF_SIZE 3
+#define ENCODE_TF(buf_out, to)           \
+    {                                    \
+        uint8_t uto = to;                \
+        buf_out[0] = 0x14U;              \
+        buf_out[1] = (uto >> 8) & 0xFFU; \
+        buf_out[2] = (uto >> 0) & 0xFFU; \
+        buf_out += ENCODE_TF_SIZE;       \
+    }
+#define _01_04_ENCODE_TF(buf_out, to) \
+    ENCODE_TF(buf_out, to);
+
+#define ENCODE_TXON_SIZE 6U
+#define ENCODE_TXON(buf_out, tf) \
+    ENCODE_UINT32_UNCOMMON(buf_out, tf, 0x2A);
+#define _02_42_ENCODE_TXON(buf_out, tf) \
+    ENCODE_TXON(buf_out, tf);
+
+#define ENCODE_URI(buf_out, uri, uri_len)                                             \
+    {                                                                                 \
+        buf_out[0] = 0x75U;                                                           \
+        buf_out[1] = uri_len;                                                         \
+        for (int i = 0; GUARD(uri_len / 8 + (uri_len % 8 != 0)), i < uri_len; i += 8) \
+            *(uint64_t *)(buf_out + i + 2) = *(uint64_t *)(uri + i);                  \
+        buf_out += uri_len + 2;                                                       \
+    }
+#define _07_05_ENCODE_URI(buf_out, uri, uri_len) \
+    ENCODE_URI(buf_out, uri, uri_len);
+
+#define ENCODE_HASH_SIZE 33
+#define ENCODE_HASH(buf_out, hash, field)                       \
+    {                                                           \
+        uint8_t uf = field;                                     \
+        buf_out[0] = 0x50U + (uf & 0x0FU);                      \
+        *(uint64_t *)(buf_out + 1) = *(uint64_t *)(hash + 0);   \
+        *(uint64_t *)(buf_out + 9) = *(uint64_t *)(hash + 8);   \
+        *(uint64_t *)(buf_out + 17) = *(uint64_t *)(hash + 16); \
+        *(uint64_t *)(buf_out + 25) = *(uint64_t *)(hash + 24); \
+        buf_out += ENCODE_HASH_SIZE;                            \
+    }
+#define _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, txn_id) \
+    ENCODE_HASH(buf_out, txn_id, 0XAU);
+
+#define ENCODE_EXPIRATION_SIZE 5
+#define ENCODE_EXPIRATION(buf_out, exp) \
+    ENCODE_UINT32_COMMON(buf_out, exp, 0xAU);
+#define _02_10_ENCODE_EXPIRATION_MAX(buf_out) \
+    ENCODE_EXPIRATION(buf_out, 0xFFFFFFFFU);
+
+/**************************************************************************/
 /**************************MEMO related MACROS*****************************/
 /**************************************************************************/
 
@@ -272,6 +325,11 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define _06_09_ENCODE_TL_SENDMAX_GUARDM(buf_out, drops, n, m) \
     ENCODE_TL_SENDMAX_GUARDM(buf_out, drops, n, n);
 
+#define ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m) \
+    ENCODE_TL_GUARDM(buf_out, drops, amAMOUNT, n, m);
+#define _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m) \
+    ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m);
+
 /////////// Macros to prepare a simple transaction with memos. ///////////
 
 #define POPULATE_PAYMENT_SIMPLE_COMMON(buf_out, drops_amount_raw, drops_fee_raw, to_address) \
@@ -318,24 +376,31 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 /////////// Macros to prepare a trustline transaction with memos. ///////////
 
-#define POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address) \
-    {                                                                                       \
-        uint8_t acc[20];                                                                    \
-        uint64_t drops_fee = (drops_fee_raw);                                               \
-        uint32_t cls = (uint32_t)ledger_seq();                                              \
-        hook_account(SBUF(acc));                                                            \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);           /* uint16  | size   3 */            \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);      /* uint32  | size   5 */            \
-        _02_03_ENCODE_TAG_SRC(buf_out, 0);              /* uint32  | size   5 */            \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);             /* uint32  | size   5 */            \
-        _02_14_ENCODE_TAG_DST(buf_out, 0);              /* uint32  | size   5 */            \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);            /* uint32  | size   6 */            \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);            /* uint32  | size   6 */            \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);        /* amount  | size  48 */            \
-        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);    /* amount  | size   9 */            \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */            \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */            \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */            \
+#define POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON_GUARDM(buf_out, tlamt, drops_fee_raw, to_address, n, m) \
+    {                                                                                                    \
+        uint8_t acc[20];                                                                                 \
+        uint64_t drops_fee = (drops_fee_raw);                                                            \
+        uint32_t cls = (uint32_t)ledger_seq();                                                           \
+        hook_account(SBUF(acc));                                                                         \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                 /* uint16  | size   3 */                   \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);            /* uint32  | size   5 */                   \
+        _02_03_ENCODE_TAG_SRC(buf_out, 0);                    /* uint32  | size   5 */                   \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                   /* uint32  | size   5 */                   \
+        _02_14_ENCODE_TAG_DST(buf_out, 0);                    /* uint32  | size   5 */                   \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);                  /* uint32  | size   6 */                   \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);                  /* uint32  | size   6 */                   \
+        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, tlamt, n, m); /* amount  | size  48 */                   \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);          /* amount  | size   9 */                   \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);           /* pk      | size  35 */                   \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);              /* account | size  22 */                   \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);       /* account | size  22 */                   \
+    }
+
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(buf_out_master, tlamt, drops_fee_raw, to_address, n)       \
+    {                                                                                                     \
+        uint8_t *buf_out = buf_out_master;                                                                \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON_GUARDM(buf_out, tlamt, drops_fee_raw, to_address, n, 1); \
+        etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                    \
     }
 
 #define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
@@ -343,7 +408,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, type, type_len, format, format_len, data, data_len, m) \
     {                                                                                                                                                            \
         uint8_t *buf_out = buf_out_master;                                                                                                                       \
-        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON(buf_out, tlamt, drops_fee_raw, to_address);                                                                     \
+        POPULATE_PAYMENT_SIMPLE_TRUSTLINE_COMMON_GUARDM(buf_out, tlamt, drops_fee_raw, to_address, 1, 1);                                                        \
         _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                    \
         etxn_details((uint32_t)buf_out, 105); /* emitdet | size 105 */                                                                                           \
     }
@@ -397,6 +462,59 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);  /* pk      | size  35 */ \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);     /* account | size  22 */ \
         etxn_details((uint32_t)buf_out, 105);        /* emitdet | size 105 */ \
+    }
+
+/////////// Macro to prepare a nft mint. ///////////
+
+#define PREPARE_NFT_MINT_SIZE(uri_len) \
+    (uri_len + 207)
+// Preapare a transferable NFT mint transaction.
+// Note - Only the transferable flag will be set.
+#define PREPARE_NFT_MINT(buf_out_master, drops_fee_raw, transfer_fee, taxon, uri, uri_len) \
+    {                                                                                      \
+        uint8_t *buf_out = buf_out_master;                                                 \
+        uint8_t acc[20];                                                                   \
+        uint64_t drops_fee = (drops_fee_raw);                                              \
+        uint32_t cls = (uint32_t)ledger_seq();                                             \
+        hook_account(SBUF(acc));                                                           \
+        _01_02_ENCODE_TT(buf_out, ttNFT_MINT);        /* uint16  | size   3 */             \
+        _01_04_ENCODE_TF(buf_out, transfer_fee);      /* uint16  | size   3 */             \
+        _02_02_ENCODE_FLAGS(buf_out, tfTransferable); /* uint32  | size   5 */             \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);           /* uint32  | size   5 */             \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);          /* uint32  | size   6 */             \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);          /* uint32  | size   6 */             \
+        _02_42_ENCODE_TXON(buf_out, taxon);           /* uint32  | size   6 */             \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);  /* amount  | size   9 */             \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);   /* pk      | size  35 */             \
+        _07_05_ENCODE_URI(buf_out, uri, uri_len);     /* account | size  uri_len + 2 */    \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);      /* account | size  22 */             \
+        etxn_details((uint32_t)buf_out, 105);         /* emitdet | size 105 */             \
+    }
+
+/////////// Macro to prepare a nft offer. ///////////
+
+#define PREPARE_NFT_SELL_OFFER_SIZE 265
+#define PREPARE_NFT_SELL_OFFER(buf_out_master, drops_amount_raw, drops_fee_raw, to_address, tknid) \
+    {                                                                                              \
+        uint8_t *buf_out = buf_out_master;                                                         \
+        uint8_t acc[20];                                                                           \
+        uint64_t drops_amount = (drops_amount_raw);                                                \
+        uint64_t drops_fee = (drops_fee_raw);                                                      \
+        uint32_t cls = (uint32_t)ledger_seq();                                                     \
+        hook_account(SBUF(acc));                                                                   \
+        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);            /* uint16  | size   3 */                \
+        _02_02_ENCODE_FLAGS(buf_out, tfSellToken);         /* uint32  | size   5 */                \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */                \
+        _02_10_ENCODE_EXPIRATION_MAX(buf_out);             /* uint32  | size   5 */                \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */                \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */                \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */                \
+        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid);  /* tknid   | size  33 */                \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);       /* amount  | size   9 */                \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);        /* pk      | size  35 */                \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);           /* account | size  22 */                \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);    /* account | size  22 */                \
+        etxn_details((uint32_t)buf_out, 105);              /* emitdet | size 105 */                \
     }
 
 /**************************************************************************/
@@ -525,12 +643,20 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 // If host count state does not exist, set host count to 0.
-#define GET_HOST_COUNT(host_count_buf, host_count)                             \
+#define GET_HOST_COUNT(host_count)                                             \
     {                                                                          \
-        CLEARBUF(host_count_buf);                                              \
+        uint8_t host_count_buf[4] = {0};                                       \
         host_count = 0;                                                        \
         if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST) \
             host_count = UINT32_FROM_BUF(host_count_buf);                      \
+    }
+
+#define SET_HOST_COUNT(host_count)                                                      \
+    {                                                                                   \
+        uint8_t host_count_buf[4] = {0};                                                \
+        UINT32_TO_BUF(host_count_buf, host_count);                                      \
+        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)                  \
+            rollback(SBUF("Evernode: Could not set default state for host count."), 1); \
     }
 
 // Adds the given amount to the reward pool.
@@ -604,5 +730,17 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         COPY_BUF_GUARDM(host_addr_buf, HOST_AUDIT_IDX_OFFSET, moment_seed_buf, 0, 8, n, m + 5);                             \
         COPY_BUF_GUARDM(host_addr_buf, HOST_AUDITOR_OFFSET, to_addr, 0, 20, n, m + 6);                                      \
     }
+
+#define GENERATE_NFT_TOKEN_ID_GUARD(token_id, transaction_fee, accid, taxon, token_seq, n) \
+    {                                                                                      \
+        UINT16_TO_BUF(token_id, tfTransferable);                                           \
+        UINT16_TO_BUF(token_id + 2, transaction_fee);                                      \
+        COPY_BUF_GUARD(token_id, 4, accid, 0, 20, n);                                      \
+        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));   \
+        UINT32_TO_BUF(token_id + 28, token_seq);                                           \
+    }
+
+#define GENERATE_NFT_TOKEN_ID(token_id, transaction_fee, accid, taxon, token_seq) \
+    GENERATE_NFT_TOKEN_ID_GUARD(token_id, transaction_fee, accid, taxon, token_seq, 1)
 
 #endif

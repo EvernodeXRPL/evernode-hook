@@ -66,10 +66,22 @@ const uint8_t CONF_HOST_HEARTBEAT_FREQ[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0
             STP_HOST_ADDR[i] = host_addr[i - 12]; \
     }
 
+#define TOKEN_ID_KEY(token_id)                  \
+    {                                           \
+        for (int i = 4; GUARD(28), i < 32; i++) \
+            STP_TOKEN_ID[i] = token_id[i];      \
+    }
+
 #define HOST_ADDR_KEY_GUARD(host_addr, n)            \
     {                                                \
         for (int i = 12; GUARD(21 * n), i < 32; i++) \
             STP_HOST_ADDR[i] = host_addr[i - 12];    \
+    }
+
+#define TOKEN_ID_KEY_GUARD(token_id, n)             \
+    {                                               \
+        for (int i = 4; GUARD(29 * n), i < 32; i++) \
+            STP_TOKEN_ID[i] = token_id[i];          \
     }
 
 #define CONF_KEY(buf, conf_key)                        \
