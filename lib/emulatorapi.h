@@ -80,6 +80,7 @@ struct Memos
 };
 struct Transaction
 {
+    uint8_t hash[HASH_SIZE_1];
     uint8_t account[ACCOUNT_LEN];
     struct Amount amount;
     uint8_t destination[ACCOUNT_LEN];
@@ -103,7 +104,9 @@ enum MESSAGE_TYPES
     KEYLET,
     STATE_GET,
     STATE_SET,
-    ACCID
+    ACCID,
+    SEQUENCE,
+    MINTED_TOKENS
 };
 
 enum RETURN_CODES
@@ -354,6 +357,16 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
 #define CANT_RETURN_NEGATIVE -33 // An API would have returned a negative integer except that negative integers are reserved for error codes (i.e. what you are reading.)
 
 #define INVALID_FLOAT -10024 // if the mantissa or exponent are outside normalized ranges
+
+// sfMintedTokens is not implemented in hook, so here we use just a dummy value outside of current sf range until it's provided in hook.
+#define sfMintedTokens 0xf0012UL
+
+#define SLOT_TRANSACTION 0
+#define SLOT_AMOUNT 23
+#define SLOT_BALANCE 24
+#define SLOT_LIMIT 25
+#define SLOT_SEQUENCE 26
+#define SLOT_MINTED_TOKENS 27
 
 #define KEYLET_HOOK 1
 #define KEYLET_HOOK_STATE 2

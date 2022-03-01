@@ -6,6 +6,7 @@ const { XflHelpers } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
 const TX_MAX_LEDGER_OFFSET = 10;
+const TX_NFT_MINT = 'NFTokenMint'
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -18,7 +19,9 @@ const MESSAGE_TYPES = {
     TRUSTLINE: 2,
     STATE_GET: 3,
     STATE_SET: 4,
-    ACCID: 5
+    ACCID: 5,
+    SEQUENCE: 6,
+    MINTED_TOKENS: 7
 };
 
 const RETURN_CODES = {
@@ -32,7 +35,7 @@ const RETURN_CODES = {
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
-// Transaction origin - <hookid(20)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Transaction origin - <hookid(20)><hash(32)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Message response format - <RETURN CODE(1)><DATA>
 // Emit response - <return code(1)><tx hash(32)>
 // Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
@@ -58,16 +61,18 @@ const RETURN_CODES = {
 class TransactionManager {
     #hookWrapperPath = null;
     #stateManager = null;
+    #accountManager = null;
     #hookAccount = null;
     #hookProcess = null;
     #draftEmits = null;
     #pendingTransactions = null;
     #queueProcessorActive = null;
 
-    constructor(hookAccount, hookWrapperPath, stateManager) {
+    constructor(hookAccount, hookWrapperPath, stateManager, accountManager) {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
+        this.#accountManager = accountManager;
         this.#pendingTransactions = [];
         this.#queueProcessorActive = false;
         this.#initDrafts();
@@ -75,6 +80,7 @@ class TransactionManager {
 
     async init() {
         await this.#stateManager.init();
+        this.#accountManager.init();
     }
 
     #initDrafts() {
@@ -86,9 +92,13 @@ class TransactionManager {
         const isXrp = (typeof transaction.Amount === 'string');
 
         // Pre allocate a buffer to propulate transaction info. allocUnsafe since it's faster and the whole buffer will be allocated in the later part.
-        let txBuf = Buffer.allocUnsafe(42 + (isXrp ? 8 : 31))
+        let txBuf = Buffer.allocUnsafe(74 + (isXrp ? 8 : 31))
 
         let offset = 0;
+        // Populate the transaction hash (32-bytes).
+        Buffer.from(transaction.hash, 'hex').copy(txBuf, offset);
+        offset += 32;
+
         // Get origin account id from r-address and populate (20-bytes).
         codec.decodeAccountID(transaction.Account).copy(txBuf, offset);
         offset += 20;
@@ -184,6 +194,13 @@ class TransactionManager {
         return buf;
     }
 
+    #encodeUint32(number) {
+        // Pre allocate buffer to populate number data.
+        let buf = Buffer.allocUnsafe(4)
+        buf.writeUInt32BE(number, 0);
+        return buf;
+    }
+
     #encodeReturnCode(retCode, dataBuf = null) {
         let resBuf = Buffer.alloc((dataBuf ? dataBuf.length : 0) + 1);
         resBuf.writeInt8(retCode);
@@ -253,13 +270,12 @@ class TransactionManager {
         return resolver;
     }
 
-    async #decodeAndSignEmitTransaction(transactionBuf) {
+    #decodeTransactionBuf(transactionBuf) {
         let txJson = rippleCodec.decode(transactionBuf.toString('hex'));
-        delete txJson.SigningPubKey;
+        // First ledger sequence and signing pub key are populated by hook. So we remove those.
         delete txJson.FirstLedgerSequence;
-        txJson.Sequence = await this.#hookAccount.getNextSequence();
-        txJson.LastLedgerSequence = txJson.LastLedgerSequence + TX_MAX_LEDGER_OFFSET;
-        return await this.#hookAccount.wallet.sign(txJson);
+        delete txJson.SigningPubKey;
+        return txJson;
     }
 
     async #processQueue() {
@@ -276,11 +292,11 @@ class TransactionManager {
 
             try {
                 const ret = await this.#executeHook(task.transaction);
-                await this.#persistTransaction();
+                await this.#persistTransaction().catch(console.error);
                 task.resolve(ret);
             }
             catch (e) {
-                this.#rollbackTransaction();
+                await this.#rollbackTransaction(task.transaction).catch(console.error);
                 task.reject(e);
             }
 
@@ -371,13 +387,36 @@ class TransactionManager {
     }
 
     async #persistTransaction() {
-        for (const transaction of this.#draftEmits)
-            await this.#hookAccount.submitTransactionBlob(transaction);
+        for (let transaction of this.#draftEmits) {
+            try {
+                // Update the sequence and last ledger sequence values.
+                const sequence = await this.#hookAccount.getSequence();
+                transaction.Sequence = sequence;
+                transaction.LastLedgerSequence = this.#hookAccount.xrplApi.ledgerIndex + TX_MAX_LEDGER_OFFSET;
+                await this.#hookAccount.xrplApi.submitAndVerify(transaction, { wallet: this.#hookAccount.wallet });
+            }
+            catch (e) {
+                // If failed transaction is a NFT mint, Decrement the mint counter.
+                if (transaction.TransactionType === TX_NFT_MINT)
+                    this.#accountManager.decreaseMintedTokensSeq();
+                console.error(e);
+            }
+        }
         await this.#stateManager.persist();
+        this.#accountManager.persist();
     }
 
-    #rollbackTransaction() {
+    async #rollbackTransaction(transaction) {
+        // Send back the transaction amount to the sender.
+        const isXrp = (typeof transaction.Amount === 'string');
+        const amount = isXrp ? transaction.Amount : transaction.Amount.value;
+        const currency = isXrp ? 'XRP' : transaction.Amount.currency;
+        const issuer = isXrp ? null : transaction.Amount.issuer;
+        await this.#hookAccount.makePayment(transaction.Account, amount, currency, issuer);
+
+        // Rollback the state changes.
         this.#stateManager.rollback();
+        this.#accountManager.rollback();
     }
 
     async #handleMessage(messageBuf) {
@@ -393,9 +432,15 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.EMIT):
                 try {
-                    const signedTx = await this.#decodeAndSignEmitTransaction(content);
-                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.from(signedTx.hash, 'hex')));
-                    this.#draftEmits.push(signedTx.tx_blob);
+                    const txJson = this.#decodeTransactionBuf(content);
+                    // If transaction is a NFT mint, Increment the mint counter before adding to drafts.
+                    if (txJson.TransactionType === TX_NFT_MINT)
+                        this.#accountManager.increaseMintedTokensSeq();
+
+                    // We cannot pre calculate the hash since we are updating the sequence and last ledger sequence at the transaction submission.
+                    // So, send an empty buffer as the transaction hash.
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.alloc(32, 0)));
+                    this.#draftEmits.push(txJson);
                 }
                 catch (e) {
                     console.error(e);
@@ -431,7 +476,10 @@ class TransactionManager {
                     this.#sendToProc(this.#encodeReturnCode(value, value));
                 }
                 catch (e) {
-                    console.error(e);
+                    // Log the errors other than does not exist.
+                    if (e.code !== STATE_ERROR_CODES.DOES_NOT_EXIST)
+                        console.log(e);
+
                     let retCode = RETURN_CODES.INTERNAL_ERROR;
                     if (e.code === STATE_ERROR_CODES.DOES_NOT_EXIST)
                         retCode = RETURN_CODES.NOT_FOUND;
@@ -465,6 +513,22 @@ class TransactionManager {
                 try {
                     const accountId = codec.decodeAccountID(content.toString());
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, accountId));
+                } catch (error) {
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
+                break;
+            case (MESSAGE_TYPES.SEQUENCE):
+                try {
+                    const value = await this.#hookAccount.getSequence();
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
+                } catch (error) {
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
+                break;
+            case (MESSAGE_TYPES.MINTED_TOKENS):
+                try {
+                    const value = this.#accountManager.getMintedTokensSeq();
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
                 } catch (error) {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
                 }
