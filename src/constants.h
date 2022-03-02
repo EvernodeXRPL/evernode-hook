@@ -13,6 +13,7 @@
 #define FORMAT_JSON "text/json"
 
 #define EVR_TOKEN "EVR"
+#define EVR_HOST "evrhost"
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20

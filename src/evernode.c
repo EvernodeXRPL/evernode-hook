@@ -408,11 +408,14 @@ int64_t hook(int64_t reserved)
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 // Mint the nft token.
-                // Transaction URI would be the registration transaction hash.
-                fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(txid)));
+                // Transaction URI would be the 'evrhost' + registration transaction hash.
+                uint8_t uri[39];
+                COPY_BUF_GUARDM(uri, 0, EVR_HOST, 0, 7, 1, 1);
+                COPY_BUF_GUARDM(uri, 7, txid, 0, HASH_SIZE, 1, 2);
+                fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
 
-                uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(txid))];
-                PREPARE_NFT_MINT(nft_txn_out, fee, tffee, taxon, txid, sizeof(txid));
+                uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
+                PREPARE_NFT_MINT(nft_txn_out, fee, tffee, taxon, uri, sizeof(uri));
 
                 if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
                     rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
