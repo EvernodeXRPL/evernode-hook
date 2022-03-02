@@ -5,6 +5,7 @@
 #define HOST_DE_REG "evnHostDereg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
+#define FOUNDATION_REFUND_50 "evnFoundationRefund"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -20,12 +21,13 @@
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
 #define tfTransferable 0x00000008
 #define tfSellToken 0x00000001
+#define tfBuyToken 0x00000000
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 // Default values.
-const uint8_t ISSUER_ADDR[35] = "rn9oCmiKPW7QTPQTwHC3Bd6fS3riWKjiet";
-const uint8_t FOUNDATION_ADDR[35] = "rMuoqQA58AYo2BiyeRpp9UbxfmUZLLMqVD";
+const uint8_t ISSUER_ADDR[35] = "rHdSF3FWTFR11zZ4dPy17Rch1Ygch3gy8p";
+const uint8_t FOUNDATION_ADDR[35] = "rEHTwF8GA3rMMmmWJcuB2BqU63PdmMaekq";
 const uint16_t DEF_MOMENT_SIZE = 72;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;

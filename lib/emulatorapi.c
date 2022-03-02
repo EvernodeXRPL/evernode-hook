@@ -44,7 +44,7 @@ int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t
  * @param read_buf Buffer to be read.
  * @param read_len Length of the buffer.
  * @return -1 if error, otherwise read length.
-*/
+ */
 int read_stdin(uint8_t *read_buf, const int read_len)
 {
     // Read the response from STDIN.
@@ -57,7 +57,7 @@ int read_stdin(uint8_t *read_buf, const int read_len)
  * @param write_buf Buffer to be sent.
  * @param write_len Length of the buffer.
  * @return -1 if error, otherwise write length.
-*/
+ */
 int write_stdout(const uint8_t *write_buf, const int write_len)
 {
     const int outlen = 4 + write_len;
@@ -278,14 +278,14 @@ int64_t float_set(int32_t exponent, int64_t mantissa)
         mantissa *= 10;
         exponent--;
         if (exponent < minExponent)
-            return INVALID_FLOAT; //underflow
+            return INVALID_FLOAT; // underflow
     }
     while (mantissa > maxMantissa)
     {
         mantissa /= 10;
         exponent++;
         if (exponent > maxExponent)
-            return INVALID_FLOAT; //overflow
+            return INVALID_FLOAT; // overflow
     }
 
     return make_float((neg ? -1LL : 1LL) * mantissa, exponent);
@@ -658,7 +658,7 @@ int64_t sto_subfield(uint32_t read_ptr, uint32_t read_len, uint32_t field_id)
  * Appdends the trace type header.
  * @param trace Data buffer to be traced.
  * @return -1 if error, otherwise write length.
-*/
+ */
 int trace_out(const uint8_t *trace)
 {
     const int len = 1 + strlen(trace);
@@ -750,13 +750,58 @@ int64_t emit(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t
 }
 
 /**
+ * Get NFT of the running account.
+ * @param address Source address of the trustlines.
+ * @param token_id Token id of the searching nft.
+ * @param flags Flags of the found nft.
+ * @param issuer Issuer of the found nft.
+ * @param taxon Taxon of the found nft.
+ * @param uri Uri of the found nft.
+ * @param uri_len Length of the Uri.
+ * @return DOESNT_EXIST if the given nft with token id is not exist in this account, otherwise populate the givn fields.
+ */
+int get_nft(uint32_t address, uint32_t token_id, uint16_t *flags, uint32_t issuer, uint32_t *taxon, uint32_t uri, uint8_t *uri_len)
+{
+    const int len = 53;
+    uint8_t buf[len];
+    // Populate the type header.
+    buf[0] = NFT;
+    // Populate the address, issuer and currency.
+    memcpy(&buf[1], (uint32_t *)address, 20);
+    memcpy(&buf[21], (uint32_t *)token_id, 32);
+    write_stdout(buf, len);
+
+    // Read the response from STDIN.
+    uint8_t data_buf[284]; // The maximum is 284 bytes.
+    const int data_len = read_stdin(data_buf, sizeof(data_buf));
+    const int ret = (int8_t)*data_buf;
+    const uint8_t *res = &data_buf[1];
+
+    if (ret < 0)
+    {
+        // Return the error code according to the return code.
+        if (ret == RES_NOT_FOUND)
+            return DOESNT_EXIST;
+
+        return -1;
+    }
+
+    *flags = UINT16_FROM_BUF(res);
+    memcpy((uint32_t *)issuer, res + 2, 20);
+    *taxon = UINT32_FROM_BUF(res + 22);
+    *uri_len = res[26];
+    memcpy((uint32_t *)uri, res + 27, *uri_len);
+    return 0;
+}
+
+/**
  * Get trustlines of the running account.
  * @param address Source address of the trustlines.
  * @param issuer Issuer of the trustline currency.
  * @param currency Issued currency.
  * @param balance_float Float balance to be populated.
  * @param limit_float Limit float to be populated.
-*/
+ */
 int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t *balance_float, int64_t *limit_float)
 {
     // Send the emit request.
@@ -796,7 +841,7 @@ int get_trustlines(uint32_t address, uint32_t issuer, uint32_t currency, int64_t
  * Get sequence number of the given account.
  * @param address Source address of the sequence.
  * @param sequence Seqence value to be populated.
-*/
+ */
 int get_sequence(uint32_t address, uint32_t *sequence)
 {
     // Send the sequence request.
@@ -828,7 +873,7 @@ int get_sequence(uint32_t address, uint32_t *sequence)
  * Get minted tokens number of the given account.
  * @param address Source address of the minted tokens.
  * @param minted_tokens Minted tokens value to be populated.
-*/
+ */
 int get_minted_tokens(uint32_t address, uint32_t *minted_tokens)
 {
     // Send the minted tokens request.
