@@ -524,9 +524,9 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 /////////// Macros to prepare evernode realated transactions. ///////////
 #define PREPARE_PAYMENT_FOUNDATION_RETURN_SIZE \
     (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(19, 0, 0))
-#define PREPARE_PAYMENT_FOUNDATION_RETURN_M(buf_out_master, tlamt, drops_fee_raw, to_address, m)                                                                    \
+#define PREPARE_PAYMENT_FOUNDATION_RETURN(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                         \
     {                                                                                                                                                               \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, FOUNDATION_REFUND_50, 19, empty_ptr, 0, empty_ptr, 0, m); \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, FOUNDATION_REFUND_50, 19, empty_ptr, 0, empty_ptr, 0, 1); \
     }
 
 #define PREPARE_PAYMENT_REDEEM_SIZE(redeem_data_len, origin_data_len) \
