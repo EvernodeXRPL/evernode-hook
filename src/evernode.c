@@ -115,11 +115,14 @@ int64_t hook(int64_t reserved)
 
             // Host deregistration.
             int is_host_de_reg = 0;
-            BUFFER_EQUAL_STR_GUARD(is_host_de_reg, type_ptr, type_len, HOST_DE_REG, 2);
-            int is_format_hex = 0;
-            BUFFER_EQUAL_STR_GUARD(is_format_hex, format_ptr, format_len, FORMAT_HEX, 3);
-            if (is_host_de_reg && is_format_hex)
+            BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
+            if (is_host_de_reg)
             {
+                int is_format_hex = 0;
+                BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+                if (!is_format_hex)
+                    rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
+
                 HOST_ADDR_KEY(account_field); // Generate host account key.
                 // Check for registration entry.
                 uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
@@ -168,7 +171,7 @@ int64_t hook(int64_t reserved)
 
                 // Sending 50% reg fee to foundation account.
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
-                int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee/2 : 0;
+                int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
                 SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
                 if (reg_fee > fixed_reg_fee)
                 {
