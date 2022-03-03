@@ -172,13 +172,11 @@ int64_t hook(int64_t reserved)
                 // Sending 50% reg fee to foundation account.
                 int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
 
-                uint8_t amt_out_return[AMOUNT_BUF_SIZE];
-                // Since we have already sent 5 EVR in the registration process to the foundation. We should deduct 5 EVR from the 50% reg fee.
-                int64_t return_amount = amount_half > 0 ? (amount_half - 5) : 0;
-                SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, return_amount));
-
                 if (reg_fee > fixed_reg_fee)
                 {
+                    uint8_t amt_out_return[AMOUNT_BUF_SIZE];
+                    // Since we have already sent 5 EVR in the registration process to the foundation. We should deduct 5 EVR from the 50% reg fee.
+                    SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, (amount_half - 5)));
                     etxn_reserve(2);
                     int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
