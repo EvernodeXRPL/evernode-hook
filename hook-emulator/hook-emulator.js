@@ -83,14 +83,19 @@ async function main() {
 
     // If hook address is empty, skip the execution.
     if (!config.hookAddress || !config.hookSecret) {
-        console.log(`${CONFIG_PATH} not found, populate the config and restart the program.`);
+        console.error(`${CONFIG_PATH} not found, populate the config and restart the program.`);
         return;
     }
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
     const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret);
-    await emulator.init(FIREBASE_SEC_KEY_PATH);
+    if (fs.existsSync(FIREBASE_SEC_KEY_PATH))
+        await emulator.init(FIREBASE_SEC_KEY_PATH);
+    else {
+        console.error(`${FIREBASE_SEC_KEY_PATH} not found, place the json file in the location.`);
+        return;
+    }
 }
 
 main().catch(console.error);
