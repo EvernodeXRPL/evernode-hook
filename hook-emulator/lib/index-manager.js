@@ -1,15 +1,10 @@
-const { FirestoreHandler, FirestoreOperations } = require('evernode-js-client');
-
-const FirestoreCollections = {
-    CONFIGS: 'configs',
-    HOSTS: 'hosts'
-}
+const { FirestoreHandler, FirestoreOperations, EvernodeConstants } = require('evernode-js-client');
 
 class IndexManager {
     #firestoreHandler = null;
 
-    constructor(projectId) {
-        this.#firestoreHandler = new FirestoreHandler(projectId)
+    constructor() {
+        this.#firestoreHandler = new FirestoreHandler(EvernodeConstants.INDEX_ID)
     }
 
     async init(secKeyPath) {
@@ -17,7 +12,7 @@ class IndexManager {
     }
 
     async #getConfigs(key = null) {
-        return await this.#firestoreHandler.getDocuments(FirestoreCollections.CONFIGS,
+        return await this.#firestoreHandler.getDocuments(EvernodeConstants.CONFIGS_INDEX,
             key ? { list: [{ key: key, operator: FirestoreOperations.EQUAL }] } : null);
     }
 
@@ -30,9 +25,9 @@ class IndexManager {
         const data = await this.#getConfigs(documentId);
         let res;
         if (data && data.length)
-            res = await this.#firestoreHandler.updateDocument(FirestoreCollections.CONFIGS, config, documentId);
+            res = await this.#firestoreHandler.updateDocument(EvernodeConstants.CONFIGS_INDEX, config, documentId);
         else
-            res = await this.#firestoreHandler.addDocument(FirestoreCollections.CONFIGS, config, documentId);
+            res = await this.#firestoreHandler.addDocument(EvernodeConstants.CONFIGS_INDEX, config, documentId);
         return res;
     }
 
@@ -40,11 +35,11 @@ class IndexManager {
         if (!key)
             throw { type: 'Validation Error', message: 'Config key is required.' };
 
-        return await this.#firestoreHandler.deleteDocument(FirestoreCollections.CONFIGS, key);
+        return await this.#firestoreHandler.deleteDocument(EvernodeConstants.CONFIGS_INDEX, key);
     }
 
     async #getHosts(key = null) {
-        return await this.#firestoreHandler.getDocuments(FirestoreCollections.HOSTS,
+        return await this.#firestoreHandler.getDocuments(EvernodeConstants.HOSTS_INDEX,
             key ? { list: [{ key: key, operator: FirestoreOperations.EQUAL }] } : null);
     }
 
@@ -57,9 +52,9 @@ class IndexManager {
         const data = await this.#getHosts(documentId);
         let res;
         if (data && data.length)
-            res = await this.#firestoreHandler.updateDocument(FirestoreCollections.HOSTS, host, documentId);
+            res = await this.#firestoreHandler.updateDocument(EvernodeConstants.HOSTS_INDEX, host, documentId);
         else
-            res = await this.#firestoreHandler.addDocument(FirestoreCollections.HOSTS, host, documentId);
+            res = await this.#firestoreHandler.addDocument(EvernodeConstants.HOSTS_INDEX, host, documentId);
         return res;
     }
 
@@ -67,7 +62,7 @@ class IndexManager {
         if (!key)
             throw { type: 'Validation Error', message: 'Host key is required.' };
 
-        return await this.#firestoreHandler.deleteDocument(FirestoreCollections.HOSTS, key);
+        return await this.#firestoreHandler.deleteDocument(EvernodeConstants.HOSTS_INDEX, key);
     }
 }
 

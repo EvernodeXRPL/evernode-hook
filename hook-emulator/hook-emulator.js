@@ -14,8 +14,6 @@ const DB_PATH = DATA_DIR + '/hook-emulator.sqlite';
 const HOOK_WRAPPER_PATH = DATA_DIR + '/c_wrappers/hook-wrapper';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
 
-const FIREBASE_PROJECT_ID = 'evernodeindex';
-
 /**
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
  */
@@ -28,7 +26,7 @@ class HookEmulator {
     #xrplAcc = null;
 
     constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret) {
-        this.#indexManager = new IndexManager(FIREBASE_PROJECT_ID);
+        this.#indexManager = new IndexManager();
         this.#stateManager = new StateManager(dbPath, this.#indexManager);
         this.#accountManager = new AccountManager();
         this.#xrplApi = new evernode.XrplApi(rippledServer);
