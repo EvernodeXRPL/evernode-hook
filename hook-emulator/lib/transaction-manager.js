@@ -2,7 +2,7 @@ const { exec } = require("child_process");
 const codec = require('ripple-address-codec');
 const rippleCodec = require('ripple-binary-codec');
 const { STATE_ERROR_CODES } = require('./state-manager');
-const { XflHelpers } = require('evernode-js-client');
+const { XflHelpers, XrplAccount } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
 const TX_MAX_LEDGER_OFFSET = 10;
@@ -21,7 +21,8 @@ const MESSAGE_TYPES = {
     STATE_SET: 4,
     ACCID: 5,
     SEQUENCE: 6,
-    MINTED_TOKENS: 7
+    MINTED_TOKENS: 7,
+    NFT: 8
 };
 
 const RETURN_CODES = {
@@ -229,6 +230,13 @@ class TransactionManager {
         request.key = requestBuf.slice(0, 32);
 
         return request;
+    }
+
+    #decodeNFTGetRequest(requestBuf) {
+        return {
+            address: codec.encodeAccountID(requestBuf.slice(0, 20)), // 20 bytes.
+            tokenID: requestBuf.slice(20, 52)
+        };
     }
 
     #decodeStateSetRequest(requestBuf) {
@@ -526,6 +534,32 @@ class TransactionManager {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
                 } catch (error) {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
+                }
+                break;
+            case (MESSAGE_TYPES.NFT):
+                try {
+                    const request = this.#decodeNFTGetRequest(content);
+                    const account = new XrplAccount(request.address);
+                    const nfts = await account.getNfts();
+                    const res = nfts.find(nft => nft.TokenID === request.tokenID.toString('hex').toUpperCase());
+                    if (!res) {
+                        this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
+                        return;
+                    }
+
+                    const URI = Buffer.from(res.URI, 'hex');
+                    let buf = Buffer.allocUnsafe(27 + URI.length);
+
+                    buf.writeUInt16BE(res.Flags); // 2
+                    const issuer = codec.decodeAccountID(res.Issuer);
+                    issuer.copy(buf, 2); // 20
+                    buf.writeUInt32BE(res.TokenTaxon, 22); // 4
+                    buf.writeUInt8(URI.length, 26); // 1
+                    URI.copy(buf, 27); // URI len
+
+                    this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, buf));
+                } catch (e) {
+                    console.error(e);
                 }
                 break;
             default:

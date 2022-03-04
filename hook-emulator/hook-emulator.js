@@ -1,9 +1,7 @@
 const fs = require('fs');
-const process = require('process');
-const { StateManager } = require('./lib/state-manager');
-const { AccountManager } = require('./lib/account-manager');
-const { TransactionManager } = require('./lib/transaction-manager');
-const { ApiManager } = require('./lib/api-manager');
+const { StateManager } = require('./state-manager');
+const { AccountManager } = require('./account-manager');
+const { TransactionManager } = require('./transaction-manager');
 const evernode = require('evernode-js-client');
 
 const CONFIG_PATH = './hook-emulator.cfg';
@@ -35,7 +33,6 @@ class HookEmulator {
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
-        this.#apiManager = new ApiManager(apiPort)
     }
 
     async init() {

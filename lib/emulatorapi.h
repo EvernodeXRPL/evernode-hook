@@ -106,7 +106,8 @@ enum MESSAGE_TYPES
     STATE_SET,
     ACCID,
     SEQUENCE,
-    MINTED_TOKENS
+    MINTED_TOKENS,
+    NFT
 };
 
 enum RETURN_CODES
@@ -128,6 +129,8 @@ extern struct Transaction *txn;
 extern uint8_t hook_accid[ACCOUNT_LEN];
 extern int64_t slots_arr[255];
 extern uint8_t sl_count;
+
+int get_nft(uint32_t address, uint32_t token_id, uint16_t *flags, uint32_t issuer, uint32_t *taxon, uint32_t uri, uint8_t *uri_len);
 
 int read_stdin(uint8_t *read_buf, const int read_len);
 
