@@ -1,29 +1,35 @@
 const fs = require('fs');
-const { StateManager } = require('./state-manager');
-const { AccountManager } = require('./account-manager');
-const { TransactionManager } = require('./transaction-manager');
+const process = require('process');
+const { StateManager } = require('./lib/state-manager');
+const { AccountManager } = require('./lib/account-manager');
+const { TransactionManager } = require('./lib/transaction-manager');
 const evernode = require('evernode-js-client');
+const { IndexManager } = require('./lib/index-manager');
 
-const CONFIG_PATH = './hook-emulator.cfg';
-const DB_PATH = './hook-emulator.sqlite';
-const HOOK_WRAPPER_PATH = './c_wrappers/hook-wrapper';
-const API_PORT = 8080;
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const RIPPLED_URL = process.env.RIPPLED_URL || "wss://xls20-sandbox.rippletest.net:51233";
 
-const RIPPLED_URL = "wss://xls20-sandbox.rippletest.net:51233";
+const CONFIG_PATH = DATA_DIR + '/hook-emulator.cfg';
+const DB_PATH = DATA_DIR + '/hook-emulator.sqlite';
+const HOOK_WRAPPER_PATH = DATA_DIR + '/c_wrappers/hook-wrapper';
+const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
+
+const FIREBASE_PROJECT_ID = 'evernodeindex';
 
 /**
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
  */
 class HookEmulator {
+    #indexManager = null;
     #stateManager = null;
     #accountManager = null;
     #transactionManager = null;
-    #apiManager = null;
     #xrplApi = null;
     #xrplAcc = null;
 
-    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret, apiPort) {
-        this.#stateManager = new StateManager(dbPath);
+    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret) {
+        this.#indexManager = new IndexManager(FIREBASE_PROJECT_ID);
+        this.#stateManager = new StateManager(dbPath, this.#indexManager);
         this.#accountManager = new AccountManager();
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
@@ -35,13 +41,13 @@ class HookEmulator {
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
     }
 
-    async init() {
+    async init(firebaseSecKeyPath) {
         console.log("Starting hook emulator.");
         await this.#xrplApi.connect();
 
+        await this.#indexManager.init(firebaseSecKeyPath);
         await this.#stateManager.init();
         this.#accountManager.init();
-        this.#apiManager.init();
 
         // Handle the transaction when payment transaction is received.
         // Note - This event will only receive the incoming payment transactions to the hook.
@@ -85,8 +91,8 @@ async function main() {
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret, (process.env.API_PORT || API_PORT));
-    await emulator.init();
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret);
+    await emulator.init(FIREBASE_SEC_KEY_PATH);
 }
 
 main().catch(console.error);

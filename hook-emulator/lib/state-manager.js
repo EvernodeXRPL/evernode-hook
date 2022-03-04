@@ -1,4 +1,5 @@
 const { SqliteDatabase, DataTypes } = require('./sqlite-handler');
+const { StateHelpers } = require('evernode-js-client');
 
 const STATE_TABLE = 'state';
 const MAX_KEY_SIZE = 32;
@@ -19,9 +20,11 @@ class StateManager {
     #draftStates = null;
     #db = null;
     #stateTable = null;
+    #indexManager = null;
 
-    constructor(dbPath) {
+    constructor(dbPath, indexManager) {
         this.#db = new SqliteDatabase(dbPath);
+        this.#indexManager = indexManager;
         this.#draftStates = {};
     }
 
@@ -116,11 +119,38 @@ class StateManager {
         }
         this.#db.close();
 
+        for (const key of Object.keys(this.#draftStates)) {
+            const keyBuf = Buffer.from(key, 'hex');
+            if (this.#draftStates[key])
+                await this.setIndex(keyBuf, this.#draftStates[key]);
+            else if (states && states.length > 0)
+                await this.deleteIndex(keyBuf);
+        }
+
         this.#draftStates = {};
     }
 
     rollback() {
         this.#draftStates = {};
+    }
+
+    async setIndex(stateKey, stateData) {
+        const decoded = StateHelpers.decodeStateData(stateKey, stateData);
+        if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
+            delete decoded.type;
+            await this.#indexManager.setHost(decoded);
+        }
+        else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+            await this.#indexManager.setConfig(decoded);
+
+    }
+
+    async deleteIndex(stateKey) {
+        const decoded = StateHelpers.decodeStateKey(stateKey);
+        if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
+            await this.#indexManager.deleteHost(decoded.key);
+        else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+            await this.#indexManager.deleteConfig(decoded.key);
     }
 }
 

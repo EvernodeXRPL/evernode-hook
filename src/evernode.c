@@ -366,7 +366,7 @@ int64_t hook(int64_t reserved)
                 if (description_len < DESCRIPTION_LEN)
                     CLEAR_BUF(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len);
                 INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
-                INT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                 UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
 
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -388,7 +388,7 @@ int64_t hook(int64_t reserved)
                 TRACEVAR(conf_max_reg);
 
                 int max_reached = 0;
-                if (float_compare(conf_fixed_reg_fee, host_reg_fee, COMPARE_EQUAL) != 1 && host_count > (conf_max_reg / 2))
+                if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
                 {
                     max_reached = 1;
                     etxn_reserve(host_count + 3);
@@ -486,7 +486,7 @@ int64_t hook(int64_t reserved)
                             uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
                             if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not get host address state."), 1);
-                            INT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                            UINT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                             if (state_set(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
                                 rollback(SBUF("Evernode: Could not update host address state."), 1);
                         }
