@@ -1,10 +1,10 @@
 const fs = require('fs');
 const process = require('process');
+const evernode = require('evernode-js-client');
 const { StateManager } = require('./lib/state-manager');
 const { AccountManager } = require('./lib/account-manager');
 const { TransactionManager } = require('./lib/transaction-manager');
-const evernode = require('evernode-js-client');
-const { IndexManager } = require('./lib/index-manager');
+const { FirestoreManager } = require('./lib/firestore-manager');
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://xls20-sandbox.rippletest.net:51233";
@@ -18,7 +18,7 @@ const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
  */
 class HookEmulator {
-    #indexManager = null;
+    #firestoreManager = null;
     #stateManager = null;
     #accountManager = null;
     #transactionManager = null;
@@ -26,16 +26,16 @@ class HookEmulator {
     #xrplAcc = null;
 
     constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret) {
-        this.#indexManager = new IndexManager();
-        this.#stateManager = new StateManager(dbPath, this.#indexManager);
-        this.#accountManager = new AccountManager();
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
-            hookAddress: hookAddress,
+            registryAddress: hookAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
+        this.#firestoreManager = new FirestoreManager();
+        this.#stateManager = new StateManager(dbPath, this.#firestoreManager);
+        this.#accountManager = new AccountManager();
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
     }
 
@@ -43,7 +43,7 @@ class HookEmulator {
         console.log("Starting hook emulator.");
         await this.#xrplApi.connect();
 
-        await this.#indexManager.init(firebaseSecKeyPath);
+        await this.#firestoreManager.authorize(firebaseSecKeyPath);
         await this.#stateManager.init();
         this.#accountManager.init();
 

@@ -20,11 +20,11 @@ class StateManager {
     #draftStates = null;
     #db = null;
     #stateTable = null;
-    #indexManager = null;
+    #firestoreManager = null;
 
-    constructor(dbPath, indexManager) {
+    constructor(dbPath, firestoreManager) {
         this.#db = new SqliteDatabase(dbPath);
-        this.#indexManager = indexManager;
+        this.#firestoreManager = firestoreManager;
         this.#draftStates = {};
     }
 
@@ -138,19 +138,19 @@ class StateManager {
         const decoded = StateHelpers.decodeStateData(stateKey, stateData);
         if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
             delete decoded.type;
-            await this.#indexManager.setHost(decoded);
+            await this.#firestoreManager.setHost(decoded);
         }
         else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
-            await this.#indexManager.setConfig(decoded);
+            await this.#firestoreManager.setConfig(decoded);
 
     }
 
     async deleteIndex(stateKey) {
         const decoded = StateHelpers.decodeStateKey(stateKey);
         if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
-            await this.#indexManager.deleteHost(decoded.key);
+            await this.#firestoreManager.deleteHost(decoded.key);
         else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
-            await this.#indexManager.deleteConfig(decoded.key);
+            await this.#firestoreManager.deleteConfig(decoded.key);
     }
 }
 
