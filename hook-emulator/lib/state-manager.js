@@ -96,6 +96,13 @@ class StateManager {
     }
 
     async persist() {
+        // Keep updated and deleted indexes in a temprorary lists when updating the state db and then after db is updated persist them to firestore.
+        // So firestore update delays won't effect the db update.
+        let indexUpdates = {
+            set: [],
+            delete: []
+        }
+        
         this.#db.open();
         for (const key of Object.keys(this.#draftStates)) {
             const keyBuf = Buffer.from(key, 'hex');
@@ -112,22 +119,22 @@ class StateManager {
                         value: this.#draftStates[key]
                     });
                 }
+                indexUpdates.set.push({ keyBuf: keyBuf, value: this.#draftStates[key] });
             }
             else if (states && states.length > 0) {
                 await this.#db.deleteValues(this.#stateTable, { key: keyBuf });
+                indexUpdates.delete.push({ keyBuf: keyBuf });
             }
         }
         this.#db.close();
 
-        for (const key of Object.keys(this.#draftStates)) {
-            const keyBuf = Buffer.from(key, 'hex');
-            if (this.#draftStates[key])
-                await this.setIndex(keyBuf, this.#draftStates[key]);
-            else if (states && states.length > 0)
-                await this.deleteIndex(keyBuf);
-        }
-
         this.#draftStates = {};
+
+        // Persist the date to firestore index.
+        for (const obj of indexUpdates.set)
+            await this.setIndex(obj.keyBuf, obj.value).catch(console.error);
+        for (const obj of indexUpdates.delete)
+            await this.deleteIndex(obj.keyBuf).catch(console.error);
     }
 
     rollback() {

@@ -1,6 +1,6 @@
-const { FirestoreHandler, FirestoreOperations } = require('evernode-js-client');
-const { google } = require("googleapis");
+const { FirestoreHandler, } = require('evernode-js-client');
 var fs = require('fs');
+const jwt = require('jsonwebtoken');
 
 const SCOPES = [
     "https://www.googleapis.com/auth/datastore"
@@ -8,30 +8,35 @@ const SCOPES = [
 
 class FirestoreManager extends FirestoreHandler {
     #saKeyPath = null;
-    #accessToken = null;
-    #tokenExpiry = null;
+    #accessCredentials = null;
 
     async #authorize() {
         const key = JSON.parse(fs.readFileSync(this.#saKeyPath));
-        const jwtClient = new google.auth.JWT(
-            key.client_email,
-            null,
-            key.private_key,
-            SCOPES,
-            null
-        );
-        return new Promise((resolve, reject) => {
-            jwtClient.authorize((err, tokens) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                this.#accessToken = tokens.access_token;
-                this.#tokenExpiry = tokens.expiry_date;
-                resolve();
-                return;
-            });
+
+        // Generate the signed JWT.
+        const claims = {
+            aud: key.token_uri,
+            scope: SCOPES.join(' '),
+            iss: key.client_email,
+            exp: (Date.now() / 1000) + (30 * 60), // Setup exp as 30 minutes.
+            iat: (Date.now() / 1000)
+        }
+        const signedJwt = jwt.sign(JSON.stringify(claims), key.private_key, { algorithm: "RS256" });
+
+        let tokenInfo = await this._sendRequest('POST', key.token_uri, {
+            grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            assertion: signedJwt
         });
+
+        if (!tokenInfo)
+            throw { type: 'Authentication Error', message: 'Unable to generate the access token.' };
+
+        tokenInfo = JSON.parse(tokenInfo);
+        this.#accessCredentials = {
+            accessToken: tokenInfo.access_token,
+            tokenExpiry: Date.now() + (tokenInfo.expires_in * 1000) - (5 * 1000), // Keep 5 second buffer. So access token won't expire while request is processing.
+            tokenType: tokenInfo.token_type
+        }
     }
 
     async #sendRequestWithAuth(method, url, params = null, data = null, options = null) {
@@ -39,16 +44,18 @@ class FirestoreManager extends FirestoreHandler {
             let retryCount = 0;
             const trySend = async () => {
                 let reqOptions = options;
-                if (this.#accessToken && this.#tokenExpiry) {
-                    if (this.#tokenExpiry < (new Date().getTime())) {
-                        console.log(`Invalid access token, Generating a new...`)
+                // Set the access headers if access credentials is set.
+                if (this.#accessCredentials && this.#accessCredentials.accessToken && this.#accessCredentials.tokenExpiry) {
+                    // If token is expired generate a new before setting the header.
+                    if (this.#accessCredentials.tokenExpiry < Date.now()) {
+                        console.log(`Access token expired, Generating a new...`)
                         await this.#authorize();
                     }
-                    const bearer = `Bearer ${this.#accessToken}`;
+                    const token = `${this.#accessCredentials.tokenType || 'Bearer'} ${this.#accessCredentials.accessToken}`;
                     if (!reqOptions)
-                        reqOptions = { headers: { Authorization: bearer } };
+                        reqOptions = { headers: { Authorization: token } };
                     else
-                        reqOptions.headers = { Authorization: bearer, ...(reqOptions.headers ? reqOptions.headers : {}) };
+                        reqOptions.headers = { Authorization: token, ...(reqOptions.headers ? reqOptions.headers : {}) };
                 }
 
                 try {
@@ -57,12 +64,16 @@ class FirestoreManager extends FirestoreHandler {
                     return;
                 }
                 catch (e) {
+                    // If request is failed with unauthorized status check is token is expired and generate a new token and try sending the request again.
+                    // Keep max retries limited to 5.
                     if (res.status === 401) {
                         const resJson = JSON.parse(resData);
-                        if (retryCount < 5 && this.#accessToken && this.#tokenExpiry && (this.#tokenExpiry < (new Date().getTime())) &&
+                        if (retryCount < 5 &&
+                            this.#accessCredentials && this.#accessCredentials.accessToken && this.#accessCredentials.tokenExpiry &&
+                            (this.#accessCredentials.tokenExpiry < Date.now()) &&
                             resJson.error.code === 401 && resJson.error.status === 'UNAUTHENTICATED') {
                             retryCount++;
-                            console.log(`Invalid access token, Retrying ${retryCount}...`)
+                            console.log(`Access token expired, Generating a new ${retryCount}...`)
                             await this.#authorize();
                             await trySend();
                             return;
@@ -83,6 +94,8 @@ class FirestoreManager extends FirestoreHandler {
 
         const url = this._buildApiPath(collectionId, update && documentId);
         let params = null;
+        // Setup the update fields if an update request.
+        // Otherwise set the documentId.
         if (update)
             params = { "updateMask.fieldPaths": Object.keys(document.fields) };
         else
@@ -103,6 +116,7 @@ class FirestoreManager extends FirestoreHandler {
             fields: {}
         };
 
+        // Prepare the firestore write body with the given data object.
         for (const [key, value] of Object.entries(data)) {
             const field = this._convertValue(key, value)
             document.fields[field.key] = field.value;
@@ -118,6 +132,7 @@ class FirestoreManager extends FirestoreHandler {
             fields: {}
         };
 
+        // Prepare the firestore write body with the given data object.
         for (const [key, value] of Object.entries(data)) {
             const field = this._convertValue(key, value)
             document.fields[field.key] = field.value;
@@ -146,7 +161,7 @@ class FirestoreManager extends FirestoreHandler {
 
         // If document already exist, update that.
         const documentId = config.key;
-        const data = await this.getConfigs({ list: [{ key: documentId, operator: FirestoreOperations.EQUAL }] });
+        const data = await this.getConfigs({ key: documentId });
         let res;
         if (data && data.length)
             res = await this.#updateDocument(this._getCollectionId('configs'), config, documentId);
@@ -168,7 +183,7 @@ class FirestoreManager extends FirestoreHandler {
 
         // If document already exist, update that.
         const documentId = host.key;
-        const data = await this.getHosts({ list: [{ key: documentId, operator: FirestoreOperations.EQUAL }] })
+        const data = await this.getHosts({ key: documentId })
         let res;
         if (data && data.length)
             res = await this.#updateDocument(this._getCollectionId('hosts'), host, documentId);
