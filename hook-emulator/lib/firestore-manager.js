@@ -1,4 +1,4 @@
-const { FirestoreHandler, } = require('evernode-js-client');
+const { FirestoreHandler } = require('evernode-js-client');
 var fs = require('fs');
 const jwt = require('jsonwebtoken');
 
