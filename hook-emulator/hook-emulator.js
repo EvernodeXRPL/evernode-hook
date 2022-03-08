@@ -55,7 +55,7 @@ class HookEmulator {
 
         // Subscribe for the transactions
         await this.#xrplAcc.subscribe();
-        console.log(`Listening to hook address ${evernode.Defaults.get().hookAddress} on ${evernode.Defaults.get().rippledServer}`);
+        console.log(`Listening to hook address ${evernode.Defaults.get().registryAddress} on ${evernode.Defaults.get().rippledServer}`);
 
     }
 
