@@ -10,7 +10,7 @@ const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.c
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Account names 
-const accounts = ["ISSUER", "FOUNDATION", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
+const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
 
 // XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
