@@ -28,3 +28,11 @@ node sethook.js
   - This will create `hook-emulator.cfg` in first run.
   - Update config with hook address and secret.
   - Then re run `node hook-emulator.js`.
+
+### Generating the firebase key file for state index
+- Go to [firebase console](https://console.firebase.google.com).
+- Choose your project.
+- Go to `Project Settings`.
+- Go to `Service Accounts` tab.
+- Download a key json file with `Generate new private key` button.
+- Place it under `sec` directory as `./hook-emulator/sec/firebase-sa-key.json`.

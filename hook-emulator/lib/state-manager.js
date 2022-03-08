@@ -1,4 +1,5 @@
-const { SqliteDatabase, DataTypes } = require('./lib/sqlite-handler');
+const { SqliteDatabase, DataTypes } = require('./sqlite-handler');
+const { StateHelpers } = require('evernode-js-client');
 
 const STATE_TABLE = 'state';
 const MAX_KEY_SIZE = 32;
@@ -19,9 +20,11 @@ class StateManager {
     #draftStates = null;
     #db = null;
     #stateTable = null;
+    #firestoreManager = null;
 
-    constructor(dbPath) {
+    constructor(dbPath, firestoreManager) {
         this.#db = new SqliteDatabase(dbPath);
+        this.#firestoreManager = firestoreManager;
         this.#draftStates = {};
     }
 
@@ -93,34 +96,73 @@ class StateManager {
     }
 
     async persist() {
+        // Keep updated and deleted indexes in a temprorary lists when updating the state db and then after db is updated persist them to firestore.
+        // So firestore update delays won't effect the db update.
+        let indexUpdates = {
+            set: [],
+            delete: []
+        }
+
         this.#db.open();
-        for (const key of Object.keys(this.#draftStates)) {
+        for (const [key, value] of Object.entries(this.#draftStates)) {
             const keyBuf = Buffer.from(key, 'hex');
             const states = await this.#db.getValues(this.#stateTable, { key: keyBuf });
-            if (this.#draftStates[key]) {
+            if (value) {
                 if (states && states.length > 0) {
                     await this.#db.updateValues(this.#stateTable, {
-                        value: this.#draftStates[key],
+                        value: value,
                     }, { key: keyBuf });
                 }
                 else {
                     await this.#db.insertValue(this.#stateTable, {
                         key: keyBuf,
-                        value: this.#draftStates[key]
+                        value: value
                     });
                 }
+                indexUpdates.set.push({ keyBuf: keyBuf, value: value });
             }
             else if (states && states.length > 0) {
                 await this.#db.deleteValues(this.#stateTable, { key: keyBuf });
+                indexUpdates.delete.push({ keyBuf: keyBuf });
             }
         }
         this.#db.close();
 
         this.#draftStates = {};
+
+        // Persist the data to the firestore index.
+        // Since we only have one list object per entry,
+        // There's only one insert, update or delete operation per document.
+        // So we can promise.all all the inserts,updates and deletes.
+        await Promise.all([...indexUpdates.set.map(async obj => {
+            await this.setIndex(obj.keyBuf, obj.value).catch(console.error);
+        }),
+        ...indexUpdates.delete.map(async obj => {
+            await this.deleteIndex(obj.keyBuf).catch(console.error);
+        })]);
     }
 
     rollback() {
         this.#draftStates = {};
+    }
+
+    async setIndex(stateKey, stateData) {
+        const decoded = StateHelpers.decodeStateData(stateKey, stateData);
+        if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
+            delete decoded.type;
+            await this.#firestoreManager.setHost(decoded);
+        }
+        else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+            await this.#firestoreManager.setConfig(decoded);
+
+    }
+
+    async deleteIndex(stateKey) {
+        const decoded = StateHelpers.decodeStateKey(stateKey);
+        if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
+            await this.#firestoreManager.deleteHost(decoded.key);
+        else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+            await this.#firestoreManager.deleteConfig(decoded.key);
     }
 }
 
