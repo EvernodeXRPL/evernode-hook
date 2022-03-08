@@ -3,14 +3,14 @@ const process = require('process');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
-const PURCHASER_PROGRAM_EVRS = "51609600";
+const PURCHASER_COLD_WALLET_EVRS = "51609600";
 
 // End Points --------------------------------------------------------------
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Account names 
-const accounts = ["ISSUER", "FOUNDATION", "COMMUNITY_CONTRACT_BANK", "REGISTRY", "PURCHASER"];
+const accounts = ["ISSUER", "FOUNDATION", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
 
 // XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
@@ -80,7 +80,7 @@ async function main () {
         const comm_bank_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (comm_bank_lines.length === 0) {
-            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
+            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_COLD_WALLET_EVRS);
         }
 
         const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
@@ -92,7 +92,7 @@ async function main () {
         const purchaser_lines = await newAccounts[4].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (purchaser_lines.length === 0) {
-            await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_PROGRAM_EVRS);
+            await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_COLD_WALLET_EVRS);
         }
 
         console.log("Trust Lines initiated");
@@ -103,9 +103,9 @@ async function main () {
 
         console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
 
-        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_PROGRAM_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_COLD_WALLET_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${PURCHASER_PROGRAM_EVRS} EVRs were transferred to Community Contract Bank Account by the Foundation`);
+        console.log(`${PURCHASER_COLD_WALLET_EVRS} EVRs were transferred to Purchaser cold wallet by the Foundation`);
         // END - Transfer Currency
 
         // ISSUER Blackholing	
