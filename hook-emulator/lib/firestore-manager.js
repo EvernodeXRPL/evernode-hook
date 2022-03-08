@@ -6,6 +6,9 @@ const SCOPES = [
     "https://www.googleapis.com/auth/datastore"
 ];
 
+const TOKEN_EXPIRY_BUFFER_SECONDS = 5;
+const JWT_EXPIRY_MINUTES = 5;
+
 class FirestoreManager extends FirestoreHandler {
     #saKeyPath = null;
     #accessCredentials = null;
@@ -18,7 +21,7 @@ class FirestoreManager extends FirestoreHandler {
             aud: key.token_uri,
             scope: SCOPES.join(' '),
             iss: key.client_email,
-            exp: (Date.now() / 1000) + (30 * 60), // Setup exp as 30 minutes.
+            exp: (Date.now() / 1000) + (JWT_EXPIRY_MINUTES * 60),
             iat: (Date.now() / 1000)
         }
         const signedJwt = jwt.sign(JSON.stringify(claims), key.private_key, { algorithm: "RS256" });
@@ -34,7 +37,7 @@ class FirestoreManager extends FirestoreHandler {
         tokenInfo = JSON.parse(tokenInfo);
         this.#accessCredentials = {
             accessToken: tokenInfo.access_token,
-            tokenExpiry: Date.now() + (tokenInfo.expires_in * 1000) - (5 * 1000), // Keep 5 second buffer. So access token won't expire while request is processing.
+            tokenExpiry: Date.now() + (tokenInfo.expires_in * 1000),
             tokenType: tokenInfo.token_type
         }
     }
@@ -47,7 +50,9 @@ class FirestoreManager extends FirestoreHandler {
                 // Set the access headers if access credentials is set.
                 if (this.#accessCredentials && this.#accessCredentials.accessToken && this.#accessCredentials.tokenExpiry) {
                     // If token is expired generate a new before setting the header.
-                    if (this.#accessCredentials.tokenExpiry < Date.now()) {
+                    // Keep some buffer time without waiting until the last moment to renew the token.
+                    // So access token won't expire while request is processing.
+                    if ((this.#accessCredentials.tokenExpiry- (TOKEN_EXPIRY_BUFFER_SECONDS * 1000)) < Date.now()) {
                         console.log(`Access token expired, Generating a new...`)
                         await this.#authorize();
                     }
