@@ -102,24 +102,24 @@ class StateManager {
             set: [],
             delete: []
         }
-        
+
         this.#db.open();
-        for (const key of Object.keys(this.#draftStates)) {
+        for (const [key, value] of Object.entries(this.#draftStates)) {
             const keyBuf = Buffer.from(key, 'hex');
             const states = await this.#db.getValues(this.#stateTable, { key: keyBuf });
-            if (this.#draftStates[key]) {
+            if (value) {
                 if (states && states.length > 0) {
                     await this.#db.updateValues(this.#stateTable, {
-                        value: this.#draftStates[key],
+                        value: value,
                     }, { key: keyBuf });
                 }
                 else {
                     await this.#db.insertValue(this.#stateTable, {
                         key: keyBuf,
-                        value: this.#draftStates[key]
+                        value: value
                     });
                 }
-                indexUpdates.set.push({ keyBuf: keyBuf, value: this.#draftStates[key] });
+                indexUpdates.set.push({ keyBuf: keyBuf, value: value });
             }
             else if (states && states.length > 0) {
                 await this.#db.deleteValues(this.#stateTable, { key: keyBuf });
@@ -130,11 +130,16 @@ class StateManager {
 
         this.#draftStates = {};
 
-        // Persist the date to firestore index.
-        for (const obj of indexUpdates.set)
+        // Persist the data to the firestore index.
+        // Since we only have one list object per entry,
+        // There's only one insert, update or delete operation per document.
+        // So we can promise.all all the inserts,updates and deletes.
+        await Promise.all([...indexUpdates.set.map(async obj => {
             await this.setIndex(obj.keyBuf, obj.value).catch(console.error);
-        for (const obj of indexUpdates.delete)
+        }),
+        ...indexUpdates.delete.map(async obj => {
             await this.deleteIndex(obj.keyBuf).catch(console.error);
+        })]);
     }
 
     rollback() {
