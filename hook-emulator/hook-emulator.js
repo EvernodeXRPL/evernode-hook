@@ -13,6 +13,7 @@ const CONFIG_PATH = DATA_DIR + '/hook-emulator.cfg';
 const DB_PATH = DATA_DIR + '/hook-emulator.sqlite';
 const HOOK_WRAPPER_PATH = DATA_DIR + '/c_wrappers/hook-wrapper';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
+const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
 
 /**
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
@@ -25,7 +26,7 @@ class HookEmulator {
     #xrplApi = null;
     #xrplAcc = null;
 
-    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret) {
+    constructor(rippledServer, hookWrapperPath, dbPath, hookAddress, hookSecret, stateIndexId = null) {
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
             registryAddress: hookAddress,
@@ -33,7 +34,7 @@ class HookEmulator {
             xrplApi: this.#xrplApi
         })
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
-        this.#firestoreManager = new FirestoreManager();
+        this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#stateManager = new StateManager(dbPath, this.#firestoreManager);
         this.#accountManager = new AccountManager();
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
@@ -89,7 +90,8 @@ async function main() {
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret);
+    // Setup beta state index if mode is beta.
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, config.hookAddress, config.hookSecret, process.env.MODE === 'beta' ? BETA_STATE_INDEX : null);
     if (fs.existsSync(FIREBASE_SEC_KEY_PATH))
         await emulator.init(FIREBASE_SEC_KEY_PATH);
     else {
