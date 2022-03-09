@@ -62,13 +62,7 @@ async function executeEmulator(registryAddress, registrySecret, configInitHandle
 
     // Complete the promise on child process exit.
     return new Promise((resolve, reject) => {
-        emulatorProc.on('exit', async (code) => {
-            if (code >= 0)
-                resolve(code);
-            else {
-                reject(code);
-            }
-        });
+        emulatorProc.on('exit', async (code) => code >= 0 ? resolve(code) : reject(code));
     });
 }
 
@@ -182,7 +176,10 @@ async function main() {
             // Once the initialize transaction is done, we don't need xrpl api connection for the account setup tool anymore.
             // So we disconnect it.
             await xrplApi.disconnect();
-        });
+        }).catch(e => { throw `Hook emulator execution faild with exit code ${e}` });
+
+        console.log('Hook emulator execution exited.');
+
     } catch (err) {
         console.log(err);
         console.log("Evernode account setup exiting with an error.");
