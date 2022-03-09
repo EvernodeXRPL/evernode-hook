@@ -2,7 +2,7 @@
   "name": "hook-emulator",
   "scripts": {
     "lint": "eslint ./hook-emulator.js",
-    "build:wrapper": "gcc -m32 ./c_wrappers/main.c ../src/evernode.c ../lib/emulatorapi.c -o ./c_wrappers/hook-wrapper",
+    "build:wrapper": "gcc -m32 ./c-wrappers/main.c ../src/evernode.c ../lib/emulatorapi.c -o ./c-wrappers/hook-wrapper",
     "build": "npm run build:wrapper && npm run lint && ncc build hook-emulator.js --minify -o dist",
     "start": "npm run build:wrapper && node hook-emulator.js"
   },

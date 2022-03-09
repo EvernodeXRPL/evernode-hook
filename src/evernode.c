@@ -72,14 +72,18 @@ int64_t hook(int64_t reserved)
             BUFFER_EQUAL_STR_GUARD(is_initialize, type_ptr, type_len, INITIALIZE, 1);
             if (is_initialize)
             {
-                uint8_t foundation_accid[20];
-                const int foundation_accid_len = util_accid(SBUF(foundation_accid), FOUNDATION_ADDR, 35);
-                if (foundation_accid_len < 20)
-                    rollback(SBUF("Evernode: Could not convert foundation account id."), 1);
+                BUFFER_EQUAL_STR(is_initialize, format_ptr, format_len, FORMAT_HEX);
+                if (!is_initialize)
+                    rollback(SBUF("Evernode: Format should be hex for initialize request."), 1);
 
-                int is_foundation = 0;
-                BUFFER_EQUAL(is_foundation, foundation_accid, account_field, 20);
-                if (!is_foundation)
+                if (data_len != (2 * ACCOUNT_LEN))
+                    rollback(SBUF("Evernode: Memo data should contain foundation cold wallet and issuer addresses."), 1);
+
+                uint8_t *issuer_ptr = data_ptr;
+                uint8_t *foundation_ptr = data_ptr + ACCOUNT_LEN;
+
+                BUFFER_EQUAL(is_initialize, foundation_ptr, account_field, ACCOUNT_LEN);
+                if (!is_initialize)
                     rollback(SBUF("Evernode: Only foundation is allowed to initialize state."), 1);
 
                 // First check if the states are already initialized by checking one state key for existence.
@@ -94,15 +98,10 @@ int64_t hook(int64_t reserved)
                 SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                 SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
-                uint8_t issuer_accid[20];
-                const int issuer_accid_len = util_accid(SBUF(issuer_accid), ISSUER_ADDR, 35);
-                if (issuer_accid_len < 20)
-                    rollback(SBUF("Evernode: Could not convert issuer account id."), 1);
-
-                if (state_set(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                if (state_set(issuer_ptr, ACCOUNT_LEN, SBUF(CONF_ISSUER_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
 
-                if (state_set(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                if (state_set(foundation_ptr, ACCOUNT_LEN, SBUF(CONF_FOUNDATION_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
 
                 SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
