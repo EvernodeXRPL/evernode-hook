@@ -8,6 +8,7 @@ const { TransactionManager } = require('./lib/transaction-manager');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
+const BIN_DIR = process.env.BIN_DIR || __dirname;
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://xls20-sandbox.rippletest.net:51233";
 const MODE = process.env.MODE || 'dev';
 const FILE_LOG_ENABLED = process.env.FILE_LOG === '1';
@@ -15,9 +16,10 @@ const FILE_LOG_ENABLED = process.env.FILE_LOG === '1';
 const LOG_FILE_SUFFIX = '_hook-emulator.log';
 const DB_FILE_SUFFIX = '_hook-emulator.sqlite';
 const ACC_DATA_FILE_SUFFIX = '_hook-root.json';
-const HOOK_WRAPPER_PATH = DATA_DIR + '/c-wrappers/hook-wrapper';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
 const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
+
+const HOOK_WRAPPER_PATH = BIN_DIR + ((!process.env.BIN_DIR && !BIN_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-wrapper';
 
 /**
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
@@ -87,6 +89,9 @@ async function main() {
     // If hook address is empty, skip the execution.
     if (!hookAddress || !hookSecret)
         throw "Invalid args. Hook Address and Secret are required as arguments.";
+
+    if (!fs.existsSync(HOOK_WRAPPER_PATH))
+        throw `${HOOK_WRAPPER_PATH} does not exist.`;
 
     // Setup the logging.
     const logFilePath = `${DATA_DIR}/log/${hookAddress}${LOG_FILE_SUFFIX}`;

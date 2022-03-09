@@ -8,7 +8,7 @@
     "lint": "./node_modules/.bin/eslint ./index.js",
     "build:self": "npm run lint && ncc build index.js --minify -o dist",
     "build:emulator": "npm --prefix ../../hook-emulator run build",
-    "build:prepare": "([ ! -d ./dist/hook-emulator ] || rm -r ./dist/hook-emulator) && cp -r ../../hook-emulator/dist ./dist/hook-emulator && mkdir ./dist/hook-emulator/c-wrappers && cp -r ../../hook-emulator/c-wrappers/hook-wrapper ./dist/hook-emulator/c-wrappers/ && cp -r ../../hook-emulator/sec ./dist/hook-emulator/sec",
+    "build:prepare": "([ ! -d ./dist/hook-emulator ] || rm -r ./dist/hook-emulator) && cp -r ../../hook-emulator/dist ./dist/hook-emulator && cp -r ../../hook-emulator/sec ./dist/hook-emulator/sec",
     "build": "npm run build:self && npm run build:emulator && npm run build:prepare",
     "start": "npm run build && node dist"
   },

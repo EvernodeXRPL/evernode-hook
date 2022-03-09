@@ -17,8 +17,10 @@ const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.ripplet
 const MODE = process.env.MODE || 'dev';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
-const HOOK_EMULATOR_PATH = __dirname + ((DATA_DIR === __dirname && !DATA_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-emulator';
-const HOOK_EMULATOR_DATA_DIR = DATA_DIR + ((DATA_DIR === __dirname && !DATA_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-emulator';
+const BIN_DIR = process.env.BIN_DIR || __dirname;
+
+const HOOK_EMULATOR_PATH = BIN_DIR + ((!process.env.BIN_DIR && !BIN_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-emulator';
+const HOOK_EMULATOR_DATA_DIR = DATA_DIR + ((!process.env.DATA_DIR && !DATA_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-emulator';
 
 // Account names 
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
@@ -45,24 +47,20 @@ function httpPost(url) {
     })
 }
 
-async function executeEmulator(registryAddress, registrySecret, issuerAddress, foundationAccount) {
+async function executeEmulator(registryAddress, registrySecret, configInitHandler) {
     // Run the emulator process with registry account info.
     const emulatorProc = exec(`RIPPLED_URL=${RIPPLED_URL} MODE=${MODE} FILE_LOG=1  DATA_DIR=${HOOK_EMULATOR_DATA_DIR} \
-    $(which node) ${HOOK_EMULATOR_PATH} ${registryAddress} ${registrySecret}`);
+    BIN_DIR=${HOOK_EMULATOR_PATH} $(which node) ${HOOK_EMULATOR_PATH} ${registryAddress} ${registrySecret}`);
+    // Pipe child stdout and stderr to the parent process.
     emulatorProc.stdout.pipe(process.stdout);
     emulatorProc.stderr.pipe(process.stderr);
+    // Handle config initialization if registry contract listen message is logged in child emulator.
     emulatorProc.stdout.on('data', async (data) => {
-        if (data.includes(`Listening to hook address ${registryAddress}`)) {
-            // Send the init transaction with min xrp to the registry contract from foundation account.
-            console.log('Sending intialize transaction to the registry account.');
-
-            // Get issuer and foundation cold wallet account ids.
-            let memoData = Buffer.allocUnsafe(40);
-            codec.decodeAccountID(issuerAddress).copy(memoData);
-            codec.decodeAccountID(foundationAccount.address).copy(memoData, 20);
-            await foundationAccount.makePayment(registryAddress, MIN_XRP, 'XRP', null, [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
-        }
+        if (data.includes(`Listening to hook address ${registryAddress}`))
+            await configInitHandler();
     });
+
+    // Complete the promise on child process exit.
     return new Promise((resolve, reject) => {
         emulatorProc.on('exit', async (code) => {
             if (code >= 0)
@@ -170,17 +168,29 @@ async function main() {
 
         // Execute the emulator.
         console.log('Executing the registry hook emulator.');
-        await executeEmulator(newAccounts[3].xrplAcc.address, newAccounts[3].xrplAcc.secret, newAccounts[0].xrplAcc.address, newAccounts[1].xrplAcc).then(e => {
-            console.error(`Registry hook emulator execution failed with code ${e}`);
-            process.exit(1);
+        await executeEmulator(newAccounts[3].xrplAcc.address, newAccounts[3].xrplAcc.secret, async () => {
+            // Send the init transaction with min xrp to the registry contract from foundation account.
+            console.log('Sending intialize transaction to the registry account.');
+
+            // Get issuer and foundation cold wallet account ids.
+            let memoData = Buffer.allocUnsafe(40);
+            codec.decodeAccountID(newAccounts[0].xrplAcc.address).copy(memoData);
+            codec.decodeAccountID(newAccounts[1].xrplAcc.address).copy(memoData, 20);
+            await newAccounts[1].xrplAcc.makePayment(newAccounts[3].xrplAcc.address, MIN_XRP, 'XRP', null,
+                [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
+
+            // Once the initialize transaction is done, we don't need xrpl api connection for the account setup tool anymore.
+            // So we disconnect it.
+            await xrplApi.disconnect();
         });
     } catch (err) {
         console.log(err);
         console.log("Evernode account setup exiting with an error.");
+        // We have to do the disconnect only in catch block because it'll be disconnected after config initialization in success flow.
+        await xrplApi.disconnect();
         process.exit(1);
     }
     finally {
-        await xrplApi.disconnect();
         process.exit();
     }
 }
