@@ -12,33 +12,50 @@ const JWT_EXPIRY_MINUTES = 5;
 class FirestoreManager extends FirestoreHandler {
     #saKeyPath = null;
     #accessCredentials = null;
+    #authPromise = null;
 
     async #authorize() {
-        const key = JSON.parse(fs.readFileSync(this.#saKeyPath));
+        // Prevent calling autherization multiple times on parallel request sendings.
+        // If authPromise is set which means there's ongoing authorization,
+        // return it directly, Otherwise create an authPromise.
+        if (this.#authPromise)
+            return this.#authPromise;
+        else {
+            this.#authPromise = new Promise(async (resolve, reject) => {
+                console.log(`Generating a new firestore access token...`)
+                const key = JSON.parse(fs.readFileSync(this.#saKeyPath));
 
-        // Generate the signed JWT.
-        const claims = {
-            aud: key.token_uri,
-            scope: SCOPES.join(' '),
-            iss: key.client_email,
-            exp: (Date.now() / 1000) + (JWT_EXPIRY_MINUTES * 60),
-            iat: (Date.now() / 1000)
-        }
-        const signedJwt = jwt.sign(JSON.stringify(claims), key.private_key, { algorithm: "RS256" });
+                // Generate the signed JWT.
+                const claims = {
+                    aud: key.token_uri,
+                    scope: SCOPES.join(' '),
+                    iss: key.client_email,
+                    exp: (Date.now() / 1000) + (JWT_EXPIRY_MINUTES * 60),
+                    iat: (Date.now() / 1000)
+                }
+                const signedJwt = jwt.sign(JSON.stringify(claims), key.private_key, { algorithm: "RS256" });
 
-        let tokenInfo = await this.sendRequest('POST', key.token_uri, {
-            grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-            assertion: signedJwt
-        });
+                let tokenInfo = await this.sendRequest('POST', key.token_uri, {
+                    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    assertion: signedJwt
+                });
 
-        if (!tokenInfo)
-            throw { type: 'Authentication Error', message: 'Unable to generate the access token.' };
+                if (!tokenInfo) {
+                    reject({ type: 'Authentication Error', message: 'Unable to generate the access token.' });
+                    return;
+                }
 
-        tokenInfo = JSON.parse(tokenInfo);
-        this.#accessCredentials = {
-            accessToken: tokenInfo.access_token,
-            tokenExpiry: Date.now() + (tokenInfo.expires_in * 1000),
-            tokenType: tokenInfo.token_type
+                tokenInfo = JSON.parse(tokenInfo);
+                this.#accessCredentials = {
+                    accessToken: tokenInfo.access_token,
+                    tokenExpiry: Date.now() + (tokenInfo.expires_in * 1000),
+                    tokenType: tokenInfo.token_type
+                }
+                resolve();
+                // Make the authPromise null when authorization completed.
+                this.#authPromise = null;
+            });
+            return this.#authPromise;
         }
     }
 
@@ -52,10 +69,9 @@ class FirestoreManager extends FirestoreHandler {
                     // If token is expired generate a new before setting the header.
                     // Keep some buffer time without waiting until the last moment to renew the token.
                     // So access token won't expire while request is processing.
-                    if ((this.#accessCredentials.tokenExpiry- (TOKEN_EXPIRY_BUFFER_SECONDS * 1000)) < Date.now()) {
-                        console.log(`Access token expired, Generating a new...`)
+                    if ((this.#accessCredentials.tokenExpiry - (TOKEN_EXPIRY_BUFFER_SECONDS * 1000)) < Date.now())
                         await this.#authorize();
-                    }
+
                     const token = `${this.#accessCredentials.tokenType || 'Bearer'} ${this.#accessCredentials.accessToken}`;
                     if (!reqOptions)
                         reqOptions = { headers: { Authorization: token } };
@@ -69,7 +85,8 @@ class FirestoreManager extends FirestoreHandler {
                     return;
                 }
                 catch (e) {
-                    // If request is failed with unauthorized status, check if token is expired and generate a new token and try sending the request again.
+                    // If request is failed with unauthorized status, check if token is expired, if so try sending the request again,
+                    // So next try will generate a new token.
                     // Keep max retries limited to 5.
                     if (e && e.status === 401) {
                         const resJson = JSON.parse(e.data);
@@ -78,8 +95,7 @@ class FirestoreManager extends FirestoreHandler {
                             (this.#accessCredentials.tokenExpiry < Date.now()) &&
                             resJson.error.code === 401 && resJson.error.status === 'UNAUTHENTICATED') {
                             retryCount++;
-                            console.log(`Access token expired, Generating a new ${retryCount}...`)
-                            await this.#authorize();
+                            console.log(`Access token expired, Retrying ${retryCount}...`)
                             await trySend();
                             return;
                         }
@@ -89,7 +105,7 @@ class FirestoreManager extends FirestoreHandler {
                 }
             }
 
-            trySend();
+            await trySend();
         });
     }
 
