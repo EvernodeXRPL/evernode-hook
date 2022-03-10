@@ -15,13 +15,15 @@ if [ ! -f $emulator ]; then
     bin_dir="$bin_dir/dist"
 fi
 
-# If there's no at least on account config file. The account aren't created,
-# So run account setup to create accounts and populate the data.
-if [ ! -d $reg_data_dir ] || [ -z "$(ls -A $reg_data_dir)" ]; then
+param=$1
+if [ "$param" == "new" ]; then
     EMULATOR_DATA_DIR=$data_dir $(which node) $account_setup
+    param=$(ls -t $reg_data_dir/ | head -1)
+elif [[ ! "$param" =~ ^r[a-zA-Z0-9]{24,34}$ ]]; then
+    echo 'Invalid arguments: use "./run-emulator new|<registry address>"'
+    exit 1
 fi
 
-# Run the emulator with data directories and registry address.
-for reg_addr in $reg_data_dir/*; do
-    # gnome-terminal -- bash -c "DATA_DIR=$data_dir BIN_DIR=$bin_dir $(which node) $emulator $(basename $reg_addr)" &
-done
+DATA_DIR=$data_dir BIN_DIR=$bin_dir $(which node) $emulator $param
+
+exit 0

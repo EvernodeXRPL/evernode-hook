@@ -111,7 +111,7 @@ class HookEmulator {
     }
 }
 
-async function initRegistryConfigs(config, emulator) {
+async function initRegistryConfigs(config, configPath, emulator) {
     // Get issuer and foundation cold wallet account ids.
     let memoData = Buffer.allocUnsafe(40);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
@@ -138,8 +138,7 @@ async function initRegistryConfigs(config, emulator) {
                 else if (success) {
                     // Update the config initialized flag and write the config.
                     config.initialized = true;
-                    const configDir = path.resolve(REG_DATA_DIR, config.registry.address);
-                    fs.writeFileSync(configDir, JSON.stringify(config, null, 4));
+                    fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
                     resolve('Registry contract initialization success.');
                 }
 
@@ -201,7 +200,7 @@ async function main() {
     // Send the config init transaction to the registry account.
     if (!config.initialized) {
         console.log('Sending registry contract initialization transation.');
-        const res = await initRegistryConfigs(config, emulator).catch(console.error);
+        const res = await initRegistryConfigs(config, configPath, emulator).catch(console.error);
         if (res)
             console.log(res);
     }
