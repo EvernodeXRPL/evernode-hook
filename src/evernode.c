@@ -82,9 +82,15 @@ int64_t hook(int64_t reserved)
                 uint8_t *issuer_ptr = data_ptr;
                 uint8_t *foundation_ptr = data_ptr + ACCOUNT_LEN;
 
-                BUFFER_EQUAL(is_initialize, foundation_ptr, account_field, ACCOUNT_LEN);
+                uint8_t initializer_accid[ACCOUNT_LEN];
+                const int initializer_accid_len = util_accid(SBUF(initializer_accid), HOOK_INITIALIZER_ADDR, 35);
+                if (initializer_accid_len < ACCOUNT_LEN)
+                    rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
+
+                // We accept only the init transaction from hook intializer account
+                BUFFER_EQUAL(is_initialize, initializer_accid, account_field, ACCOUNT_LEN);
                 if (!is_initialize)
-                    rollback(SBUF("Evernode: Only foundation is allowed to initialize state."), 1);
+                    rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
                 // First check if the states are already initialized by checking one state key for existence.
                 uint8_t host_count_buf[8];
@@ -247,7 +253,7 @@ int64_t hook(int64_t reserved)
                 GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
                 TRACEVAR(host_reg_fee);
 
-                if (float_compare(amt, host_reg_fee, COMPARE_LESS) == 1)
+                if (float_compare(amt, float_set(0, host_reg_fee), COMPARE_LESS) == 1)
                     rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
 
                 // Checking whether this host is already registered.

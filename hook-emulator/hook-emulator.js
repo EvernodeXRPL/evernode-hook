@@ -1,25 +1,35 @@
 const fs = require('fs');
 const process = require('process');
+const path = require('path');
+const codec = require('ripple-address-codec');
 const evernode = require('evernode-js-client');
-const logger = require('./lib/logger');
+const { Buffer } = require('buffer');
 const { StateManager } = require('./lib/state-manager');
 const { AccountManager } = require('./lib/account-manager');
 const { TransactionManager } = require('./lib/transaction-manager');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
-const DATA_DIR = process.env.DATA_DIR || __dirname;
-const BIN_DIR = process.env.BIN_DIR || __dirname;
+const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
+const MIN_XRP = "1";
+const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
+const INIT_MEMO_FORMAT = "hex";
+
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://xls20-sandbox.rippletest.net:51233";
 const MODE = process.env.MODE || 'dev';
-const FILE_LOG_ENABLED = process.env.FILE_LOG === '1';
 
-const LOG_FILE_SUFFIX = '_hook-emulator.log';
-const DB_FILE_SUFFIX = '_hook-emulator.sqlite';
-const ACC_DATA_FILE_SUFFIX = '_hook-root.json';
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const BIN_DIR = process.env.BIN_DIR || path.resolve(__dirname, 'dist');
+
+const CONFIG_PATH = DATA_DIR + '/accounts.json';
+const DB_PATH = DATA_DIR + '/hook-emulator.sqlite';
+const ACC_DATA_PATH = DATA_DIR + '/hook-root.json';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
-const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
+const HOOK_WRAPPER_PATH = BIN_DIR + '/hook-wrapper';
 
-const HOOK_WRAPPER_PATH = BIN_DIR + ((!process.env.BIN_DIR && !BIN_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-wrapper';
+const HOOK_INITIALIZER = {
+    address: 'rnzsYamjXaxAMg4JKp2VWeSWvvuvBaYAzX',
+    secret: 'sn3jtrFQhMbXKeqND3yX1GuzVzioN'
+}
 
 /**
  * Hook emulator listens to the transactions on the hook account and pass them through transaction manager to do the hook logic execution.
@@ -62,7 +72,6 @@ class HookEmulator {
         // Subscribe for the transactions
         await this.#xrplAcc.subscribe();
         console.log(`Listening to hook address ${evernode.Defaults.get().registryAddress} on ${evernode.Defaults.get().rippledServer}`);
-
     }
 
     async #handleTransaction(tx, error) {
@@ -79,36 +88,63 @@ class HookEmulator {
     }
 }
 
+async function initRegistryConfigs(config) {
+    // Send the config init transaction to the registry account.
+    if (!config.initialized) {
+        // Get issuer and foundation cold wallet account ids.
+        let memoData = Buffer.allocUnsafe(40);
+        codec.decodeAccountID(config.issuer.address).copy(memoData);
+        codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+
+        const initAccount = new evernode.XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret);
+        await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+            [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
+
+        // Update the config initialized flag and write the config.
+        config.initialized = true;
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4));
+
+        console.log('Initialized registry contract configs.');
+    }
+}
+
 async function main() {
-    if (process.argv.length !== 4)
-        throw "Invalid args. Hook Address and Secret are required as arguments.";
+    // If config doesn't exist, skip the execution.
+    if (!fs.existsSync(CONFIG_PATH)) {
+        console.error(`${CONFIG_PATH} not found, run the account setup tool to populate the config.`);
+        return;
+    }
+    let config = JSON.parse(fs.readFileSync(CONFIG_PATH).toString());
 
-    let hookAddress = process.argv[2];
-    let hookSecret = process.argv[3];
-
-    // If hook address is empty, skip the execution.
-    if (!hookAddress || !hookSecret)
-        throw "Invalid args. Hook Address and Secret are required as arguments.";
-
-    if (!fs.existsSync(HOOK_WRAPPER_PATH))
-        throw `${HOOK_WRAPPER_PATH} does not exist.`;
-
-    // Setup the logging.
-    const logFilePath = `${DATA_DIR}/log/${hookAddress}${LOG_FILE_SUFFIX}`;
-    logger.init(logFilePath, FILE_LOG_ENABLED);
+    // If required filse and config data doesn't exist, skip the execution.
+    if (!config.registry || !config.registry.address || !config.registry.secret) {
+        console.error('Registry account info not found, run the account setup tool to populate the config.');
+        return;
+    }
+    else if (!config.issuer || !config.issuer.address) {
+        console.error('Issuer account info not found, run the account setup tool to populate the config.');
+        return;
+    }
+    else if (!config.foundationColdWallet || !config.foundationColdWallet.address || !config.foundationColdWallet.secret) {
+        console.error('Foundation cold wallet info not found, run the account setup tool to populate the config.');
+        return;
+    }
+    else if (!fs.existsSync(HOOK_WRAPPER_PATH)) {
+        console.error(`${HOOK_WRAPPER_PATH} does not exist.`);
+        return;
+    }
+    else if (!fs.existsSync(FIREBASE_SEC_KEY_PATH)) {
+        console.error(`${FIREBASE_SEC_KEY_PATH} not found, place the json file in the location.`);
+        return;
+    }
 
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
     // Setup beta state index if mode is beta.
-    const dbFilePath = `${DATA_DIR}/${hookAddress}${DB_FILE_SUFFIX}`;
-    const accDataFilePath = `${DATA_DIR}/${hookAddress}${ACC_DATA_FILE_SUFFIX}`;
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, dbFilePath, accDataFilePath, hookAddress, hookSecret, MODE === 'beta' ? BETA_STATE_INDEX : null);
-    if (fs.existsSync(FIREBASE_SEC_KEY_PATH))
-        await emulator.init(FIREBASE_SEC_KEY_PATH);
-    else {
-        console.error(`${FIREBASE_SEC_KEY_PATH} not found, place the json file in the location.`);
-        return;
-    }
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, ACC_DATA_PATH, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    await emulator.init(FIREBASE_SEC_KEY_PATH);
+
+    await initRegistryConfigs(config);
 }
 
 main().catch(console.error);

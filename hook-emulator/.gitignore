@@ -1,7 +1,6 @@
 node_modules
 dist
-hook-wrapper
 sec
-log
-*hook-emulator.sqlite
-*hook-root.json
+accounts.json
+hook-emulator.sqlite
+hook-root.json

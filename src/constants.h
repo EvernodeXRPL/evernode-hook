@@ -27,8 +27,7 @@
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 // Default values.
-const uint8_t ISSUER_ADDR[35] = "rHdSF3FWTFR11zZ4dPy17Rch1Ygch3gy8p";
-const uint8_t FOUNDATION_ADDR[35] = "rEHTwF8GA3rMMmmWJcuB2BqU63PdmMaekq";
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rnzsYamjXaxAMg4JKp2VWeSWvvuvBaYAzX";
 const uint16_t DEF_MOMENT_SIZE = 72;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;

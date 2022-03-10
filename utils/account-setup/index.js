@@ -1,26 +1,18 @@
 const https = require('https');
+const fs = require('fs');
 const process = require('process');
-const codec = require('ripple-address-codec');
-const { Buffer } = require('buffer');
+const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
-const { exec } = require("child_process");
 
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_COLD_WALLET_EVRS = "51609600";
-const MIN_XRP = "1";
-const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
-const INIT_MEMO_FORMAT = "hex";
+const ACC_CONFIG_FILE = 'accounts.json';
 
 // End Points --------------------------------------------------------------
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
-const MODE = process.env.MODE || 'dev';
 
-const DATA_DIR = process.env.DATA_DIR || __dirname;
-const BIN_DIR = process.env.BIN_DIR || __dirname;
-
-const HOOK_EMULATOR_PATH = BIN_DIR + ((!process.env.BIN_DIR && !BIN_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-emulator';
-const HOOK_EMULATOR_DATA_DIR = DATA_DIR + ((!process.env.DATA_DIR && !DATA_DIR.endsWith('/dist')) ? '/dist' : '') + '/hook-emulator';
+const EMULATOR_DATA_DIR = process.env.EMULATOR_DATA_DIR || path.resolve(__dirname, '../../hook-emulator');
 
 // Account names 
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
@@ -45,25 +37,6 @@ function httpPost(url) {
         req.on('timeout', () => reject('Request timed out.'))
         req.end()
     })
-}
-
-async function executeEmulator(registryAddress, registrySecret, configInitHandler) {
-    // Run the emulator process with registry account info.
-    const emulatorProc = exec(`RIPPLED_URL=${RIPPLED_URL} MODE=${MODE} FILE_LOG=1  DATA_DIR=${HOOK_EMULATOR_DATA_DIR} \
-    BIN_DIR=${HOOK_EMULATOR_PATH} $(which node) ${HOOK_EMULATOR_PATH} ${registryAddress} ${registrySecret}`);
-    // Pipe child stdout and stderr to the parent process.
-    emulatorProc.stdout.pipe(process.stdout);
-    emulatorProc.stderr.pipe(process.stderr);
-    // Handle config initialization if registry contract listen message is logged in child emulator.
-    emulatorProc.stdout.on('data', async (data) => {
-        if (data.includes(`Listening to hook address ${registryAddress}`))
-            await configInitHandler();
-    });
-
-    // Complete the promise on child process exit.
-    return new Promise((resolve, reject) => {
-        emulatorProc.on('exit', async (code) => code >= 0 ? resolve(code) : reject(code));
-    });
 }
 
 
@@ -149,45 +122,36 @@ async function main() {
         // BEGIN - Log Account Details
         console.log('\nAccount Details -------------------------------------------------------');
 
+        let config = {};
         newAccounts.forEach(element => {
+            // Convert snake_case to camelCase.
+            const configKey = element.name.toLowerCase().replace(/_([a-z])/g, function (g) { return g[1].toUpperCase(); });
+            config[configKey] = {
+                address: element.xrplAcc.address
+            };
             console.log(`Account name :${element.name}`);
             console.log(`Address : ${element.xrplAcc.address}`);
             if (element.name !== "ISSUER") {
                 console.log(`Secret : ${element.xrplAcc.secret}`);
+                config[configKey].secret = element.xrplAcc.secret;
             }
             console.log('-----------------------------------------------------------------------');
 
         });
         // END - Log Account Details
 
-        // Execute the emulator.
-        console.log('Executing the registry hook emulator.');
-        await executeEmulator(newAccounts[3].xrplAcc.address, newAccounts[3].xrplAcc.secret, async () => {
-            // Send the init transaction with min xrp to the registry contract from foundation account.
-            console.log('Sending intialize transaction to the registry account.');
-
-            // Get issuer and foundation cold wallet account ids.
-            let memoData = Buffer.allocUnsafe(40);
-            codec.decodeAccountID(newAccounts[0].xrplAcc.address).copy(memoData);
-            codec.decodeAccountID(newAccounts[1].xrplAcc.address).copy(memoData, 20);
-            await newAccounts[1].xrplAcc.makePayment(newAccounts[3].xrplAcc.address, MIN_XRP, 'XRP', null,
-                [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
-
-            // Once the initialize transaction is done, we don't need xrpl api connection for the account setup tool anymore.
-            // So we disconnect it.
-            await xrplApi.disconnect();
-        }).catch(e => { throw `Hook emulator execution faild with exit code ${e}` });
-
-        console.log('Hook emulator execution exited.');
+        // Save the generated account data in emulator config.
+        const configPath = path.resolve(EMULATOR_DATA_DIR, ACC_CONFIG_FILE);
+        console.log(`Recording account data in ${configPath}`);
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
 
     } catch (err) {
         console.log(err);
         console.log("Evernode account setup exiting with an error.");
-        // We have to do the disconnect only in catch block because it'll be disconnected after config initialization in success flow.
-        await xrplApi.disconnect();
         process.exit(1);
     }
     finally {
+        await xrplApi.disconnect();
         process.exit();
     }
 }
