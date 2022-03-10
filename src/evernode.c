@@ -110,10 +110,10 @@ int64_t hook(int64_t reserved)
                 SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
                 SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
 
-                int64_t community_target_price = float_set(DEF_TARGET_PRICE_E, DEF_TARGET_PRICE_M);
-                uint8_t community_target_price_buf[8];
-                INT64_TO_BUF(community_target_price_buf, community_target_price);
-                if (state_set(SBUF(community_target_price_buf), SBUF(MOMENT_COMMUNITY_PRICE)) < 0)
+                int64_t purchaser_target_price = float_set(DEF_TARGET_PRICE_E, DEF_TARGET_PRICE_M);
+                uint8_t purchaser_target_price_buf[8];
+                INT64_TO_BUF(purchaser_target_price_buf, purchaser_target_price);
+                if (state_set(SBUF(purchaser_target_price_buf), SBUF(PURCHASER_TARGET_PRICE)) < 0)
                     rollback(SBUF("Evernode: Could not set state for moment community target price."), 1);
 
                 accept(SBUF("Evernode: Initialization successful."), 0);
