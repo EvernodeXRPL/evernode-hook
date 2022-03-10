@@ -41,6 +41,7 @@ class HookEmulator {
     #transactionManager = null;
     #xrplApi = null;
     #xrplAcc = null;
+    #completeHandlers = null;
 
     constructor(rippledServer, hookWrapperPath, dbFilePath, accountDataFilePath, hookAddress, hookSecret, stateIndexId = null) {
         this.#xrplApi = new evernode.XrplApi(rippledServer);
@@ -54,6 +55,7 @@ class HookEmulator {
         this.#stateManager = new StateManager(dbFilePath, this.#firestoreManager);
         this.#accountManager = new AccountManager(accountDataFilePath);
         this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
+        this.#completeHandlers = {};
     }
 
     async init(firebaseSecKeyPath) {
@@ -82,30 +84,70 @@ class HookEmulator {
         }
 
         // Process the transaction and log the result code.
-        const resCode = await this.#transactionManager.processTransaction(tx).catch(console.error);
-        if (resCode)
+        const resCode = await this.#transactionManager.processTransaction(tx).catch(e => {
+            // Send errors to the subscribers if there's any.
+            this.#handleComplete(tx.hash, null, e);
+            console.error(e);
+        });
+
+        if (resCode) {
+            // Send success res to the subscribers if there's any.
+            this.#handleComplete(tx.hash, resCode);
             console.log(resCode);
+        }
+    }
+
+    #handleComplete(txHash, ...params) {
+        // Call the callback function with results and remove the it.
+        if (this.#completeHandlers[txHash]) {
+            this.#completeHandlers[txHash](...params);
+            delete this.#completeHandlers[txHash];
+        }
+    }
+
+    onComplete(txHash, callback) {
+        this.#completeHandlers[txHash] = callback;
     }
 }
 
-async function initRegistryConfigs(config) {
-    // Send the config init transaction to the registry account.
-    if (!config.initialized) {
-        // Get issuer and foundation cold wallet account ids.
-        let memoData = Buffer.allocUnsafe(40);
-        codec.decodeAccountID(config.issuer.address).copy(memoData);
-        codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+async function initRegistryConfigs(config, emulator) {
+    // Get issuer and foundation cold wallet account ids.
+    let memoData = Buffer.allocUnsafe(40);
+    codec.decodeAccountID(config.issuer.address).copy(memoData);
+    codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
 
-        const initAccount = new evernode.XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret);
-        await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
-            [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
+    const initAccount = new evernode.XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret);
+    const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+        [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
-        // Update the config initialized flag and write the config.
-        config.initialized = true;
-        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4));
+    // If the transaction is success listen for the completion, if it's a success update the config file.
+    return new Promise((resolve, reject) => {
+        // Set a timeout of 30 seconds to reject in case if onComplete is delayed.
+        setTimeout(() => {
+            reject('Registry contract initialization wait timeout exceeded.');
+            return;
+        }, 30000);
 
-        console.log('Initialized registry contract configs.');
-    }
+        if (res.code === 'tesSUCCESS') {
+            emulator.onComplete(res.details.hash, (success, error) => {
+                if (error) {
+                    reject('Registry contract initialization failed.');
+                    return;
+                }
+                else if (success) {
+                    // Update the config initialized flag and write the config.
+                    config.initialized = true;
+                    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4));
+                    resolve('Registry contract initialization success.');
+                }
+
+                reject('Unknown error occured while registry contract initialization.');
+            });
+        }
+        else {
+            reject(`Registry contract initialization transaction failed with ${res.code}.`);
+        }
+    });
 }
 
 async function main() {
@@ -116,7 +158,7 @@ async function main() {
     }
     let config = JSON.parse(fs.readFileSync(CONFIG_PATH).toString());
 
-    // If required filse and config data doesn't exist, skip the execution.
+    // If required files and config data doesn't exist, skip the execution.
     if (!config.registry || !config.registry.address || !config.registry.secret) {
         console.error('Registry account info not found, run the account setup tool to populate the config.');
         return;
@@ -144,7 +186,13 @@ async function main() {
     const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, ACC_DATA_PATH, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await emulator.init(FIREBASE_SEC_KEY_PATH);
 
-    await initRegistryConfigs(config);
+    // Send the config init transaction to the registry account.
+    if (!config.initialized) {
+        console.log('Sending registry contract initialization transation.');
+        const res = await initRegistryConfigs(config, emulator).catch(console.error);
+        if (res)
+            console.log(res);
+    }
 }
 
 main().catch(console.error);

@@ -1,6 +1,6 @@
 const https = require('https');
-const fs = require('fs');
 const process = require('process');
+const fs = require('fs');
 const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
