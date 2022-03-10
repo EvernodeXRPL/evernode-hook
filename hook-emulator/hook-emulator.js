@@ -20,9 +20,10 @@ const MODE = process.env.MODE || 'dev';
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 const BIN_DIR = process.env.BIN_DIR || path.resolve(__dirname, 'dist');
 
-const CONFIG_PATH = DATA_DIR + '/accounts.json';
-const DB_PATH = DATA_DIR + '/hook-emulator.sqlite';
-const REG_DATA_PATH = DATA_DIR + '/hook-root.json';
+const CONFIG_FILE = 'accounts.json';
+const DB_FILE = 'hook-emulator.sqlite';
+const REG_DATA_FILE = 'hook-root.json';
+const REG_DATA_DIR = DATA_DIR + '/reg-data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
 const HOOK_WRAPPER_PATH = BIN_DIR + '/hook-wrapper';
 
@@ -137,7 +138,8 @@ async function initRegistryConfigs(config, emulator) {
                 else if (success) {
                     // Update the config initialized flag and write the config.
                     config.initialized = true;
-                    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4));
+                    const configDir = path.resolve(REG_DATA_DIR, config.registry.address);
+                    fs.writeFileSync(configDir, JSON.stringify(config, null, 4));
                     resolve('Registry contract initialization success.');
                 }
 
@@ -151,24 +153,32 @@ async function initRegistryConfigs(config, emulator) {
 }
 
 async function main() {
-    // If config doesn't exist, skip the execution.
-    if (!fs.existsSync(CONFIG_PATH)) {
-        console.error(`${CONFIG_PATH} not found, run the account setup tool to populate the config.`);
+    // Registry address is required as a command line param.
+    if (process.argv.length != 3 || !process.argv[2]) {
+        console.error('Registry address is required as a command line parameter.');
         return;
     }
-    let config = JSON.parse(fs.readFileSync(CONFIG_PATH).toString());
+    const registryAddress = process.argv[2];
+    const configPath = path.resolve(REG_DATA_DIR, registryAddress, CONFIG_FILE);
+
+    // If config doesn't exist, skip the execution.
+    if (!fs.existsSync(configPath)) {
+        console.error(`${configPath} not found, run the account setup tool and generate the accounts.`);
+        return;
+    }
+    let config = JSON.parse(fs.readFileSync(configPath).toString());
 
     // If required files and config data doesn't exist, skip the execution.
     if (!config.registry || !config.registry.address || !config.registry.secret) {
-        console.error('Registry account info not found, run the account setup tool to populate the config.');
+        console.error('Registry account info not found, run the account setup tool and generate the accounts.');
         return;
     }
     else if (!config.issuer || !config.issuer.address) {
-        console.error('Issuer account info not found, run the account setup tool to populate the config.');
+        console.error('Issuer account info not found, run the account setup tool and generate the accounts.');
         return;
     }
     else if (!config.foundationColdWallet || !config.foundationColdWallet.address || !config.foundationColdWallet.secret) {
-        console.error('Foundation cold wallet info not found, run the account setup tool to populate the config.');
+        console.error('Foundation cold wallet info not found, run the account setup tool and generate the accounts.');
         return;
     }
     else if (!fs.existsSync(HOOK_WRAPPER_PATH)) {
@@ -183,7 +193,9 @@ async function main() {
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
     // Setup beta state index if mode is beta.
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, REG_DATA_PATH, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const dbPath = path.resolve(REG_DATA_DIR, registryAddress, DB_FILE);
+    const regDataPath = path.resolve(REG_DATA_DIR, registryAddress, REG_DATA_FILE)
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, dbPath, regDataPath, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await emulator.init(FIREBASE_SEC_KEY_PATH);
 
     // Send the config init transaction to the registry account.

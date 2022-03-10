@@ -13,6 +13,7 @@ const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.c
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 const EMULATOR_DATA_DIR = process.env.EMULATOR_DATA_DIR || path.resolve(__dirname, '../../hook-emulator');
+const EMULATOR_REG_DATA_DIR = EMULATOR_DATA_DIR +'/reg-data'
 
 // Account names 
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
@@ -141,7 +142,9 @@ async function main() {
         // END - Log Account Details
 
         // Save the generated account data in emulator config.
-        const configPath = path.resolve(EMULATOR_DATA_DIR, EMULATOR_CONFIG_FILE);
+        const emulatorConfigDir = path.resolve(EMULATOR_REG_DATA_DIR, config.registry.address);
+        fs.mkdirSync(emulatorConfigDir, { recursive: true });
+        const configPath = path.resolve(emulatorConfigDir, EMULATOR_CONFIG_FILE);
         console.log(`Recording account data in ${configPath}`);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
 

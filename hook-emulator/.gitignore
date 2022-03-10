@@ -1,6 +1,4 @@
 node_modules
 dist
 sec
-accounts.json
-hook-emulator.sqlite
-hook-root.json
+reg-data
