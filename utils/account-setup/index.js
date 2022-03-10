@@ -6,7 +6,7 @@ const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client'
 
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_COLD_WALLET_EVRS = "51609600";
-const ACC_CONFIG_FILE = 'accounts.json';
+const EMULATOR_CONFIG_FILE = 'accounts.json';
 
 // End Points --------------------------------------------------------------
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
@@ -141,7 +141,7 @@ async function main() {
         // END - Log Account Details
 
         // Save the generated account data in emulator config.
-        const configPath = path.resolve(EMULATOR_DATA_DIR, ACC_CONFIG_FILE);
+        const configPath = path.resolve(EMULATOR_DATA_DIR, EMULATOR_CONFIG_FILE);
         console.log(`Recording account data in ${configPath}`);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
 

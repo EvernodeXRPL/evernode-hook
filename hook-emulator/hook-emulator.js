@@ -22,7 +22,7 @@ const BIN_DIR = process.env.BIN_DIR || path.resolve(__dirname, 'dist');
 
 const CONFIG_PATH = DATA_DIR + '/accounts.json';
 const DB_PATH = DATA_DIR + '/hook-emulator.sqlite';
-const ACC_DATA_PATH = DATA_DIR + '/hook-root.json';
+const REG_DATA_PATH = DATA_DIR + '/hook-root.json';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
 const HOOK_WRAPPER_PATH = BIN_DIR + '/hook-wrapper';
 
@@ -183,7 +183,7 @@ async function main() {
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
     // Setup beta state index if mode is beta.
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, ACC_DATA_PATH, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, DB_PATH, REG_DATA_PATH, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await emulator.init(FIREBASE_SEC_KEY_PATH);
 
     // Send the config init transaction to the registry account.
