@@ -13,6 +13,7 @@ const BETA_STATE_INDEX = ""; // This constant will be populated when beta fireba
 const MIN_XRP = "1";
 const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
 const INIT_MEMO_FORMAT = "hex";
+const INIT_WAIT_TIMEOUT_SECS = 1000;
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://xls20-sandbox.rippletest.net:51233";
 const MODE = process.env.MODE || 'dev';
@@ -22,8 +23,8 @@ const BIN_DIR = process.env.BIN_DIR || path.resolve(__dirname, 'dist');
 
 const CONFIG_FILE = 'accounts.json';
 const DB_FILE = 'hook-emulator.sqlite';
-const REG_DATA_FILE = 'hook-root.json';
-const REG_DATA_DIR = DATA_DIR + '/reg-data';
+const HOOK_DATA_FILE = 'hook-root.json';
+const HOOK_DATA_DIR = DATA_DIR + '/data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
 const HOOK_WRAPPER_PATH = BIN_DIR + '/hook-wrapper';
 
@@ -127,7 +128,7 @@ async function initRegistryConfigs(config, configPath, emulator) {
         setTimeout(() => {
             reject('Registry contract initialization wait timeout exceeded.');
             return;
-        }, 30000);
+        }, INIT_WAIT_TIMEOUT_SECS * 1000);
 
         if (res.code === 'tesSUCCESS') {
             emulator.onComplete(res.details.hash, (success, error) => {
@@ -158,7 +159,7 @@ async function main() {
         return;
     }
     const registryAddress = process.argv[2];
-    const configPath = path.resolve(REG_DATA_DIR, registryAddress, CONFIG_FILE);
+    const configPath = path.resolve(HOOK_DATA_DIR, registryAddress, CONFIG_FILE);
 
     // If config doesn't exist, skip the execution.
     if (!fs.existsSync(configPath)) {
@@ -192,8 +193,8 @@ async function main() {
     // Start the emulator.
     // Note - Hook wrapper path is the path to the hook wrapper binary.
     // Setup beta state index if mode is beta.
-    const dbPath = path.resolve(REG_DATA_DIR, registryAddress, DB_FILE);
-    const regDataPath = path.resolve(REG_DATA_DIR, registryAddress, REG_DATA_FILE)
+    const dbPath = path.resolve(HOOK_DATA_DIR, registryAddress, DB_FILE);
+    const regDataPath = path.resolve(HOOK_DATA_DIR, registryAddress, HOOK_DATA_FILE)
     const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, dbPath, regDataPath, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await emulator.init(FIREBASE_SEC_KEY_PATH);
 
