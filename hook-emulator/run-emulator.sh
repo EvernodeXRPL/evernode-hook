@@ -64,9 +64,12 @@ elif [ ! -z "$arg2" ]; then     # If 2nd param is given.
         systemctl start $service
         echo "Created systemd service $service"
     elif [ "$arg2" == "rm" ] || [ "$arg2" == "rm-systemd" ]; then # If second param starts with rm, Handle removes.
-        systemctl stop $service
-        systemctl disable $service
-        [ -f "$systemd_file" ] && rm -r $systemd_file && systemctl daemon-reload && echo "Removed systemd service $service"
+        if [ -f "$systemd_file" ]; then
+            systemctl stop $service
+            systemctl disable $service
+            rm -r $systemd_file && systemctl daemon-reload
+            echo "Removed systemd service $service"
+        fi
         [ "$arg2" == "rm" ] && rm -r $hook_data_dir/$arg1 && echo "Removed instance $arg1"
     fi
     exit 0
