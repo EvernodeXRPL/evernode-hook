@@ -100,7 +100,8 @@ class HookEmulator {
     }
 
     #handleComplete(txHash, ...params) {
-        // Call the callback function with results and remove the it.
+        // Call the callback function with results if there're any listeners for tx and remove callback from listeners.
+        // This is because completion is fired once for a particular transaction
         if (this.#completeHandlers[txHash]) {
             this.#completeHandlers[txHash](...params);
             delete this.#completeHandlers[txHash];
@@ -108,6 +109,7 @@ class HookEmulator {
     }
 
     onComplete(txHash, callback) {
+        // Keep the listener callback in handlers map to resolve when tx completed.
         this.#completeHandlers[txHash] = callback;
     }
 }
@@ -122,7 +124,6 @@ async function initRegistryConfigs(config, configPath, emulator) {
     const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
         [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
-    // If the transaction is success listen for the completion, if it's a success update the config file.
     return new Promise((resolve, reject) => {
         // Set a timeout of 30 seconds to reject in case if onComplete is delayed.
         setTimeout(() => {
@@ -130,7 +131,9 @@ async function initRegistryConfigs(config, configPath, emulator) {
             return;
         }, INIT_WAIT_TIMEOUT_SECS * 1000);
 
+        // If the transaction is success listen for the completion of the transaction, if it's a success update the config file.
         if (res.code === 'tesSUCCESS') {
+            // Listen for the transaction with tx hash.
             emulator.onComplete(res.details.hash, (success, error) => {
                 if (error) {
                     reject('Registry contract initialization failed.');
