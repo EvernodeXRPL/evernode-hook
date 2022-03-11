@@ -34,7 +34,8 @@ const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;
 const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (72253440/5120)
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
-
+const int32_t DEF_TARGET_PRICE_M = 1;
+const int32_t DEF_TARGET_PRICE_E = -2;
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 115;
 const uint32_t TOKEN_ID_VAL_SIZE = 20;
