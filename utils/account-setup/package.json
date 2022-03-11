@@ -6,9 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/eslint ./index.js",
-    "build:self": "npm run lint && ncc build index.js --minify -o dist",
-    "build": "npm run lint && ncc build index.js --minify -o dist",
-    "start": "npm run build && node index.js"
+    "build": "npm run lint && ncc build index.js --minify -o dist"
   },
   "keywords": [],
   "author": "",
