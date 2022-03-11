@@ -13,7 +13,7 @@ const BETA_STATE_INDEX = ""; // This constant will be populated when beta fireba
 const MIN_XRP = "1";
 const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
 const INIT_MEMO_FORMAT = "hex";
-const INIT_WAIT_TIMEOUT_SECS = 1000;
+const INIT_WAIT_TIMEOUT_SECS = 30;
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://xls20-sandbox.rippletest.net:51233";
 const MODE = process.env.MODE || 'dev';
