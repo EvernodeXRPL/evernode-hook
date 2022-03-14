@@ -22,7 +22,7 @@ if ([ ! -z $arg1 ] && [[ ! "$arg1" =~ ^r[a-zA-Z0-9]{24,34}$ ]]) ||
     echo "Invalid arguments: Usage \"./run-emulator [registry address] [command]\""
     echo "Optional command: systemd - Initiate a systemd service for hook emulator\""
     echo "                  rm-systemd - Remove only the systemd service"
-    echo "                  rm - Remove emulator instance and it's resources"
+    echo "                  rm - Remove emulator instance and its resources"
     echo "                  If empty instantiate a new hook emulator instance"
     exit 1
 fi

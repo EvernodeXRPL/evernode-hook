@@ -176,19 +176,19 @@ async function main() {
         console.error('Registry account info not found, run the account setup tool and generate the accounts.');
         return;
     }
-    else if (!config.issuer || !config.issuer.address) {
+    if (!config.issuer || !config.issuer.address) {
         console.error('Issuer account info not found, run the account setup tool and generate the accounts.');
         return;
     }
-    else if (!config.foundationColdWallet || !config.foundationColdWallet.address || !config.foundationColdWallet.secret) {
+    if (!config.foundationColdWallet || !config.foundationColdWallet.address || !config.foundationColdWallet.secret) {
         console.error('Foundation cold wallet info not found, run the account setup tool and generate the accounts.');
         return;
     }
-    else if (!fs.existsSync(HOOK_WRAPPER_PATH)) {
+    if (!fs.existsSync(HOOK_WRAPPER_PATH)) {
         console.error(`${HOOK_WRAPPER_PATH} does not exist.`);
         return;
     }
-    else if (!fs.existsSync(FIREBASE_SEC_KEY_PATH)) {
+    if (!fs.existsSync(FIREBASE_SEC_KEY_PATH)) {
         console.error(`${FIREBASE_SEC_KEY_PATH} not found, place the json file in the location.`);
         return;
     }
