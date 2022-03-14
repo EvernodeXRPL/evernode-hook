@@ -1,13 +1,19 @@
-const https = require('https'); 
-const process = require('process'); 
+const https = require('https');
+const process = require('process');
+const fs = require('fs');
+const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_COLD_WALLET_EVRS = "51609600";
+const EMULATOR_CONFIG_FILE = 'accounts.json';
 
 // End Points --------------------------------------------------------------
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
+
+const EMULATOR_DATA_DIR = process.env.EMULATOR_DATA_DIR || path.resolve(__dirname, '../../hook-emulator');
+const EMULATOR_HOOK_DATA_DIR = EMULATOR_DATA_DIR +'/data'
 
 // Account names 
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
@@ -35,41 +41,41 @@ function httpPost(url) {
 }
 
 
-async function main () {
+async function main() {
 
     // BEGIN - Connect to XRPL API 
     const xrplApi = new XrplApi(RIPPLED_URL);
     await xrplApi.connect();
     // END - Connect to XRPL API
 
-    try {       
+    try {
 
         // BEGIN - Account Creation 
         console.log('Started to create XRP Accounts');
-        const unresolved = accounts.map(async function(item) {
-            const resp = await httpPost(FAUCETS_URL);           
+        const unresolved = accounts.map(async function (item) {
+            const resp = await httpPost(FAUCETS_URL);
             const json = JSON.parse(resp);
             const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
 
             if (item === "ISSUER") {
                 await new Promise(r => setTimeout(r, 5000));
-                await acc.setAccountFields({ Flags: { asfDefaultRipple : true} });
+                await acc.setAccountFields({ Flags: { asfDefaultRipple: true } });
 
                 console.log('Enabled Rippling in ISSUER Account');
             }
 
             console.log(`Created ${item} Account`);
 
-            return { "name" : item, "xrplAcc": acc };
-            
-          });
+            return { "name": item, "xrplAcc": acc };
+
+        });
 
         const newAccounts = await Promise.all(unresolved);
         // END - Account Creation
 
         // 5 second wait in order to sync the accounts
         await new Promise(r => setTimeout(r, 5000));
-        
+
         // BEGIN - Trust Lines initiation
         const foundation_lines = await newAccounts[1].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
@@ -110,24 +116,38 @@ async function main () {
 
         // ISSUER Blackholing	
         await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
-        await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster : true} });
+        await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster: true } });
 
         console.log("Blackholed ISSUER");
 
         // BEGIN - Log Account Details
         console.log('\nAccount Details -------------------------------------------------------');
 
-        newAccounts.forEach(element => {            
+        let config = {};
+        newAccounts.forEach(element => {
+            // Convert snake_case to camelCase.
+            const configKey = element.name.toLowerCase().replace(/_([a-z])/g, function (g) { return g[1].toUpperCase(); });
+            config[configKey] = {
+                address: element.xrplAcc.address
+            };
             console.log(`Account name :${element.name}`);
             console.log(`Address : ${element.xrplAcc.address}`);
-            if (element.name  !== "ISSUER") {
+            if (element.name !== "ISSUER") {
                 console.log(`Secret : ${element.xrplAcc.secret}`);
+                config[configKey].secret = element.xrplAcc.secret;
             }
             console.log('-----------------------------------------------------------------------');
-            
+
         });
         // END - Log Account Details
-      
+
+        // Save the generated account data in emulator config.
+        const emulatorConfigDir = path.resolve(EMULATOR_HOOK_DATA_DIR, config.registry.address);
+        fs.mkdirSync(emulatorConfigDir, { recursive: true });
+        const configPath = path.resolve(emulatorConfigDir, EMULATOR_CONFIG_FILE);
+        console.log(`Recording account data in ${configPath}`);
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
+
     } catch (err) {
         console.log(err);
         console.log("Evernode account setup exiting with an error.");

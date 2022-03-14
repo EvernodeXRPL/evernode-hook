@@ -1,7 +1,5 @@
 const fs = require('fs');
 
-const FILE_NAME = 'hook-root.json';
-
 /**
  * Root data manager manages the hook root values in a json file.
  * This can be removed once fetching sfMintedTokens from the xrpl lib is implemented.
@@ -11,11 +9,11 @@ class AccountManager {
     #rootData = null;
     #initialized = false;
 
-    constructor() {
+    constructor(dataFilePath) {
         this.#rootData = {
             sfMintedTokens: 0
         };
-        this.#jsonFile = FILE_NAME;
+        this.#jsonFile = dataFilePath;
     }
 
     init() {
