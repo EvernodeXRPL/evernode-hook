@@ -215,6 +215,26 @@ int64_t hook(int64_t reserved)
                 accept(SBUF("Evernode: Host de-registration successful."), 0);
             }
 
+            // Host deregistration.
+            int is_host_heartbeat = 0;
+            BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
+            if (is_host_heartbeat)
+            {
+                HOST_ADDR_KEY(account_field);
+                // <token_id(32)><hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                    rollback(SBUF("Evernode: This host is not registered."), 1);
+
+                INT64_TO_BUF(&host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET], cur_ledger_seq);
+
+                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
+
+                accept(SBUF("Evernode: Host heartbeat successful."), 0);
+            }
+
             accept(SBUF("Evernode: XRP transaction."), 0);
         }
         else
