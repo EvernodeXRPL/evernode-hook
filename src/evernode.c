@@ -225,7 +225,7 @@ int64_t hook(int64_t reserved)
                 // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    rollback(SBUF("Evernode: could not get host address state."), 1);
+                    rollback(SBUF("Evernode: Could not get host address state."), 1);
 
                 INT64_TO_BUF(&host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET], cur_ledger_seq);
 
