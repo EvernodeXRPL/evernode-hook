@@ -114,6 +114,7 @@ int64_t hook(int64_t reserved)
                 SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
                 SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
                 SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
+                SET_UINT_STATE_VALUE(DEF_LEASE_ACQUIRE_WINDOW, CONF_LEASE_ACQUIRE_WINDOW, "Evernode: Could not initialize state for lease acquire window.");
 
                 int64_t purchaser_target_price = float_set(DEF_TARGET_PRICE_E, DEF_TARGET_PRICE_M);
                 uint8_t purchaser_target_price_buf[8];
@@ -325,8 +326,7 @@ int64_t hook(int64_t reserved)
 
                 CLEARBUF(host_addr);
                 COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
-                COPY_BUF(host_addr, HOST_TOKEN_OFFSET, data_ptr, 0, 3);
-                COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 4, COUNTRY_CODE_LEN);
+                COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
 
                 // Read instace details from the memo.
                 // We cannot predict the lengths of the numarical values.
@@ -335,7 +335,7 @@ int64_t hook(int64_t reserved)
                 uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *description_ptr;
                 uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, description_len = 0;
 
-                for (int i = 6; GUARD(data_len - 6), i < data_len; ++i)
+                for (int i = 2; GUARD(data_len - 2), i < data_len; ++i)
                 {
                     uint8_t *str_ptr = data_ptr + i;
                     // Colon means this is an end of the section.
