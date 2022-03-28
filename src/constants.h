@@ -36,6 +36,8 @@ const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 1;
 const int32_t DEF_TARGET_PRICE_E = -2;
+const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 12;
+
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 115;
 const uint32_t TOKEN_ID_VAL_SIZE = 20;
@@ -48,18 +50,17 @@ const uint32_t DESCRIPTION_LEN = 26;
 // State value offsets
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
-const uint32_t HOST_TOKEN_OFFSET = 32;
-const uint32_t HOST_COUNTRY_CODE_OFFSET = 35;
-const uint32_t HOST_CPU_MICROSEC_OFFSET = 37;
-const uint32_t HOST_RAM_MB_OFFSET = 41;
-const uint32_t HOST_DISK_MB_OFFSET = 45;
-const uint32_t HOST_RESERVED_OFFSET = 49;
-const uint32_t HOST_DESCRIPTION_OFFSET = 57;
-const uint32_t HOST_REG_LEDGER_OFFSET = 83;
-const uint32_t HOST_REG_FEE_OFFSET = 91;
-const uint32_t HOST_TOT_INS_COUNT_OFFSET = 99;
-const uint32_t HOST_ACT_INS_COUNT_OFFSET = 103;
-const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 107;
+const uint32_t HOST_COUNTRY_CODE_OFFSET = 32;
+const uint32_t HOST_CPU_MICROSEC_OFFSET = 34;
+const uint32_t HOST_RAM_MB_OFFSET = 38;
+const uint32_t HOST_DISK_MB_OFFSET = 42;
+const uint32_t HOST_RESERVED_OFFSET = 46;
+const uint32_t HOST_DESCRIPTION_OFFSET = 54;
+const uint32_t HOST_REG_LEDGER_OFFSET = 80;
+const uint32_t HOST_REG_FEE_OFFSET = 88;
+const uint32_t HOST_TOT_INS_COUNT_OFFSET = 96;
+const uint32_t HOST_ACT_INS_COUNT_OFFSET = 100;
+const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 104;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
