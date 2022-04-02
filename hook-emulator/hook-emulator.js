@@ -126,15 +126,15 @@ async function initRegistryConfigs(config, configPath, emulator) {
 
     return new Promise((resolve, reject) => {
         // Set a timeout of 30 seconds to reject in case if onComplete is delayed.
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
             reject('Registry contract initialization wait timeout exceeded.');
-            return;
         }, INIT_WAIT_TIMEOUT_SECS * 1000);
 
         // If the transaction is success listen for the completion of the transaction, if it's a success update the config file.
         if (res.code === 'tesSUCCESS') {
             // Listen for the transaction with tx hash.
             emulator.onComplete(res.details.hash, (success, error) => {
+                clearTimeout(timeout);
                 if (error) {
                     reject('Registry contract initialization failed.');
                     return;
@@ -150,6 +150,7 @@ async function initRegistryConfigs(config, configPath, emulator) {
             });
         }
         else {
+            clearTimeout(timeout);
             reject(`Registry contract initialization transaction failed with ${res.code}.`);
         }
     });

@@ -36,7 +36,7 @@ const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 1;
 const int32_t DEF_TARGET_PRICE_E = -2;
-const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 12;
+const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 24;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 115;
