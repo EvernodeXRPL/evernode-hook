@@ -36,3 +36,5 @@ node sethook.js
 - Go to `Service Accounts` tab.
 - Download a key json file with `Generate new private key` button.
 - Place it under `sec` directory as `./hook-emulator/sec/firebase-sa-key.json`.
+- If your system is 64-bit, You need to have 32-bit support in you system to run emulator wrappers.
+- 32-bit support can be installed with `apt-get install libc6-i386`.

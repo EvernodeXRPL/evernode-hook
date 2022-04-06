@@ -20,7 +20,7 @@ arg2=$2
 if ([ ! -z $arg1 ] && [[ ! "$arg1" =~ ^r[a-zA-Z0-9]{24,34}$ ]]) ||
     ([ ! -z $arg2 ] && [ "$arg2" != "systemd" ] && [ "$arg2" != "rm" ] && [ "$arg2" != "rm-systemd" ]); then # Check for commandline params.
     echo "Invalid arguments: Usage \"./run-emulator [registry address] [command]\""
-    echo "Optional command: systemd - Initiate a systemd service for hook emulator\""
+    echo "Optional command: systemd - Initiate a systemd service for hook emulator"
     echo "                  rm-systemd - Remove only the systemd service"
     echo "                  rm - Remove emulator instance and its resources"
     echo "                  If empty instantiate a new hook emulator instance"

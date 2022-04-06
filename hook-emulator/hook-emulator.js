@@ -86,22 +86,30 @@ class HookEmulator {
         }
 
         // Process the transaction and log the result code.
-        const resCode = await this.#transactionManager.processTransaction(tx).catch(e => {
+        const resCode = await this.#transactionManager.processTransaction(tx).catch(async e => {
             // Send errors to the subscribers if there's any.
-            this.#handleComplete(tx.hash, null, e);
             console.error(e);
+            await this.#handleComplete(tx.hash, null, e);
         });
 
         if (resCode) {
             // Send success res to the subscribers if there's any.
-            this.#handleComplete(tx.hash, resCode);
             console.log(resCode);
+            await this.#handleComplete(tx.hash, resCode);
         }
     }
 
-    #handleComplete(txHash, ...params) {
+    async #handleComplete(txHash, ...params) {
         // Call the callback function with results if there're any listeners for tx and remove callback from listeners.
         // This is because completion is fired once for a particular transaction
+
+        // Retry for 4 seconds, since event listener is called after the transaction is verified.
+        let maxRetryCount = 4;
+        while (maxRetryCount > 0 && !this.#completeHandlers[txHash]) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            maxRetryCount--;
+        }
+
         if (this.#completeHandlers[txHash]) {
             this.#completeHandlers[txHash](...params);
             delete this.#completeHandlers[txHash];
