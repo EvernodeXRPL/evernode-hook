@@ -541,7 +541,7 @@ class TransactionManager {
                     const request = this.#decodeNFTGetRequest(content);
                     const account = new XrplAccount(request.address);
                     const nfts = await account.getNfts();
-                    const res = nfts.find(nft => nft.TokenID === request.tokenID.toString('hex').toUpperCase());
+                    const res = nfts.find(nft => nft.NFTokenID === request.tokenID.toString('hex').toUpperCase());
                     if (!res) {
                         this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.NOT_FOUND));
                         return;
