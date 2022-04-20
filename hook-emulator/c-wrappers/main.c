@@ -12,7 +12,7 @@
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
-// Transaction origin - <hookid(20)><hash(32)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Transaction origin - <hookid(20)><transaction type(2)><hash(32)><account(20)>{if not NFTokenAcceptOffer -> <1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]>}<destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Message response format - <RETURN CODE(1)><DATA>
 // Emit response - <return code(1)><tx hash(32)>
 // Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
@@ -45,31 +45,37 @@ int decode_transaction(uint8_t *buffer)
     memcpy(hook_accid, buffer, 20);
     offset += 20;
 
+    txn->type = UINT16_FROM_BUF(buffer + offset);
+    offset += 2;
+
     memcpy(txn->hash, buffer + offset, 32);
     offset += 32;
 
     memcpy(txn->account, buffer + offset, 20);
     offset += 20;
 
-    if (buffer[offset] == 0b00000001)
+    if (txn->type != NFT_ACCEPT_OFFER)
     {
-        txn->amount.is_xrp = 1;
-        offset += 1;
-        txn->amount.xrp.amount = INT64_FROM_BUF(buffer + offset);
-        offset += 8;
-    }
-    else
-    {
-        txn->amount.is_xrp = 0;
-        offset += 1;
+        if (buffer[offset] == 0b00000001)
+        {
+            txn->amount.is_xrp = 1;
+            offset += 1;
+            txn->amount.xrp.amount = INT64_FROM_BUF(buffer + offset);
+            offset += 8;
+        }
+        else
+        {
+            txn->amount.is_xrp = 0;
+            offset += 1;
 
-        memcpy(txn->amount.iou.issuer, buffer + offset, 20);
-        offset += 20;
-        memset(txn->amount.iou.currency, 0, 20);
-        memcpy(txn->amount.iou.currency + 12, buffer + offset, 3);
-        offset += 3;
-        txn->amount.iou.amount = INT64_FROM_BUF(buffer + offset);
-        offset += 8;
+            memcpy(txn->amount.iou.issuer, buffer + offset, 20);
+            offset += 20;
+            memset(txn->amount.iou.currency, 0, 20);
+            memcpy(txn->amount.iou.currency + 12, buffer + offset, 3);
+            offset += 3;
+            txn->amount.iou.amount = INT64_FROM_BUF(buffer + offset);
+            offset += 8;
+        }
     }
     memcpy(txn->destination, buffer + offset, 20);
     offset += 20;

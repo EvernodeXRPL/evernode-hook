@@ -6,7 +6,10 @@ const { XflHelpers, XrplAccount } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
 const TX_MAX_LEDGER_OFFSET = 10;
-const TX_NFT_MINT = 'NFTokenMint'
+const TX_NFT_MINT = 'NFTokenMint';
+const TX_PAYMENT = 'Payment';
+const TX_CHECK_CREATE = 'CheckCreate';
+const TX_NFT_ACCEPT_OFFER = 'NFTokenAcceptOffer';
 
 const ErrorCodes = {
     TIMEOUT: 'TIMEOUT',
@@ -25,6 +28,12 @@ const MESSAGE_TYPES = {
     NFT: 8
 };
 
+const TRANSACTION_TYPES = {
+    PAYMENT: 0,
+    CHECK_CREATE: 1,
+    NFT_ACCEPT_OFFER: 2
+};
+
 const RETURN_CODES = {
     SUCCESS: 0,
     INTERNAL_ERROR: -1,
@@ -36,7 +45,7 @@ const RETURN_CODES = {
 // --------------- Message data formats ----------------
 
 // ''''' JS --> C_WRAPPER (Write to STDIN from JS) '''''
-// Transaction origin - <hookid(20)><hash(32)><account(20)><1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]><destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
+// Transaction origin - <hookid(20)><transaction type(2)><hash(32)><account(20)>{if not NFTokenAcceptOffer -> <1 for xrp and 0 for iou(1)><[XRP: amount in buf(8)XFL][IOU: <issuer(20)><currency(3)><amount in buf(8)XFL>]>}<destination(20)><memo count(1)><[<TypeLen(1)><MemoType(20)><FormatLen(1)><MemoFormat(20)><DataLen(1)><MemoData(128)>]><ledger_hash(32)><ledger_index(8)>
 // Message response format - <RETURN CODE(1)><DATA>
 // Emit response - <return code(1)><tx hash(32)>
 // Trustline response - <return code(1)><balance(8)XFL><limit(8)XFL>
@@ -84,13 +93,39 @@ class TransactionManager {
     }
 
     #encodeTransaction(transaction) {
-        // Check whether transaction is a xrp transaction  or not.
-        const isXrp = (typeof transaction.Amount === 'string');
+        let txType;
+        let isXrp;
+        let amountBufLen = 0;
+        switch (transaction.TransactionType) {
+            case TX_PAYMENT:
+                txType = TRANSACTION_TYPES.PAYMENT;
+                break;
+            case TX_CHECK_CREATE:
+                txType = TRANSACTION_TYPES.CHECK_CREATE;
+                break;
+            case TX_NFT_ACCEPT_OFFER:
+                txType = TRANSACTION_TYPES.NFT_ACCEPT_OFFER;
+                break;
+            default:
+                txType = TRANSACTION_TYPES.PAYMENT;
+                break;
+        }
+
+        // There's no amount for NFT offer accept transactions.
+        if (txType !== TRANSACTION_TYPES.NFT_ACCEPT_OFFER) {
+            // Check whether transaction is a xrp transaction  or not.
+            isXrp = (typeof transaction.Amount === 'string');
+            amountBufLen = isXrp ? 9 : 32;
+        }
 
         // Pre allocate a buffer to propulate transaction info. allocUnsafe since it's faster and the whole buffer will be allocated in the later part.
-        let txBuf = Buffer.allocUnsafe(74 + (isXrp ? 8 : 31))
+        let txBuf = Buffer.allocUnsafe(75 + amountBufLen)
 
         let offset = 0;
+        // Populate the transaction type (2-bytes).
+        txBuf.writeUInt16BE(txType, offset);
+        offset += 2;
+
         // Populate the transaction hash (32-bytes).
         Buffer.from(transaction.hash, 'hex').copy(txBuf, offset);
         offset += 32;
@@ -99,24 +134,27 @@ class TransactionManager {
         codec.decodeAccountID(transaction.Account).copy(txBuf, offset);
         offset += 20;
 
-        // Amount buf -> if transaction is a xrp transaction <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
-        if (isXrp) {
-            txBuf.writeUInt8(1, offset++);
-            const amount = parseFloat(transaction.Amount) / 1000000;
-            // Convert amount to xfl and populate.
-            txBuf.writeBigInt64BE(XflHelpers.getXfl(amount.toString()), offset);
-            offset += 8;
-        }
-        else {
-            txBuf.writeUInt8(0, offset++);
-            // Get issuer account id from r-address and populate.
-            codec.decodeAccountID(transaction.Amount.issuer).copy(txBuf, offset);
-            offset += 20;
-            Buffer.from(transaction.Amount.currency).copy(txBuf, offset);
-            offset += 3;
-            // Convert amount value to xfl and populate.
-            txBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount.value), offset);
-            offset += 8;
+        // There's no amount for NFT offer accept transactions.
+        if (txType !== TRANSACTION_TYPES.NFT_ACCEPT_OFFER) {
+            // Amount buf -> if transaction is a xrp transaction <amount|xfl(8-bytes)> otherwise <issuer(20-bytes)><currency(30-bytes)><value|xfl(8-bytes)>
+            if (isXrp) {
+                txBuf.writeUInt8(1, offset++);
+                const amount = parseFloat(transaction.Amount) / 1000000;
+                // Convert amount to xfl and populate.
+                txBuf.writeBigInt64BE(XflHelpers.getXfl(amount.toString()), offset);
+                offset += 8;
+            }
+            else {
+                txBuf.writeUInt8(0, offset++);
+                // Get issuer account id from r-address and populate.
+                codec.decodeAccountID(transaction.Amount.issuer).copy(txBuf, offset);
+                offset += 20;
+                Buffer.from(transaction.Amount.currency).copy(txBuf, offset);
+                offset += 3;
+                // Convert amount value to xfl and populate.
+                txBuf.writeBigInt64BE(XflHelpers.getXfl(transaction.Amount.value), offset);
+                offset += 8;
+            }
         }
 
         // Get destination account id from r-address and populate (20-bytes).
@@ -411,11 +449,14 @@ class TransactionManager {
 
     async #rollbackTransaction(transaction) {
         // Send back the transaction amount to the sender.
-        const isXrp = (typeof transaction.Amount === 'string');
-        const amount = isXrp ? transaction.Amount : transaction.Amount.value;
-        const currency = isXrp ? 'XRP' : transaction.Amount.currency;
-        const issuer = isXrp ? null : transaction.Amount.issuer;
-        await this.#hookAccount.makePayment(transaction.Account, amount, currency, issuer);
+        // We only send back the Payment, because other transaction types need to be specifically handled.
+        if (transaction.TransactionType === TX_PAYMENT) {
+            const isXrp = (typeof transaction.Amount === 'string');
+            const amount = isXrp ? transaction.Amount : transaction.Amount.value;
+            const currency = isXrp ? 'XRP' : transaction.Amount.currency;
+            const issuer = isXrp ? null : transaction.Amount.issuer;
+            await this.#hookAccount.makePayment(transaction.Account, amount, currency, issuer);
+        }
 
         // Rollback the state changes.
         this.#stateManager.rollback();

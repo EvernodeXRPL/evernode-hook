@@ -6,6 +6,7 @@
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
 #define FOUNDATION_REFUND_50 "evnFoundationRefund"
+#define HOST_POST_DEREG "evnHostPostDereg"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -18,6 +19,7 @@
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
 #define ttNFT_MINT 25
+#define ttNFT_BURN 26
 #define ttNFT_OFFER 27
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
 #define tfTransferable 0x00000008

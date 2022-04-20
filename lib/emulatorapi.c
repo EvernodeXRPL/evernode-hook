@@ -439,8 +439,17 @@ int64_t otxn_slot(uint32_t slot)
 
 int64_t otxn_type(void)
 {
-    // Only the payment transactions are handled in our scenario.
-    return ttPAYMENT;
+    switch (txn->type)
+    {
+    case PAYMENT:
+        return ttPAYMENT;
+    case CHECK_CREATE:
+        return ttCHECK_CREATE;
+    case NFT_ACCEPT_OFFER:
+        return ttNFT_ACCEPT_OFFER;
+    default:
+        return ttPAYMENT;
+    }
 }
 
 int64_t util_accid(uint32_t write_ptr, uint32_t write_len, uint32_t read_ptr, uint32_t read_len)
