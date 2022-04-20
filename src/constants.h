@@ -5,6 +5,8 @@
 #define HOST_DE_REG "evnHostDereg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
+#define INSTANCE_INC "evnInstanceInc"
+#define INSTANCE_DEC "evnInstanceDec"
 #define FOUNDATION_REFUND_50 "evnFoundationRefund"
 
 #define FORMAT_HEX "hex"

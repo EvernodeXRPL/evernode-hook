@@ -222,7 +222,7 @@ int64_t hook(int64_t reserved)
             if (is_host_heartbeat)
             {
                 HOST_ADDR_KEY(account_field);
-                // <token_id(32)><hosting_token(3)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                 // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -234,6 +234,52 @@ int64_t hook(int64_t reserved)
                     rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
 
                 accept(SBUF("Evernode: Host heartbeat successful."), 0);
+            }
+
+            int is_instance_inc = 0;
+            BUFFER_EQUAL_STR_GUARD(is_instance_inc, type_ptr, type_len, INSTANCE_INC, 1);
+            if (is_instance_inc)
+            {
+                HOST_ADDR_KEY(account_field);
+                // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not get host address state."), 1);
+
+                // INT64_TO_BUF(&host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET], cur_ledger_seq);
+                uint32_t active_instances = UINT32_FROM_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET);
+                active_instances += 1;
+                UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
+
+                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
+
+                accept(SBUF("Evernode: Host instance count increment successful."), 0);
+            }
+
+            int is_instance_dec = 0;
+            BUFFER_EQUAL_STR_GUARD(is_instance_dec, type_ptr, type_len, INSTANCE_DEC, 1);
+            if (is_instance_dec)
+            {
+                HOST_ADDR_KEY(account_field);
+                // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not get host address state."), 1);
+
+                uint32_t active_instances = UINT32_FROM_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET);
+                if (active_instances > 0)
+                {
+                    active_instances -= 1;
+                    UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
+
+                    if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
+                }
+
+                accept(SBUF("Evernode: Host instance count decrement successful."), 0);
             }
 
             accept(SBUF("Evernode: XRP transaction."), 0);
