@@ -3,10 +3,9 @@
 
 #define HOST_REG "evnHostReg"
 #define HOST_DE_REG "evnHostDereg"
+#define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
-#define INSTANCE_INC "evnInstanceInc"
-#define INSTANCE_DEC "evnInstanceDec"
 #define FOUNDATION_REFUND_50 "evnFoundationRefund"
 
 #define FORMAT_HEX "hex"

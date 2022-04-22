@@ -236,10 +236,15 @@ int64_t hook(int64_t reserved)
                 accept(SBUF("Evernode: Host heartbeat successful."), 0);
             }
 
-            int is_instance_inc = 0;
-            BUFFER_EQUAL_STR_GUARD(is_instance_inc, type_ptr, type_len, INSTANCE_INC, 1);
-            if (is_instance_inc)
+            int is_host_update_reg = 0;
+            BUFFER_EQUAL_STR_GUARD(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG, 1);
+            if (is_host_update_reg)
             {
+                int is_format_plain_text = 0;
+                BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
+                if (!is_format_plain_text)
+                    rollback(SBUF("Evernode: Instance update info format not supported."), 1);
+
                 HOST_ADDR_KEY(account_field);
                 // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                 // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
@@ -247,39 +252,49 @@ int64_t hook(int64_t reserved)
                 if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not get host address state."), 1);
 
-                // INT64_TO_BUF(&host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET], cur_ledger_seq);
-                uint32_t active_instances = UINT32_FROM_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET);
-                active_instances += 1;
-                UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
-
-                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
-
-                accept(SBUF("Evernode: Host instance count increment successful."), 0);
-            }
-
-            int is_instance_dec = 0;
-            BUFFER_EQUAL_STR_GUARD(is_instance_dec, type_ptr, type_len, INSTANCE_DEC, 1);
-            if (is_instance_dec)
-            {
-                HOST_ADDR_KEY(account_field);
-                // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
-                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    rollback(SBUF("Evernode: Could not get host address state."), 1);
-
-                uint32_t active_instances = UINT32_FROM_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET);
-                if (active_instances > 0)
+                uint32_t section_number = 0, active_instances_len = 0;
+                uint8_t *active_instances_ptr;
+                int info_updated = 0;
+                for (int i = 0; GUARD(data_len), i < data_len; ++i)
                 {
-                    active_instances -= 1;
+                    uint8_t *str_ptr = data_ptr + i;
+                    // Colon means this is an end of the section.
+                    // If so, we start reading the new section and reset the write index.
+                    // Stop reading is an emty byte reached.
+                    if (*str_ptr == ';')
+                    {
+                        section_number++;
+                        continue;
+                    }
+                    else if (*str_ptr == 0)
+                        break;
+
+                    if (section_number == 6) // We only handle active instances for now.
+                    {
+                        if (active_instances_len == 0)
+                        {
+                            active_instances_ptr = str_ptr;
+                            info_updated = 1;
+                        }
+                        active_instances_len++;
+                    }
+                }
+                // All data fields are optional in update info transaction. Update state only if an information update is detected.
+                if (info_updated)
+                {
+                    uint32_t active_instances;
+                    STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
+
+                    TRACEVAR(active_instances);
+
+                    // Populate the values to the buffer.
                     UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
+                        rollback(SBUF("Evernode: Could not set state for info update."), 1);
                 }
 
-                accept(SBUF("Evernode: Host instance count decrement successful."), 0);
+                accept(SBUF("Evernode: Update host info successful."), 0);
             }
 
             accept(SBUF("Evernode: XRP transaction."), 0);
