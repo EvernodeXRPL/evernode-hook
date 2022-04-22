@@ -260,7 +260,7 @@ int64_t hook(int64_t reserved)
                     uint8_t *str_ptr = data_ptr + i;
                     // Colon means this is an end of the section.
                     // If so, we start reading the new section and reset the write index.
-                    // Stop reading is an emty byte reached.
+                    // Stop reading if an emty byte reached.
                     if (*str_ptr == ';')
                     {
                         section_number++;
