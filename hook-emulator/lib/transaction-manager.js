@@ -111,7 +111,7 @@ class TransactionManager {
                 break;
         }
 
-        // There's no amount for NFT offer accept transactions.
+        // There's no amount for NFTAcceptOffer transactions.
         if (txType !== TRANSACTION_TYPES.NFT_ACCEPT_OFFER) {
             // Check whether transaction is a xrp transaction  or not.
             isXrp = (typeof transaction.Amount === 'string');
