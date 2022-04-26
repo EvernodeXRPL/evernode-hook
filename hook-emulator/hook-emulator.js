@@ -72,6 +72,7 @@ class HookEmulator {
         // Note - This event will only receive the incoming payment transactions to the hook.
         // We currently only need hook to execute incoming payment transactions. 
         this.#xrplAcc.on(evernode.XrplApiEvents.PAYMENT, async (tx, error) => await this.#handleTransaction(tx, error));
+        this.#xrplAcc.on(evernode.XrplApiEvents.NFT_OFFER_ACCEPT, async (tx, error) => await this.#handleTransaction(tx, error));
 
         // Subscribe for the transactions
         await this.#xrplAcc.subscribe();

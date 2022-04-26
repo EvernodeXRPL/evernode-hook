@@ -80,6 +80,7 @@ struct Memos
 };
 struct Transaction
 {
+    uint16_t type;
     uint8_t hash[HASH_SIZE_1];
     uint8_t account[ACCOUNT_LEN];
     struct Amount amount;
@@ -95,6 +96,13 @@ struct Trustline
     uint8_t low_account[ACCOUNT_LEN];
     int64_t limit;
     struct Amount amount;
+};
+
+enum TRANSACTION_TYPES
+{
+    PAYMENT,
+    CHECK_CREATE,
+    NFT_ACCEPT_OFFER
 };
 
 enum MESSAGE_TYPES

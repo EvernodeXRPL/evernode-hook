@@ -491,6 +491,29 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         etxn_details((uint32_t)buf_out, 105);         /* emitdet | size 105 */             \
     }
 
+/////////// Macro to prepare a nft burn. ///////////
+
+#define PREPARE_NFT_BURN_SIZE 251
+#define PREPARE_NFT_BURN(buf_out_master, drops_fee_raw, tknid, owner)              \
+    {                                                                              \
+        uint8_t *buf_out = buf_out_master;                                         \
+        uint8_t acc[20];                                                           \
+        uint64_t drops_fee = (drops_fee_raw);                                      \
+        uint32_t cls = (uint32_t)ledger_seq();                                     \
+        hook_account(SBUF(acc));                                                   \
+        _01_02_ENCODE_TT(buf_out, ttNFT_BURN);            /* uint16  | size   3 */ \
+        _02_02_ENCODE_FLAGS(buf_out, 0x00000000);         /* uint32  | size   5 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);               /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);              /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);              /* uint32  | size   6 */ \
+        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid); /* tknid   | size  33 */ \
+        _06_08_ENCODE_DROPS_FEE(buf_out, drops_fee);      /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */ \
+        _08_02_ENCODE_ACCOUNT_OWNER(buf_out, owner);      /* account | size  22 */ \
+        etxn_details((uint32_t)buf_out, 105);             /* emitdet | size 105 */ \
+    }
+
 /////////// Macro to prepare a nft offer. ///////////
 
 #define PREPARE_NFT_SELL_OFFER_SIZE 265

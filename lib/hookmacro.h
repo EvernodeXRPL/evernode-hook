@@ -245,6 +245,7 @@
 
 #define ttPAYMENT 0
 #define ttCHECK_CREATE 16
+#define ttNFT_ACCEPT_OFFER 29
 #define tfCANONICAL 0x80000000UL
 
 #define atACCOUNT 1U
