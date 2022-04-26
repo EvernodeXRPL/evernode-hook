@@ -594,7 +594,7 @@ class TransactionManager {
                     buf.writeUInt16BE(res.Flags); // 2
                     const issuer = codec.decodeAccountID(res.Issuer);
                     issuer.copy(buf, 2); // 20
-                    buf.writeUInt32BE(res.TokenTaxon, 22); // 4
+                    buf.writeUInt32BE(res.NFTokenTaxon, 22); // 4
                     buf.writeUInt8(URI.length, 26); // 1
                     URI.copy(buf, 27); // URI len
 

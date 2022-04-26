@@ -336,7 +336,7 @@ int64_t hook(int64_t reserved)
 
                     BUFFER_EQUAL_STR_GUARD(is_host_reg, format_ptr, format_len, FORMAT_TEXT, 1);
                     if (!is_host_reg)
-                        rollback(SBUF("Evernode: Memo format should be text."), 50);
+                        rollback(SBUF("Evernode: Memo format should be text."), 1);
 
                     // Take the host reg fee from config.
                     int64_t host_reg_fee;
@@ -600,7 +600,7 @@ int64_t hook(int64_t reserved)
             {
                 BUFFER_EQUAL_STR_GUARD(is_host_de_reg_nft_accept, format_ptr, format_len, FORMAT_HEX, 1);
                 if (!is_host_de_reg_nft_accept)
-                    rollback(SBUF("Evernode: Memo format should be hex."), 50);
+                    rollback(SBUF("Evernode: Memo format should be hex."), 1);
 
                 // Check whether the host address state is deleted.
                 HOST_ADDR_KEY(account_field);
@@ -618,7 +618,7 @@ int64_t hook(int64_t reserved)
                 // Check whether the NFT URI is starting with 'evrhost'.
                 BUFFER_EQUAL_STR_GUARD(is_host_de_reg_nft_accept, uri, 7, EVR_HOST, 1);
                 if (!is_host_de_reg_nft_accept)
-                    rollback(SBUF("Evernode: Provided NFT is invalid."), 50);
+                    rollback(SBUF("Evernode: Provided NFT is invalid."), 1);
 
                 // Check whether the host token id state is deleted.
                 TOKEN_ID_KEY(data_ptr);
