@@ -5,6 +5,8 @@ const { STATE_ERROR_CODES } = require('./state-manager');
 const { XflHelpers, XrplAccount } = require('evernode-js-client');
 
 const TX_WAIT_TIMEOUT = 5000;
+const TX_EMIT_TIMEOUT = 10000;
+const PERSIST_TIMEOUT = 5000;
 const TX_MAX_LEDGER_OFFSET = 10;
 const TX_NFT_MINT = 'NFTokenMint';
 const TX_PAYMENT = 'Payment';
@@ -333,7 +335,7 @@ class TransactionManager {
 
             try {
                 const ret = await this.#executeHook(task.transaction);
-                await this.#persistTransaction().catch(console.error);
+                await this.#persistTransaction();
                 task.resolve(ret);
             }
             catch (e) {
@@ -428,23 +430,39 @@ class TransactionManager {
     }
 
     async #persistTransaction() {
-        for (let transaction of this.#draftEmits) {
-            try {
-                // Update the sequence and last ledger sequence values.
-                const sequence = await this.#hookAccount.getSequence();
-                transaction.Sequence = sequence;
-                transaction.LastLedgerSequence = this.#hookAccount.xrplApi.ledgerIndex + TX_MAX_LEDGER_OFFSET;
-                await this.#hookAccount.xrplApi.submitAndVerify(transaction, { wallet: this.#hookAccount.wallet });
+        return new Promise(async (resolve, reject) => {
+            const waitTime = TX_EMIT_TIMEOUT * this.#draftEmits.length + PERSIST_TIMEOUT;
+            let timedOut = false;
+            const failTimeout = setTimeout(() => {
+                timedOut = true;
+                reject('Persist transaction timeout.');
+            }, waitTime);
+            for (let transaction of this.#draftEmits) {
+                if (timedOut) {
+                    console.error(`Stopping draft emits. Persistant timeout of ${waitTime}ms exceeded.`);
+                    break;
+                }
+                try {
+                    // Update the sequence and last ledger sequence values.
+                    const sequence = await this.#hookAccount.getSequence();
+                    transaction.Sequence = sequence;
+                    transaction.LastLedgerSequence = this.#hookAccount.xrplApi.ledgerIndex + TX_MAX_LEDGER_OFFSET;
+                    await this.#hookAccount.xrplApi.submitAndVerify(transaction, { wallet: this.#hookAccount.wallet });
+                }
+                catch (e) {
+                    // If failed transaction is a NFT mint, Decrement the mint counter.
+                    if (transaction.TransactionType === TX_NFT_MINT)
+                        this.#accountManager.decreaseMintedTokensSeq();
+                    console.error(e);
+                }
             }
-            catch (e) {
-                // If failed transaction is a NFT mint, Decrement the mint counter.
-                if (transaction.TransactionType === TX_NFT_MINT)
-                    this.#accountManager.decreaseMintedTokensSeq();
-                console.error(e);
+            if (!timedOut) {
+                await this.#stateManager.persist();
+                this.#accountManager.persist();
+                clearTimeout(failTimeout);
+                resolve();
             }
-        }
-        await this.#stateManager.persist();
-        this.#accountManager.persist();
+        });
     }
 
     async #rollbackTransaction(transaction) {
