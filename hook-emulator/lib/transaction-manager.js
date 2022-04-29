@@ -335,7 +335,7 @@ class TransactionManager {
 
             try {
                 const ret = await this.#executeHook(task.transaction);
-                await this.#persistTransaction().catch(console.error);
+                await this.#persistTransaction();
                 task.resolve(ret);
             }
             catch (e) {
@@ -432,8 +432,16 @@ class TransactionManager {
     async #persistTransaction() {
         return new Promise(async (resolve, reject) => {
             const waitTime = TX_EMIT_TIMEOUT * this.#draftEmits.length + PERSIST_TIMEOUT;
-            const failTimeout = setTimeout(() => reject('Persist transaction timeout.'), waitTime);
+            let timedOut = false;
+            const failTimeout = setTimeout(() => {
+                timedOut = true;
+                reject('Persist transaction timeout.');
+            }, waitTime);
             for (let transaction of this.#draftEmits) {
+                if (timedOut) {
+                    console.error(`Stopping draft emits. Persistant timeout of ${waitTime}ms exceeded.`);
+                    break;
+                }
                 try {
                     // Update the sequence and last ledger sequence values.
                     const sequence = await this.#hookAccount.getSequence();
@@ -448,10 +456,12 @@ class TransactionManager {
                     console.error(e);
                 }
             }
-            await this.#stateManager.persist();
-            this.#accountManager.persist();
-            clearTimeout(failTimeout);
-            resolve();
+            if (!timedOut) {
+                await this.#stateManager.persist();
+                this.#accountManager.persist();
+                clearTimeout(failTimeout);
+                resolve();
+            }
         });
     }
 
