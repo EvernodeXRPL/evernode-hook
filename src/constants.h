@@ -64,6 +64,7 @@ const uint32_t HOST_REG_FEE_OFFSET = 88;
 const uint32_t HOST_TOT_INS_COUNT_OFFSET = 96;
 const uint32_t HOST_ACT_INS_COUNT_OFFSET = 100;
 const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 104;
+const uint32_t HOST_VERSION_OFFSET = 112;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
