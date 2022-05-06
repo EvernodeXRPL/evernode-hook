@@ -225,7 +225,7 @@ int64_t hook(int64_t reserved)
                 {
                     HOST_ADDR_KEY(account_field);
                     // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not get host address state."), 1);
@@ -249,13 +249,15 @@ int64_t hook(int64_t reserved)
 
                     HOST_ADDR_KEY(account_field);
                     // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not get host address state."), 1);
 
-                    uint32_t section_number = 0, active_instances_len = 0;
-                    uint8_t *active_instances_ptr;
+                    // Msg format.
+                    // <token_id>;<country_code>;<cpu_microsec>;<ram_mb>;<disk_mb>;<total_instance_count>;<active_instances>;<description>;<version>
+                    uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
+                    uint8_t *active_instances_ptr, *version_ptr;
                     int info_updated = 0;
                     for (int i = 0; GUARD(data_len), i < data_len; ++i)
                     {
@@ -280,6 +282,15 @@ int64_t hook(int64_t reserved)
                             }
                             active_instances_len++;
                         }
+                        else if (section_number == 8)
+                        {
+                            if (version_len == 0)
+                            {
+                                version_ptr = str_ptr;
+                                info_updated = 1;
+                            }
+                            version_len++;
+                        }
                     }
                     // All data fields are optional in update info transaction. Update state only if an information update is detected.
                     if (info_updated)
@@ -291,6 +302,55 @@ int64_t hook(int64_t reserved)
 
                         // Populate the values to the buffer.
                         UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
+
+                        if (version_ptr != 0) // Version update detected.
+                        {
+                            uint8_t *major_ptr, *minor_ptr, *patch_ptr;
+                            uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
+                            for (int i = 0; GUARD(version_len), i < version_len; ++i)
+                            {
+                                uint8_t *str_ptr = version_ptr + i;
+
+                                // Dot means this is an end of the section.
+                                // If so, we start reading the new section and reset the write index.
+                                // Stop reading if an empty byte is reached.
+                                if (*str_ptr == '.')
+                                {
+                                    version_section++;
+                                    continue;
+                                }
+                                else if (*str_ptr == 0)
+                                    break;
+
+                                if (version_section == 0) // Major
+                                {
+                                    if (major_len == 0)
+                                        major_ptr = str_ptr;
+
+                                    major_len++;
+                                }
+                                else if (version_section == 1) // Minor
+                                {
+                                    if (minor_len == 0)
+                                        minor_ptr = str_ptr;
+
+                                    minor_len++;
+                                }
+                                else if (version_section == 2) // Patch
+                                {
+                                    if (patch_len == 0)
+                                        patch_ptr = str_ptr;
+
+                                    patch_len++;
+                                }
+                            }
+                            if (major_ptr == 0 || minor_ptr == 0 || patch_ptr == 0)
+                                rollback(SBUF("Evernode: Invalid version format."), 1);
+
+                            STR_TO_UINT(host_addr[HOST_VERSION_OFFSET], major_ptr, major_len);
+                            STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 1], minor_ptr, minor_len);
+                            STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 2], patch_ptr, patch_len);
+                        }
 
                         if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                             rollback(SBUF("Evernode: Could not set state for info update."), 1);
@@ -349,7 +409,7 @@ int64_t hook(int64_t reserved)
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
                     // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
