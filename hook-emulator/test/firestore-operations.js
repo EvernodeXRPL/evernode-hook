@@ -17,16 +17,24 @@ const executeFunc = async (registryAddress, callback) => {
 // Registry operations here.
 const updateInsCountKeys = async (firestoreManager) => {
     const hosts = await firestoreManager.getHosts();
-    for (let host of hosts) {
-        if (host.noOfActiveInstances && host.noOfTotalInstances) {
+    for (const host of hosts) {
+        if (host.hasOwnProperty('noOfActiveInstances') && host.hasOwnProperty('noOfTotalInstances')) {
             console.log(`Updating host ${host.address}...`);
-            host.activeInstances = host.noOfActiveInstances;
-            delete host.noOfActiveInstances;
-            host.maxInstances = host.noOfTotalInstances;
-            delete host.noOfTotalInstances;
-            await firestoreManager.deleteHost(host.key);
-            await firestoreManager.setHost(host);
-            console.log(`Updated host ${host.address}.`);
+            let temp = JSON.parse(JSON.stringify(host));
+            temp.activeInstances = temp.noOfActiveInstances;
+            delete temp.noOfActiveInstances;
+            temp.maxInstances = temp.noOfTotalInstances;
+            delete temp.noOfTotalInstances;
+            await firestoreManager.deleteHost(temp.key);
+            try {
+                await firestoreManager.setHost(temp);
+                console.log(`Updated host ${temp.address}.`);
+            }
+            catch (e) {
+                console.error(e);
+                await firestoreManager.setHost(host);
+                console.log(`Rolled back host ${host.address}...`);
+            }
         }
     }
 }
