@@ -21,6 +21,7 @@ elif [[ $mode = "beta" ]]; then
     registry_address="rHQQq5aJ5kxFyNJXE36rAmuhxpDvpLHcWq"
 else
     echo "Invalid mode"
+    echo "Usage: deploy-emulator.sh <Mode (dev|beta)>"
     exit 1
 fi
 emulator_data_path="$emulator_path/data"
