@@ -38,22 +38,15 @@ read pword </dev/tty
 sshpass -p $pword scp "$build_path/$bundle" root@$ip:"$to_path/"
 
 code="
-echo 'Stopping the emulator service.'
-systemctl stop hook-emulator-$registry_address.service
-
 echo 'Creating the backup.'
-rm -rf emulator_bk_path
-mv $emulator_path $emulator_bk_path
+rm -rf $emulator_bk_path
+cp -r $emulator_path $emulator_bk_path
 
-echo 'Extracting the bundle.'
-mkdir $emulator_path
+echo 'Overriding the emulator the binaries.'
 tar -xf $bundle_path --strip-components=1 -C $emulator_path
 
-echo 'Moving the data from backup to new emulator.'
-cp -r $emulator_bk_data_path $emulator_data_path
-
-echo 'Starting the service.'
-systemctl start hook-emulator-$registry_address.service
+echo 'Restarting the service.'
+systemctl restart hook-emulator-$registry_address.service
 "
 
 sshpass -p $pword ssh root@$ip "$code"
