@@ -97,7 +97,7 @@ class HookEmulator {
 
     async #handleComplete(txHash, ...params) {
         // Call the callback function with results if there're any listeners for tx and remove callback from listeners.
-        // This is because completion is fired once for a particular transaction
+        // This is because completion is fired once for a particular transaction.
 
         // Retry for 4 seconds, since event listener is called after the transaction is verified.
         let maxRetryCount = 4;
