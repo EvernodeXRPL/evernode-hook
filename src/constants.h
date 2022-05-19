@@ -43,12 +43,14 @@ const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 40;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 115;
-const uint32_t TOKEN_ID_VAL_SIZE = 20;
+const uint32_t TOKEN_ID_VAL_SIZE = 64;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
 const uint32_t NFT_TOKEN_ID_SIZE = 32;
 const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
+const uint32_t CPU_MODEl_NAME_LEN = 40;
+const uint32_t ACCOUNT_ID_SIZE = 20;
 
 // State value offsets
 // HOST_ADDR
@@ -65,6 +67,13 @@ const uint32_t HOST_TOT_INS_COUNT_OFFSET = 96;
 const uint32_t HOST_ACT_INS_COUNT_OFFSET = 100;
 const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 104;
 const uint32_t HOST_VERSION_OFFSET = 112;
+
+// State value offsets
+// TOKEN_ID
+const uint32_t HOST_ADDRESS_OFFSET = 0;
+const uint32_t HOST_CPU_MODEl_NAME_OFFSET = 20;
+const uint32_t HOST_CPU_COUNT_OFFSET = 60;
+const uint32_t HOST_CPU_SPEED_OFFSET = 62;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;

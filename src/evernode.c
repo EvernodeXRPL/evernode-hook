@@ -412,6 +412,9 @@ int64_t hook(int64_t reserved)
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
+                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)>
+                    uint8_t token_id[TOKEN_ID_VAL_SIZE];
+
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                         rollback(SBUF("Evernode: Host already registered."), 1);
 
@@ -444,8 +447,6 @@ int64_t hook(int64_t reserved)
                     trace(SBUF("NFT token id:"), SBUF(nft_token_id), 1);
 
                     TOKEN_ID_KEY(nft_token_id);
-                    if (state_set(SBUF(account_field), SBUF(STP_TOKEN_ID)) < 0)
-                        rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
                     CLEARBUF(host_addr);
                     COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
@@ -455,8 +456,8 @@ int64_t hook(int64_t reserved)
                     // We cannot predict the lengths of the numarical values.
                     // So we scan bytes and keep pointers and lengths to set in host address buffer.
                     uint32_t section_number = 0;
-                    uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *description_ptr;
-                    uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, description_len = 0;
+                    uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
+                    uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, cpu_model_len = 0, cpu_count_len = 0, cpu_speed_len = 0, description_len = 0;
 
                     for (int i = 2; GUARD(data_len - 2), i < data_len; ++i)
                     {
@@ -498,6 +499,24 @@ int64_t hook(int64_t reserved)
                         }
                         else if (section_number == 5)
                         {
+                            if (cpu_model_len == 0)
+                                cpu_model_ptr = str_ptr;
+                            cpu_model_len++;
+                        }
+                        else if (section_number == 6)
+                        {
+                            if (cpu_count_len == 0)
+                                cpu_count_ptr = str_ptr;
+                            cpu_count_len++;
+                        }
+                        else if (section_number == 7)
+                        {
+                            if (cpu_speed_len == 0)
+                                cpu_speed_ptr = str_ptr;
+                            cpu_speed_len++;
+                        }
+                        else if (section_number == 8)
+                        {
                             if (description_len == 0)
                                 description_ptr = str_ptr;
                             description_len++;
@@ -505,11 +524,13 @@ int64_t hook(int64_t reserved)
                     }
 
                     // Take the unsigned int values.
-                    uint32_t cpu_microsec, ram_mb, disk_mb, total_ins_count;
+                    uint32_t cpu_microsec, ram_mb, disk_mb, total_ins_count, cpu_count, cpu_speed;
                     STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
                     STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
                     STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
                     STR_TO_UINT(total_ins_count, total_ins_count_ptr, total_ins_count_len);
+                    STR_TO_UINT(cpu_count, cpu_count_ptr, cpu_count_len);
+                    STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
 
                     // Populate the values to the buffer.
                     UINT32_TO_BUF(&host_addr[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
@@ -525,6 +546,18 @@ int64_t hook(int64_t reserved)
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
+
+                    // Populate the values to the buffer.
+
+                    COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
+                    COPY_BUF(token_id, HOST_CPU_MODEl_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
+                    if (cpu_model_len < CPU_MODEl_NAME_LEN)
+                        CLEAR_BUF(token_id, HOST_CPU_MODEl_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
+                    UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
+                    UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
+
+                    if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
                     uint32_t host_count;
                     GET_HOST_COUNT(host_count);
