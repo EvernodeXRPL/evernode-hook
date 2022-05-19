@@ -5,7 +5,6 @@ const codec = require('ripple-address-codec');
 const evernode = require('evernode-js-client');
 const { Buffer } = require('buffer');
 const { StateManager } = require('./lib/state-manager');
-const { AccountManager } = require('./lib/account-manager');
 const { TransactionManager } = require('./lib/transaction-manager');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
@@ -23,7 +22,6 @@ const BIN_DIR = process.env.BIN_DIR || path.resolve(__dirname, 'dist');
 
 const CONFIG_FILE = 'accounts.json';
 const DB_FILE = 'hook-emulator.sqlite';
-const HOOK_DATA_FILE = 'hook-root.json';
 const HOOK_DATA_DIR = DATA_DIR + '/data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/sec/firebase-sa-key.json';
 const HOOK_WRAPPER_PATH = BIN_DIR + '/hook-wrapper';
@@ -39,13 +37,12 @@ const HOOK_INITIALIZER = {
 class HookEmulator {
     #firestoreManager = null;
     #stateManager = null;
-    #accountManager = null;
     #transactionManager = null;
     #xrplApi = null;
     #xrplAcc = null;
     #completeHandlers = null;
 
-    constructor(rippledServer, hookWrapperPath, dbFilePath, accountDataFilePath, hookAddress, hookSecret, stateIndexId = null) {
+    constructor(rippledServer, hookWrapperPath, dbFilePath, hookAddress, hookSecret, stateIndexId = null) {
         this.#xrplApi = new evernode.XrplApi(rippledServer);
         evernode.Defaults.set({
             registryAddress: hookAddress,
@@ -55,8 +52,7 @@ class HookEmulator {
         this.#xrplAcc = new evernode.XrplAccount(hookAddress, hookSecret);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#stateManager = new StateManager(dbFilePath, this.#firestoreManager);
-        this.#accountManager = new AccountManager(accountDataFilePath);
-        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager, this.#accountManager);
+        this.#transactionManager = new TransactionManager(this.#xrplAcc, hookWrapperPath, this.#stateManager);
         this.#completeHandlers = {};
     }
 
@@ -66,7 +62,6 @@ class HookEmulator {
 
         await this.#firestoreManager.authorize(firebaseSecKeyPath);
         await this.#stateManager.init();
-        this.#accountManager.init();
 
         // Handle the transaction when payment transaction is received.
         // Note - This event will only receive the incoming payment transactions to the hook.
@@ -102,7 +97,7 @@ class HookEmulator {
 
     async #handleComplete(txHash, ...params) {
         // Call the callback function with results if there're any listeners for tx and remove callback from listeners.
-        // This is because completion is fired once for a particular transaction
+        // This is because completion is fired once for a particular transaction.
 
         // Retry for 4 seconds, since event listener is called after the transaction is verified.
         let maxRetryCount = 4;
@@ -207,8 +202,7 @@ async function main() {
     // Note - Hook wrapper path is the path to the hook wrapper binary.
     // Setup beta state index if mode is beta.
     const dbPath = path.resolve(HOOK_DATA_DIR, registryAddress, DB_FILE);
-    const regDataPath = path.resolve(HOOK_DATA_DIR, registryAddress, HOOK_DATA_FILE)
-    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, dbPath, regDataPath, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const emulator = new HookEmulator(RIPPLED_URL, HOOK_WRAPPER_PATH, dbPath, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await emulator.init(FIREBASE_SEC_KEY_PATH);
 
     // Send the config init transaction to the registry account.
