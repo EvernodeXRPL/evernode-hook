@@ -73,18 +73,16 @@ const RETURN_CODES = {
 class TransactionManager {
     #hookWrapperPath = null;
     #stateManager = null;
-    #accountManager = null;
     #hookAccount = null;
     #hookProcess = null;
     #draftEmits = null;
     #pendingTransactions = null;
     #queueProcessorActive = null;
 
-    constructor(hookAccount, hookWrapperPath, stateManager, accountManager) {
+    constructor(hookAccount, hookWrapperPath, stateManager) {
         this.#hookAccount = hookAccount;
         this.#hookWrapperPath = hookWrapperPath;
         this.#stateManager = stateManager;
-        this.#accountManager = accountManager;
         this.#pendingTransactions = [];
         this.#queueProcessorActive = false;
         this.#initDrafts();
@@ -450,15 +448,11 @@ class TransactionManager {
                     await this.#hookAccount.xrplApi.submitAndVerify(transaction, { wallet: this.#hookAccount.wallet });
                 }
                 catch (e) {
-                    // If failed transaction is a NFT mint, Decrement the mint counter.
-                    if (transaction.TransactionType === TX_NFT_MINT)
-                        this.#accountManager.decreaseMintedTokensSeq();
                     console.error(e);
                 }
             }
             if (!timedOut) {
                 await this.#stateManager.persist();
-                this.#accountManager.persist();
                 clearTimeout(failTimeout);
                 resolve();
             }
@@ -478,7 +472,6 @@ class TransactionManager {
 
         // Rollback the state changes.
         this.#stateManager.rollback();
-        this.#accountManager.rollback();
     }
 
     async #handleMessage(messageBuf) {
@@ -495,10 +488,6 @@ class TransactionManager {
             case (MESSAGE_TYPES.EMIT):
                 try {
                     const txJson = this.#decodeTransactionBuf(content);
-                    // If transaction is a NFT mint, Increment the mint counter before adding to drafts.
-                    if (txJson.TransactionType === TX_NFT_MINT)
-                        this.#accountManager.increaseMintedTokensSeq();
-
                     // We cannot pre calculate the hash since we are updating the sequence and last ledger sequence at the transaction submission.
                     // So, send an empty buffer as the transaction hash.
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, Buffer.alloc(32, 0)));
@@ -589,7 +578,7 @@ class TransactionManager {
                 break;
             case (MESSAGE_TYPES.MINTED_TOKENS):
                 try {
-                    const value = this.#accountManager.getMintedTokensSeq();
+                    const value = await this.#hookAccount.getMintedNFTokens();
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.SUCCESS, this.#encodeUint32(value)));
                 } catch (error) {
                     this.#sendToProc(this.#encodeReturnCode(RETURN_CODES.INTERNAL_ERROR));
