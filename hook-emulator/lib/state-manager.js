@@ -114,8 +114,12 @@ class StateManager {
             // If the object already exists we override it.
             // We combine host address and token objects.
             if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
-                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID)
+                // If this is a token id update we replace the key with address key,
+                // So the existing host address state will get updated.
+                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
                     decoded.key = decoded.addressKey;
+                    delete decoded.addressKey;
+                }
 
                 delete decoded.type;
                 indexUpdates.set.hosts[decoded.key] = {
