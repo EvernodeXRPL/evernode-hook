@@ -149,24 +149,13 @@ class StateManager {
     async setIndex(stateKey, stateData) {
         const decoded = StateHelpers.decodeStateData(stateKey, stateData);
         if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
-            // Generate key of TOKEN_ID State.
-            let buf = Buffer.allocUnsafe(1);
-            buf.writeUInt8(2);
-            const stateKeyTokenId = Buffer.concat([Buffer.from("EVR", "utf-8"), buf, stateData.slice(4, 32)]);
-
-            this.#db.open();
-            const states = await this.#db.getValues(this.#stateTable, { key: stateKeyTokenId });
-            this.#db.close();
-
-            const secondaryDecoded = StateHelpers.decodeStateData(stateKeyTokenId, states[0].value);
-            // Remove unnecessary keys.
             delete decoded.type;
-            delete secondaryDecoded.address;
-            delete secondaryDecoded.type;
-            delete secondaryDecoded.key;
-            delete secondaryDecoded.nfTokenId;
-
-            await this.#firestoreManager.setHost({ ...decoded, ...secondaryDecoded });
+            await this.#firestoreManager.setHost(decoded);
+        }
+        else if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+            delete decoded.type;
+            decoded.key = decoded.addressKey;
+            await this.#firestoreManager.setHost(decoded);
         }
         else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
             await this.#firestoreManager.setConfig(decoded);
