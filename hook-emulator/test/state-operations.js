@@ -118,10 +118,8 @@ const updateHostAddrState = async (db) => {
     const registry = new evernode.RegistryClient(DEV_REGISTRY_ADDRESS);
     await registry.connect();
     const hosts = await registry.getHosts();
-    // console.log(hosts);
     await registry.disconnect();
     const addresses = hosts.map(host => host.address);
-    // console.log(addresses);
     for (const address of addresses) {
         const hexKey = `${hostAddrPrefix}${codec.decodeAccountID(address).toString('hex')}`.toUpperCase();
         console.log(hexKey);
