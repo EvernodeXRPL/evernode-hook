@@ -99,8 +99,71 @@ class StateManager {
         // Keep updated and deleted indexes in a temprorary lists when updating the state db and then after db is updated persist them to firestore.
         // So firestore update delays won't effect the db update.
         let indexUpdates = {
-            set: [],
-            delete: []
+            set: {
+                hosts: {},
+                configs: {}
+            },
+            delete: {
+                hosts: {},
+                configs: {}
+            }
+        }
+
+        const updateIndexSet = (key, value) => {
+            const decoded = StateHelpers.decodeStateData(key, value);
+            // If the object already exists we override it.
+            // We combine host address and token objects.
+            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+                // If this is a token id update we replace the key with address key,
+                // So the existing host address state will get updated.
+                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+                    decoded.key = decoded.addressKey;
+                    delete decoded.addressKey;
+                }
+
+                delete decoded.type;
+                indexUpdates.set.hosts[decoded.key] = {
+                    ...(indexUpdates.set.hosts[decoded.key] ? indexUpdates.set.hosts[decoded.key] : {}),
+                    ...decoded
+                }
+            }
+            else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+                indexUpdates.set.configs[decoded.key] = decoded;
+        }
+
+        const deleteIndexSet = (key) => {
+            const decoded = StateHelpers.decodeStateKey(key);
+            // We are sure these will get called sequentially.
+            // If the deleted object exists in set arrays, delete the object there since it's get anyway deleted.
+            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
+                delete indexUpdates.set.hosts[decoded.key];
+                indexUpdates.delete.hosts[decoded.key] = true;
+            }
+            else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION) {
+                delete indexUpdates.set.configs[decoded.key];
+                indexUpdates.delete.configs[decoded.key] = true;
+            }
+        }
+
+        const persistIndex = async () => {
+            // Persist the data to the firestore index.
+            // Since we only have one list object per entry,
+            // There's only one insert, update or delete operation per document.
+            // So we can promise.all all the inserts,updates and deletes.
+            await Promise.all([
+                ...Object.values(indexUpdates.set.hosts).map(async obj => {
+                    await this.#firestoreManager.setHost(obj);
+                }),
+                ...Object.values(indexUpdates.set.configs).map(async obj => {
+                    await this.#firestoreManager.setConfig(obj);
+                }),
+                ...Object.keys(indexUpdates.delete.hosts).map(async key => {
+                    await this.#firestoreManager.deleteHost(key);
+                }),
+                ...Object.keys(indexUpdates.delete.configs).map(async key => {
+                    await this.#firestoreManager.deleteConfig(key);
+                })
+            ]);
         }
 
         this.#db.open();
@@ -119,66 +182,24 @@ class StateManager {
                         value: value
                     });
                 }
-                indexUpdates.set.push({ keyBuf: keyBuf, value: value });
+
+                updateIndexSet(keyBuf, value);
             }
             else if (states && states.length > 0) {
                 await this.#db.deleteValues(this.#stateTable, { key: keyBuf });
-                indexUpdates.delete.push({ keyBuf: keyBuf });
+
+                deleteIndexSet(keyBuf);
             }
         }
         this.#db.close();
 
         this.#draftStates = {};
 
-        // Persist the data to the firestore index.
-        // Since we only have one list object per entry,
-        // There's only one insert, update or delete operation per document.
-        // So we can promise.all all the inserts,updates and deletes.
-        await Promise.all([...indexUpdates.set.map(async obj => {
-            await this.setIndex(obj.keyBuf, obj.value).catch(console.error);
-        }),
-        ...indexUpdates.delete.map(async obj => {
-            await this.deleteIndex(obj.keyBuf).catch(console.error);
-        })]);
+        await persistIndex();
     }
 
     rollback() {
         this.#draftStates = {};
-    }
-
-    async setIndex(stateKey, stateData) {
-        const decoded = StateHelpers.decodeStateData(stateKey, stateData);
-        if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
-            // Generate key of TOKEN_ID State.
-            let buf = Buffer.allocUnsafe(1);
-            buf.writeUInt8(2);
-            const stateKeyTokenId = Buffer.concat([Buffer.from("EVR", "utf-8"), buf, stateData.slice(4, 32)]);
-
-            this.#db.open();
-            const states = await this.#db.getValues(this.#stateTable, { key: stateKeyTokenId });
-            this.#db.close();
-
-            const secondaryDecoded = StateHelpers.decodeStateData(stateKeyTokenId, states[0].value);
-            // Remove unnecessary keys.
-            delete decoded.type;
-            delete secondaryDecoded.address;
-            delete secondaryDecoded.type;
-            delete secondaryDecoded.key;
-            delete secondaryDecoded.nfTokenId;
-
-            await this.#firestoreManager.setHost({ ...decoded, ...secondaryDecoded });
-        }
-        else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
-            await this.#firestoreManager.setConfig(decoded);
-
-    }
-
-    async deleteIndex(stateKey) {
-        const decoded = StateHelpers.decodeStateKey(stateKey);
-        if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
-            await this.#firestoreManager.deleteHost(decoded.key);
-        else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
-            await this.#firestoreManager.deleteConfig(decoded.key);
     }
 }
 

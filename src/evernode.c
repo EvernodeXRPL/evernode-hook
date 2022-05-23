@@ -224,7 +224,7 @@ int64_t hook(int64_t reserved)
                 if (is_host_heartbeat)
                 {
                     HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -248,7 +248,7 @@ int64_t hook(int64_t reserved)
                         rollback(SBUF("Evernode: Instance update info format not supported."), 1);
 
                     HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -408,11 +408,11 @@ int64_t hook(int64_t reserved)
 
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
-                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)>
+                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
 
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
@@ -524,7 +524,8 @@ int64_t hook(int64_t reserved)
                     }
 
                     // Take the unsigned int values.
-                    uint32_t cpu_microsec, ram_mb, disk_mb, total_ins_count, cpu_count, cpu_speed;
+                    uint16_t cpu_count, cpu_speed;
+                    uint32_t cpu_microsec, ram_mb, disk_mb, total_ins_count;
                     STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
                     STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
                     STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
@@ -532,10 +533,7 @@ int64_t hook(int64_t reserved)
                     STR_TO_UINT(cpu_count, cpu_count_ptr, cpu_count_len);
                     STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
 
-                    // Populate the values to the buffer.
-                    UINT32_TO_BUF(&host_addr[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
-                    UINT32_TO_BUF(&host_addr[HOST_RAM_MB_OFFSET], ram_mb);
-                    UINT32_TO_BUF(&host_addr[HOST_DISK_MB_OFFSET], disk_mb);
+                    // Populate tvalues to the state address buffer and set state.
                     CLEAR_BUF(host_addr, HOST_RESERVED_OFFSET, 8);
                     COPY_BUF(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len);
                     if (description_len < DESCRIPTION_LEN)
@@ -547,14 +545,16 @@ int64_t hook(int64_t reserved)
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
-                    // Populate the values to the buffer.
-
+                    // Populate the values to the token id buffer and set state.
                     COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
                     COPY_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
                     if (cpu_model_len < CPU_MODEl_NAME_LEN)
                         CLEAR_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
+                    UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
+                    UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
+                    UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
 
                     if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for token_id."), 1);
