@@ -71,7 +71,7 @@ const uint32_t HOST_VERSION_OFFSET = 112;
 // State value offsets
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;
-const uint32_t HOST_CPU_MODEl_NAME_OFFSET = 20;
+const uint32_t HOST_CPU_MODEL_NAME_OFFSET = 20;
 const uint32_t HOST_CPU_COUNT_OFFSET = 60;
 const uint32_t HOST_CPU_SPEED_OFFSET = 62;
 

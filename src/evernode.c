@@ -550,9 +550,9 @@ int64_t hook(int64_t reserved)
                     // Populate the values to the buffer.
 
                     COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
-                    COPY_BUF(token_id, HOST_CPU_MODEl_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
+                    COPY_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
                     if (cpu_model_len < CPU_MODEl_NAME_LEN)
-                        CLEAR_BUF(token_id, HOST_CPU_MODEl_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
+                        CLEAR_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
 
