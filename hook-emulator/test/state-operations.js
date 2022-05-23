@@ -1,7 +1,31 @@
+const evernode = require('evernode-js-client');
 const sqlite3 = require('sqlite3').verbose();
 const codec = require('ripple-address-codec');
+const Buffer = require('buffer').Buffer;
+
+const DEV_REGISTRY_ADDRESS = 'rDsg8R6MYfEB7Da861ThTRzVUWBa3xJgWL';
+const BETA_REGISTRY_ADDRESS = 'rHQQq5aJ5kxFyNJXE36rAmuhxpDvpLHcWq';
 
 const DB_FILE = 'hook-emulator.sqlite';
+
+const HOST_TOKEN_ID_OFFSET = 0;
+const HOST_COUNTRY_CODE_OFFSET = 32;
+const HOST_RESERVED_OFFSET = 34;
+const HOST_DESCRIPTION_OFFSET = 42;
+const HOST_REG_LEDGER_OFFSET = 68;
+const HOST_REG_FEE_OFFSET = 76;
+const HOST_TOT_INS_COUNT_OFFSET = 84;
+const HOST_ACT_INS_COUNT_OFFSET = 88;
+const HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 92;
+const HOST_VERSION_OFFSET = 100;
+
+const HOST_ADDRESS_OFFSET = 0;
+const HOST_CPU_MODEl_NAME_OFFSET = 20;
+const HOST_CPU_COUNT_OFFSET = 60;
+const HOST_CPU_SPEED_OFFSET = 62;
+const HOST_CPU_MICROSEC_OFFSET = 64;
+const HOST_RAM_MB_OFFSET = 68;
+const HOST_DISK_MB_OFFSET = 72;
 
 const getStateValue = async (db, hexKey) => {
     const key = Buffer.from(hexKey, 'hex');
@@ -101,11 +125,79 @@ const deletHosts = async (db) => {
     const buf = Buffer.allocUnsafe(4);
     buf.writeUInt32BE(count - delCount);
     await setStateValue(db, countKey, buf.toString('hex'));
+
+}
+function decodeHostAddressState(stateKeyBuf, stateDataBuf) {
+    return {
+        // address: codec.encodeAccountID(stateKeyBuf.slice(12)),
+        nfTokenId: stateDataBuf.slice(HOST_TOKEN_ID_OFFSET, HOST_COUNTRY_CODE_OFFSET).toString('hex').toUpperCase(),
+        countryCode: stateDataBuf.slice(HOST_COUNTRY_CODE_OFFSET, HOST_RESERVED_OFFSET).toString(),
+        description: stateDataBuf.slice(HOST_DESCRIPTION_OFFSET, HOST_REG_LEDGER_OFFSET).toString().replace(/\0/g, ''),
+        registrationLedger: Number(stateDataBuf.readBigUInt64BE(HOST_REG_LEDGER_OFFSET)),
+        registrationFee: Number(stateDataBuf.readBigUInt64BE(HOST_REG_FEE_OFFSET)),
+        maxInstances: stateDataBuf.readUInt32BE(HOST_TOT_INS_COUNT_OFFSET),
+        activeInstances: stateDataBuf.readUInt32BE(HOST_ACT_INS_COUNT_OFFSET),
+        lastHeartbeatLedger: Number(stateDataBuf.readBigUInt64BE(HOST_HEARTBEAT_LEDGER_IDX_OFFSET)),
+        version: `${stateDataBuf.readUInt8(HOST_VERSION_OFFSET)}.${stateDataBuf.readUInt8(HOST_VERSION_OFFSET + 1)}.${stateDataBuf.readUInt8(HOST_VERSION_OFFSET + 2)}`
+    }
+}
+
+function decodeTokenIdState(stateDataBuf) {
+    return {
+        address: codec.encodeAccountID(stateDataBuf.slice(HOST_ADDRESS_OFFSET, HOST_CPU_MODEl_NAME_OFFSET)),
+        cpuModelName: stateDataBuf.slice(HOST_CPU_MODEl_NAME_OFFSET, HOST_CPU_COUNT_OFFSET).toString(),
+        cpuCount: stateDataBuf.readUInt16BE(HOST_CPU_COUNT_OFFSET),
+        cpuMHz: stateDataBuf.readUInt16BE(HOST_CPU_SPEED_OFFSET),
+        cpuMicrosec: stateDataBuf.readUInt32BE(HOST_CPU_MICROSEC_OFFSET),
+        ramMb: stateDataBuf.readUInt32BE(HOST_RAM_MB_OFFSET),
+        diskMb: stateDataBuf.readUInt32BE(HOST_DISK_MB_OFFSET)
+    }
+}
+
+const updateHostAddrState = async (db) => {
+    const hostAddrPrefix = '455652030000000000000000';
+    const tokenIDPrefix = '45565202';
+    evernode.Defaults.set({
+        registryAddress: DEV_REGISTRY_ADDRESS
+    });
+    const registry = new evernode.RegistryClient(DEV_REGISTRY_ADDRESS);
+    await registry.connect();
+    const hosts = await registry.getHosts();
+    // console.log(hosts);
+    await registry.disconnect();
+    const addresses = hosts.map(host => host.address);
+    // console.log(addresses);
+    for (const address of addresses) {
+        const hexKey = `${hostAddrPrefix}${codec.decodeAccountID(address).toString('hex')}`.toUpperCase();
+        await executeFunc(DB_FILE, async (db) => {
+            const value = await getStateValue(db, hexKey);
+            const buf = value[0].value;
+            // console.log(decodeHostAddressState(Buffer.from(hexKey), buf));
+            const dataPortion1 = buf.slice(0, 34);
+            const cpudata = buf.slice(34, 46);
+            const dataPortion2 = buf.slice(46);
+            const newAddrState = Buffer.concat([dataPortion1, dataPortion2]);
+            await setStateValue(db, hexKey, newAddrState.toString('hex'));
+
+            const nftTokenId = buf.slice(0, 32);
+            const nftTokenIDkey = `${tokenIDPrefix}${nftTokenId.toString('hex').slice(8).toUpperCase()}`.toUpperCase();
+            const value2 = await getStateValue(db, nftTokenIDkey);
+
+            // console.log(decodeTokenIdState(value2[0].value));
+
+            const tokenIDBuf = Buffer.alloc(76);
+            value2[0].value.copy(tokenIDBuf, 0, 0);
+            cpudata.copy(tokenIDBuf, 64, 0, 12);
+            await setStateValue(db, nftTokenIDkey, tokenIDBuf.toString('hex'));
+
+        });
+    }
 }
 
 const main = async () => {
     // await executeFunc(DB_FILE, updateHostCount);
     // await executeFunc(DB_FILE, deletHosts);    
+    await updateHostAddrState();
 }
 
 main().catch(console.error);
