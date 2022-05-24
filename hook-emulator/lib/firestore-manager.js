@@ -204,7 +204,7 @@ class FirestoreManager extends FirestoreHandler {
 
         // If document already exist, update that.
         const documentId = host.key;
-        const data = await this.getHosts({ key: documentId })
+        const data = await this.getHosts({ key: documentId });
         let res;
         if (data && data.length)
             res = await this.#updateDocument(this.getCollectionId('hosts'), host, documentId);
