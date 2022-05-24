@@ -1,5 +1,10 @@
+const evernode = require('evernode-js-client');
 const sqlite3 = require('sqlite3').verbose();
 const codec = require('ripple-address-codec');
+const Buffer = require('buffer').Buffer;
+
+const DEV_REGISTRY_ADDRESS = 'rDsg8R6MYfEB7Da861ThTRzVUWBa3xJgWL';
+const BETA_REGISTRY_ADDRESS = 'rHQQq5aJ5kxFyNJXE36rAmuhxpDvpLHcWq';
 
 const DB_FILE = 'hook-emulator.sqlite';
 
@@ -101,11 +106,52 @@ const deletHosts = async (db) => {
     const buf = Buffer.allocUnsafe(4);
     buf.writeUInt32BE(count - delCount);
     await setStateValue(db, countKey, buf.toString('hex'));
+
+}
+
+const updateHostAddrState = async (db) => {
+    const hostAddrPrefix = '455652030000000000000000';
+    const tokenIDPrefix = '45565202';
+    evernode.Defaults.set({
+        registryAddress: DEV_REGISTRY_ADDRESS
+    });
+    const registry = new evernode.RegistryClient(DEV_REGISTRY_ADDRESS);
+    await registry.connect();
+    const hosts = await registry.getHosts();
+    await registry.disconnect();
+    const addresses = hosts.map(host => host.address);
+    for (const address of addresses) {
+        const hexKey = `${hostAddrPrefix}${codec.decodeAccountID(address).toString('hex')}`.toUpperCase();
+        console.log(hexKey);
+        await executeFunc(DB_FILE, async (db) => {
+            const value = await getStateValue(db, hexKey);
+            const buf = value[0].value;
+            console.log(evernode.StateHelpers.decodeHostAddressState(Buffer.from(hexKey, 'hex'), buf));
+            const dataPortion1 = buf.slice(0, 34);
+            const cpudata = buf.slice(34, 46);
+            const dataPortion2 = buf.slice(46);
+            const newAddrState = Buffer.concat([dataPortion1, dataPortion2]);
+            // await setStateValue(db, hexKey, newAddrState.toString('hex'));
+
+            const nftTokenId = buf.slice(0, 32);
+            const nftTokenIDkey = `${tokenIDPrefix}${nftTokenId.toString('hex').slice(8).toUpperCase()}`.toUpperCase();
+            const value2 = await getStateValue(db, nftTokenIDkey);
+
+            console.log(evernode.StateHelpers.decodeTokenIdState(value2[0].value));
+
+            const tokenIDBuf = Buffer.alloc(76);
+            value2[0].value.copy(tokenIDBuf, 0, 0);
+            cpudata.copy(tokenIDBuf, 64, 0, 12);
+            // await setStateValue(db, nftTokenIDkey, tokenIDBuf.toString('hex'));
+
+        });
+    }
 }
 
 const main = async () => {
     // await executeFunc(DB_FILE, updateHostCount);
     // await executeFunc(DB_FILE, deletHosts);    
+    await updateHostAddrState();
 }
 
 main().catch(console.error);
