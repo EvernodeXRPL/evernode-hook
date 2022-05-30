@@ -1,17 +1,17 @@
-// #include "../lib/hookapi.h"
-#include "../lib/emulatorapi.h"
+#include "../lib/hookapi.h"
+// #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
-int64_t cbak(int64_t reserved)
+int64_t cbak(uint32_t reserved)
 {
     return 0;
 }
 
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
-int64_t hook(int64_t reserved)
+int64_t hook(uint32_t reserved)
 {
     // Getting the hook account id.
     unsigned char hook_accid[20];
@@ -192,11 +192,11 @@ int64_t hook(int64_t reserved)
                         // Since we have already sent 5 EVR in the registration process to the foundation. We should deduct 5 EVR from the 50% reg fee.
                         SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, (amount_half - 5)));
                         etxn_reserve(2);
-                        int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                         // Prepare transaction to send 50% of reg fee to foundation account.
                         uint8_t tx_buf[PREPARE_PAYMENT_FOUNDATION_RETURN_SIZE];
-                        PREPARE_PAYMENT_FOUNDATION_RETURN(tx_buf, amt_out_return, fee, foundation_accid);
+                        PREPARE_PAYMENT_FOUNDATION_RETURN(tx_buf, amt_out_return, 0, foundation_accid);
+                        SET_TRANSACTION_FEE(tx_buf, PAYMENT_SIMPLE_TRUSTLINE_FEE_OFFSET);
 
                         uint8_t emithash[HASH_SIZE];
                         if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
@@ -209,8 +209,8 @@ int64_t hook(int64_t reserved)
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
                     // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
                     uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-                    int64_t buy_fee = etxn_fee_base(PREPARE_NFT_BUY_OFFER_SIZE);
-                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, buy_fee, account_field, (uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET));
+                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, 0, account_field, (uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET));
+                    SET_TRANSACTION_FEE(buy_tx_buf, NFT_BUY_OFFER_FEE_OFFSET);
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
                         rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
@@ -590,11 +590,11 @@ int64_t hook(int64_t reserved)
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee));
-                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, foundation_accid, 0, 0);
+                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, 0, foundation_accid, 0, 0);
+                    SET_TRANSACTION_FEE(txn_out, PAYMENT_SIMPLE_TRUSTLINE_FEE_OFFSET);
 
                     uint8_t emithash[32];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -606,21 +606,19 @@ int64_t hook(int64_t reserved)
                     uint8_t uri[39];
                     COPY_BUF_GUARDM(uri, 0, EVR_HOST, 0, 7, 1, 1);
                     COPY_BUF_GUARDM(uri, 7, txid, 0, HASH_SIZE, 1, 2);
-                    fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
 
                     uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
-                    PREPARE_NFT_MINT(nft_txn_out, fee, tffee, taxon, uri, sizeof(uri));
+                    PREPARE_NFT_MINT(nft_txn_out, 0, tffee, taxon, uri, sizeof(uri));
+                    SET_TRANSACTION_FEE(nft_txn_out, NFT_MINT_FEE_OFFSET);
 
                     if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                    // Create sell offer for the nft token.
-                    fee = etxn_fee_base(PREPARE_NFT_SELL_OFFER_SIZE);
-
                     // Amount will be 0.
                     uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
-                    PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, fee, account_field, nft_token_id);
+                    PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, 0, account_field, nft_token_id);
+                    SET_TRANSACTION_FEE(offer_txn_out, NFT_SELL_OFFER_FEE_OFFSET);
 
                     if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
@@ -656,11 +654,11 @@ int64_t hook(int64_t reserved)
                             {
                                 uint8_t amt_out[AMOUNT_BUF_SIZE];
                                 SET_AMOUNT_OUT_GUARD(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee), host_count);
-                                fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                                 // Create the outgoing hosting token txn.
                                 uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                                PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(txn_out, amt_out, fee, host_accid, host_count);
+                                PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(txn_out, amt_out, 0, host_accid, host_count);
+                                SET_TRANSACTION_FEE(txn_out, PAYMENT_SIMPLE_TRUSTLINE_FEE_OFFSET);
 
                                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
                                     rollback(SBUF("Evernode: Emitting txn failed"), 1);
@@ -722,9 +720,9 @@ int64_t hook(int64_t reserved)
                 // Burn the NFT.
                 etxn_reserve(1);
 
-                int64_t fee = etxn_fee_base(PREPARE_NFT_BURN_SIZE);
                 uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-                PREPARE_NFT_BURN(txn_out, fee, data_ptr, hook_accid);
+                PREPARE_NFT_BURN(txn_out, 0, data_ptr, hook_accid);
+                SET_TRANSACTION_FEE(txn_out, NFT_BURN_FEE_OFFSET);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)

@@ -87,7 +87,7 @@ int64_t accept(uint32_t read_ptr, uint32_t read_len, int64_t error_code)
     return 0;
 }
 
-int64_t etxn_fee_base(uint32_t tx_byte_count)
+int64_t etxn_fee_base(uint32_t read_ptr,  uint32_t read_len)
 {
     // Minimum emission fee.
     return 12;

@@ -15,8 +15,8 @@
 #define HOOKAPI_INCLUDED 1
 #include <stdint.h>
 
-int64_t hook(int64_t reserved) __attribute__((used));
-int64_t cbak(int64_t reserved) __attribute__((used));
+int64_t hook(uint32_t reserved) __attribute__((used));
+int64_t cbak(uint32_t reserved) __attribute__((used));
 
 /**
  * Guard function. Each time a loop appears in your code a call to this must be the first branch instruction after the
@@ -148,10 +148,11 @@ extern int64_t etxn_details        (uint32_t write_ptr,  uint32_t write_len);
 
 /**
  * Compute the minimum fee required to be paid by a hypothetically emitted transaction based on its size in bytes.
- * @param The size of the emitted transaction in bytes
- * @return The minimum fee in drops this transaction should pay to succeed
+ * @param read_ptr Pointer to the buffer containing the serialized transaction you intend to emit. The fee field is required but ignored (you may use zero). Use the output of this function to populate the fee field correctly.
+ * @param read_len The length of the tx blob.
+ * @return The amount of the fee in drops recommended for a to-be emitted transaction
  */
-extern int64_t etxn_fee_base       (uint32_t tx_byte_count);
+extern int64_t etxn_fee_base       (uint32_t read_ptr,  uint32_t read_len);
 
 /**
  * Inform xrpld that you will be emitting at most @count@ transactions during the course of this hook execution.
@@ -209,7 +210,7 @@ extern int64_t ledger_last_hash    (uint32_t write_ptr,  uint32_t write_len);
  * @param write_len The length of that buffer
  * @return The number of bytes written into the buffer of a negative integer if an error occured.
  */
-extern int64_t nonce               (uint32_t write_ptr,  uint32_t write_len);
+extern int64_t etxn_nonce          (uint32_t write_ptr,  uint32_t write_len);
 
 
 /**

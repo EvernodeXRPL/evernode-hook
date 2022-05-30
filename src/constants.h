@@ -28,6 +28,7 @@
 #define tfBuyToken 0x00000000
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
+#define ACCOUNT_LEN 20
 
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rnzsYamjXaxAMg4JKp2VWeSWvvuvBaYAzX";

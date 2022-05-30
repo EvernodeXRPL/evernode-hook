@@ -1,169 +1,202 @@
 /**
  * This file contains programmatically generated sf field codes
  */
-#define sfInvalid -1UL
-#define sfGeneric 0UL
-#define sfLedgerEntry 0x27120101UL
-#define sfTransaction 0x27110101UL
-#define sfValidation 0x27130101UL
-#define sfMetadata 0x27140101UL
-#define sfHash 0x50101UL
-#define sfIndex 0x50102UL
-#define sfCloseResolution 0x100001UL
-#define sfMethod 0x100002UL
-#define sfTransactionResult 0x100003UL
-#define sfTickSize 0x100010UL
-#define sfUNLModifyDisabling 0x100011UL
-#define sfLedgerEntryType 0x10001UL
-#define sfTransactionType 0x10002UL
-#define sfSignerWeight 0x10003UL
-#define sfVersion 0x10010UL
-#define sfFlags 0x20002UL
-#define sfSourceTag 0x20003UL
-#define sfSequence 0x20004UL
-#define sfPreviousTxnLgrSeq 0x20005UL
-#define sfLedgerSequence 0x20006UL
-#define sfCloseTime 0x20007UL
-#define sfParentCloseTime 0x20008UL
-#define sfSigningTime 0x20009UL
-#define sfExpiration 0x2000aUL
-#define sfTransferRate 0x2000bUL
-#define sfWalletSize 0x2000cUL
-#define sfOwnerCount 0x2000dUL
-#define sfDestinationTag 0x2000eUL
-#define sfHighQualityIn 0x20010UL
-#define sfHighQualityOut 0x20011UL
-#define sfLowQualityIn 0x20012UL
-#define sfLowQualityOut 0x20013UL
-#define sfQualityIn 0x20014UL
-#define sfQualityOut 0x20015UL
-#define sfStampEscrow 0x20016UL
-#define sfBondAmount 0x20017UL
-#define sfLoadFee 0x20018UL
-#define sfOfferSequence 0x20019UL
-#define sfFirstLedgerSequence 0x2001aUL
-#define sfLastLedgerSequence 0x2001bUL
-#define sfTransactionIndex 0x2001cUL
-#define sfOperationLimit 0x2001dUL
-#define sfReferenceFeeUnits 0x2001eUL
-#define sfReserveBase 0x2001fUL
-#define sfReserveIncrement 0x20020UL
-#define sfSetFlag 0x20021UL
-#define sfClearFlag 0x20022UL
-#define sfSignerQuorum 0x20023UL
-#define sfCancelAfter 0x20024UL
-#define sfFinishAfter 0x20025UL
-#define sfSignerListID 0x20026UL
-#define sfSettleDelay 0x20027UL
-#define sfHookStateCount 0x20028UL
-#define sfHookReserveCount 0x20029UL
-#define sfHookDataMaxSize 0x2002aUL
-#define sfEmitGeneration 0x2002bUL
-#define sfIndexNext 0x30001UL
-#define sfIndexPrevious 0x30002UL
-#define sfBookNode 0x30003UL
-#define sfOwnerNode 0x30004UL
-#define sfBaseFee 0x30005UL
-#define sfExchangeRate 0x30006UL
-#define sfLowNode 0x30007UL
-#define sfHighNode 0x30008UL
-#define sfDestinationNode 0x30009UL
-#define sfCookie 0x3000aUL
-#define sfServerVersion 0x3000bUL
-#define sfEmitBurden 0x3000cUL
-#define sfHookOn 0x30010UL
-#define sfEmailHash 0x40001UL
-#define sfTakerPaysCurrency 0x110001UL
-#define sfTakerPaysIssuer 0x110002UL
-#define sfTakerGetsCurrency 0x110003UL
-#define sfTakerGetsIssuer 0x110004UL
-#define sfLedgerHash 0x50001UL
-#define sfParentHash 0x50002UL
-#define sfTransactionHash 0x50003UL
-#define sfAccountHash 0x50004UL
-#define sfPreviousTxnID 0x50005UL
-#define sfLedgerIndex 0x50006UL
-#define sfWalletLocator 0x50007UL
-#define sfRootIndex 0x50008UL
-#define sfAccountTxnID 0x50009UL
-#define sfEmitParentTxnID 0x5000aUL
-#define sfEmitNonce 0x5000bUL
-#define sfBookDirectory 0x50010UL
-#define sfInvoiceID 0x50011UL
-#define sfNickname 0x50012UL
-#define sfAmendment 0x50013UL
-#define sfTicketID 0x50014UL
-#define sfDigest 0x50015UL
-#define sfPayChannel 0x50016UL
-#define sfConsensusHash 0x50017UL
-#define sfCheckID 0x50018UL
-#define sfValidatedHash 0x50019UL
-#define sfAmount 0x60001UL
-#define sfBalance 0x60002UL
-#define sfLimitAmount 0x60003UL
-#define sfTakerPays 0x60004UL
-#define sfTakerGets 0x60005UL
-#define sfLowLimit 0x60006UL
-#define sfHighLimit 0x60007UL
-#define sfFee 0x60008UL
-#define sfSendMax 0x60009UL
-#define sfDeliverMin 0x6000aUL
-#define sfMinimumOffer 0x60010UL
-#define sfRippleEscrow 0x60011UL
-#define sfDeliveredAmount 0x60012UL
-#define sfPublicKey 0x70001UL
-#define sfMessageKey 0x70002UL
-#define sfSigningPubKey 0x70003UL
-#define sfTxnSignature 0x70004UL
-#define sfSignature 0x70006UL
-#define sfDomain 0x70007UL
-#define sfFundCode 0x70008UL
-#define sfRemoveCode 0x70009UL
-#define sfExpireCode 0x7000aUL
-#define sfCreateCode 0x7000bUL
-#define sfMemoType 0x7000cUL
-#define sfMemoData 0x7000dUL
-#define sfMemoFormat 0x7000eUL
-#define sfFulfillment 0x70010UL
-#define sfCondition 0x70011UL
-#define sfMasterSignature 0x70012UL
-#define sfUNLModifyValidator 0x70013UL
-#define sfNegativeUNLToDisable 0x70014UL
-#define sfNegativeUNLToReEnable 0x70015UL
-#define sfHookData 0x70016UL
-#define sfAccount 0x80001UL
-#define sfOwner 0x80002UL
-#define sfDestination 0x80003UL
-#define sfIssuer 0x80004UL
-#define sfAuthorize 0x80005UL
-#define sfUnauthorize 0x80006UL
-#define sfTarget 0x80007UL
-#define sfRegularKey 0x80008UL
-#define sfPaths 0x120001UL
-#define sfIndexes 0x130001UL
-#define sfHashes 0x130002UL
-#define sfAmendments 0x130003UL
-#define sfTransactionMetaData 0xe0002UL
-#define sfCreatedNode 0xe0003UL
-#define sfDeletedNode 0xe0004UL
-#define sfModifiedNode 0xe0005UL
-#define sfPreviousFields 0xe0006UL
-#define sfFinalFields 0xe0007UL
-#define sfNewFields 0xe0008UL
-#define sfTemplateEntry 0xe0009UL
-#define sfMemo 0xe000aUL
-#define sfSignerEntry 0xe000bUL
-#define sfEmitDetails 0xe000cUL
-#define sfSigner 0xe0010UL
-#define sfMajority 0xe0012UL
-#define sfNegativeUNLEntry 0xe0013UL
-#define sfSigningAccounts  0xf0002UL
-#define sfSigners 0xf0003UL
-#define sfSignerEntries 0xf0004UL
-#define sfTemplate 0xf0005UL
-#define sfNecessary 0xf0006UL
-#define sfSufficient 0xf0007UL
-#define sfAffectedNodes 0xf0008UL
-#define sfMemos 0xf0009UL
-#define sfMajorities 0xf0010UL
-#define sfNegativeUNL 0xf0011UL
+#define sfCloseResolution ((16U << 16U) + 1U)
+#define sfMethod ((16U << 16U) + 2U)
+#define sfTransactionResult ((16U << 16U) + 3U)
+#define sfTickSize ((16U << 16U) + 16U)
+#define sfUNLModifyDisabling ((16U << 16U) + 17U)
+#define sfHookResult ((16U << 16U) + 18U)
+#define sfLedgerEntryType ((1U << 16U) + 1U)
+#define sfTransactionType ((1U << 16U) + 2U)
+#define sfSignerWeight ((1U << 16U) + 3U)
+#define sfTransferFee ((1U << 16U) + 4U)
+#define sfVersion ((1U << 16U) + 16U)
+#define sfHookStateChangeCount ((1U << 16U) + 17U)
+#define sfHookEmitCount ((1U << 16U) + 18U)
+#define sfHookExecutionIndex ((1U << 16U) + 19U)
+#define sfHookApiVersion ((1U << 16U) + 20U)
+#define sfFlags ((2U << 16U) + 2U)
+#define sfSourceTag ((2U << 16U) + 3U)
+#define sfSequence ((2U << 16U) + 4U)
+#define sfPreviousTxnLgrSeq ((2U << 16U) + 5U)
+#define sfLedgerSequence ((2U << 16U) + 6U)
+#define sfCloseTime ((2U << 16U) + 7U)
+#define sfParentCloseTime ((2U << 16U) + 8U)
+#define sfSigningTime ((2U << 16U) + 9U)
+#define sfExpiration ((2U << 16U) + 10U)
+#define sfTransferRate ((2U << 16U) + 11U)
+#define sfWalletSize ((2U << 16U) + 12U)
+#define sfOwnerCount ((2U << 16U) + 13U)
+#define sfDestinationTag ((2U << 16U) + 14U)
+#define sfHighQualityIn ((2U << 16U) + 16U)
+#define sfHighQualityOut ((2U << 16U) + 17U)
+#define sfLowQualityIn ((2U << 16U) + 18U)
+#define sfLowQualityOut ((2U << 16U) + 19U)
+#define sfQualityIn ((2U << 16U) + 20U)
+#define sfQualityOut ((2U << 16U) + 21U)
+#define sfStampEscrow ((2U << 16U) + 22U)
+#define sfBondAmount ((2U << 16U) + 23U)
+#define sfLoadFee ((2U << 16U) + 24U)
+#define sfOfferSequence ((2U << 16U) + 25U)
+#define sfFirstLedgerSequence ((2U << 16U) + 26U)
+#define sfLastLedgerSequence ((2U << 16U) + 27U)
+#define sfTransactionIndex ((2U << 16U) + 28U)
+#define sfOperationLimit ((2U << 16U) + 29U)
+#define sfReferenceFeeUnits ((2U << 16U) + 30U)
+#define sfReserveBase ((2U << 16U) + 31U)
+#define sfReserveIncrement ((2U << 16U) + 32U)
+#define sfSetFlag ((2U << 16U) + 33U)
+#define sfClearFlag ((2U << 16U) + 34U)
+#define sfSignerQuorum ((2U << 16U) + 35U)
+#define sfCancelAfter ((2U << 16U) + 36U)
+#define sfFinishAfter ((2U << 16U) + 37U)
+#define sfSignerListID ((2U << 16U) + 38U)
+#define sfSettleDelay ((2U << 16U) + 39U)
+#define sfTicketCount ((2U << 16U) + 40U)
+#define sfTicketSequence ((2U << 16U) + 41U)
+#define sfTokenTaxon ((2U << 16U) + 42U)
+#define sfMintedTokens ((2U << 16U) + 43U)
+#define sfBurnedTokens ((2U << 16U) + 44U)
+#define sfHookStateCount ((2U << 16U) + 45U)
+#define sfEmitGeneration ((2U << 16U) + 46U)
+#define sfIndexNext ((3U << 16U) + 1U)
+#define sfIndexPrevious ((3U << 16U) + 2U)
+#define sfBookNode ((3U << 16U) + 3U)
+#define sfOwnerNode ((3U << 16U) + 4U)
+#define sfBaseFee ((3U << 16U) + 5U)
+#define sfExchangeRate ((3U << 16U) + 6U)
+#define sfLowNode ((3U << 16U) + 7U)
+#define sfHighNode ((3U << 16U) + 8U)
+#define sfDestinationNode ((3U << 16U) + 9U)
+#define sfCookie ((3U << 16U) + 10U)
+#define sfServerVersion ((3U << 16U) + 11U)
+#define sfOfferNode ((3U << 16U) + 12U)
+#define sfEmitBurden ((3U << 16U) + 13U)
+#define sfHookOn ((3U << 16U) + 16U)
+#define sfHookInstructionCount ((3U << 16U) + 17U)
+#define sfHookReturnCode ((3U << 16U) + 18U)
+#define sfReferenceCount ((3U << 16U) + 19U)
+#define sfEmailHash ((4U << 16U) + 1U)
+#define sfTakerPaysCurrency ((17U << 16U) + 1U)
+#define sfTakerPaysIssuer ((17U << 16U) + 2U)
+#define sfTakerGetsCurrency ((17U << 16U) + 3U)
+#define sfTakerGetsIssuer ((17U << 16U) + 4U)
+#define sfLedgerHash ((5U << 16U) + 1U)
+#define sfParentHash ((5U << 16U) + 2U)
+#define sfTransactionHash ((5U << 16U) + 3U)
+#define sfAccountHash ((5U << 16U) + 4U)
+#define sfPreviousTxnID ((5U << 16U) + 5U)
+#define sfLedgerIndex ((5U << 16U) + 6U)
+#define sfWalletLocator ((5U << 16U) + 7U)
+#define sfRootIndex ((5U << 16U) + 8U)
+#define sfAccountTxnID ((5U << 16U) + 9U)
+#define sfTokenID ((5U << 16U) + 10U)
+#define sfEmitParentTxnID ((5U << 16U) + 11U)
+#define sfEmitNonce ((5U << 16U) + 12U)
+#define sfEmitHookHash ((5U << 16U) + 13U)
+#define sfBookDirectory ((5U << 16U) + 16U)
+#define sfInvoiceID ((5U << 16U) + 17U)
+#define sfNickname ((5U << 16U) + 18U)
+#define sfAmendment ((5U << 16U) + 19U)
+#define sfDigest ((5U << 16U) + 21U)
+#define sfChannel ((5U << 16U) + 22U)
+#define sfConsensusHash ((5U << 16U) + 23U)
+#define sfCheckID ((5U << 16U) + 24U)
+#define sfValidatedHash ((5U << 16U) + 25U)
+#define sfPreviousPageMin ((5U << 16U) + 26U)
+#define sfNextPageMin ((5U << 16U) + 27U)
+#define sfBuyOffer ((5U << 16U) + 28U)
+#define sfSellOffer ((5U << 16U) + 29U)
+#define sfHookStateKey ((5U << 16U) + 30U)
+#define sfHookHash ((5U << 16U) + 31U)
+#define sfHookNamespace ((5U << 16U) + 32U)
+#define sfHookSetTxnID ((5U << 16U) + 33U)
+#define sfAmount ((6U << 16U) + 1U)
+#define sfBalance ((6U << 16U) + 2U)
+#define sfLimitAmount ((6U << 16U) + 3U)
+#define sfTakerPays ((6U << 16U) + 4U)
+#define sfTakerGets ((6U << 16U) + 5U)
+#define sfLowLimit ((6U << 16U) + 6U)
+#define sfHighLimit ((6U << 16U) + 7U)
+#define sfFee ((6U << 16U) + 8U)
+#define sfSendMax ((6U << 16U) + 9U)
+#define sfDeliverMin ((6U << 16U) + 10U)
+#define sfMinimumOffer ((6U << 16U) + 16U)
+#define sfRippleEscrow ((6U << 16U) + 17U)
+#define sfDeliveredAmount ((6U << 16U) + 18U)
+#define sfBrokerFee ((6U << 16U) + 19U)
+#define sfPublicKey ((7U << 16U) + 1U)
+#define sfMessageKey ((7U << 16U) + 2U)
+#define sfSigningPubKey ((7U << 16U) + 3U)
+#define sfTxnSignature ((7U << 16U) + 4U)
+#define sfURI ((7U << 16U) + 5U)
+#define sfSignature ((7U << 16U) + 6U)
+#define sfDomain ((7U << 16U) + 7U)
+#define sfFundCode ((7U << 16U) + 8U)
+#define sfRemoveCode ((7U << 16U) + 9U)
+#define sfExpireCode ((7U << 16U) + 10U)
+#define sfCreateCode ((7U << 16U) + 11U)
+#define sfMemoType ((7U << 16U) + 12U)
+#define sfMemoData ((7U << 16U) + 13U)
+#define sfMemoFormat ((7U << 16U) + 14U)
+#define sfFulfillment ((7U << 16U) + 16U)
+#define sfCondition ((7U << 16U) + 17U)
+#define sfMasterSignature ((7U << 16U) + 18U)
+#define sfUNLModifyValidator ((7U << 16U) + 19U)
+#define sfValidatorToDisable ((7U << 16U) + 20U)
+#define sfValidatorToReEnable ((7U << 16U) + 21U)
+#define sfHookStateData ((7U << 16U) + 22U)
+#define sfHookReturnString ((7U << 16U) + 23U)
+#define sfHookParameterName ((7U << 16U) + 24U)
+#define sfHookParameterValue ((7U << 16U) + 25U)
+#define sfAccount ((8U << 16U) + 1U)
+#define sfOwner ((8U << 16U) + 2U)
+#define sfDestination ((8U << 16U) + 3U)
+#define sfIssuer ((8U << 16U) + 4U)
+#define sfAuthorize ((8U << 16U) + 5U)
+#define sfUnauthorize ((8U << 16U) + 6U)
+#define sfRegularKey ((8U << 16U) + 8U)
+#define sfMinter ((8U << 16U) + 9U)
+#define sfEmitCallback ((8U << 16U) + 10U)
+#define sfHookAccount ((8U << 16U) + 16U)
+#define sfIndexes ((19U << 16U) + 1U)
+#define sfHashes ((19U << 16U) + 2U)
+#define sfAmendments ((19U << 16U) + 3U)
+#define sfTokenOffers ((19U << 16U) + 4U)
+#define sfPaths ((18U << 16U) + 1U)
+#define sfTransactionMetaData ((14U << 16U) + 2U)
+#define sfCreatedNode ((14U << 16U) + 3U)
+#define sfDeletedNode ((14U << 16U) + 4U)
+#define sfModifiedNode ((14U << 16U) + 5U)
+#define sfPreviousFields ((14U << 16U) + 6U)
+#define sfFinalFields ((14U << 16U) + 7U)
+#define sfNewFields ((14U << 16U) + 8U)
+#define sfTemplateEntry ((14U << 16U) + 9U)
+#define sfMemo ((14U << 16U) + 10U)
+#define sfSignerEntry ((14U << 16U) + 11U)
+#define sfNonFungibleToken ((14U << 16U) + 12U)
+#define sfEmitDetails ((14U << 16U) + 13U)
+#define sfHook ((14U << 16U) + 14U)
+#define sfSigner ((14U << 16U) + 16U)
+#define sfMajority ((14U << 16U) + 18U)
+#define sfDisabledValidator ((14U << 16U) + 19U)
+#define sfEmittedTxn ((14U << 16U) + 20U)
+#define sfHookExecution ((14U << 16U) + 21U)
+#define sfHookDefinition ((14U << 16U) + 22U)
+#define sfHookParameter ((14U << 16U) + 23U)
+#define sfHookGrant ((14U << 16U) + 24U)
+#define sfSigners ((15U << 16U) + 3U)
+#define sfSignerEntries ((15U << 16U) + 4U)
+#define sfTemplate ((15U << 16U) + 5U)
+#define sfNecessary ((15U << 16U) + 6U)
+#define sfSufficient ((15U << 16U) + 7U)
+#define sfAffectedNodes ((15U << 16U) + 8U)
+#define sfMemos ((15U << 16U) + 9U)
+#define sfNonFungibleTokens ((15U << 16U) + 10U)
+#define sfHooks ((15U << 16U) + 11U)
+#define sfMajorities ((15U << 16U) + 16U)
+#define sfDisabledValidators ((15U << 16U) + 17U)
+#define sfHookExecutions ((15U << 16U) + 18U)
+#define sfHookParameters ((15U << 16U) + 19U)
+#define sfHookGrants ((15U << 16U) + 20U)
