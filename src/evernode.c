@@ -155,8 +155,8 @@ int64_t hook(uint32_t reserved)
                     uint16_t flags;
                     uint8_t issuer[20], uri[256], uri_len;
                     uint32_t taxon;
-                    if (get_nft(account_field, reg_entry_buf + HOST_TOKEN_ID_OFFSET, &flags, issuer, &taxon, uri, &uri_len) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+                    // if (get_nft(account_field, reg_entry_buf + HOST_TOKEN_ID_OFFSET, &flags, issuer, &taxon, uri, &uri_len) == DOESNT_EXIST)
+                    //     rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
                     // Issuer of the NFT should be the registry contract.
                     int is_issuer_match = 0;
@@ -703,8 +703,8 @@ int64_t hook(uint32_t reserved)
                 uint16_t flags;
                 uint8_t issuer[20], uri[256], uri_len;
                 uint32_t taxon;
-                if (get_nft(hook_accid, data_ptr, &flags, issuer, &taxon, uri, &uri_len) == DOESNT_EXIST)
-                    rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+                // if (get_nft(hook_accid, data_ptr, &flags, issuer, &taxon, uri, &uri_len) == DOESNT_EXIST)
+                //     rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
                 // Check whether the NFT URI is starting with 'evrhost'.
                 BUFFER_EQUAL_STR_GUARD(is_host_de_reg_nft_accept, uri, 7, EVR_HOST, 1);
