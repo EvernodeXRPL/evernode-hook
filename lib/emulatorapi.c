@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define EMIT_DETAILS_LEN 105
+#define EMIT_DETAILS_LEN 138
 #define TRANSACTION_HASH_LEN 32
 #define STATE_KEY_LEN 32
 #define MAX_STATE_VAL_LEN 128
