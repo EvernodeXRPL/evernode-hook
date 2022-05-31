@@ -8,14 +8,27 @@ const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_COLD_WALLET_EVRS = "51609600";
 const EMULATOR_CONFIG_FILE = 'accounts.json';
 
-// End Points --------------------------------------------------------------
+// BEGIN - Endpoints.
+
+/**
+ * NOTE: According to the environment that you are going to work in, the response payload structure of the APIs might be changed.
+ * Hence, you have to change the payload handling points accordingly.
+*/
+
+// NFT DEV NET URLs.
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
-const EMULATOR_DATA_DIR = process.env.EMULATOR_DATA_DIR || path.resolve(__dirname, '../../hook-emulator');
-const EMULATOR_HOOK_DATA_DIR = EMULATOR_DATA_DIR +'/data'
+// Hooks V2 TEST NET URLs.
+// const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v2.xrpl-labs.com/newcreds';
+// const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v2.xrpl-labs.com';
 
-// Account names 
+// END - Endpoints.
+
+const EMULATOR_DATA_DIR = process.env.EMULATOR_DATA_DIR || path.resolve(__dirname, '../../hook-emulator');
+const EMULATOR_HOOK_DATA_DIR = EMULATOR_DATA_DIR + '/data'
+
+// Account names
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
 
 // XRP Pre-defined Special Address -> Blackhole
@@ -43,7 +56,7 @@ function httpPost(url) {
 
 async function main() {
 
-    // BEGIN - Connect to XRPL API 
+    // BEGIN - Connect to XRPL API
     const xrplApi = new XrplApi(RIPPLED_URL);
     await xrplApi.connect();
     // END - Connect to XRPL API
@@ -52,25 +65,34 @@ async function main() {
 
         // BEGIN - Account Creation 
         console.log('Started to create XRP Accounts');
-        const unresolved = accounts.map(async function (item) {
+        const newAccounts = [];
+
+        for (const account of accounts) {
             const resp = await httpPost(FAUCETS_URL);
             const json = JSON.parse(resp);
+
+            // If Hooks TEST NET is used.
+            //const acc = new XrplAccount(json.address, json.secret, { xrplApi: xrplApi });
+
+            // If NFT DEV NET is used.
             const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
 
-            if (item === "ISSUER") {
+            if (account === "ISSUER") {
                 await new Promise(r => setTimeout(r, 5000));
                 await acc.setAccountFields({ Flags: { asfDefaultRipple: true } });
 
                 console.log('Enabled Rippling in ISSUER Account');
             }
 
-            console.log(`Created ${item} Account`);
+            console.log(`Created ${account} Account`);
 
-            return { "name": item, "xrplAcc": acc };
+            newAccounts.push({ "name": account, "xrplAcc": acc });
 
-        });
+            // Keep 10 seconds gap between two API calls.
+            await new Promise(r => setTimeout(r, 10000));
 
-        const newAccounts = await Promise.all(unresolved);
+        }
+
         // END - Account Creation
 
         // 5 second wait in order to sync the accounts
@@ -114,7 +136,7 @@ async function main() {
         console.log(`${PURCHASER_COLD_WALLET_EVRS} EVRs were transferred to Purchaser cold wallet by the Foundation`);
         // END - Transfer Currency
 
-        // ISSUER Blackholing	
+        // ISSUER Blackholing
         await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
         await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster: true } });
 
