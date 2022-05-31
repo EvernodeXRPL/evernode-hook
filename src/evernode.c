@@ -429,9 +429,9 @@ int64_t hook(uint32_t reserved)
                     if (slot_no < 0)
                         rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
 
-                    int64_t token_seq_slot = slot_subfield(slot_no, sfMintedTokens, 0);
+                    int64_t token_seq_slot = slot_subfield(slot_no, sfMintedNFTokens, 0);
                     if (token_seq_slot < 0)
-                        rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
+                        rollback(SBUF("Evernode: Could not find sfMintedNFTokens on hook account"), 20);
 
                     uint8_t token_seq_buf[4];
                     token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);

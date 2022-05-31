@@ -1,6 +1,11 @@
 const fs = require('fs')
 const xrpljs = require('xrpl-hooks');
-const rbc = require('xrpl-binary-codec')
+const rbc = require('xrpl-binary-codec');
+
+const hsfOVERRIDE = 1;
+const hsfNSDELETE = 2;
+const hfsOVERRIDE = 1;
+const hfsNSDELETE = 2;
 
 const server = 'wss://hooks-testnet-v2.xrpl-labs.com';
 
@@ -23,11 +28,11 @@ if (cfg.secret === "") {
 else {
     const api = new xrpljs.Client(server);
 
-    const fee = (tx_blob) => {
+    const fee = (txBlob) => {
         return new Promise((resolve, reject) => {
             let req = { command: 'fee' };
-            if (tx_blob)
-                req['tx_blob'] = tx_blob;
+            if (txBlob)
+                req['tx_blob'] = txBlob;
 
             api.request(req).then(resp => {
                 resolve(resp.result.drops);
@@ -37,22 +42,22 @@ else {
         });
     };
 
-    const feeCompute = (account_seed, txn_org) => {
+    const feeCompute = (accountSeed, txnOrg) => {
         return new Promise((resolve, reject) => {
-            txn_to_send = { ...txn_org };
-            txn_to_send['SigningPubKey'] = '';
+            txnToSend = { ...txnOrg };
+            txnToSend['SigningPubKey'] = '';
 
-            let wal = xrpljs.Wallet.fromSeed(account_seed);
-            api.prepareTransaction(txn_to_send, { wallet: wal }).then(txn => {
+            let wal = xrpljs.Wallet.fromSeed(accountSeed);
+            api.prepareTransaction(txnToSend, { wallet: wal }).then(txn => {
                 let ser = rbc.encode(txn);
                 fee(ser).then(fees => {
-                    let base_drops = fees.base_fee
+                    let baseDrops = fees.base_fee
 
-                    delete txn_to_send['SigningPubKey']
-                    txn_to_send['Fee'] = base_drops + '';
+                    delete txnToSend['SigningPubKey']
+                    txnToSend['Fee'] = baseDrops + '';
 
 
-                    api.prepareTransaction(txn_to_send, { wallet: wal }).then(txn => {
+                    api.prepareTransaction(txnToSend, { wallet: wal }).then(txn => {
                         resolve(txn);
                     }).catch(e => { reject(e); });
                 }).catch(e => { reject(e); });
@@ -93,11 +98,11 @@ else {
             [
                 {
                     Hook: {
-                        CreateCode: binary,
+                        CreateCode: binary.slice(0, 194252),
                         HookOn: '0000000000000000',
                         HookNamespace: 'CAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFE',
                         HookApiVersion: 0,
-                        Flags: 1
+                        Flags: hsfOVERRIDE
                     }
                 }
             ]
