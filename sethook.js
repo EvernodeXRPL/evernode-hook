@@ -7,6 +7,9 @@ const hsfNSDELETE = 2;
 const hfsOVERRIDE = 1;
 const hfsNSDELETE = 2;
 
+// sha256('evernode.org|registry')
+const NAMESPACE = '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0'
+
 const server = 'wss://hooks-testnet-v2.xrpl-labs.com';
 
 const cfgPath = 'hook.cfg';
@@ -100,7 +103,7 @@ else {
                     Hook: {
                         CreateCode: binary.slice(0, 194252),
                         HookOn: '0000000000000000',
-                        HookNamespace: 'CAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFECAFE',
+                        HookNamespace: NAMESPACE,
                         HookApiVersion: 0,
                         Flags: hsfOVERRIDE
                     }

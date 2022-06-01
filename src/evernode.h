@@ -23,17 +23,11 @@
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 // Checks for EVR currency issued by issuer account.
-#define IS_EVR(is_evr, amount_buffer, issuer_accid)    \
-    is_evr = 1;                                        \
-    for (int i = 0; GUARD(20), i < 20; ++i)            \
-    {                                                  \
-        if (amount_buffer[i + 8] != evr_currency[i] || \
-            amount_buffer[i + 28] != issuer_accid[i])  \
-        {                                              \
-            is_evr = 0;                                \
-            break;                                     \
-        }                                              \
-    }
+#define IS_EVR(is_evr, amount_buffer, issuer_accid)            \
+    is_evr = 0;                                                \
+    BUFFER_EQUAL(is_evr, &amount_buffer[8], evr_currency, 20); \
+    if (is_evr)                                                \
+        BUFFER_EQUAL(is_evr, &amount_buffer[28], issuer_accid, 20);
 
 #define ASCII_TO_HEX(val)    \
     {                        \
@@ -78,7 +72,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define STR_TO_UINT(number, str_ptr, str_len)             \
     {                                                     \
         number = 0;                                       \
-        for (int i = 0; GUARD(str_len), i < str_len; i++) \
+        GUARD(20);                                        \
+        for (int i = 0; i < 20; i++)                      \
             number = number * 10 + (int)str_ptr[i] - '0'; \
     }
 

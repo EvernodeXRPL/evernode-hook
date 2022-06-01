@@ -16,12 +16,12 @@ const EMULATOR_CONFIG_FILE = 'accounts.json';
 */
 
 // NFT DEV NET URLs.
-const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
-const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
+// const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://faucet-nft.ripple.com/accounts';
+// const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Hooks V2 TEST NET URLs.
-// const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v2.xrpl-labs.com/newcreds';
-// const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v2.xrpl-labs.com';
+const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v2.xrpl-labs.com/newcreds';
+const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v2.xrpl-labs.com';
 
 // END - Endpoints.
 
@@ -72,10 +72,10 @@ async function main() {
             const json = JSON.parse(resp);
 
             // If Hooks TEST NET is used.
-            //const acc = new XrplAccount(json.address, json.secret, { xrplApi: xrplApi });
+            const acc = new XrplAccount(json.address, json.secret, { xrplApi: xrplApi });
 
             // If NFT DEV NET is used.
-            const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
+            // const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
 
             if (account === "ISSUER") {
                 await new Promise(r => setTimeout(r, 5000));
