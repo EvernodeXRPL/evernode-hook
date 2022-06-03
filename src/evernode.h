@@ -72,8 +72,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define STR_TO_UINT(number, str_ptr, str_len)             \
     {                                                     \
         number = 0;                                       \
-        GUARD(20);                                        \
-        for (int i = 0; i < 20; i++)                      \
+        for (int i = 0; GUARD(20), i < 20; i++)           \
             number = number * 10 + (int)str_ptr[i] - '0'; \
     }
 

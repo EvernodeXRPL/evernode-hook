@@ -259,8 +259,7 @@ int64_t hook(uint32_t reserved)
                     uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
                     uint8_t *active_instances_ptr, *version_ptr;
                     int info_updated = 0;
-                    GUARD(data_len);
-                    for (int i = 0; i < data_len; ++i)
+                    for (int i = 0; GUARD(data_len), i < data_len; ++i)
                     {
                         uint8_t *str_ptr = data_ptr + i;
                         // Colon means this is an end of the section.
@@ -295,69 +294,68 @@ int64_t hook(uint32_t reserved)
                     }
 
                     // All data fields are optional in update info transaction. Update state only if an information update is detected.
-                    // if (info_updated)
-                    // {
-                    //     uint32_t active_instances;
-                    //     STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
+                    if (info_updated)
+                    {
+                        uint32_t active_instances;
+                        STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
 
-                    // TRACEVAR(active_instances);
+                        TRACEVAR(active_instances);
 
-                    // // Populate the values to the buffer.
-                    // UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
+                        // Populate the values to the buffer.
+                        UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
 
-                    // if (version_ptr != 0) // Version update detected.
-                    // {
-                    //     uint8_t *major_ptr, *minor_ptr, *patch_ptr;
-                    //     uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
-                    //     GUARD(MAX_MEMO_DATA_LEN);
-                    //     for (int i = 0; i < version_len; ++i)
-                    //     {
-                    //         uint8_t *str_ptr = version_ptr + i;
+                        if (version_ptr != 0) // Version update detected.
+                        {
+                            uint8_t *major_ptr, *minor_ptr, *patch_ptr;
+                            uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
+                            for (int i = 0; GUARD(version_len), i < version_len; ++i)
+                            {
+                                uint8_t *str_ptr = version_ptr + i;
 
-                    //         // Dot means this is an end of the section.
-                    //         // If so, we start reading the new section and reset the write index.
-                    //         // Stop reading if an empty byte is reached.
-                    //         if (*str_ptr == '.')
-                    //         {
-                    //             version_section++;
-                    //             continue;
-                    //         }
-                    //         else if (*str_ptr == 0)
-                    //             break;
+                                // Dot means this is an end of the section.
+                                // If so, we start reading the new section and reset the write index.
+                                // Stop reading if an empty byte is reached.
+                                if (*str_ptr == '.')
+                                {
+                                    version_section++;
+                                    continue;
+                                }
+                                else if (*str_ptr == 0)
+                                    break;
 
-                    //         if (version_section == 0) // Major
-                    //         {
-                    //             if (major_len == 0)
-                    //                 major_ptr = str_ptr;
+                                if (version_section == 0) // Major
+                                {
+                                    if (major_len == 0)
+                                        major_ptr = str_ptr;
 
-                    //             major_len++;
-                    //         }
-                    //         else if (version_section == 1) // Minor
-                    //         {
-                    //             if (minor_len == 0)
-                    //                 minor_ptr = str_ptr;
+                                    major_len++;
+                                }
+                                else if (version_section == 1) // Minor
+                                {
+                                    if (minor_len == 0)
+                                        minor_ptr = str_ptr;
 
-                    //             minor_len++;
-                    //         }
-                    //         else if (version_section == 2) // Patch
-                    //         {
-                    //             if (patch_len == 0)
-                    //                 patch_ptr = str_ptr;
+                                    minor_len++;
+                                }
+                                else if (version_section == 2) // Patch
+                                {
+                                    if (patch_len == 0)
+                                        patch_ptr = str_ptr;
 
-                    //             patch_len++;
-                    //         }
-                    //     }
-                    // if (major_ptr == 0 || minor_ptr == 0 || patch_ptr == 0)
-                    //     rollback(SBUF("Evernode: Invalid version format."), 1);
+                                    patch_len++;
+                                }
+                            }
+                            if (major_ptr == 0 || minor_ptr == 0 || patch_ptr == 0)
+                                rollback(SBUF("Evernode: Invalid version format."), 1);
 
-                    //     STR_TO_UINT(host_addr[HOST_VERSION_OFFSET], major_ptr, major_len);
-                    //     STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 1], minor_ptr, minor_len);
-                    //     STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 2], patch_ptr, patch_len);
-                    // }
+                            STR_TO_UINT(host_addr[HOST_VERSION_OFFSET], major_ptr, major_len);
+                            STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 1], minor_ptr, minor_len);
+                            STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 2], patch_ptr, patch_len);
+                        }
 
-                    //     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    //         rollback(SBUF("Evernode: Could not set state for info update."), 1);
-                    // }
+                        if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for info update."), 1);
+                    }
 
                     accept(SBUF("Evernode: Update host info successful."), 0);
                 }
@@ -462,8 +460,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
                     uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, cpu_model_len = 0, cpu_count_len = 0, cpu_speed_len = 0, description_len = 0;
 
-                    GUARD(data_len - 2);
-                    for (int i = 2; i < data_len; ++i)
+                    for (int i = 2; GUARD(data_len - 2), i < data_len; ++i)
                     {
                         uint8_t *str_ptr = data_ptr + i;
                         // Colon means this is an end of the section.
@@ -530,18 +527,18 @@ int64_t hook(uint32_t reserved)
                     // Take the unsigned int values.
                     uint16_t cpu_count, cpu_speed;
                     uint32_t cpu_microsec, ram_mb, disk_mb, total_ins_count;
-                    //     STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
-                    //     STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
-                    //     STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
-                    //     STR_TO_UINT(total_ins_count, total_ins_count_ptr, total_ins_count_len);
-                    //     STR_TO_UINT(cpu_count, cpu_count_ptr, cpu_count_len);
-                    //     STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
+                    STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
+                    STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
+                    STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
+                    STR_TO_UINT(total_ins_count, total_ins_count_ptr, total_ins_count_len);
+                    STR_TO_UINT(cpu_count, cpu_count_ptr, cpu_count_len);
+                    STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
 
                     // Populate tvalues to the state address buffer and set state.
                     CLEAR_BUF(host_addr, HOST_RESERVED_OFFSET, 8);
-                    //     COPY_BUF(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len);
-                    //     if (description_len < DESCRIPTION_LEN)
-                    //         CLEAR_BUF(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len);
+                    COPY_BUF(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len);
+                    if (description_len < DESCRIPTION_LEN)
+                        CLEAR_BUF(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len);
                     INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                     UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                     UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
@@ -551,9 +548,9 @@ int64_t hook(uint32_t reserved)
 
                     // Populate the values to the token id buffer and set state.
                     COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
-                    //     COPY_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
-                    //     if (cpu_model_len < CPU_MODEl_NAME_LEN)
-                    //         CLEAR_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
+                    COPY_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
+                    if (cpu_model_len < CPU_MODEl_NAME_LEN)
+                        CLEAR_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);

@@ -4,7 +4,7 @@ all: build upload
 
 build:
 	mkdir -p build
-	wasmcc ./src/evernode.c -o ./build/evernode.wasm -O1 -Wl,--allow-undefined -I../
+	wasmcc ./src/evernode.c -o ./build/evernode.wasm -O2 -Wl,--allow-undefined -I../
 	hook-cleaner ./build/evernode.wasm
 
 upload:
