@@ -1,6 +1,5 @@
-/**
- * This file contains programmatically generated sf field codes
- */
+// For documentation please see: https://xrpl-hooks.readme.io/reference/
+// Generated using generate_sfcodes.sh
 #define sfCloseResolution ((16U << 16U) + 1U)
 #define sfMethod ((16U << 16U) + 2U)
 #define sfTransactionResult ((16U << 16U) + 3U)

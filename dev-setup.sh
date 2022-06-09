@@ -13,6 +13,9 @@ cd $tmp
 curl https://raw.githubusercontent.com/wasienv/wasienv/master/install.sh | bash
 source /home/chalith/.wasienv/wasienv.sh
 
+# Installing binaryen.
+! command -v wasm-opt /dev/null && sudo apt install binaryen
+
 # Installing hook-cleaner.
 git clone https://github.com/RichardAH/hook-cleaner-c.git
 cd hook-cleaner-c
