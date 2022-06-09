@@ -23,11 +23,17 @@
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 // Checks for EVR currency issued by issuer account.
-#define IS_EVR(is_evr, amount_buffer, issuer_accid)            \
-    is_evr = 0;                                                \
-    BUFFER_EQUAL(is_evr, &amount_buffer[8], evr_currency, 20); \
-    if (is_evr)                                                \
-        BUFFER_EQUAL(is_evr, &amount_buffer[28], issuer_accid, 20);
+#define IS_EVR(is_evr, amount_buffer, issuer_accid)    \
+    is_evr = 1;                                        \
+    for (int i = 0; GUARD(20), i < 20; ++i)            \
+    {                                                  \
+        if (amount_buffer[i + 8] != evr_currency[i] || \
+            amount_buffer[i + 28] != issuer_accid[i])  \
+        {                                              \
+            is_evr = 0;                                \
+            break;                                     \
+        }                                              \
+    }
 
 #define ASCII_TO_HEX(val)    \
     {                        \
@@ -129,6 +135,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     {                                                                                               \
         for (int i = 0; GUARDM((n * (max_len + 1)), m), i < len; ++i)                               \
             lhsbuf[lhsbuf_spos + i] = rhsbuf[rhsbuf_spos + i];                                      \
+    }
+
+#define CLEAR_BUF_NON_CONST_LEN(buf, buf_spos, len, max_len) \
+    {                                                        \
+        for (int i = 0; GUARD(max_len), i < len; ++i)        \
+            buf[buf_spos + i] = 0;                           \
     }
 
 // when using this macro buf1len may be dynamic but buf2len must be static
@@ -272,25 +284,25 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         buf_out += ENCODE_FIELDS_SIZE;      \
     }
 
-#define ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m)         \
-    {                                                                             \
-        uint8_t *ptr = (uint8_t *)&data;                                          \
-        uint8_t uf = field;                                                       \
-        buf_out[0] = 0x70U + (uf & 0x0FU);                                        \
-        if (data_len <= 192) /*Data legth is represented with 2 bytes if (>192)*/ \
-        {                                                                         \
-            buf_out[1] = data_len;                                                \
-            COPY_BUF_GUARDM(buf_out, 2, ptr, 0, data_len, n, m);                  \
-            buf_out += (2 + data_len);                                            \
-        }                                                                         \
-        else                                                                      \
-        {                                                                         \
-            buf_out[0] = 0x70U + (uf & 0x0FU);                                    \
-            buf_out[1] = ((data_len - 193) / 256) + 193;                          \
-            buf_out[2] = data_len - (((buf_out[1] - 193) * 256) + 193);           \
-            COPY_BUF_GUARDM(buf_out, 3, ptr, 0, data_len, n, m);                  \
-            buf_out += (3 + data_len);                                            \
-        }                                                                         \
+#define ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m)                         \
+    {                                                                                             \
+        uint8_t *ptr = (uint8_t *)&data;                                                          \
+        uint8_t uf = field;                                                                       \
+        buf_out[0] = 0x70U + (uf & 0x0FU);                                                        \
+        if (data_len <= 192) /*Data legth is represented with 2 bytes if (>192)*/                 \
+        {                                                                                         \
+            buf_out[1] = data_len;                                                                \
+            COPY_BUF_NON_CONST_LEN_GUARDM(buf_out, 2, ptr, 0, data_len, MAX_MEMO_DATA_LEN, n, m); \
+            buf_out += (2 + data_len);                                                            \
+        }                                                                                         \
+        else                                                                                      \
+        {                                                                                         \
+            buf_out[0] = 0x70U + (uf & 0x0FU);                                                    \
+            buf_out[1] = ((data_len - 193) / 256) + 193;                                          \
+            buf_out[2] = data_len - (((buf_out[1] - 193) * 256) + 193);                           \
+            COPY_BUF_NON_CONST_LEN_GUARDM(buf_out, 3, ptr, 0, data_len, MAX_MEMO_DATA_LEN, n, m); \
+            buf_out += (3 + data_len);                                                            \
+        }                                                                                         \
     }
 
 #define _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m) \

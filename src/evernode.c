@@ -162,10 +162,10 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
                     // Issuer of the NFT should be the registry contract.
-                    int is_issuer_match = 0;
-                    BUFFER_EQUAL(is_issuer_match, issuer, hook_accid, 20);
-                    if (!is_issuer_match)
-                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                    // int is_issuer_match = 0;
+                    // BUFFER_EQUAL(is_issuer_match, issuer, hook_accid, 20);
+                    // if (!is_issuer_match)
+                    //     rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
                     // Delete registration entries.
                     if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -306,7 +306,7 @@ int64_t hook(uint32_t reserved)
                         // Populate the values to the buffer.
                         UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
 
-                        if (version_ptr != 0) // Version update detected.
+                        if (version_len > 0) // Version update detected.
                         {
                             uint8_t *major_ptr, *minor_ptr, *patch_ptr;
                             uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
@@ -424,7 +424,7 @@ int64_t hook(uint32_t reserved)
 
                     // Generate the NFT token id.
 
-                    // Take the account secret from keylet.
+                    // Take the account token squence from keylet.
                     uint8_t keylet[34];
                     if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
                         rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
@@ -434,12 +434,15 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
 
                     int64_t token_seq_slot = slot_subfield(slot_no, sfMintedNFTokens, 0);
-                    if (token_seq_slot < 0)
-                        rollback(SBUF("Evernode: Could not find sfMintedNFTokens on hook account"), 20);
-
-                    uint8_t token_seq_buf[4];
-                    token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
-                    uint32_t token_seq = UINT32_FROM_BUF(token_seq_buf);
+                    uint32_t token_seq = 0;
+                    if (token_seq_slot >= 0)
+                    {
+                        uint8_t token_seq_buf[4];
+                        token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
+                        token_seq = UINT32_FROM_BUF(token_seq_buf);
+                    }
+                    else if (token_seq_slot != DOESNT_EXIST)
+                        rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
                     TRACEVAR(token_seq);
 
                     // Transfer fee and Taxon will be 0 for the minted NFT.
@@ -448,7 +451,7 @@ int64_t hook(uint32_t reserved)
 
                     uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
                     GENERATE_NFT_TOKEN_ID(nft_token_id, tffee, hook_accid, taxon, token_seq);
-                    trace(SBUF("NFT token id:"), SBUF(nft_token_id), 1);
+                    trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
                     TOKEN_ID_KEY(nft_token_id);
 
@@ -463,7 +466,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
                     uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, cpu_model_len = 0, cpu_count_len = 0, cpu_speed_len = 0, description_len = 0;
 
-                    for (int i = 2; GUARD(data_len - 2), i < data_len; ++i)
+                    for (int i = 2; GUARD(MAX_MEMO_DATA_LEN), i < data_len; ++i)
                     {
                         uint8_t *str_ptr = data_ptr + i;
                         // Colon means this is an end of the section.
@@ -550,10 +553,10 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
                     // Populate the values to the token id buffer and set state.
-                    COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
+                    COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE, MAX_GUARD_LEN, 1, 1);
                     COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
                     if (cpu_model_len < CPU_MODEl_NAME_LEN)
-                        CLEAR_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
+                        CLEAR_BUF_NON_CONST_LEN(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len, CPU_MODEl_NAME_LEN);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
@@ -706,6 +709,8 @@ int64_t hook(uint32_t reserved)
                 // Check the ownership of the NFT to the hook before proceeding.
                 uint8_t issuer[20], uri[64], uri_len;
                 uint32_t taxon, flags;
+                // Since this is not yet accepted nft won't be owned by the hook.
+                // Need to do this after this got accepted Ex: hook_again.
                 GET_NFT(hook_accid, data_ptr, issuer, uri, uri_len, taxon, flags);
                 int nft_invalid = 0;
                 IS_BUF_EMPTY(nft_invalid, uri);

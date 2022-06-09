@@ -478,7 +478,8 @@ int out_len = 0;\
         *(uint64_t*)(buf_out+2) = 0;\
         *(uint64_t*)(buf_out+10) = 0;\
         *(uint64_t*)(buf_out+18) = 0;\
-        *(uint64_t*)(buf_out+25) = 0;\
+        *(uint64_t*)(buf_out+26) = 0;\
+        buf_out[34] = 0;\
         buf_out += ENCODE_SIGNING_PUBKEY_NULL_SIZE;\
     }
 
