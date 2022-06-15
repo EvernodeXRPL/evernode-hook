@@ -156,17 +156,18 @@ int64_t hook(uint32_t reserved)
                         // Check the ownership of the NFT to this user before proceeding.
                         int nft_exists;
                         uint8_t issuer[20], uri[64], uri_len;
-                        uint32_t taxon, flags;
+                        uint32_t taxon, nft_seq;
+                        uint16_t flags, tffee;
                         uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
-                        GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags);
+                        GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
                         if (!nft_exists)
                             rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
                         // Issuer of the NFT should be the registry contract.
-                        // int is_issuer_match = 0;
-                        // BUFFER_EQUAL(is_issuer_match, issuer, hook_accid, 20);
-                        // if (!is_issuer_match)
-                        //     rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                        int is_issuer_match = 0;
+                        BUFFER_EQUAL(is_issuer_match, issuer, hook_accid, 20);
+                        if (!is_issuer_match)
+                            rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
                         // Delete registration entries.
                         if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -719,8 +720,9 @@ int64_t hook(uint32_t reserved)
                         // Check the ownership of the NFT to the hook before proceeding.
                         int nft_exists;
                         uint8_t issuer[20], uri[64], uri_len;
-                        uint32_t taxon, flags;
-                        GET_NFT(hook_accid, data_ptr, nft_exists, issuer, uri, uri_len, taxon, flags);
+                        uint32_t taxon, nft_seq;
+                        uint16_t flags, tffee;
+                        GET_NFT(hook_accid, data_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
                         if (!nft_exists)
                             rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
