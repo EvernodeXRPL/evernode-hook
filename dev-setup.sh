@@ -11,7 +11,7 @@ cd $tmp
 
 # Installing web assembly compiler.
 curl https://raw.githubusercontent.com/wasienv/wasienv/master/install.sh | bash
-source /home/chalith/.wasienv/wasienv.sh
+source ~/.wasienv/wasienv.sh
 
 # Installing binaryen.
 ! command -v wasm-opt /dev/null && sudo apt install binaryen
