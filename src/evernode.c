@@ -644,14 +644,14 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
                     TRACEVAR(conf_max_reg);
 
-                    // int max_reached = 0;
-                    // if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
-                    // {
-                    //     max_reached = 1;
-                    //     etxn_reserve(host_count + 3);
-                    // }
-                    // else
-                    etxn_reserve(3);
+                    int max_reached = 0;
+                    if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
+                    {
+                        max_reached = 1;
+                        etxn_reserve(host_count + 3);
+                    }
+                    else
+                        etxn_reserve(3);
 
                     // Froward 5 EVRs to foundation.
                     uint8_t foundation_accid[20];
@@ -691,66 +691,67 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                    // if (max_reached)
-                    // {
-                    //     uint8_t state_buf[8] = {0};
+                    if (max_reached)
+                    {
+                        uint8_t state_buf[8] = {0};
 
-                    //     host_reg_fee /= 2;
-                    //     UINT64_TO_BUF(state_buf, host_reg_fee);
-                    //     if (state_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE)) < 0)
-                    //         rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
+                        host_reg_fee /= 2;
+                        UINT64_TO_BUF(state_buf, host_reg_fee);
+                        if (state_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE)) < 0)
+                            rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
 
-                    //     conf_max_reg *= 2;
-                    //     UINT64_TO_BUF(state_buf, conf_max_reg);
-                    //     if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
-                    //         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
+                        conf_max_reg *= 2;
+                        UINT64_TO_BUF(state_buf, conf_max_reg);
+                        if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
+                            rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
 
-                    //     // Refund the EVR balance.
-                    //     const int outer_guard = token_seq + 1;
-                    //     for (int i = 0; GUARD(outer_guard), i < outer_guard; ++i)
-                    //     {
-                    //         // Loop through all the possible token sequences and generate the token ids.
-                    //         uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
-                    //         GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tffee, hook_accid, taxon, i, outer_guard);
+                        // Refund the EVR balance.
+                        for (int i = 0; GUARD(DEF_MAX_REG), i < token_seq + 1; ++i)
+                        {
+                            // Loop through all the possible token sequences and generate the token ids.
+                            uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
+                            GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tffee, hook_accid, taxon, i, DEF_MAX_REG);
 
-                    //         // If the token id exists in the state (host is still registered),
-                    //         // Rebate the halved registration fee.
-                    //         TOKEN_ID_KEY_GUARD(lookup_id, outer_guard);
-                    //         uint8_t host_accid[20] = {0};
-                    //         if (state(SBUF(host_accid), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
-                    //         {
-                    //             uint8_t amt_out[AMOUNT_BUF_SIZE];
-                    //             SET_AMOUNT_OUT_GUARD(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee), host_count);
+                            // If the token id exists in the state (host is still registered),
+                            // Rebate the halved registration fee.
+                            TOKEN_ID_KEY_GUARD(lookup_id, DEF_MAX_REG);
+                            uint8_t token_id[TOKEN_ID_VAL_SIZE];
+                            if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
+                            {
+                                uint8_t *host_accid = &token_id;
+                                uint8_t amt_out[AMOUNT_BUF_SIZE];
+                                SET_AMOUNT_OUT_GUARD(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee), DEF_MAX_REG);
 
-                    //             // Create the outgoing hosting token txn.
-                    //             uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    //             PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(txn_out, amt_out, 0, host_accid, host_count);
-                    //             SET_TRANSACTION_FEE(txn_out, PAYMENT_SIMPLE_TRUSTLINE_FEE_OFFSET);
+                                // Create the outgoing hosting token txn.
+                                uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+                                PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(txn_out, amt_out, 0, host_accid, DEF_MAX_REG);
+                                SET_TRANSACTION_FEE(txn_out, PAYMENT_SIMPLE_TRUSTLINE_FEE_OFFSET);
 
-                    //             if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    //                 rollback(SBUF("Evernode: Emitting txn failed"), 1);
-                    //             trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                                trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                    //             // Updating the current reg fee in the host state.
-                    //             HOST_ADDR_KEY_GUARD(host_accid, host_count);
-                    //             // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    //             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
-                    //             uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
-                    //             if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    //                 rollback(SBUF("Evernode: Could not get host address state."), 1);
-                    //             UINT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
-                    //             if (state_set(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    //                 rollback(SBUF("Evernode: Could not update host address state."), 1);
-                    //         }
-                    //     }
-                    // }
+                                // Updating the current reg fee in the host state.
+                                HOST_ADDR_KEY_GUARD(host_accid, DEF_MAX_REG);
+                                // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                                uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
+                                if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                                    rollback(SBUF("Evernode: Could not get host address state."), 1);
+                                UINT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                                if (state_set(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                                    rollback(SBUF("Evernode: Could not update host address state."), 1);
+                            }
+                        }
+                    }
 
                     accept(SBUF("Host registration successful."), 0);
                 }
             }
         }
         else if (txn_type == ttPAYMENT)
-        {}
+        {
+        }
     }
 
     accept(SBUF("Evernode: Transaction is not handled."), 0);

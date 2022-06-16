@@ -27,7 +27,6 @@
 #define tfSellToken 0x00000001
 #define tfBuyToken 0x00000000
 
-#define HOST_COUNT_GUARD 400
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 #define MAX_UINT_STR_LEN 20
 #define MAX_MEMO_DATA_LEN 454
