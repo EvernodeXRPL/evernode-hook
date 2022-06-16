@@ -205,20 +205,20 @@ class IndexManager {
         buf.writeUInt8(2);
         const nfTokenIdBuf = Buffer.from(nfTokenId, "hex");
         const compareBuf = (Buffer.concat([Buffer.from("EVR", "utf-8"), buf, nfTokenIdBuf.slice(4, 16)]));
-        const states = (await this.#registryClient.getHookStates()).filter(s => s.HookStateKey.startsWith(compareBuf.toString('hex').toUpperCase()));
-        return states.map(s => s.HookStateKey);
+        const states = (await this.#registryClient.getHookStates()).filter(s => s.key.startsWith(compareBuf.toString('hex').toUpperCase()));
+        return states.map(s => s.key);
     }
 
     async #persisit(affectedStates, doRecover = false) {
 
         const hookStates = await this.#registryClient.getHookStates();
-        const rawStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.HookStateKey));
+        const rawStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.key));
         if (!rawStates) {
             console.log("No state entries were found for this hook account");
             return;
         }
 
-        const states = rawStates.map(s => { return { key: s.HookStateKey, value: s.HookStateData } });
+        const states = rawStates.map(s => { return { key: s.key, value: s.data } });
 
         let indexUpdates = {
             set: {
