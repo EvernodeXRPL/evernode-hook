@@ -859,7 +859,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         nft_exists = 0;                                                                                                  \
         uint8_t lo_keylet[34];                                                                                           \
         uint8_t buf[32] = {0};                                                                                           \
-        COPY_BUF_GUARDM(buf, 0, account, 0, ACCOUNT_LEN, 1, 1);                                                          \
+        COPY_BUF_GUARDM(buf, 0, account, 0, ACCOUNT_ID_SIZE, 1, 1);                                                      \
         lo_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                    \
         lo_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                    \
         COPY_BUF_GUARDM(lo_keylet, 2, buf, 0, 32, 1, 2);                                                                 \
@@ -872,8 +872,8 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                                                                                                                          \
         uint8_t hi_keylet[34];                                                                                           \
         uint8_t id[32];                                                                                                  \
-        COPY_BUF_GUARDM(id, 0, account, 0, ACCOUNT_LEN, 1, 4);                                                           \
-        COPY_BUF_GUARDM(id, ACCOUNT_LEN, page_mask, ACCOUNT_LEN, 34, 1, 5);                                              \
+        COPY_BUF_GUARDM(id, 0, account, 0, ACCOUNT_ID_SIZE, 1, 4);                                                       \
+        COPY_BUF_GUARDM(id, ACCOUNT_ID_SIZE, page_mask, ACCOUNT_ID_SIZE, 34, 1, 5);                                      \
         hi_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                    \
         hi_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                    \
         COPY_BUF_GUARDM(hi_keylet, 2, id, 0, 32, 1, 6);                                                                  \
@@ -917,7 +917,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             COPY_BUF_NON_CONST_LEN_GUARDM(nft_uri, 0, nft_uri, 1, nft_uri_len + 1, sizeof(nft_uri), 1, 9);               \
             nft_flags = UINT16_FROM_BUF(cur_id);                                                                         \
             nft_tffee = UINT16_FROM_BUF(cur_id + 2);                                                                     \
-            COPY_BUF_GUARDM(nft_issuer, 0, cur_id, 4, ACCOUNT_LEN, 1, 10);                                               \
+            COPY_BUF_GUARDM(nft_issuer, 0, cur_id, 4, ACCOUNT_ID_SIZE, 1, 10);                                           \
             uint32_t taxon = UINT32_FROM_BUF(cur_id + 24);                                                               \
             nft_seq = UINT32_FROM_BUF(cur_id + 28);                                                                      \
             nft_taxon = taxon ^ ((NFT_TAXON_M * nft_seq) + NFT_TAXON_C);                                                 \

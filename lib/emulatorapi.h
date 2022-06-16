@@ -408,6 +408,6 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
 #define COMPARE_GREATER 4U
 
 #include "sfcodes.h"
-#include "hookmacro.h"
+#include "macro.h"
 
 #endif
