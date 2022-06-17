@@ -62,6 +62,7 @@ const AFFECTED_HOOK_STATE_MAP = {
     ],
     "HOST_POST_DEREG": [
         // NOTE: Repetetative State keys
+        // evernode.HookStateKeys.PREFIX_HOST_ADDR
         // evernode.HookStateKeys.PREFIX_HOST_TOKENID
     ]
 }
@@ -133,7 +134,8 @@ class IndexManager {
     // To update index, if the the service is down for a long period.
 
     async #recover() {
-        await this.#persisit([], true);
+        const statesInIndex = (await this.#firestoreManager.getHosts()).map(h => h.id);
+        await this.#persisit(statesInIndex, true);
     }
 
     // To update index on the go.
@@ -143,10 +145,12 @@ class IndexManager {
         let affectedStates = [];
         let stateKeyTokenIdArr = [];
         let stateKeyHostAddrId = null;
-        const hostTrxs = [evernode.MemoTypes.HOST_REG, evernode.MemoTypes.HOST_DEREG, evernode.MemoTypes.HOST_UPDATE_INFO, evernode.MemoTypes.HEARTBEAT];
+        let stateKeyTokenId = null;
+
+        const hostTrxs = [evernode.MemoTypes.HOST_REG, evernode.MemoTypes.HOST_DEREG, evernode.MemoTypes.HOST_UPDATE_INFO, evernode.MemoTypes.HEARTBEAT, evernode.MemoTypes.HOST_POST_DEREG];
 
         const memoType = trx.Memos[0].type;
-        console.log(`Triggered a Tranasaction - ${trx.TransactionType} -> ${memoType}`);
+        console.log(`Triggered a Transaction - ${trx.TransactionType} -> ${memoType}`);
 
         // HOST_ADDR State Key
         if (hostTrxs.includes(memoType)) {
@@ -167,14 +171,24 @@ class IndexManager {
             case evernode.MemoTypes.HOST_REG:
                 affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_REG'];
                 affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
-                const regNft = (await this.#xrplAcc.getNfts()).find(n => n.URI.startsWith(evernode.EvernodeConstants.NFT_PREFIX_HEX) && n.Issuer === this.#xrplAcc.address);
+                const uri = `${evernode.EvernodeConstants.NFT_PREFsIX_HEX}${trx.hash}`;
+
+                // 5 seconds wait untill the NFT is available.
+                await new Promise(r => setTimeout(r, 5000));
+                let regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
+
                 if (!regNft) {
                     const hostXrplAcc = new evernode.XrplAccount(trx.Account);
-                    regNft = (await hostXrplAcc.getNfts()).find(n => n.URI.startsWith(evernode.EvernodeConstants.NFT_PREFIX_HEX) && n.Issuer === this.#xrplAcc.address);
+                    const nfts = await hostXrplAcc.getNfts();
+                    regNft = (nfts).find(n => (n.URI === uri));
+                    if (!regNft) {
+                        // Exit if NFT was not found.
+                        break;
+                    }
                 }
 
-                stateKeyTokenIdArr = await this.#generateTokenIdStateKey(regNft.NFTokenID);
-                affectedStates = affectedStates.concat(stateKeyTokenIdArr);
+                stateKeyTokenId = await this.#generateTokenIdStateKey(regNft.NFTokenID);
+                affectedStates.push(stateKeyTokenId);
                 break;
             case evernode.MemoTypes.HOST_DEREG:
                 affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_DEREG'];
@@ -190,9 +204,11 @@ class IndexManager {
                 break;
             case evernode.MemoTypes.HOST_POST_DEREG:
                 affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_POST_DEREG'];
+                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+
                 const nftTokenId = trx.Memos[0].data;
-                stateKeyTokenIdArr = await this.#generateTokenIdStateKey(nftTokenId);
-                affectedStates = affectedStates.concat(stateKeyTokenIdArr);
+                stateKeyTokenId = await this.#generateTokenIdStateKey(nftTokenId);
+                affectedStates.push(stateKeyTokenId);
                 break;
         }
 
@@ -204,9 +220,8 @@ class IndexManager {
         let buf = Buffer.allocUnsafe(1);
         buf.writeUInt8(2);
         const nfTokenIdBuf = Buffer.from(nfTokenId, "hex");
-        const compareBuf = (Buffer.concat([Buffer.from("EVR", "utf-8"), buf, nfTokenIdBuf.slice(4, 16)]));
-        const states = (await this.#registryClient.getHookStates()).filter(s => s.key.startsWith(compareBuf.toString('hex').toUpperCase()));
-        return states.map(s => s.key);
+        const stateKeyBuf = (Buffer.concat([Buffer.from("EVR", "utf-8"), buf, nfTokenIdBuf.slice(4, 32)]));
+        return stateKeyBuf.toString('hex').toUpperCase();
     }
 
     async #persisit(affectedStates, doRecover = false) {
@@ -218,7 +233,12 @@ class IndexManager {
             return;
         }
 
-        const states = rawStates.map(s => { return { key: s.key, value: s.data } });
+        // To find removed states.
+        const rawStatesKeys = rawStates.map(s => s.key);
+        const removedStates = (affectedStates.filter(s => !(rawStatesKeys.includes(s)))).map(st => { return { key: st } });
+
+        let states = rawStates.map(s => { return { key: s.key, value: s.data } });
+        states = states.concat(removedStates);
 
         let indexUpdates = {
             set: {
@@ -290,11 +310,11 @@ class IndexManager {
 
         for (const state of states) {
             const keyBuf = Buffer.from(state.key, 'hex');
-            const valueBuf = Buffer.from(state.value, 'hex');
-            if (valueBuf) {
+            if (state?.value) {
+                const valueBuf = Buffer.from(state.value, 'hex');
                 updateIndexSet(keyBuf, valueBuf);
             }
-            else if (states && states.length > 0) {
+            else {
                 deleteIndexSet(keyBuf);
             }
         }
