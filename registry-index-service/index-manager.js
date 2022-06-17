@@ -19,6 +19,8 @@ const CONFIG_FILE = 'config.json';
 const HOOK_DATA_DIR = DATA_DIR + '/data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
 
+const NFT_WAIT_TIMEOUT = 80;
+
 const AFFECTED_HOOK_STATE_MAP = {
     "INIT": [
         // Configs
@@ -150,7 +152,7 @@ class IndexManager {
         const hostTrxs = [evernode.MemoTypes.HOST_REG, evernode.MemoTypes.HOST_DEREG, evernode.MemoTypes.HOST_UPDATE_INFO, evernode.MemoTypes.HEARTBEAT, evernode.MemoTypes.HOST_POST_DEREG];
 
         const memoType = trx.Memos[0].type;
-        console.log(`Triggered a Transaction - ${trx.TransactionType} -> ${memoType}`);
+        console.log(`|${trx.Account}|${memoType}|Triggered a Transaction`);
 
         // HOST_ADDR State Key
         if (hostTrxs.includes(memoType)) {
@@ -171,20 +173,30 @@ class IndexManager {
             case evernode.MemoTypes.HOST_REG:
                 affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_REG'];
                 affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
-                const uri = `${evernode.EvernodeConstants.NFT_PREFsIX_HEX}${trx.hash}`;
 
-                // 5 seconds wait untill the NFT is available.
-                await new Promise(r => setTimeout(r, 5000));
-                let regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
-
-                if (!regNft) {
-                    const hostXrplAcc = new evernode.XrplAccount(trx.Account);
-                    const nfts = await hostXrplAcc.getNfts();
-                    regNft = (nfts).find(n => (n.URI === uri));
+                const uri = `${evernode.EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
+                let regNft = null;
+                const hostXrplAcc = new evernode.XrplAccount(trx.Account);
+                let attempts = 0;
+                while (attempts < NFT_WAIT_TIMEOUT) {
+                    // Check in Registry.
+                    regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
                     if (!regNft) {
-                        // Exit if NFT was not found.
+                        // Check in Host.
+                        regNft = (await hostXrplAcc.getNfts()).find(n => (n.URI === uri));
+                    }
+
+                    if (regNft) {
                         break;
                     }
+
+                    await new Promise(r => setTimeout(r, 1000));
+                    attempts++;
+                }
+
+                if (!regNft) {
+                    console.log(`|${trx.Account}|${memoType}|No Reg. NFT was found within the timeout.`);
+                    break;
                 }
 
                 stateKeyTokenId = await this.#generateTokenIdStateKey(regNft.NFTokenID);
@@ -213,6 +225,7 @@ class IndexManager {
         }
 
         await this.#persisit(affectedStates);
+        console.log(`|${trx.Account}|${memoType}|Completed Transaction Handle`);
     }
 
     async #generateTokenIdStateKey(nfTokenId) {
