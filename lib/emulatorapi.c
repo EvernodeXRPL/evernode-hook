@@ -87,7 +87,7 @@ int64_t accept(uint32_t read_ptr, uint32_t read_len, int64_t error_code)
     return 0;
 }
 
-int64_t etxn_fee_base(uint32_t read_ptr,  uint32_t read_len)
+int64_t etxn_fee_base(uint32_t read_ptr, uint32_t read_len)
 {
     // Minimum emission fee.
     return 12;
@@ -528,11 +528,13 @@ int64_t slot_float(uint32_t slot)
     }
     else if (type == SLOT_BALANCE)
     {
-        return INT64_FROM_BUF(slot_ptr + 4);
+        uint8_t *balance_ptr = slot_ptr + 4;
+        return INT64_FROM_BUF(balance_ptr);
     }
     else if (type == SLOT_LIMIT)
     {
-        return INT64_FROM_BUF(slot_ptr + 4);
+        uint8_t *limit_ptr = slot_ptr + 4;
+        return INT64_FROM_BUF(limit_ptr);
     }
 }
 
