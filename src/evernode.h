@@ -84,19 +84,19 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             number = number * 10 + (int)str_ptr[i] - '0';          \
     }
 
-#define IS_BUF_EMPTY_GUARD(is_empty, buf, n)                      \
-    is_empty = 1;                                                 \
-    for (int i = 0; GUARD(sizeof(buf) * n), i < sizeof(buf); ++i) \
-    {                                                             \
-        if (buf[i] != 0)                                          \
-        {                                                         \
-            is_empty = 0;                                         \
-            break;                                                \
-        }                                                         \
+#define IS_BUF_EMPTY_GUARD(is_empty, buf, buflen, n)    \
+    is_empty = 1;                                       \
+    for (int i = 0; GUARD(buflen * n), i < buflen; ++i) \
+    {                                                   \
+        if (buf[i] != 0)                                \
+        {                                               \
+            is_empty = 0;                               \
+            break;                                      \
+        }                                               \
     }
 
-#define IS_BUF_EMPTY(is_empty, buf) \
-    IS_BUF_EMPTY_GUARD(is_empty, buf, 1)
+#define IS_BUF_EMPTY(is_empty, buf, buflen) \
+    IS_BUF_EMPTY_GUARD(is_empty, buf, buflen, 1)
 
 #define MAX(num1, num2) \
     ((num1 > num2) ? num1 : num2)
