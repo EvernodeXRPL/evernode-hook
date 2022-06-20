@@ -235,15 +235,15 @@ class IndexManager {
     async #persisit(affectedStates, doRecover = false) {
 
         const hookStates = await this.#registryClient.getHookStates();
-        const rawStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.key));
-        if (!rawStates) {
+        const updatedStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.key));
+        if (!updatedStates) {
             console.log("No state entries were found for this hook account");
             return;
         }
 
         // To find removed states.
-        const rawStatesKeys = rawStates.map(s => s.key);
-        const removedStates = (affectedStates.filter(s => !(rawStatesKeys.includes(s)))).map(st => { return { key: st } });
+        const updatedStateKeys = updatedStates.map(s => s.key);
+        const removedStates = (affectedStates.filter(s => !(updatedStateKeys.includes(s)))).map(st => { return { key: st } });
 
 
 
@@ -313,7 +313,7 @@ class IndexManager {
         }
 
         // Prepare for inset and update.
-        rawStates.forEach(state => {
+        updatedStates.forEach(state => {
             const keyBuf = Buffer.from(state.key, 'hex');
             const valueBuf = Buffer.from(state.data, 'hex');
             updateIndexSet(keyBuf, valueBuf);
