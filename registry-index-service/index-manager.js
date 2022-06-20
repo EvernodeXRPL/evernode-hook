@@ -1,7 +1,6 @@
 const fs = require('fs');
 const process = require('process');
 const path = require('path');
-const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
     RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
@@ -15,12 +14,11 @@ const BETA_STATE_INDEX = ""; // This constant will be populated when beta fireba
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v2.xrpl-labs.com";
 const MODE = process.env.MODE || 'dev';
+const ACTION = process.env.ACTION || 'run';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
-const BIN_DIR = process.env.BIN_DIR || path.resolve(__dirname, 'dist');
 
-const CONFIG_FILE = 'config.json';
-const HOOK_DATA_DIR = DATA_DIR + '/data';
+
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
 
 const NFT_WAIT_TIMEOUT = 80;
@@ -83,16 +81,16 @@ class IndexManager {
     #xrplAcc = null;
     #registryClient = null;
 
-    constructor(rippledServer, registryAddress, registrySecret, stateIndexId = null) {
+    constructor(rippledServer, registryAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
         Defaults.set({
             registryAddress: registryAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new XrplAccount(registryAddress, registrySecret);
+        this.#xrplAcc = new XrplAccount(registryAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#registryClient = new RegistryClient(registryAddress, registrySecret);
+        this.#registryClient = new RegistryClient(registryAddress);
     }
 
     async init(firebaseSecKeyPath) {
@@ -118,12 +116,12 @@ class IndexManager {
                 });
             }
             else {
-                console.error(e.error);
+                console.error(e);
                 return;
             }
         }
 
-        if (MODE === 'recover') {
+        if (ACTION === 'recover') {
             await this.#recover()
         }
 
@@ -225,7 +223,7 @@ class IndexManager {
         console.log(`|${trx.Account}|${memoType}|Completed Transaction Handle`);
     }
 
-
+    // TODO : Need to reconsider this persist logic.
     async #persisit(affectedStates, doRecover = false) {
 
         const hookStates = await this.#registryClient.getHookStates();
@@ -333,20 +331,6 @@ async function main() {
         return;
     }
     const registryAddress = process.argv[2];
-    const configPath = path.resolve(HOOK_DATA_DIR, registryAddress, CONFIG_FILE);
-
-    // If config doesn't exist, skip the execution.
-    if (!fs.existsSync(configPath)) {
-        console.error(`${configPath} not found, run the account setup tool and generate the accounts.`);
-        return;
-    }
-    let config = JSON.parse(fs.readFileSync(configPath).toString());
-
-    // If required files and config data doesn't exist, skip the execution.
-    if (!config.registry || !config.registry.address || !config.registry.secret) {
-        console.error('Registry account info not found, run the account setup tool and generate the accounts.');
-        return;
-    }
 
     // Firestore Service Account key
     if (!fs.existsSync(FIREBASE_SEC_KEY_PATH)) {
@@ -355,7 +339,7 @@ async function main() {
     }
 
     // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, config.registry.address, config.registry.secret, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const indexManager = new IndexManager(RIPPLED_URL, registryAddress, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await indexManager.init(FIREBASE_SEC_KEY_PATH);
 
 }
