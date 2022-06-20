@@ -2,8 +2,12 @@ const fs = require('fs');
 const process = require('process');
 const path = require('path');
 const codec = require('ripple-address-codec');
-const evernode = require('evernode-js-client');
-const { XrplApi, StateHelpers, RegistryClient, Defaults, RegistryEvents, } = require('evernode-js-client');
+const {
+    XrplApi, XrplAccount, StateHelpers,
+    RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
+    Defaults, EvernodeConstants
+} = require('evernode-js-client');
+
 const { Buffer } = require('buffer');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
@@ -22,50 +26,50 @@ const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
 const NFT_WAIT_TIMEOUT = 80;
 
 const AFFECTED_HOOK_STATE_MAP = {
-    "INIT": [
+    INIT: [
         // Configs
-        evernode.HookStateKeys.EVR_ISSUER_ADDR,
-        evernode.HookStateKeys.FOUNDATION_ADDR,
-        evernode.HookStateKeys.MOMENT_SIZE,
-        evernode.HookStateKeys.MINT_LIMIT,
-        evernode.HookStateKeys.FIXED_REG_FEE,
-        evernode.HookStateKeys.HOST_HEARTBEAT_FREQ,
-        evernode.HookStateKeys.PURCHASER_TARGET_PRICE,
-        evernode.HookStateKeys.LEASE_ACQUIRE_WINDOW,
+        HookStateKeys.EVR_ISSUER_ADDR,
+        HookStateKeys.FOUNDATION_ADDR,
+        HookStateKeys.MOMENT_SIZE,
+        HookStateKeys.MINT_LIMIT,
+        HookStateKeys.FIXED_REG_FEE,
+        HookStateKeys.HOST_HEARTBEAT_FREQ,
+        HookStateKeys.PURCHASER_TARGET_PRICE,
+        HookStateKeys.LEASE_ACQUIRE_WINDOW,
 
         // Singleton
-        evernode.HookStateKeys.HOST_COUNT,
-        evernode.HookStateKeys.MOMENT_BASE_IDX,
-        evernode.HookStateKeys.HOST_REG_FEE,
-        evernode.HookStateKeys.MAX_REG
+        HookStateKeys.HOST_COUNT,
+        HookStateKeys.MOMENT_BASE_IDX,
+        HookStateKeys.HOST_REG_FEE,
+        HookStateKeys.MAX_REG
     ],
-    "HEARTBEAT": [
+    HEARTBEAT: [
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
-    "HOST_REG": [
-        evernode.HookStateKeys.HOST_COUNT,
-        evernode.HookStateKeys.FIXED_REG_FEE,
-        evernode.HookStateKeys.MAX_REG,
+    HOST_REG: [
+        HookStateKeys.HOST_COUNT,
+        HookStateKeys.FIXED_REG_FEE,
+        HookStateKeys.MAX_REG,
 
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_TOKENID,
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_TOKENID,
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
-    "HOST_DEREG": [
-        evernode.HookStateKeys.HOST_COUNT
+    HOST_DEREG: [
+        HookStateKeys.HOST_COUNT
 
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_TOKENID,
+        // HookStateKeys.PREFIX_HOST_TOKENID,
     ],
-    "HOST_UPDATE_REG": [
+    HOST_UPDATE_REG: [
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
-    "HOST_POST_DEREG": [
+    HOST_POST_DEREG: [
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
-        // evernode.HookStateKeys.PREFIX_HOST_TOKENID
+        // HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_TOKENID
     ]
 }
 
@@ -86,7 +90,7 @@ class IndexManager {
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new evernode.XrplAccount(registryAddress, registrySecret);
+        this.#xrplAcc = new XrplAccount(registryAddress, registrySecret);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#registryClient = new RegistryClient(registryAddress, registrySecret);
     }
@@ -145,11 +149,10 @@ class IndexManager {
 
         const trx = data.transaction;
         let affectedStates = [];
-        let stateKeyTokenIdArr = [];
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
 
-        const hostTrxs = [evernode.MemoTypes.HOST_REG, evernode.MemoTypes.HOST_DEREG, evernode.MemoTypes.HOST_UPDATE_INFO, evernode.MemoTypes.HEARTBEAT, evernode.MemoTypes.HOST_POST_DEREG];
+        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG];
 
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Triggered a Transaction`);
@@ -157,26 +160,20 @@ class IndexManager {
         // HOST_ADDR State Key
         if (hostTrxs.includes(memoType)) {
 
-            let buf = Buffer.allocUnsafe(9);
-            buf.writeUInt8(3);
-            for (let i = 1; i < 9; i++) {
-                buf.writeUInt8(0, i);
-            }
-            const addrBuf = Buffer.from(codec.decodeAccountID(trx.Account), "hex");
-            stateKeyHostAddrId = Buffer.concat([Buffer.from("EVR", "utf-8"), buf, addrBuf]);
+            stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
         }
 
         switch (memoType) {
-            case evernode.MemoTypes.REGISTRY_INIT:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['INIT'];
+            case MemoTypes.REGISTRY_INIT:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.INIT;
                 break;
-            case evernode.MemoTypes.HOST_REG:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_REG'];
+            case MemoTypes.HOST_REG:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
                 affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
 
-                const uri = `${evernode.EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
+                const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
                 let regNft = null;
-                const hostXrplAcc = new evernode.XrplAccount(trx.Account);
+                const hostXrplAcc = new XrplAccount(trx.Account);
                 let attempts = 0;
                 while (attempts < NFT_WAIT_TIMEOUT) {
                     // Check in Registry.
@@ -199,27 +196,27 @@ class IndexManager {
                     break;
                 }
 
-                stateKeyTokenId = await this.#generateTokenIdStateKey(regNft.NFTokenID);
+                stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
                 affectedStates.push(stateKeyTokenId);
                 break;
-            case evernode.MemoTypes.HOST_DEREG:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_DEREG'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HOST_DEREG:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
+                affectedStates.push(stateKeyHostAddrId);
                 break;
-            case evernode.MemoTypes.HOST_UPDATE_INFO:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_UPDATE_REG'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HOST_UPDATE_INFO:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG;
+                affectedStates.push(stateKeyHostAddrId);
                 break;
-            case evernode.MemoTypes.HEARTBEAT:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HEARTBEAT'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HEARTBEAT:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
+                affectedStates.push(stateKeyHostAddrId);
                 break;
-            case evernode.MemoTypes.HOST_POST_DEREG:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_POST_DEREG'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HOST_POST_DEREG:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
+                affectedStates.push(stateKeyHostAddrId);
 
                 const nftTokenId = trx.Memos[0].data;
-                stateKeyTokenId = await this.#generateTokenIdStateKey(nftTokenId);
+                stateKeyTokenId = StateHelpers.generateTokenIdStateKey(nftTokenId);
                 affectedStates.push(stateKeyTokenId);
                 break;
         }
@@ -228,14 +225,6 @@ class IndexManager {
         console.log(`|${trx.Account}|${memoType}|Completed Transaction Handle`);
     }
 
-    async #generateTokenIdStateKey(nfTokenId) {
-        // TOKEN_ID State Keys
-        let buf = Buffer.allocUnsafe(1);
-        buf.writeUInt8(2);
-        const nfTokenIdBuf = Buffer.from(nfTokenId, "hex");
-        const stateKeyBuf = (Buffer.concat([Buffer.from("EVR", "utf-8"), buf, nfTokenIdBuf.slice(4, 32)]));
-        return stateKeyBuf.toString('hex').toUpperCase();
-    }
 
     async #persisit(affectedStates, doRecover = false) {
 
