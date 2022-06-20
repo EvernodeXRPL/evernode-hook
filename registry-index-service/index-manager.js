@@ -99,8 +99,18 @@ class IndexManager {
             await this.#registryClient.subscribe()
             await this.#registryClient.connect();
             this.config = await this.#firestoreManager.getConfigs();
-            if (!this.config)
-                await this.#firestoreManager.setConfig(this.#registryClient.config);
+            if (!this.config || !this.config.length) {
+                const states = await this.#registryClient.getHookStates();
+                if (!states || !states.length)
+                    throw { code: 'NO_STATE_KEY' };
+
+                await Promise.all(states.map(async state => {
+                    const decoded = StateHelpers.decodeStateData(Buffer.from(state.key, 'hex'), Buffer.from(state.data, 'hex'));
+                    if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+                        await this.#firestoreManager.setConfig(decoded);
+                }));
+            }
+
         } catch (e) {
             if (e.code === "NO_STATE_KEY") {
 
@@ -137,6 +147,7 @@ class IndexManager {
     // To update index, if the the service is down for a long period.
 
     async #recover() {
+        // Need to consider the configs, if there can be deletions in there as well.
         const statesInIndex = (await this.#firestoreManager.getHosts()).map(h => h.id);
         await this.#persisit(statesInIndex, true);
     }
@@ -221,7 +232,6 @@ class IndexManager {
         console.log(`|${trx.Account}|${memoType}|Completed Transaction Handle`);
     }
 
-    // TODO : Need to reconsider this persist logic.
     async #persisit(affectedStates, doRecover = false) {
 
         const hookStates = await this.#registryClient.getHookStates();
@@ -235,8 +245,7 @@ class IndexManager {
         const rawStatesKeys = rawStates.map(s => s.key);
         const removedStates = (affectedStates.filter(s => !(rawStatesKeys.includes(s)))).map(st => { return { key: st } });
 
-        let states = rawStates.map(s => { return { key: s.key, value: s.data } });
-        states = states.concat(removedStates);
+
 
         let indexUpdates = {
             set: {
@@ -273,16 +282,13 @@ class IndexManager {
 
         const deleteIndexSet = (key) => {
             const decoded = StateHelpers.decodeStateKey(key);
-            // We are sure these will get called sequentially.
-            // If the deleted object exists in set arrays, delete the object there since it's get anyway deleted.
-            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
-                delete indexUpdates.set.hosts[decoded.key];
+
+            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
                 indexUpdates.delete.hosts[decoded.key] = true;
-            }
-            else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION) {
-                delete indexUpdates.set.configs[decoded.key];
+
+            else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
                 indexUpdates.delete.configs[decoded.key] = true;
-            }
+
         }
 
         const persistIndex = async () => {
@@ -306,16 +312,19 @@ class IndexManager {
             ]);
         }
 
-        for (const state of states) {
+        // Prepare for inset and update.
+        rawStates.forEach(state => {
             const keyBuf = Buffer.from(state.key, 'hex');
-            if (state?.value) {
-                const valueBuf = Buffer.from(state.value, 'hex');
-                updateIndexSet(keyBuf, valueBuf);
-            }
-            else {
-                deleteIndexSet(keyBuf);
-            }
-        }
+            const valueBuf = Buffer.from(state.data, 'hex');
+            updateIndexSet(keyBuf, valueBuf);
+
+        });
+
+        // Prepare for delete.
+        removedStates.forEach(state => {
+            const keyBuf = Buffer.from(state.key, 'hex');
+            deleteIndexSet(keyBuf);
+        });
 
         await persistIndex();
     }
