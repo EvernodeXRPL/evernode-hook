@@ -155,10 +155,9 @@ class IndexManager {
         console.log(`|${trx.Account}|${memoType}|Triggered a Transaction`);
 
         // HOST_ADDR State Key
-        if (hostTrxs.includes(memoType)) {
-
+        if (hostTrxs.includes(memoType))
             stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
-        }
+
 
         switch (memoType) {
             case MemoTypes.REGISTRY_INIT:
