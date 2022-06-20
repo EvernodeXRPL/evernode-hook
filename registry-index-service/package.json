@@ -1,0 +1,24 @@
+{
+    "name": "registry-index-service",
+    "version": "1.0.0",
+    "description": "Evernode Registry Index Management Service.",
+    "main": "index-manager.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "lint": "./node_modules/.bin/eslint ./index-manager.js",
+        "build": "npm run lint && ncc build index-manager.js --minify -o dist"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "evernode-js-client": "0.4.38",
+        "jsonwebtoken": "8.5.1",
+        "fs": "0.0.1-security",
+        "path": "^0.12.7",
+        "util": "^0.12.4"
+    },
+    "devDependencies": {
+        "eslint": "8.3.0"
+    }
+}
