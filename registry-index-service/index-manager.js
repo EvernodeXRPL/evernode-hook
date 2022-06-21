@@ -2,8 +2,11 @@ const fs = require('fs');
 const process = require('process');
 const path = require('path');
 const codec = require('ripple-address-codec');
-const evernode = require('evernode-js-client');
-const { XrplApi, StateHelpers, RegistryClient, Defaults, RegistryEvents, } = require('evernode-js-client');
+const {
+    XrplApi, XrplAccount, StateHelpers,
+    RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
+    Defaults, EvernodeConstants
+} = require('evernode-js-client');
 const { Buffer } = require('buffer');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
@@ -14,6 +17,7 @@ const INIT_MEMO_FORMAT = "hex";
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v2.xrpl-labs.com";
 const MODE = process.env.MODE || 'dev';
+const ACTION = process.env.ACTION || 'run';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
@@ -29,53 +33,52 @@ const HOOK_INITIALIZER = {
 const NFT_WAIT_TIMEOUT = 80;
 
 const AFFECTED_HOOK_STATE_MAP = {
-    "INIT": [
+    INIT: [
         // Configs
-        evernode.HookStateKeys.EVR_ISSUER_ADDR,
-        evernode.HookStateKeys.FOUNDATION_ADDR,
-        evernode.HookStateKeys.MOMENT_SIZE,
-        evernode.HookStateKeys.MINT_LIMIT,
-        evernode.HookStateKeys.FIXED_REG_FEE,
-        evernode.HookStateKeys.HOST_HEARTBEAT_FREQ,
-        evernode.HookStateKeys.PURCHASER_TARGET_PRICE,
-        evernode.HookStateKeys.LEASE_ACQUIRE_WINDOW,
+        HookStateKeys.EVR_ISSUER_ADDR,
+        HookStateKeys.FOUNDATION_ADDR,
+        HookStateKeys.MOMENT_SIZE,
+        HookStateKeys.MINT_LIMIT,
+        HookStateKeys.FIXED_REG_FEE,
+        HookStateKeys.HOST_HEARTBEAT_FREQ,
+        HookStateKeys.PURCHASER_TARGET_PRICE,
+        HookStateKeys.LEASE_ACQUIRE_WINDOW,
 
         // Singleton
-        evernode.HookStateKeys.HOST_COUNT,
-        evernode.HookStateKeys.MOMENT_BASE_IDX,
-        evernode.HookStateKeys.HOST_REG_FEE,
-        evernode.HookStateKeys.MAX_REG
+        HookStateKeys.HOST_COUNT,
+        HookStateKeys.MOMENT_BASE_IDX,
+        HookStateKeys.HOST_REG_FEE,
+        HookStateKeys.MAX_REG
     ],
-    "HEARTBEAT": [
+    HEARTBEAT: [
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
-    "HOST_REG": [
-        evernode.HookStateKeys.HOST_COUNT,
-        evernode.HookStateKeys.FIXED_REG_FEE,
-        evernode.HookStateKeys.MAX_REG,
+    HOST_REG: [
+        HookStateKeys.HOST_COUNT,
+        HookStateKeys.FIXED_REG_FEE,
+        HookStateKeys.MAX_REG,
 
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_TOKENID,
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_TOKENID,
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
-    "HOST_DEREG": [
-        evernode.HookStateKeys.HOST_COUNT
+    HOST_DEREG: [
+        HookStateKeys.HOST_COUNT
 
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_TOKENID,
+        // HookStateKeys.PREFIX_HOST_TOKENID,
     ],
-    "HOST_UPDATE_REG": [
+    HOST_UPDATE_REG: [
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
-    "HOST_POST_DEREG": [
+    HOST_POST_DEREG: [
         // NOTE: Repetetative State keys
-        // evernode.HookStateKeys.PREFIX_HOST_ADDR
-        // evernode.HookStateKeys.PREFIX_HOST_TOKENID
+        // HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_TOKENID
     ]
 }
-
 
 /**
  * Registry Index Manager listens to the transactions on the registry account and update Firebase Index accordingly.
@@ -93,7 +96,7 @@ class IndexManager {
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new evernode.XrplAccount(registryAddress);
+        this.#xrplAcc = new XrplAccount(registryAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#registryClient = new RegistryClient(registryAddress);
     }
@@ -108,7 +111,7 @@ class IndexManager {
             if (!this.config || !this.config.length) {
                 const states = await this.#registryClient.getHookStates();
                 if (!states || !states.length)
-                    throw { code: 'NO_STATE_KEY' }
+                    throw { code: 'NO_STATE_KEY' };
 
                 await Promise.all(states.map(async state => {
                     const decoded = StateHelpers.decodeStateData(Buffer.from(state.key, 'hex'), Buffer.from(state.data, 'hex'));
@@ -133,7 +136,7 @@ class IndexManager {
             }
         }
 
-        if (MODE === 'recover') {
+        if (ACTION === 'recover') {
             await this.#recover()
         }
 
@@ -189,34 +192,26 @@ class IndexManager {
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
 
-        const hostTrxs = [evernode.MemoTypes.HOST_REG, evernode.MemoTypes.HOST_DEREG, evernode.MemoTypes.HOST_UPDATE_INFO, evernode.MemoTypes.HEARTBEAT, evernode.MemoTypes.HOST_POST_DEREG];
+        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG];
 
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Triggered a Transaction`);
 
         // HOST_ADDR State Key
-        if (hostTrxs.includes(memoType)) {
-
-            let buf = Buffer.allocUnsafe(9);
-            buf.writeUInt8(3);
-            for (let i = 1; i < 9; i++) {
-                buf.writeUInt8(0, i);
-            }
-            const addrBuf = Buffer.from(codec.decodeAccountID(trx.Account), "hex");
-            stateKeyHostAddrId = Buffer.concat([Buffer.from("EVR", "utf-8"), buf, addrBuf]);
-        }
+        if (hostTrxs.includes(memoType))
+            stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
 
         switch (memoType) {
-            case evernode.MemoTypes.REGISTRY_INIT:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['INIT'];
+            case MemoTypes.REGISTRY_INIT:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.INIT;
                 break;
-            case evernode.MemoTypes.HOST_REG: {
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_REG'];
+            case MemoTypes.HOST_REG: {
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
                 affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
 
-                const uri = `${evernode.EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
+                const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
                 let regNft = null;
-                const hostXrplAcc = new evernode.XrplAccount(trx.Account);
+                const hostXrplAcc = new XrplAccount(trx.Account);
                 let attempts = 0;
                 while (attempts < NFT_WAIT_TIMEOUT) {
                     // Check in Registry.
@@ -239,28 +234,28 @@ class IndexManager {
                     break;
                 }
 
-                stateKeyTokenId = await this.#generateTokenIdStateKey(regNft.NFTokenID);
+                stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
                 affectedStates.push(stateKeyTokenId);
                 break;
             }
-            case evernode.MemoTypes.HOST_DEREG:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_DEREG'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HOST_DEREG:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
+                affectedStates.push(stateKeyHostAddrId);
                 break;
-            case evernode.MemoTypes.HOST_UPDATE_INFO:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_UPDATE_REG'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HOST_UPDATE_INFO:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG;
+                affectedStates.push(stateKeyHostAddrId);
                 break;
-            case evernode.MemoTypes.HEARTBEAT:
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HEARTBEAT'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HEARTBEAT:
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
+                affectedStates.push(stateKeyHostAddrId);
                 break;
-            case evernode.MemoTypes.HOST_POST_DEREG: {
-                affectedStates = AFFECTED_HOOK_STATE_MAP['HOST_POST_DEREG'];
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            case MemoTypes.HOST_POST_DEREG: {
+                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
+                affectedStates.push(stateKeyHostAddrId);
 
                 const nftTokenId = trx.Memos[0].data;
-                stateKeyTokenId = await this.#generateTokenIdStateKey(nftTokenId);
+                stateKeyTokenId = StateHelpers.generateTokenIdStateKey(nftTokenId);
                 affectedStates.push(stateKeyTokenId);
                 break;
             }
@@ -270,30 +265,18 @@ class IndexManager {
         console.log(`|${trx.Account}|${memoType}|Completed Transaction Handle`);
     }
 
-    async #generateTokenIdStateKey(nfTokenId) {
-        // TOKEN_ID State Keys
-        let buf = Buffer.allocUnsafe(1);
-        buf.writeUInt8(2);
-        const nfTokenIdBuf = Buffer.from(nfTokenId, "hex");
-        const stateKeyBuf = (Buffer.concat([Buffer.from("EVR", "utf-8"), buf, nfTokenIdBuf.slice(4, 32)]));
-        return stateKeyBuf.toString('hex').toUpperCase();
-    }
-
     async #persisit(affectedStates, doRecover = false) {
 
         const hookStates = await this.#registryClient.getHookStates();
-        const rawStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.key));
-        if (!rawStates) {
+        const updatedStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.key));
+        if (!updatedStates) {
             console.log("No state entries were found for this hook account");
             return;
         }
 
         // To find removed states.
-        const rawStatesKeys = rawStates.map(s => s.key);
-        const removedStates = (affectedStates.filter(s => !(rawStatesKeys.includes(s)))).map(st => { return { key: st } });
-
-        let states = rawStates.map(s => { return { key: s.key, value: s.data } });
-        states = states.concat(removedStates);
+        const updatedStateKeys = updatedStates.map(s => s.key);
+        const removedStates = (affectedStates.filter(s => !(updatedStateKeys.includes(s)))).map(st => { return { key: st } });
 
         let indexUpdates = {
             set: {
@@ -330,16 +313,13 @@ class IndexManager {
 
         const deleteIndexSet = (key) => {
             const decoded = StateHelpers.decodeStateKey(key);
-            // We are sure these will get called sequentially.
-            // If the deleted object exists in set arrays, delete the object there since it's get anyway deleted.
-            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
-                delete indexUpdates.set.hosts[decoded.key];
+
+            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
                 indexUpdates.delete.hosts[decoded.key] = true;
-            }
-            else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION) {
-                delete indexUpdates.set.configs[decoded.key];
+
+            else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
                 indexUpdates.delete.configs[decoded.key] = true;
-            }
+
         }
 
         const persistIndex = async () => {
@@ -363,16 +343,19 @@ class IndexManager {
             ]);
         }
 
-        for (const state of states) {
+        // Prepare for inset and update.
+        updatedStates.forEach(state => {
             const keyBuf = Buffer.from(state.key, 'hex');
-            if (state?.value) {
-                const valueBuf = Buffer.from(state.value, 'hex');
-                updateIndexSet(keyBuf, valueBuf);
-            }
-            else {
-                deleteIndexSet(keyBuf);
-            }
-        }
+            const valueBuf = Buffer.from(state.data, 'hex');
+            updateIndexSet(keyBuf, valueBuf);
+
+        });
+
+        // Prepare for delete.
+        removedStates.forEach(state => {
+            const keyBuf = Buffer.from(state.key, 'hex');
+            deleteIndexSet(keyBuf);
+        });
 
         await persistIndex();
     }
@@ -386,7 +369,7 @@ async function initRegistryConfigs(config, configPath, rippledServer) {
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
-    const initAccount = new evernode.XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret, { xrplApi: xrplApi });
+    const initAccount = new XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret, { xrplApi: xrplApi });
     const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
         [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
