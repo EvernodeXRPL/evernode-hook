@@ -1,32 +1,41 @@
 const fs = require('fs')
+const process = require('process');
 const xrpljs = require('xrpl-hooks');
 const rbc = require('xrpl-binary-codec');
 
 const hsfOVERRIDE = 1;
-const hsfNSDELETE = 2;
-const hfsOVERRIDE = 1;
-const hfsNSDELETE = 2;
+// const hsfNSDELETE = 2;
+// const hfsOVERRIDE = 1;
+// const hfsNSDELETE = 2;
 
 // sha256('evernode.org|registry')
 const NAMESPACE = '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0'
 
 const server = 'wss://hooks-testnet-v2.xrpl-labs.com';
 
-const cfgPath = 'hook.cfg';
+const CONFIG_PATH = process.env.CONFIG_PATH || 'hook.json';
+const WASM_PATH = process.env.WASM_PATH || "build/evernode.wasm"
+
 let cfg;
 
-if (!fs.existsSync(cfgPath)) {
+if (!fs.existsSync(CONFIG_PATH)) {
     cfg = {
-        secret: ""
+        "registry": {
+            "address": "",
+            "secret": ""
+        }
     }
-    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
 else {
-    cfg = JSON.parse(fs.readFileSync(cfgPath));
+    cfg = JSON.parse(fs.readFileSync(CONFIG_PATH));
 }
 
-if (cfg.secret === "") {
-    console.log("SETHOOK FAILED: Please specify hook secret in hook.cfg");
+const secret = cfg.registry.secret;
+
+if (!secret) {
+    console.error("SETHOOK FAILED: Please specify hook secret in hook.json");
+    process.exit(1);
 }
 else {
     const api = new xrpljs.Client(server);
@@ -47,7 +56,7 @@ else {
 
     const feeCompute = (accountSeed, txnOrg) => {
         return new Promise((resolve, reject) => {
-            txnToSend = { ...txnOrg };
+            let txnToSend = { ...txnOrg };
             txnToSend['SigningPubKey'] = '';
 
             let wal = xrpljs.Wallet.fromSeed(accountSeed);
@@ -92,8 +101,8 @@ else {
         });
     }
 
-    const account = xrpljs.Wallet.fromSeed(cfg.secret)
-    const binary = fs.readFileSync("build/evernode.wasm").toString('hex').toUpperCase();
+    const account = xrpljs.Wallet.fromSeed(secret)
+    const binary = fs.readFileSync(WASM_PATH).toString('hex').toUpperCase();
     const hookTx = {
         Account: account.classicAddress,
         TransactionType: "SetHook",
@@ -111,5 +120,5 @@ else {
             ]
     };
 
-    submitTxn(cfg.secret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+    submitTxn(secret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
 }

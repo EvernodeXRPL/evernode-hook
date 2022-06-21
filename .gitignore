@@ -1,3 +1,4 @@
 build
-hook.cfg
+hook.json
 node_modules
+dist

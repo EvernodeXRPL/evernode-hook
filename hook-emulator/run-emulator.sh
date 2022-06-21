@@ -35,7 +35,7 @@ service="hook-emulator-$arg1"
 systemd_file="/etc/systemd/system/$service.service"
 
 if [ -z "$arg1" ]; then # If 1st param is empty, Create a new instance.
-    EMULATOR_DATA_DIR=$data_dir $(which node) $account_setup
+    ACCOUNT_DATA_DIR=$data_dir $(which node) $account_setup
     arg1=$(ls -t $hook_data_dir/ | head -1)
 elif [ ! -d "$hook_data_dir/$arg1" ]; then # If 1st param is given check for data directory existance.
     echo "Data directory $hook_data_dir/$arg1 does not exist: Run \"./run-emulator\" to create a new instance."
