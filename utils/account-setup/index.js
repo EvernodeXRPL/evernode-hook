@@ -6,7 +6,7 @@ const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client'
 
 const TOTAL_MINTED_EVRS = "72253440";
 const PURCHASER_COLD_WALLET_EVRS = "51609600";
-const EMULATOR_CONFIG_FILE = 'accounts.json';
+const CONFIG_FILE = 'accounts.json';
 
 // BEGIN - Endpoints.
 
@@ -31,7 +31,7 @@ const HOOK_DATA_DIR = ACCOUNT_DATA_DIR + '/data'
 // Account names
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
 
-// XRP Pre-defined Special Address -> Blackhole
+// XRP Pre-defined Special Address -> Blackholeenc
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
 
 function httpPost(url) {
@@ -163,10 +163,10 @@ async function main() {
         });
         // END - Log Account Details
 
-        // Save the generated account data in emulator config.
-        const emulatorConfigDir = path.resolve(HOOK_DATA_DIR, config.registry.address);
-        fs.mkdirSync(emulatorConfigDir, { recursive: true });
-        const configPath = path.resolve(emulatorConfigDir, EMULATOR_CONFIG_FILE);
+        // Save the generated account data in the config.
+        const configDir = path.resolve(HOOK_DATA_DIR, config.registry.address);
+        fs.mkdirSync(configDir, { recursive: true });
+        const configPath = path.resolve(configDir, CONFIG_FILE);
         console.log(`Recording account data in ${configPath}`);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
 
