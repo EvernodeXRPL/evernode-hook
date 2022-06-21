@@ -91,7 +91,7 @@ elif [ ! -z "$arg2" ]; then # If 2nd param is given.
         ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
         echo "Hook setup successful."
     elif [ "$arg2" == "recover-start" ]; then
-        DATA_DIR=$data_dir MODE=recover $(which node) $index $arg1 || echo "Recover starting registry index failed."
+        DATA_DIR=$data_dir ACTION=recover $(which node) $index $arg1 || echo "Recover starting registry index failed."
         echo "Recover starting registry index successful."
     fi
     exit 0

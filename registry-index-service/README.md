@@ -30,4 +30,4 @@
   - Extract the `dist/registry-index.tar.gz` bundle to any location.
   - Go to the extracted location and follow the "Steps to run the emulator.".
 - In addtion to that, you can pass environmental variables such as,
-  - `MODE=recover` - To perform a bulk update.
+  - `ACTION=recover` - To perform a bulk update.
