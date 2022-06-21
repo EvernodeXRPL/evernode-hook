@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define EMIT_DETAILS_LEN 105
+#define EMIT_DETAILS_LEN 138
 #define TRANSACTION_HASH_LEN 32
 #define STATE_KEY_LEN 32
 #define MAX_STATE_VAL_LEN 128
@@ -87,7 +87,7 @@ int64_t accept(uint32_t read_ptr, uint32_t read_len, int64_t error_code)
     return 0;
 }
 
-int64_t etxn_fee_base(uint32_t tx_byte_count)
+int64_t etxn_fee_base(uint32_t read_ptr, uint32_t read_len)
 {
     // Minimum emission fee.
     return 12;
@@ -528,11 +528,13 @@ int64_t slot_float(uint32_t slot)
     }
     else if (type == SLOT_BALANCE)
     {
-        return INT64_FROM_BUF(slot_ptr + 4);
+        uint8_t *balance_ptr = slot_ptr + 4;
+        return INT64_FROM_BUF(balance_ptr);
     }
     else if (type == SLOT_LIMIT)
     {
-        return INT64_FROM_BUF(slot_ptr + 4);
+        uint8_t *limit_ptr = slot_ptr + 4;
+        return INT64_FROM_BUF(limit_ptr);
     }
 }
 

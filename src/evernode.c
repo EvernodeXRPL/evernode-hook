@@ -1,44 +1,36 @@
-// #include "../lib/hookapi.h"
-#include "../lib/emulatorapi.h"
+#include "../lib/hookapi.h"
+// #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
-int64_t cbak(int64_t reserved)
+int64_t cbak(uint32_t reserved)
 {
     return 0;
 }
 
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
-int64_t hook(int64_t reserved)
+int64_t hook(uint32_t reserved)
 {
-    // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
-
-    // Next fetch the sfAccount field from the originating transaction
-    uint8_t account_field[20];
-    int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
-    if (account_field_len < 20)
-        rollback(SBUF("Evernode: sfAccount field is missing."), 1);
-
-    // Accept any outgoing transactions without further processing.
-    int is_outgoing = 0;
-    BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
-    if (is_outgoing)
-        accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
-
-    // Get transaction hash(id).
-    uint8_t txid[HASH_SIZE];
-    int32_t txid_len = otxn_id(SBUF(txid), 0);
-    if (txid_len < HASH_SIZE)
-        rollback(SBUF("Evernode: transaction id missing."), 1);
-
     int64_t txn_type = otxn_type();
-    if (txn_type == ttPAYMENT || txn_type == ttNFT_ACCEPT_OFFER)
+    if ((reserved == STRONG_HOOK || reserved == AGAIN_HOOK) && (txn_type == ttPAYMENT || txn_type == ttNFT_ACCEPT_OFFER))
     {
-        int64_t cur_ledger_seq = ledger_seq();
+        // Getting the hook account id.
+        unsigned char hook_accid[20];
+        hook_account((uint32_t)hook_accid, 20);
+
+        // Next fetch the sfAccount field from the originating transaction
+        uint8_t account_field[ACCOUNT_ID_SIZE];
+        int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
+        if (account_field_len < 20)
+            rollback(SBUF("Evernode: sfAccount field is missing."), 1);
+
+        // Accept any outgoing transactions without further processing.
+        int is_outgoing = 0;
+        BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
+        if (is_outgoing)
+            accept(SBUF("Evernode: Outgoing transaction. Passing."), 0);
 
         // Memos
         uint8_t memos[MAX_MEMO_SIZE];
@@ -51,8 +43,82 @@ int64_t hook(int64_t reserved)
         uint32_t memo_len, type_len, format_len, data_len;
         GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
-        if (txn_type == ttPAYMENT)
+        if (txn_type == ttNFT_ACCEPT_OFFER)
         {
+            // Host deregistration nft accept.
+            int is_host_de_reg_nft_accept = 0;
+            BUFFER_EQUAL_STR(is_host_de_reg_nft_accept, type_ptr, type_len, HOST_POST_DEREG);
+            if (is_host_de_reg_nft_accept)
+            {
+                BUFFER_EQUAL_STR(is_host_de_reg_nft_accept, format_ptr, format_len, FORMAT_HEX);
+                if (!is_host_de_reg_nft_accept)
+                    rollback(SBUF("Evernode: Memo format should be hex."), 1);
+
+                // Check whether the host address state is deleted.
+                HOST_ADDR_KEY(account_field);
+                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: The host address state exists."), 1);
+
+                // Check whether the host token id state is deleted.
+                TOKEN_ID_KEY(data_ptr);
+                uint8_t token_id[TOKEN_ID_VAL_SIZE];
+                if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: The host token id state exists."), 1);
+
+                if (reserved == STRONG_HOOK)
+                {
+                    if (hook_again() != 1)
+                        rollback(SBUF("Evernode: Hook again faild on post deregistration."), 1);
+
+                    accept(SBUF("Host de-registration nft accept successful."), 0);
+                }
+                else if (reserved == AGAIN_HOOK)
+                {
+                    // Check the ownership of the NFT to the hook before proceeding.
+                    int nft_exists;
+                    uint8_t issuer[20], uri[64], uri_len;
+                    uint32_t taxon, nft_seq;
+                    uint16_t flags, tffee;
+                    GET_NFT(hook_accid, data_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+
+                    // Issuer of the NFT should be the registry contract.
+                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+
+                    // Check whether the NFT URI is starting with 'evrhost'.
+                    BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
+
+                    // Burn the NFT.
+                    etxn_reserve(1);
+
+                    uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
+                    PREPARE_NFT_BURN(txn_out, data_ptr, hook_accid);
+
+                    uint8_t emithash[HASH_SIZE];
+                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                    accept(SBUF("Host de-registration nft burn successful."), 0);
+                }
+            }
+        }
+        else if (reserved == STRONG_HOOK && txn_type == ttPAYMENT)
+        {
+            // Get transaction hash(id).
+            uint8_t txid[HASH_SIZE];
+            int32_t txid_len = otxn_id(SBUF(txid), 0);
+            if (txid_len < HASH_SIZE)
+                rollback(SBUF("Evernode: transaction id missing."), 1);
+
+            int64_t cur_ledger_seq = ledger_seq();
+
             // specifically we're interested in the amount sent
             int64_t oslot = otxn_slot(0);
             if (oslot < 0)
@@ -78,19 +144,19 @@ int64_t hook(int64_t reserved)
                     if (!is_initialize)
                         rollback(SBUF("Evernode: Format should be hex for initialize request."), 1);
 
-                    if (data_len != (2 * ACCOUNT_LEN))
+                    if (data_len != (2 * ACCOUNT_ID_SIZE))
                         rollback(SBUF("Evernode: Memo data should contain foundation cold wallet and issuer addresses."), 1);
 
                     uint8_t *issuer_ptr = data_ptr;
-                    uint8_t *foundation_ptr = data_ptr + ACCOUNT_LEN;
+                    uint8_t *foundation_ptr = data_ptr + ACCOUNT_ID_SIZE;
 
-                    uint8_t initializer_accid[ACCOUNT_LEN];
+                    uint8_t initializer_accid[ACCOUNT_ID_SIZE];
                     const int initializer_accid_len = util_accid(SBUF(initializer_accid), HOOK_INITIALIZER_ADDR, 35);
-                    if (initializer_accid_len < ACCOUNT_LEN)
+                    if (initializer_accid_len < ACCOUNT_ID_SIZE)
                         rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
 
                     // We accept only the init transaction from hook intializer account
-                    BUFFER_EQUAL(is_initialize, initializer_accid, account_field, ACCOUNT_LEN);
+                    BUFFER_EQUAL(is_initialize, initializer_accid, account_field, ACCOUNT_ID_SIZE);
                     if (!is_initialize)
                         rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
@@ -106,10 +172,10 @@ int64_t hook(int64_t reserved)
                     SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                     SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
-                    if (state_set(issuer_ptr, ACCOUNT_LEN, SBUF(CONF_ISSUER_ADDR)) < 0)
+                    if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
 
-                    if (state_set(foundation_ptr, ACCOUNT_LEN, SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                    if (state_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
 
                     SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
@@ -152,16 +218,18 @@ int64_t hook(int64_t reserved)
                     TOKEN_ID_KEY((uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
                     // Check the ownership of the NFT to this user before proceeding.
-                    uint16_t flags;
-                    uint8_t issuer[20], uri[256], uri_len;
-                    uint32_t taxon;
-                    if (get_nft(account_field, reg_entry_buf + HOST_TOKEN_ID_OFFSET, &flags, issuer, &taxon, uri, &uri_len) == DOESNT_EXIST)
+                    int nft_exists;
+                    uint8_t issuer[20], uri[64], uri_len;
+                    uint32_t taxon, nft_seq;
+                    uint16_t flags, tffee;
+                    uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
+                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+                    if (!nft_exists)
                         rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
                     // Issuer of the NFT should be the registry contract.
-                    int is_issuer_match = 0;
-                    BUFFER_EQUAL(is_issuer_match, issuer, hook_accid, 20);
-                    if (!is_issuer_match)
+                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                    if (!nft_exists)
                         rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
                     // Delete registration entries.
@@ -192,11 +260,10 @@ int64_t hook(int64_t reserved)
                         // Since we have already sent 5 EVR in the registration process to the foundation. We should deduct 5 EVR from the 50% reg fee.
                         SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, (amount_half - 5)));
                         etxn_reserve(2);
-                        int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                         // Prepare transaction to send 50% of reg fee to foundation account.
                         uint8_t tx_buf[PREPARE_PAYMENT_FOUNDATION_RETURN_SIZE];
-                        PREPARE_PAYMENT_FOUNDATION_RETURN(tx_buf, amt_out_return, fee, foundation_accid);
+                        PREPARE_PAYMENT_FOUNDATION_RETURN(tx_buf, amt_out_return, 0, foundation_accid);
 
                         uint8_t emithash[HASH_SIZE];
                         if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
@@ -209,8 +276,7 @@ int64_t hook(int64_t reserved)
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
                     // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
                     uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-                    int64_t buy_fee = etxn_fee_base(PREPARE_NFT_BUY_OFFER_SIZE);
-                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, buy_fee, account_field, (uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET));
+                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, account_field, (uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET));
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
                         rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
@@ -259,7 +325,7 @@ int64_t hook(int64_t reserved)
                     uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
                     uint8_t *active_instances_ptr, *version_ptr;
                     int info_updated = 0;
-                    for (int i = 0; GUARD(data_len), i < data_len; ++i)
+                    for (int i = 0; GUARD(MAX_MEMO_DATA_LEN), i < data_len; ++i)
                     {
                         uint8_t *str_ptr = data_ptr + i;
                         // Colon means this is an end of the section.
@@ -292,6 +358,7 @@ int64_t hook(int64_t reserved)
                             version_len++;
                         }
                     }
+
                     // All data fields are optional in update info transaction. Update state only if an information update is detected.
                     if (info_updated)
                     {
@@ -303,11 +370,11 @@ int64_t hook(int64_t reserved)
                         // Populate the values to the buffer.
                         UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
 
-                        if (version_ptr != 0) // Version update detected.
+                        if (version_len > 0) // Version update detected.
                         {
                             uint8_t *major_ptr, *minor_ptr, *patch_ptr;
                             uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
-                            for (int i = 0; GUARD(version_len), i < version_len; ++i)
+                            for (int i = 0; GUARD(MAX_VERSION_LEN), i < version_len; ++i)
                             {
                                 uint8_t *str_ptr = version_ptr + i;
 
@@ -344,6 +411,7 @@ int64_t hook(int64_t reserved)
                                     patch_len++;
                                 }
                             }
+
                             if (major_ptr == 0 || minor_ptr == 0 || patch_ptr == 0)
                                 rollback(SBUF("Evernode: Invalid version format."), 1);
 
@@ -358,8 +426,6 @@ int64_t hook(int64_t reserved)
 
                     accept(SBUF("Evernode: Update host info successful."), 0);
                 }
-
-                accept(SBUF("Evernode: XRP transaction."), 0);
             }
             else
             {
@@ -420,7 +486,7 @@ int64_t hook(int64_t reserved)
 
                     // Generate the NFT token id.
 
-                    // Take the account secret from keylet.
+                    // Take the account token squence from keylet.
                     uint8_t keylet[34];
                     if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
                         rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
@@ -429,13 +495,16 @@ int64_t hook(int64_t reserved)
                     if (slot_no < 0)
                         rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
 
-                    int64_t token_seq_slot = slot_subfield(slot_no, sfMintedTokens, 0);
-                    if (token_seq_slot < 0)
+                    int64_t token_seq_slot = slot_subfield(slot_no, sfMintedNFTokens, 0);
+                    uint32_t token_seq = 0;
+                    if (token_seq_slot >= 0)
+                    {
+                        uint8_t token_seq_buf[4];
+                        token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
+                        token_seq = UINT32_FROM_BUF(token_seq_buf);
+                    }
+                    else if (token_seq_slot != DOESNT_EXIST)
                         rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
-
-                    uint8_t token_seq_buf[4];
-                    token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
-                    uint32_t token_seq = UINT32_FROM_BUF(token_seq_buf);
                     TRACEVAR(token_seq);
 
                     // Transfer fee and Taxon will be 0 for the minted NFT.
@@ -444,7 +513,7 @@ int64_t hook(int64_t reserved)
 
                     uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
                     GENERATE_NFT_TOKEN_ID(nft_token_id, tffee, hook_accid, taxon, token_seq);
-                    trace(SBUF("NFT token id:"), SBUF(nft_token_id), 1);
+                    trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
                     TOKEN_ID_KEY(nft_token_id);
 
@@ -459,7 +528,7 @@ int64_t hook(int64_t reserved)
                     uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
                     uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, cpu_model_len = 0, cpu_count_len = 0, cpu_speed_len = 0, description_len = 0;
 
-                    for (int i = 2; GUARD(data_len - 2), i < data_len; ++i)
+                    for (int i = 2; GUARD(MAX_MEMO_DATA_LEN), i < data_len; ++i)
                     {
                         uint8_t *str_ptr = data_ptr + i;
                         // Colon means this is an end of the section.
@@ -535,9 +604,9 @@ int64_t hook(int64_t reserved)
 
                     // Populate tvalues to the state address buffer and set state.
                     CLEAR_BUF(host_addr, HOST_RESERVED_OFFSET, 8);
-                    COPY_BUF(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len);
+                    COPY_BUF_NON_CONST_LEN_GUARDM(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len, DESCRIPTION_LEN, 1, 1);
                     if (description_len < DESCRIPTION_LEN)
-                        CLEAR_BUF(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len);
+                        CLEAR_BUF_NON_CONST_LEN(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len, DESCRIPTION_LEN);
                     INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                     UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                     UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
@@ -547,9 +616,9 @@ int64_t hook(int64_t reserved)
 
                     // Populate the values to the token id buffer and set state.
                     COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
-                    COPY_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len);
+                    COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
                     if (cpu_model_len < CPU_MODEl_NAME_LEN)
-                        CLEAR_BUF(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len);
+                        CLEAR_BUF_NON_CONST_LEN(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len, CPU_MODEl_NAME_LEN);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
@@ -574,14 +643,14 @@ int64_t hook(int64_t reserved)
                     GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
                     TRACEVAR(conf_max_reg);
 
-                    int max_reached = 0;
-                    if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
-                    {
-                        max_reached = 1;
-                        etxn_reserve(host_count + 3);
-                    }
-                    else
-                        etxn_reserve(3);
+                    // int max_reached = 0;
+                    // if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
+                    // {
+                    //     max_reached = 1;
+                    //     etxn_reserve(host_count + 3);
+                    // }
+                    // else
+                    etxn_reserve(3);
 
                     // Froward 5 EVRs to foundation.
                     uint8_t foundation_accid[20];
@@ -590,11 +659,10 @@ int64_t hook(int64_t reserved)
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee));
-                    int64_t fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
 
                     // Create the outgoing hosting token txn.
                     uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, fee, foundation_accid, 0, 0);
+                    PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, foundation_accid, 0, 0);
 
                     uint8_t emithash[32];
                     if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
@@ -606,137 +674,86 @@ int64_t hook(int64_t reserved)
                     uint8_t uri[39];
                     COPY_BUF_GUARDM(uri, 0, EVR_HOST, 0, 7, 1, 1);
                     COPY_BUF_GUARDM(uri, 7, txid, 0, HASH_SIZE, 1, 2);
-                    fee = etxn_fee_base(PREPARE_NFT_MINT_SIZE(sizeof(uri)));
 
                     uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
-                    PREPARE_NFT_MINT(nft_txn_out, fee, tffee, taxon, uri, sizeof(uri));
+                    PREPARE_NFT_MINT(nft_txn_out, tffee, taxon, uri, sizeof(uri));
 
                     if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                    // Create sell offer for the nft token.
-                    fee = etxn_fee_base(PREPARE_NFT_SELL_OFFER_SIZE);
-
                     // Amount will be 0.
                     uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
-                    PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, fee, account_field, nft_token_id);
+                    PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, account_field, nft_token_id);
 
                     if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                    if (max_reached)
-                    {
-                        uint8_t state_buf[8] = {0};
+                    // We disable the registration fee halving code until the logic is refined.
+                    // if (max_reached)
+                    // {
+                    //     uint8_t state_buf[8] = {0};
 
-                        host_reg_fee /= 2;
-                        UINT64_TO_BUF(state_buf, host_reg_fee);
-                        if (state_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE)) < 0)
-                            rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
+                    //     host_reg_fee /= 2;
+                    //     UINT64_TO_BUF(state_buf, host_reg_fee);
+                    //     if (state_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE)) < 0)
+                    //         rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
 
-                        conf_max_reg *= 2;
-                        UINT64_TO_BUF(state_buf, conf_max_reg);
-                        if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
-                            rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
+                    //     conf_max_reg *= 2;
+                    //     UINT64_TO_BUF(state_buf, conf_max_reg);
+                    //     if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
+                    //         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
 
-                        // Refund the EVR balance.
-                        const int outer_guard = token_seq + 1;
-                        for (int i = 0; GUARD(outer_guard), i < outer_guard; ++i)
-                        {
-                            // Loop through all the possible token sequences and generate the token ids.
-                            uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
-                            GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tffee, hook_accid, taxon, i, outer_guard);
+                    //     // Refund the EVR balance.
+                    //     for (int i = 0; GUARD(DEF_MAX_REG), i < token_seq + 1; ++i)
+                    //     {
+                    //         // Loop through all the possible token sequences and generate the token ids.
+                    //         uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
+                    //         GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tffee, hook_accid, taxon, i, DEF_MAX_REG);
 
-                            // If the token id exists in the state (host is still registered),
-                            // Rebate the halved registration fee.
-                            TOKEN_ID_KEY_GUARD(lookup_id, outer_guard);
-                            uint8_t host_accid[20] = {0};
-                            if (state(SBUF(host_accid), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
-                            {
-                                uint8_t amt_out[AMOUNT_BUF_SIZE];
-                                SET_AMOUNT_OUT_GUARD(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee), host_count);
-                                fee = etxn_fee_base(PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);
+                    //         // If the token id exists in the state (host is still registered),
+                    //         // Rebate the halved registration fee.
+                    //         TOKEN_ID_KEY_GUARD(lookup_id, DEF_MAX_REG);
+                    //         uint8_t token_id[TOKEN_ID_VAL_SIZE];
+                    //         if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
+                    //         {
+                    //             uint8_t *host_accid = &token_id;
+                    //             uint8_t amt_out[AMOUNT_BUF_SIZE];
+                    //             SET_AMOUNT_OUT_GUARD(amt_out, EVR_TOKEN, issuer_accid, float_set(0, host_reg_fee), DEF_MAX_REG);
 
-                                // Create the outgoing hosting token txn.
-                                uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                                PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARD(txn_out, amt_out, fee, host_accid, host_count);
+                    //             // Create the outgoing hosting token txn.
+                    //             uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+                    //             PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARDM(txn_out, amt_out, host_accid, 0, 0, DEF_MAX_REG, 1);
 
-                                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
-                                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    //             if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    //                 rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                    //             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                                // Updating the current reg fee in the host state.
-                                HOST_ADDR_KEY_GUARD(host_accid, host_count);
-                                // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
-                                uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
-                                if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                                    rollback(SBUF("Evernode: Could not get host address state."), 1);
-                                UINT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
-                                if (state_set(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                                    rollback(SBUF("Evernode: Could not update host address state."), 1);
-                            }
-                        }
-                    }
+                    //             // Updating the current reg fee in the host state.
+                    //             HOST_ADDR_KEY_GUARD(host_accid, DEF_MAX_REG);
+                    //             // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                    //             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                    //             uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
+                    //             if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    //                 rollback(SBUF("Evernode: Could not get host address state."), 1);
+                    //             UINT64_TO_BUF(&rebate_host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                    //             if (state_set(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    //                 rollback(SBUF("Evernode: Could not update host address state."), 1);
+                    //         }
+                    //     }
+                    // }
 
                     accept(SBUF("Host registration successful."), 0);
                 }
             }
         }
-        else if (txn_type == ttNFT_ACCEPT_OFFER)
+        else if (txn_type == ttPAYMENT)
         {
-            // Host deregistration nft accept.
-            int is_host_de_reg_nft_accept = 0;
-            BUFFER_EQUAL_STR(is_host_de_reg_nft_accept, type_ptr, type_len, HOST_POST_DEREG);
-            if (is_host_de_reg_nft_accept)
-            {
-                BUFFER_EQUAL_STR_GUARD(is_host_de_reg_nft_accept, format_ptr, format_len, FORMAT_HEX, 1);
-                if (!is_host_de_reg_nft_accept)
-                    rollback(SBUF("Evernode: Memo format should be hex."), 1);
-
-                // Check whether the host address state is deleted.
-                HOST_ADDR_KEY(account_field);
-                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
-                    rollback(SBUF("Evernode: The host address state exists."), 1);
-
-                // Check the ownership of the NFT to the hook before proceeding.
-                uint16_t flags;
-                uint8_t issuer[20], uri[256], uri_len;
-                uint32_t taxon;
-                if (get_nft(hook_accid, data_ptr, &flags, issuer, &taxon, uri, &uri_len) == DOESNT_EXIST)
-                    rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                // Check whether the NFT URI is starting with 'evrhost'.
-                BUFFER_EQUAL_STR_GUARD(is_host_de_reg_nft_accept, uri, 7, EVR_HOST, 1);
-                if (!is_host_de_reg_nft_accept)
-                    rollback(SBUF("Evernode: Provided NFT is invalid."), 1);
-
-                // Check whether the host token id state is deleted.
-                TOKEN_ID_KEY(data_ptr);
-                uint8_t token_id[TOKEN_ID_VAL_SIZE];
-                if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
-                    rollback(SBUF("Evernode: The host token id state exists."), 1);
-
-                // Burn the NFT.
-                etxn_reserve(1);
-
-                int64_t fee = etxn_fee_base(PREPARE_NFT_BURN_SIZE);
-                uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-                PREPARE_NFT_BURN(txn_out, fee, data_ptr, hook_accid);
-
-                uint8_t emithash[HASH_SIZE];
-                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                accept(SBUF("Host de-registration nft accept successful."), 0);
-            }
         }
     }
 
-    accept(SBUF("Evernode: Transaction type not supported."), 0);
+    accept(SBUF("Evernode: Transaction is not handled."), 0);
 
     _g(1, 1); // every hook needs to import guard function and use it at least once
     // unreachable

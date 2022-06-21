@@ -60,7 +60,8 @@ int decode_transaction(uint8_t *buffer)
         {
             txn->amount.is_xrp = 1;
             offset += 1;
-            txn->amount.xrp.amount = INT64_FROM_BUF(buffer + offset);
+            uint8_t *amount_ptr = buffer + offset;
+            txn->amount.xrp.amount = INT64_FROM_BUF(amount_ptr);
             offset += 8;
         }
         else
@@ -73,7 +74,8 @@ int decode_transaction(uint8_t *buffer)
             memset(txn->amount.iou.currency, 0, 20);
             memcpy(txn->amount.iou.currency + 12, buffer + offset, 3);
             offset += 3;
-            txn->amount.iou.amount = INT64_FROM_BUF(buffer + offset);
+            uint8_t *amount_ptr = buffer + offset;
+            txn->amount.iou.amount = INT64_FROM_BUF(amount_ptr);
             offset += 8;
         }
     }

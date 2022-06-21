@@ -4,7 +4,9 @@ all: build upload
 
 build:
 	mkdir -p build
-	docker run --rm -v "$(shell pwd)":"$(shell pwd)" --entrypoint /root/.wasienv/bin/wasmcc xrpllabsofficial/xrpld-hooks-testnet "$(shell pwd)"/src/evernode.c -o "$(shell pwd)"/build/evernode.wasm -O0 -Wl,--allow-undefined -I../
+	wasmcc ./src/evernode.c -o ./build/evernode.wasm -O0 -Wl,--allow-undefined -I../
+	wasm-opt -O2 ./build/evernode.wasm -o ./build/evernode.wasm
+	hook-cleaner ./build/evernode.wasm
 
 upload:
 	node sethook.js

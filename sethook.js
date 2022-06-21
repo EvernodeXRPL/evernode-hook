@@ -1,13 +1,22 @@
-const RippleAPI = require('ripple-lib').RippleAPI;
-const fs = require('fs');
-const api = new RippleAPI({ server: 'wss://hooks-testnet.xrpl-labs.com' });
+const fs = require('fs')
+const xrpljs = require('xrpl-hooks');
+const rbc = require('xrpl-binary-codec');
+
+const hsfOVERRIDE = 1;
+const hsfNSDELETE = 2;
+const hfsOVERRIDE = 1;
+const hfsNSDELETE = 2;
+
+// sha256('evernode.org|registry')
+const NAMESPACE = '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0'
+
+const server = 'wss://hooks-testnet-v2.xrpl-labs.com';
 
 const cfgPath = 'hook.cfg';
 let cfg;
 
 if (!fs.existsSync(cfgPath)) {
     cfg = {
-        address: "",
         secret: ""
     }
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
@@ -16,33 +25,91 @@ else {
     cfg = JSON.parse(fs.readFileSync(cfgPath));
 }
 
-if (cfg.address === "" || cfg.secret === "") {
-    console.log("SETHOOK FAILED: Please specify hook address and secret in hook.cfg");
+if (cfg.secret === "") {
+    console.log("SETHOOK FAILED: Please specify hook secret in hook.cfg");
 }
 else {
-    const wasmfile = process.argv[2] || "build/evernode.wasm";
-    const secret = cfg.secret;
-    const address = api.deriveAddress(api.deriveKeypair(secret).publicKey);
+    const api = new xrpljs.Client(server);
 
-    console.log("SetHook on address " + address);
+    const fee = (txBlob) => {
+        return new Promise((resolve, reject) => {
+            let req = { command: 'fee' };
+            if (txBlob)
+                req['tx_blob'] = txBlob;
 
-    api.on('error', (errorCode, errorMessage) => { console.log(errorCode + ': ' + errorMessage); });
-    api.on('connected', () => { console.log('connected'); });
-    api.on('disconnected', (code) => { console.log('disconnected, code:', code); });
-    api.connect().then(() => {
-        binary = fs.readFileSync(wasmfile).toString('hex').toUpperCase();
-        j = {
-            Account: address,
-            TransactionType: "SetHook",
-            CreateCode: binary,
-            HookOn: '0000000000000000'
-        }
-        api.prepareTransaction(j).then((x) => {
-            let s = api.sign(x.txJSON, secret)
-            api.submit(s.signedTransaction).then(response => {
-                console.log(response.resultCode, response.resultMessage);
-                process.exit(0);
-            }).catch(e => { console.log(e) });
+            api.request(req).then(resp => {
+                resolve(resp.result.drops);
+            }).catch(e => {
+                reject(e);
+            });
         });
-    }).then(() => { }).catch(console.error);
+    };
+
+    const feeCompute = (accountSeed, txnOrg) => {
+        return new Promise((resolve, reject) => {
+            txnToSend = { ...txnOrg };
+            txnToSend['SigningPubKey'] = '';
+
+            let wal = xrpljs.Wallet.fromSeed(accountSeed);
+            api.prepareTransaction(txnToSend, { wallet: wal }).then(txn => {
+                let ser = rbc.encode(txn);
+                fee(ser).then(fees => {
+                    let baseDrops = fees.base_fee
+
+                    delete txnToSend['SigningPubKey']
+                    txnToSend['Fee'] = baseDrops + '';
+
+
+                    api.prepareTransaction(txnToSend, { wallet: wal }).then(txn => {
+                        resolve(txn);
+                    }).catch(e => { reject(e); });
+                }).catch(e => { reject(e); });
+            }).catch(e => { reject(e); });
+        });
+    }
+
+    const feeSubmit = (seed, txn) => {
+        return new Promise((resolve, reject) => {
+            feeCompute(seed, txn).then(txn => {
+                api.submit(txn,
+                    { wallet: xrpljs.Wallet.fromSeed(seed) }).then(s => {
+                        resolve(s);
+                    }).catch(e => { reject(e); });
+            }).catch(e => { reject(e); });
+        });
+    }
+
+    const submitTxn = (seed, txn) => {
+        return new Promise((resolve, reject) => {
+            api.connect().then(() => {
+                feeSubmit(seed, txn).then(res => {
+                    if (res?.result?.engine_result === 'tesSUCCESS')
+                        resolve(res?.result?.engine_result);
+                    else
+                        reject(res);
+                }).catch(e => { reject(e); });
+            }).catch(e => { reject(e); });
+        });
+    }
+
+    const account = xrpljs.Wallet.fromSeed(cfg.secret)
+    const binary = fs.readFileSync("build/evernode.wasm").toString('hex').toUpperCase();
+    const hookTx = {
+        Account: account.classicAddress,
+        TransactionType: "SetHook",
+        Hooks:
+            [
+                {
+                    Hook: {
+                        CreateCode: binary.slice(0, 194252),
+                        HookOn: '0000000000000000',
+                        HookNamespace: NAMESPACE,
+                        HookApiVersion: 0,
+                        Flags: hsfOVERRIDE
+                    }
+                }
+            ]
+    };
+
+    submitTxn(cfg.secret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
 }

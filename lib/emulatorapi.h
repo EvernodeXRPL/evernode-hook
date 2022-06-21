@@ -142,7 +142,7 @@ int get_nft(uint32_t address, uint32_t token_id, uint16_t *flags, uint32_t issue
 
 int read_stdin(uint8_t *read_buf, const int read_len);
 
-int64_t hook(int64_t reserved);
+int64_t hook(uint32_t reserved);
 
 /**
  * Guard function. Each time a loop appears in your code a call to this must be the first branch instruction after the
@@ -171,10 +171,11 @@ int64_t rollback(uint32_t read_ptr, uint32_t read_len, int64_t error_code);
 
 /**
  * Compute the minimum fee required to be paid by a hypothetically emitted transaction based on its size in bytes.
- * @param The size of the emitted transaction in bytes
- * @return The minimum fee in drops this transaction should pay to succeed
+ * @param read_ptr Pointer to the buffer containing the serialized transaction you intend to emit. The fee field is required but ignored (you may use zero). Use the output of this function to populate the fee field correctly.
+ * @param read_len The length of the tx blob.
+ * @return The amount of the fee in drops recommended for a to-be emitted transaction
  */
-int64_t etxn_fee_base(uint32_t tx_byte_count);
+int64_t etxn_fee_base(uint32_t read_ptr,  uint32_t read_len);
 
 /**
  * Write a full emit_details stobject into the buffer specified.
@@ -407,6 +408,6 @@ int64_t state(uint32_t write_ptr, uint32_t write_len, uint32_t kread_ptr, uint32
 #define COMPARE_GREATER 4U
 
 #include "sfcodes.h"
-#include "hookmacro.h"
+#include "macro.h"
 
 #endif
