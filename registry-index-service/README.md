@@ -9,7 +9,7 @@
 - Download a key json file with `Generate new private key` button.
 - Place it under `service-acc` directory as `./registry-index-service/service-acc/firebase-sa-key.json`.
 
-### How to setup
+### How to setup and run
 - Go to `registry-index-service` directory.
 - Run `npm install` to install necessary dependencies.
 - Run `npm run build` to build the hook binary and emulator bundle.

@@ -11,7 +11,7 @@
 - If your system is 64-bit, You need to have 32-bit support in you system to run emulator wrappers.
 - 32-bit support can be installed with `apt-get install libc6-i386`.
 
-### How to setup
+### How to setup and run
 - Go to `hook-emulator` directory.
 - Run `npm install` to install necessary dependencies.
 - Run `npm run build` to build the hook binary and emulator bundle.
