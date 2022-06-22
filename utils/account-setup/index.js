@@ -31,7 +31,7 @@ const HOOK_DATA_DIR = ACCOUNT_DATA_DIR + '/data'
 // Account names
 const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
 
-// XRP Pre-defined Special Address -> Blackholeenc
+// XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
 
 function httpPost(url) {
