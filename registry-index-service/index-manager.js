@@ -1,15 +1,19 @@
 const fs = require('fs');
 const process = require('process');
+const path = require('path');
+const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
     RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
-
 const { Buffer } = require('buffer');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
 const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
+const MIN_XRP = "1";
+const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
+const INIT_MEMO_FORMAT = "hex";
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v2.xrpl-labs.com";
 const MODE = process.env.MODE || 'dev';
@@ -17,8 +21,14 @@ const ACTION = process.env.ACTION || 'run';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
-
+const CONFIG_FILE = 'accounts.json';
+const HOOK_DATA_DIR = DATA_DIR + '/data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
+
+const HOOK_INITIALIZER = {
+    address: 'rMv668j9M6x2ww4HNEF4AhB8ju77oSxFJD',
+    secret: 'sn6TNZivVQY9KxXrLy8XdH9oXk3aG'
+}
 
 const NFT_WAIT_TIMEOUT = 80;
 
@@ -70,7 +80,6 @@ const AFFECTED_HOOK_STATE_MAP = {
     ]
 }
 
-
 /**
  * Registry Index Manager listens to the transactions on the registry account and update Firebase Index accordingly.
  */
@@ -95,9 +104,9 @@ class IndexManager {
     async init(firebaseSecKeyPath) {
         try {
             await this.#xrplApi.connect();
+            await this.#connectRegistry();
+            await this.#registryClient.subscribe();
             await this.#firestoreManager.authorize(firebaseSecKeyPath);
-            await this.#registryClient.subscribe()
-            await this.#registryClient.connect();
             this.config = await this.#firestoreManager.getConfigs();
             if (!this.config || !this.config.length) {
                 const states = await this.#registryClient.getHookStates();
@@ -110,10 +119,8 @@ class IndexManager {
                         await this.#firestoreManager.setConfig(decoded);
                 }));
             }
-
         } catch (e) {
             if (e.code === "NO_STATE_KEY") {
-
                 console.log(`Waiting for hook initialize transaction (${this.#xrplAcc.address})...`);
                 await new Promise(async (resolve) => {
                     await this.#registryClient.subscribe()
@@ -125,8 +132,7 @@ class IndexManager {
                 });
             }
             else {
-                console.error(e);
-                return;
+                throw e;
             }
         }
 
@@ -144,10 +150,36 @@ class IndexManager {
 
     }
 
-    // To update index, if the the service is down for a long period.
+    // Connect the registry and trying to reconnect in the event of account not found error.
+    // Account not found error can be because of a network reset. (Dev and test nets)
+    async #connectRegistry() {
+        let attempts = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            try {
+                attempts++;
+                const ret = await this.#registryClient.connect();
+                if (ret)
+                    break;
+            } catch (error) {
+                if (error?.data?.error === 'actNotFound') {
+                    let delaySec;
+                    // The maximum delay will be 5 minutes.
+                    if (attempts > 150) {
+                        delaySec = 300;
+                    } else {
+                        delaySec = 2 * attempts;
+                    }
+                    console.log(`Network reset detected. Attempt ${attempts} failed. Retrying in ${delaySec}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
+                } else
+                    throw error;
+            }
+        }
+    }
 
+    // To update index, if the the service is down for a long period.
     async #recover() {
-        // Need to consider the configs, if there can be deletions in there as well.
         const statesInIndex = (await this.#firestoreManager.getHosts()).map(h => h.id);
         await this.#persisit(statesInIndex, true);
     }
@@ -169,12 +201,11 @@ class IndexManager {
         if (hostTrxs.includes(memoType))
             stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
 
-
         switch (memoType) {
             case MemoTypes.REGISTRY_INIT:
                 affectedStates = AFFECTED_HOOK_STATE_MAP.INIT;
                 break;
-            case MemoTypes.HOST_REG:
+            case MemoTypes.HOST_REG: {
                 affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
                 affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
 
@@ -206,6 +237,7 @@ class IndexManager {
                 stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
                 affectedStates.push(stateKeyTokenId);
                 break;
+            }
             case MemoTypes.HOST_DEREG:
                 affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
                 affectedStates.push(stateKeyHostAddrId);
@@ -218,7 +250,7 @@ class IndexManager {
                 affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
                 affectedStates.push(stateKeyHostAddrId);
                 break;
-            case MemoTypes.HOST_POST_DEREG:
+            case MemoTypes.HOST_POST_DEREG: {
                 affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
                 affectedStates.push(stateKeyHostAddrId);
 
@@ -226,6 +258,7 @@ class IndexManager {
                 stateKeyTokenId = StateHelpers.generateTokenIdStateKey(nftTokenId);
                 affectedStates.push(stateKeyTokenId);
                 break;
+            }
         }
 
         await this.#persisit(affectedStates);
@@ -244,8 +277,6 @@ class IndexManager {
         // To find removed states.
         const updatedStateKeys = updatedStates.map(s => s.key);
         const removedStates = (affectedStates.filter(s => !(updatedStateKeys.includes(s)))).map(st => { return { key: st } });
-
-
 
         let indexUpdates = {
             set: {
@@ -330,6 +361,29 @@ class IndexManager {
     }
 }
 
+async function initRegistryConfigs(config, configPath, rippledServer) {
+    // Get issuer and foundation cold wallet account ids.
+    let memoData = Buffer.allocUnsafe(40);
+    codec.decodeAccountID(config.issuer.address).copy(memoData);
+    codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+
+    const xrplApi = new XrplApi(rippledServer);
+    await xrplApi.connect();
+    const initAccount = new XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret, { xrplApi: xrplApi });
+    const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+        [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
+
+    if (res.code === 'tesSUCCESS') {
+        // Listen for the transaction with tx hash.
+        // Update the config initialized flag and write the config.
+        config.initialized = true;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
+        return res;
+    }
+    else {
+        throw res;
+    }
+}
 
 async function main() {
     // Registry address is required as a command line param.
@@ -338,6 +392,20 @@ async function main() {
         return;
     }
     const registryAddress = process.argv[2];
+    const configPath = path.resolve(HOOK_DATA_DIR, registryAddress, CONFIG_FILE);
+
+    // If config doesn't exist, skip the execution.
+    if (!fs.existsSync(configPath)) {
+        console.error(`${configPath} not found, run the account setup tool and generate the accounts.`);
+        return;
+    }
+    let config = JSON.parse(fs.readFileSync(configPath).toString());
+
+    // If required files and config data doesn't exist, skip the execution.
+    if (!config.registry || !config.registry.address || !config.registry.secret) {
+        console.error('Registry account info not found, run the account setup tool and generate the accounts.');
+        return;
+    }
 
     // Firestore Service Account key
     if (!fs.existsSync(FIREBASE_SEC_KEY_PATH)) {
@@ -345,10 +413,22 @@ async function main() {
         return;
     }
 
-    // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, registryAddress, MODE === 'beta' ? BETA_STATE_INDEX : null);
-    await indexManager.init(FIREBASE_SEC_KEY_PATH);
+    // Send the config init transaction to the registry account.
+    if (!config.initialized) {
+        console.log('Sending registry contract initialization transation.');
+        const res = await initRegistryConfigs(config, configPath, RIPPLED_URL).catch(e => {
+            throw `Registry contract initialization transaction failed with ${e}.`;
+        });
+        if (res)
+            console.log('Registry contract initialization success.')
+    }
 
+    // Start the Index Manager.
+    const indexManager = new IndexManager(RIPPLED_URL, config.registry.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    await indexManager.init(FIREBASE_SEC_KEY_PATH);
 }
 
-main().catch(console.error);
+main().catch(e => {
+    console.error(e);
+    process.exit(1);
+});

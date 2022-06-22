@@ -3,9 +3,16 @@
     "version": "1.0.0",
     "description": "",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "lint": "./node_modules/.bin/eslint ./sethook.js",
+        "build:hook": "make build",
+        "build:self": "npm run lint && ncc build sethook.js --minify -o dist",
+        "build": "npm run build:hook && npm run build:self && cp ./build/evernode.wasm dist/"
     },
     "dependencies": {
         "xrpl-hooks": "2.1.1"
+    },
+    "devDependencies": {
+        "eslint": "8.3.0"
     }
 }
