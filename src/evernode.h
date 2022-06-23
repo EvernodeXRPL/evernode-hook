@@ -37,33 +37,9 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                              \
     }
 
-#define ASCII_TO_HEX(val)    \
-    {                        \
-        switch (val)         \
-        {                    \
-        case 'A':            \
-            val = 10;        \
-            break;           \
-        case 'B':            \
-            val = 11;        \
-            break;           \
-        case 'C':            \
-            val = 12;        \
-            break;           \
-        case 'D':            \
-            val = 13;        \
-            break;           \
-        case 'E':            \
-            val = 14;        \
-            break;           \
-        case 'F':            \
-            val = 15;        \
-            break;           \
-        default:             \
-            val = val - '0'; \
-            break;           \
-        }                    \
-    }
+#define ASCII_TO_HEX(val)                                                              \
+    val >= 'A' && val <= 'F' ? (val - 'A') + 10 : val >= '0' && val <= '9' ? val - '0' \
+                                                                           : -1;
 
 #define HEXSTR_TO_BYTES(byte_ptr, hexstr_ptr, hexstr_len)          \
     {                                                              \
@@ -71,8 +47,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         {                                                          \
             int val1 = (int)hexstr_ptr[i];                         \
             int val2 = (int)hexstr_ptr[i + 1];                     \
-            ASCII_TO_HEX(val1)                                     \
-            ASCII_TO_HEX(val2)                                     \
+            val1 = ASCII_TO_HEX(val1);                             \
+            val2 = ASCII_TO_HEX(val2);                             \
             byte_ptr[i / 2] = ((val1 * 16) + val2);                \
         }                                                          \
     }
@@ -360,6 +336,8 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                               \
                                                                                                                          \
         uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                         \
+        uint8_t uri_read_buf[258];                                                                                       \
+        int64_t uri_read_len;                                                                                            \
         for (int i = 0; GUARDM(32, 7), i < 32; ++i)                                                                      \
         {                                                                                                                \
             int64_t nft_slot = slot_subarray(nfts_slot, i, 0);                                                           \
@@ -373,7 +351,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                     if (equal)                                                                                           \
                     {                                                                                                    \
                         int64_t uri_slot = slot_subfield(nft_slot, sfURI, 0);                                            \
-                        slot(SBUF(nft_uri), uri_slot);                                                                   \
+                        uri_read_len = slot(SBUF(uri_read_buf), uri_slot);                                               \
                         nft_exists = 1;                                                                                  \
                         break;                                                                                           \
                     }                                                                                                    \
@@ -382,8 +360,16 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         }                                                                                                                \
         if (nft_exists)                                                                                                  \
         {                                                                                                                \
-            nft_uri_len = nft_uri[0];                                                                                    \
-            COPY_BUF_NON_CONST_LEN_GUARDM(nft_uri, 0, nft_uri, 1, nft_uri_len + 1, sizeof(nft_uri), 1, 9);               \
+            if (uri_read_len >= 195)                                                                                     \
+            {                                                                                                            \
+                nft_uri_len = 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1];                                   \
+                COPY_BUF_NON_CONST_LEN_GUARDM(nft_uri, 0, uri_read_buf, 2, nft_uri_len, sizeof(uri_read_buf), 1, 9);     \
+            }                                                                                                            \
+            else                                                                                                         \
+            {                                                                                                            \
+                nft_uri_len = uri_read_buf[0];                                                                           \
+                COPY_BUF_NON_CONST_LEN_GUARDM(nft_uri, 0, uri_read_buf, 1, nft_uri_len, sizeof(uri_read_buf), 1, 9);     \
+            }                                                                                                            \
             nft_flags = UINT16_FROM_BUF(cur_id);                                                                         \
             nft_tffee = UINT16_FROM_BUF(cur_id + 2);                                                                     \
             COPY_BUF_GUARDM(nft_issuer, 0, cur_id, 4, ACCOUNT_ID_SIZE, 1, 10);                                           \
