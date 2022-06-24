@@ -1,4 +1,4 @@
-const fs = require('fs')
+const fs = require('fs');
 const process = require('process');
 const xrpljs = require('xrpl-hooks');
 const rbc = require('xrpl-binary-codec');
