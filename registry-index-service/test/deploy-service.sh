@@ -1,7 +1,7 @@
 #!/bin/bash
 
 dev_path="/root/dev-test"
-beta_path="/root/beta1"
+beta_path="/root/beta2"
 build_path="../dist"
 bundle="registry-index.tar.gz"
 
@@ -15,10 +15,10 @@ if [[ $mode = "dev" ]]; then
     to_path="$dev_path"
     index_path="$to_path/registry-index"
     registry_address="raaFre81618XegCrzTzVotAmarBcqNSAvK"
-# elif [[ $mode = "beta" ]]; then
-#     to_path="$beta_path"
-#     index_path="$to_path/registry-index"
-#     registry_address=""
+elif [[ $mode = "beta" ]]; then
+    to_path="$beta_path"
+    index_path="$to_path/registry-index"
+    registry_address="r3cNR2bdao1NyvQ5ZuQvCUgqkoWGmgF34E"
 else
     echo "Invalid mode"
     echo "Usage: deploy-service.sh <Mode (dev|beta)>"
