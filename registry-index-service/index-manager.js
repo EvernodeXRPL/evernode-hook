@@ -98,7 +98,7 @@ class IndexManager {
     #xrplApi = null;
     #xrplAcc = null;
     #registryClient = null;
-    #prendingTransactions = null;
+    #pendingTransactions = null;
 
     constructor(rippledServer, registryAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
@@ -110,7 +110,7 @@ class IndexManager {
         this.#xrplAcc = new XrplAccount(registryAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#registryClient = new RegistryClient(registryAddress);
-        this.#prendingTransactions = [];
+        this.#pendingTransactions = [];
     }
 
     async init(firebaseSecKeyPath) {
@@ -152,11 +152,11 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#registryClient.on(RegistryEvents.HostRegistered, data => { this.#prendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.HostDeregistered, data => { this.#prendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, data => { this.#prendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.Heartbeat, data => { this.#prendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, data => { this.#prendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostRegistered, data => { this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostDeregistered, data => { this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostRegUpdated, data => { this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.Heartbeat, data => { this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostPostDeregistered, data => { this.#pendingTransactions.push(data) });
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
 
@@ -205,12 +205,12 @@ class IndexManager {
         await this.#persisit(statesInIndex, true);
     }
 
-    // To gather the transactions to the prendingTransactions array.
+    // To process pending transactions. (Takes a batch and precess.)
     async #handleTransactions() {
         PROCESS_LOCK = true;
 
         // Top N (MAX_BATCH_SIZE) batch of pending transactions.
-        const processingTrxns = this.#prendingTransactions.slice(0, MAX_BATCH_SIZE);
+        const processingTrxns = this.#pendingTransactions.slice(0, MAX_BATCH_SIZE);
         try {
             if (processingTrxns.length == 0)
                 throw "No transactions were found to process."
@@ -220,8 +220,8 @@ class IndexManager {
                 await this.#processTransaction(item);
             }
             // Remove the processed transactions.
-            this.#prendingTransactions.splice(0, processingTrxns.length);
-            console.log(`|Tot. trx: ${processingTrxns.length}|Batch process complted.`);
+            this.#pendingTransactions.splice(0, processingTrxns.length);
+            console.log(`|Tot. trx: ${processingTrxns.length}|Batch process completed.`);
         }
         catch (e) {
             console.error(e);
