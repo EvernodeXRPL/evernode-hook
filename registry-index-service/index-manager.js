@@ -205,7 +205,7 @@ class IndexManager {
         await this.#persisit(statesInIndex, true);
     }
 
-    // To process pending transactions. (Takes a batch and precess.)
+    // To process pending transactions. (Takes a batch and process.)
     async #handleTransactions() {
         PROCESS_LOCK = true;
 
