@@ -1,3 +1,10 @@
+/**
+ * This service helps to update the Evernode Firestore index, when registry update is occured.
+ * Here, the transactions are collected to a golbal array (FIFO Queue) and sequentially process them batch-wise.
+ * Interval based scheduler is running to process the transactions.
+ *
+ * NOTE : Firestore update is not a batch write for the moment.
+ */
 const fs = require('fs');
 const process = require('process');
 const path = require('path');
@@ -31,6 +38,9 @@ const HOOK_INITIALIZER = {
 }
 
 const NFT_WAIT_TIMEOUT = 80;
+const MAX_BATCH_SIZE = 500;
+const PROCESS_INTERVAL = 10000; // in milliseconds.
+let PROCESS_LOCK = false;
 
 const AFFECTED_HOOK_STATE_MAP = {
     INIT: [
@@ -88,6 +98,7 @@ class IndexManager {
     #xrplApi = null;
     #xrplAcc = null;
     #registryClient = null;
+    #prendingTransactions = null;
 
     constructor(rippledServer, registryAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
@@ -99,6 +110,7 @@ class IndexManager {
         this.#xrplAcc = new XrplAccount(registryAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#registryClient = new RegistryClient(registryAddress);
+        this.#prendingTransactions = [];
     }
 
     async init(firebaseSecKeyPath) {
@@ -140,13 +152,22 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#registryClient.on(RegistryEvents.HostRegistered, data => this.handleTransaction(data));
-        this.#registryClient.on(RegistryEvents.HostDeregistered, data => this.handleTransaction(data));
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, data => this.handleTransaction(data));
-        this.#registryClient.on(RegistryEvents.Heartbeat, data => this.handleTransaction(data));
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, data => this.handleTransaction(data));
+        this.#registryClient.on(RegistryEvents.HostRegistered, data => { this.#prendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostDeregistered, data => { this.#prendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostRegUpdated, data => { this.#prendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.Heartbeat, data => { this.#prendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostPostDeregistered, data => { this.#prendingTransactions.push(data) });
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
+
+        const idxManager = this;
+        // Interval based schedule to process the pending transactions.
+        let timerId = setTimeout(function tick() {
+            if (!PROCESS_LOCK) {
+                idxManager.#handleTransactions();
+            }
+            timerId = setTimeout(tick, PROCESS_INTERVAL);
+        }, PROCESS_INTERVAL);
 
     }
 
@@ -184,9 +205,34 @@ class IndexManager {
         await this.#persisit(statesInIndex, true);
     }
 
-    // To update index on the go.
-    async handleTransaction(data) {
+    // To gather the transactions to the prendingTransactions array.
+    async #handleTransactions() {
+        PROCESS_LOCK = true;
 
+        // Top N (MAX_BATCH_SIZE) batch of pending transactions.
+        const processingTrxns = this.#prendingTransactions.slice(0, MAX_BATCH_SIZE);
+        try {
+            if (processingTrxns.length == 0)
+                throw "No transactions were found to process."
+
+            console.log(`|Tot. trx: ${processingTrxns.length}|Batch process started.`);
+            for (let item of processingTrxns) {
+                await this.#processTransaction(item);
+            }
+            // Remove the processed transactions.
+            this.#prendingTransactions.splice(0, processingTrxns.length);
+            console.log(`|Tot. trx: ${processingTrxns.length}|Batch process complted.`);
+        }
+        catch (e) {
+            console.error(e);
+        }
+        finally {
+            PROCESS_LOCK = false;
+        }
+    }
+
+    // Process the transaction.
+    async #processTransaction(data) {
         const trx = data.transaction;
         let affectedStates = [];
         let stateKeyHostAddrId = null;
@@ -195,7 +241,7 @@ class IndexManager {
         const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG];
 
         const memoType = trx.Memos[0].type;
-        console.log(`|${trx.Account}|${memoType}|Triggered a Transaction`);
+        console.log(`|${trx.Account}|${memoType}|Fetched a transaction from the batch`);
 
         // HOST_ADDR State Key
         if (hostTrxs.includes(memoType))
@@ -262,7 +308,7 @@ class IndexManager {
         }
 
         await this.#persisit(affectedStates);
-        console.log(`|${trx.Account}|${memoType}|Completed Transaction Handle`);
+        console.log(`|${trx.Account}|${memoType}|Completed transaction processing`);
     }
 
     async #persisit(affectedStates, doRecover = false) {
