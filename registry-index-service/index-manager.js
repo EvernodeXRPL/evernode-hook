@@ -39,7 +39,7 @@ const HOOK_INITIALIZER = {
 
 const NFT_WAIT_TIMEOUT = 80;
 const MAX_BATCH_SIZE = 500;
-const PROCESS_INTERVAL = 10000; // in milliseconds.
+const PROCESS_INTERVAL = 20000; // in milliseconds.
 let PROCESS_LOCK = false;
 
 const AFFECTED_HOOK_STATE_MAP = {
@@ -148,6 +148,7 @@ class IndexManager {
             }
         }
 
+        // This step helps to recover the missed transaction details.
         if (ACTION === 'recover') {
             await this.#recover()
         }
@@ -160,13 +161,16 @@ class IndexManager {
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
 
-        const idxManager = this;
-        // Interval based schedule to process the pending transactions.
-        let timerId = setTimeout(function tick() {
+        // Interval based scheduler to process the pending transactions.
+        const doUpdate = () => {
             if (!PROCESS_LOCK) {
-                idxManager.#handleTransactions();
+                this.#handleTransactions();
             }
-            timerId = setTimeout(tick, PROCESS_INTERVAL);
+        }
+
+        setTimeout(function tick() {
+            doUpdate();
+            setTimeout(tick, PROCESS_INTERVAL);
         }, PROCESS_INTERVAL);
 
     }
@@ -199,19 +203,24 @@ class IndexManager {
         }
     }
 
-    // To update index, if the the service is down for a long period.
+    // To update index, if the the service is down for a considerable period.
     async #recover() {
-        const statesInIndex = (await this.#firestoreManager.getHosts()).map(h => h.id);
-        await this.#persisit(statesInIndex, true);
+        try {
+            const statesInIndex = (await this.#registryClient.getActiveHosts()).map(h => h.id);
+            await this.#persisit(statesInIndex, true);
+        } catch (e) {
+            console.error(e)
+        }
     }
 
     // To process pending transactions. (Takes a batch and process.)
     async #handleTransactions() {
         PROCESS_LOCK = true;
 
-        // Top N (MAX_BATCH_SIZE) batch of pending transactions.
-        const processingTrxns = this.#pendingTransactions.slice(0, MAX_BATCH_SIZE);
         try {
+            // Top N (MAX_BATCH_SIZE) batch of pending transactions.
+            const processingTrxns = this.#pendingTransactions.slice(0, MAX_BATCH_SIZE);
+
             if (processingTrxns.length == 0)
                 throw "No transactions were found to process."
 
