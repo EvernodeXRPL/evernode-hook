@@ -138,7 +138,7 @@ async function main() {
 
             }).catch(e => console.log(e));
 
-        // Add the error trigering transaction here.
+        // Add the error triggering transaction here.
 
     } catch (error) {
         console.error('Error occured: ', error);
