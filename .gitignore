@@ -2,3 +2,4 @@ build
 hook.json
 node_modules
 dist
+utils/recreate-template/hook/*.wasm
