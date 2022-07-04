@@ -180,9 +180,13 @@ class IndexManager {
 
     // To update index, if the the service is down for a long period.
     async #recover() {
-        const hosts = await this.#firestoreManager.getHosts();
-        const statesInIndex = (hosts.nextPageToken ? hosts.data : hosts).map(h => h.id);
-        await this.#persisit(statesInIndex, true);
+        try {
+            // TODO : Consider the configs as well in the future.
+            const statesInIndex = (await this.#registryClient.getActiveHosts()).map(h => h.id);
+            await this.#persisit(statesInIndex, true);
+        } catch (e) {
+            console.error(e)
+        }
     }
 
     // To update index on the go.
