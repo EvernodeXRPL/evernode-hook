@@ -138,13 +138,13 @@ async function main() {
 
             }).catch(e => console.log(e));
 
-        // Add the error triggering transaction here.-------------------------------------------------
+        // Add the error triggering transaction here.---------------------------------------------------
         /**
-         * NOTE: If you are performing an EVR transaction via a Host account or a Tenant Account,
+         * NOTE: If you are performing an EVR transaction via a Host account or a Tenant account,
          * first you have to fund EVRs to that particular account from the Evernode Foundation account.
          */
 
-        // -------------------------------------------------------------------------------------------
+        // ---------------------------------------------------------------------------------------------
 
     } catch (error) {
         console.error('Error occured: ', error);
