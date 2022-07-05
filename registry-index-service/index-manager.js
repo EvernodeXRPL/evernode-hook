@@ -153,11 +153,11 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#registryClient.on(RegistryEvents.HostRegistered, data => { this.#pendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.HostDeregistered, data => { this.#pendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, data => { this.#pendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.Heartbeat, data => { this.#pendingTransactions.push(data) });
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, data => { this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#pendingTransactions.push(data) });
+        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#pendingTransactions.push(data) });
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
 
@@ -205,12 +205,10 @@ class IndexManager {
 
     // To update index, if the the service is down for a considerable period.
     async #recover() {
-        try {
-            const statesInIndex = (await this.#registryClient.getActiveHosts()).map(h => h.id);
-            await this.#persisit(statesInIndex, true);
-        } catch (e) {
-            console.error(e)
-        }
+        // TODO : Need to revise this logic.
+        const hosts = await this.#firestoreManager.getHosts(null, 1000);
+        const statesInIndex = (hosts.nextPageToken ? hosts.data : hosts).map(h => h.id);
+        await this.#persisit(statesInIndex, true);
     }
 
     // To process pending transactions. (Takes a batch and process.)
@@ -252,72 +250,77 @@ class IndexManager {
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Fetched a transaction from the batch`);
 
-        // HOST_ADDR State Key
-        if (hostTrxs.includes(memoType))
-            stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
+        try {
+            // HOST_ADDR State Key
+            if (hostTrxs.includes(memoType))
+                stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
 
-        switch (memoType) {
-            case MemoTypes.REGISTRY_INIT:
-                affectedStates = AFFECTED_HOOK_STATE_MAP.INIT;
-                break;
-            case MemoTypes.HOST_REG: {
-                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
-                affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+            switch (memoType) {
+                case MemoTypes.REGISTRY_INIT:
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.INIT;
+                    break;
+                case MemoTypes.HOST_REG: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
+                    affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
 
-                const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
-                let regNft = null;
-                const hostXrplAcc = new XrplAccount(trx.Account);
-                let attempts = 0;
-                while (attempts < NFT_WAIT_TIMEOUT) {
-                    // Check in Registry.
-                    regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
-                    if (!regNft) {
-                        // Check in Host.
-                        regNft = (await hostXrplAcc.getNfts()).find(n => (n.URI === uri));
+                    const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
+                    let regNft = null;
+                    const hostXrplAcc = new XrplAccount(trx.Account);
+                    let attempts = 0;
+                    while (attempts < NFT_WAIT_TIMEOUT) {
+                        // Check in Registry.
+                        regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
+                        if (!regNft) {
+                            // Check in Host.
+                            regNft = (await hostXrplAcc.getNfts()).find(n => (n.URI === uri));
+                        }
+
+                        if (regNft) {
+                            break;
+                        }
+
+                        await new Promise(r => setTimeout(r, 1000));
+                        attempts++;
                     }
 
-                    if (regNft) {
+                    if (!regNft) {
+                        console.log(`|${trx.Account}|${memoType}|No Reg. NFT was found within the timeout.`);
                         break;
                     }
 
-                    await new Promise(r => setTimeout(r, 1000));
-                    attempts++;
-                }
-
-                if (!regNft) {
-                    console.log(`|${trx.Account}|${memoType}|No Reg. NFT was found within the timeout.`);
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
+                    affectedStates.push(stateKeyTokenId);
                     break;
                 }
+                case MemoTypes.HOST_DEREG:
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
+                    affectedStates.push(stateKeyHostAddrId);
+                    break;
+                case MemoTypes.HOST_UPDATE_INFO:
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG;
+                    affectedStates.push(stateKeyHostAddrId);
+                    break;
+                case MemoTypes.HEARTBEAT:
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
+                    affectedStates.push(stateKeyHostAddrId);
+                    break;
+                case MemoTypes.HOST_POST_DEREG: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
+                    affectedStates.push(stateKeyHostAddrId);
 
-                stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
-                affectedStates.push(stateKeyTokenId);
-                break;
+                    const nftTokenId = trx.Memos[0].data;
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(nftTokenId);
+                    affectedStates.push(stateKeyTokenId);
+                    break;
+                }
             }
-            case MemoTypes.HOST_DEREG:
-                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
-                affectedStates.push(stateKeyHostAddrId);
-                break;
-            case MemoTypes.HOST_UPDATE_INFO:
-                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG;
-                affectedStates.push(stateKeyHostAddrId);
-                break;
-            case MemoTypes.HEARTBEAT:
-                affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
-                affectedStates.push(stateKeyHostAddrId);
-                break;
-            case MemoTypes.HOST_POST_DEREG: {
-                affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
-                affectedStates.push(stateKeyHostAddrId);
 
-                const nftTokenId = trx.Memos[0].data;
-                stateKeyTokenId = StateHelpers.generateTokenIdStateKey(nftTokenId);
-                affectedStates.push(stateKeyTokenId);
-                break;
-            }
+            await this.#persisit(affectedStates);
+            console.log(`|${trx.Account}|${memoType}|Completed transaction processing`);
         }
-
-        await this.#persisit(affectedStates);
-        console.log(`|${trx.Account}|${memoType}|Completed transaction processing`);
+        catch (e) {
+            console.error(e);
+        }
     }
 
     async #persisit(affectedStates, doRecover = false) {
