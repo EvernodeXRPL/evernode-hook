@@ -205,10 +205,17 @@ class IndexManager {
 
     // To update index, if the the service is down for a considerable period.
     async #recover() {
-        // TODO : Need to revise this logic.
-        const hosts = await this.#firestoreManager.getHosts(null, 1000);
-        const statesInIndex = (hosts.nextPageToken ? hosts.data : hosts).map(h => h.id);
-        await this.#persisit(statesInIndex, true);
+        try {
+            const hosts = await this.#registryClient.getAllHosts();
+            const configs = await this.#registryClient.getAllConfigs();
+
+            const itemsInIndex = configs.concat(hosts);
+            const stateKeyList = itemsInIndex.map(item => item.id);
+
+            await this.#persisit(stateKeyList, true);
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     // To process pending transactions. (Takes a batch and process.)
