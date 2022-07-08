@@ -230,14 +230,14 @@ class IndexManager {
         PROCESS_LOCK = true;
 
         try {
-            // Top N (MAX_BATCH_SIZE) batch of pending transactions.
+            // Top N (MAX_BATCH_SIZE) batch of pending states.
             const processingStates = this.#queuedStates.slice(0, MAX_BATCH_SIZE);
 
             if (processingStates.length > 0) {
                 console.log(`|Tot. states: ${processingStates.length}|Batch process started.`);
                 await this.#updateIndexStates(processingStates);
 
-                // Remove the processed transactions.
+                // Remove the processed states.
                 this.#queuedStates.splice(0, processingStates.length);
                 console.log(`|Tot. states: ${processingStates.length}|Batch process completed.`);
             }
