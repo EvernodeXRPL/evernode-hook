@@ -176,18 +176,41 @@ class FirestoreManager extends FirestoreHandler {
         await this.#authorize();
     }
 
-    async setConfig(config) {
+    async setConfig(config, isUpdate = false) {
         if (!config.key || !config.hasOwnProperty('value') || !config.type)
             throw { type: 'Validation Error', message: 'Config key, value and type are required.' };
 
         // If document already exist, update that.
         const documentId = config.key;
-        const data = await this.getConfigs({ key: documentId });
         let res;
-        if (data && data.length)
-            res = await this.#updateDocument(this.getCollectionId('configs'), config, documentId);
-        else
-            res = await this.#addDocument(this.getCollectionId('configs'), config, documentId);
+        if (isUpdate) {
+            try {
+                res = await this.#updateDocument(this.getCollectionId('configs'), config, documentId);
+            } catch (e) {
+                if (e?.data) {
+                    const resJson = JSON.parse(e.data);
+                    if (resJson.error.code === 404 && resJson.error.status === 'NOT_FOUND') {
+                        res = await this.#addDocument(this.getCollectionId('configs'), config, documentId);
+                    } else
+                        throw e;
+                } else
+                    throw e;
+            }
+        }
+        else {
+            try {
+                res = await this.#addDocument(this.getCollectionId('configs'), config, documentId);
+            } catch (e) {
+                if (e?.data) {
+                    const resJson = JSON.parse(e.data);
+                    if (resJson.error.code === 409 && resJson.error.status === 'ALREADY_EXISTS') {
+                        res = await this.#updateDocument(this.getCollectionId('configs'), config, documentId);
+                    } else
+                        throw e;
+                } else
+                    throw e;
+            }
+        }
         return res;
     }
 
@@ -198,18 +221,41 @@ class FirestoreManager extends FirestoreHandler {
         return await this.#deleteDocument(this.getCollectionId('configs'), key);
     }
 
-    async setHost(host) {
+    async setHost(host, isUpdate = false) {
         if (!host.key)
             throw { type: 'Validation Error', message: 'Host key is required.' };
 
         // If document already exist, update that.
         const documentId = host.key;
-        const data = await this.getHosts({ key: documentId });
         let res;
-        if (data && data.length)
-            res = await this.#updateDocument(this.getCollectionId('hosts'), host, documentId);
-        else
-            res = await this.#addDocument(this.getCollectionId('hosts'), host, documentId);
+        if (isUpdate) {
+            try {
+                res = await this.#updateDocument(this.getCollectionId('hosts'), host, documentId);
+            } catch (e) {
+                if (e?.data) {
+                    const resJson = JSON.parse(e.data);
+                    if (resJson.error.code === 404 && resJson.error.status === 'NOT_FOUND') {
+                        res = await this.#addDocument(this.getCollectionId('hosts'), host, documentId);
+                    } else
+                        throw e;
+                } else
+                    throw e;
+            }
+        }
+        else {
+            try {
+                res = await this.#addDocument(this.getCollectionId('hosts'), host, documentId);
+            } catch (e) {
+                if (e?.data) {
+                    const resJson = JSON.parse(e.data);
+                    if (resJson.error.code === 409 && resJson.error.status === 'ALREADY_EXISTS') {
+                        res = await this.#updateDocument(this.getCollectionId('hosts'), host, documentId);
+                    } else
+                        throw e;
+                } else
+                    throw e;
+            }
+        }
         return res;
     }
 
