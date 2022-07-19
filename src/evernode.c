@@ -679,7 +679,6 @@ int64_t hook(uint32_t reserved)
                     uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
                     PREPARE_NFT_MINT(nft_txn_out, tflag, tffee, taxon, uri, sizeof(uri));
 
-
                     if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
