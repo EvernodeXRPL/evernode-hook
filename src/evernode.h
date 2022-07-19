@@ -584,8 +584,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 #define PREPARE_NFT_MINT_SIZE(uri_len) \
     (uri_len + 240)
-// Preapare a transferable NFT mint transaction.
-// Note - Only the transferable flag will be set.
+
 #define PREPARE_NFT_MINT(buf_out_master, tflag, transfer_fee, taxon, uri, uri_len)           \
     {                                                                                 \
         uint8_t *buf_out = buf_out_master;                                            \
