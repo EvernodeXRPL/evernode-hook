@@ -1,3 +1,10 @@
+/**
+ * This service helps to update the Evernode Firestore index, when registry update is occured.
+ * Here, the transactions are collected to a golbal array (FIFO Queue) and sequentially process them batch-wise.
+ * Interval based scheduler is running to process the transactions.
+ *
+ * NOTE : Firestore update is not a batch write for the moment.
+ */
 const fs = require('fs');
 const process = require('process');
 const path = require('path');
@@ -31,43 +38,44 @@ const HOOK_INITIALIZER = {
 }
 
 const NFT_WAIT_TIMEOUT = 80;
+const MAX_BATCH_SIZE = 500;
+const PROCESS_INTERVAL = 20000; // in milliseconds.
+let PROCESS_LOCK = false;
 
 const AFFECTED_HOOK_STATE_MAP = {
     INIT: [
         // Configs
-        HookStateKeys.EVR_ISSUER_ADDR,
-        HookStateKeys.FOUNDATION_ADDR,
-        HookStateKeys.MOMENT_SIZE,
-        HookStateKeys.MINT_LIMIT,
-        HookStateKeys.FIXED_REG_FEE,
-        HookStateKeys.HOST_HEARTBEAT_FREQ,
-        HookStateKeys.PURCHASER_TARGET_PRICE,
-        HookStateKeys.LEASE_ACQUIRE_WINDOW,
+
+        { operation: 'INSERT', key: HookStateKeys.EVR_ISSUER_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.FOUNDATION_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.MOMENT_SIZE },
+        { operation: 'INSERT', key: HookStateKeys.MINT_LIMIT },
+        { operation: 'INSERT', key: HookStateKeys.FIXED_REG_FEE },
+        { operation: 'INSERT', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
+        { operation: 'INSERT', key: HookStateKeys.PURCHASER_TARGET_PRICE },
+        { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
 
         // Singleton
-        HookStateKeys.HOST_COUNT,
-        HookStateKeys.MOMENT_BASE_IDX,
-        HookStateKeys.HOST_REG_FEE,
-        HookStateKeys.MAX_REG
+        { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
+        { operation: 'INSERT', key: HookStateKeys.MOMENT_BASE_IDX },
+        { operation: 'INSERT', key: HookStateKeys.HOST_REG_FEE },
+        { operation: 'INSERT', key: HookStateKeys.MAX_REG }
     ],
     HEARTBEAT: [
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_REG: [
-        HookStateKeys.HOST_COUNT,
-        HookStateKeys.FIXED_REG_FEE,
-        HookStateKeys.MAX_REG,
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
+        { operation: 'UPDATE', key: HookStateKeys.FIXED_REG_FEE },
+        { operation: 'UPDATE', key: HookStateKeys.MAX_REG }
 
         // NOTE: Repetetative State keys
-        // HookStateKeys.PREFIX_HOST_TOKENID,
+        // HookStateKeys.PREFIX_HOST_TOKENID
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_DEREG: [
-        HookStateKeys.HOST_COUNT
-
-        // NOTE: Repetetative State keys
-        // HookStateKeys.PREFIX_HOST_TOKENID,
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT }
     ],
     HOST_UPDATE_REG: [
         // NOTE: Repetetative State keys
@@ -76,7 +84,6 @@ const AFFECTED_HOOK_STATE_MAP = {
     HOST_POST_DEREG: [
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
-        // HookStateKeys.PREFIX_HOST_TOKENID
     ]
 }
 
@@ -88,6 +95,7 @@ class IndexManager {
     #xrplApi = null;
     #xrplAcc = null;
     #registryClient = null;
+    #queuedStates = null;
 
     constructor(rippledServer, registryAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
@@ -99,6 +107,7 @@ class IndexManager {
         this.#xrplAcc = new XrplAccount(registryAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#registryClient = new RegistryClient(registryAddress);
+        this.#queuedStates = [];
     }
 
     async init(firebaseSecKeyPath) {
@@ -125,7 +134,7 @@ class IndexManager {
                 await new Promise(async (resolve) => {
                     await this.#registryClient.subscribe()
                     await this.#registryClient.on(RegistryEvents.RegistryInitialized, async (data) => {
-                        await this.handleTransaction(data);
+                        await this.#updateStatesKeyQueue(data);
                         await this.#registryClient.connect();
                         resolve();
                     });
@@ -136,17 +145,30 @@ class IndexManager {
             }
         }
 
+        // This step helps to recover the missed transaction details.
         if (ACTION === 'recover') {
             await this.#recover()
         }
 
-        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.handleTransaction(data) });
-        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.handleTransaction(data) });
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.handleTransaction(data) });
-        this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.handleTransaction(data) });
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.handleTransaction(data) });
+        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
+
+        // Interval based scheduler to process the pending transactions.
+        const doUpdate = () => {
+            if (!PROCESS_LOCK) {
+                this.#processStateQueue();
+            }
+        }
+
+        setTimeout(function tick() {
+            doUpdate();
+            setTimeout(tick, PROCESS_INTERVAL);
+        }, PROCESS_INTERVAL);
 
     }
 
@@ -178,17 +200,58 @@ class IndexManager {
         }
     }
 
-    // To update index, if the the service is down for a long period.
-    async #recover() {
-        // TODO : Need to revise this logic.
-        const hosts = await this.#firestoreManager.getHosts(null, 1000);
-        const statesInIndex = (hosts.nextPageToken ? hosts.data : hosts).map(h => h.id);
-        await this.#persisit(statesInIndex, true);
+    // Update state queue according to the listened transaction event.
+    async #updateStatesKeyQueue(data) {
+        const affectedStates = await this.#getTransactionSummary(data);
+        affectedStates.map(s => {
+            const found = this.#queuedStates.some(qs => (qs.key === s.key) && (qs.operation === s.operation));
+            if (!found)
+                this.#queuedStates.push({ operation: s.operation, key: s.key });
+        });
     }
 
-    // To update index on the go.
-    async handleTransaction(data) {
+    // To update index, if the the service is down for a considerable period.
+    async #recover() {
+        try {
+            const hosts = await this.#registryClient.getAllHosts();
+            const configs = await this.#registryClient.getAllConfigs();
 
+            const itemsInIndex = configs.concat(hosts);
+            const stateKeyList = itemsInIndex.map(item => item.id);
+
+            await this.#recoveryIndexUpdate(stateKeyList);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // To process pending states in the queue. (Takes a batch and process.)
+    async #processStateQueue() {
+        PROCESS_LOCK = true;
+
+        try {
+            // Top N (MAX_BATCH_SIZE) batch of pending states.
+            const processingStates = this.#queuedStates.slice(0, MAX_BATCH_SIZE);
+
+            if (processingStates.length > 0) {
+                console.log(`|Tot. states: ${processingStates.length}|Batch process started.`);
+                await this.#updateIndexStates(processingStates);
+
+                // Remove the processed states.
+                this.#queuedStates.splice(0, processingStates.length);
+                console.log(`|Tot. states: ${processingStates.length}|Batch process completed.`);
+            }
+        }
+        catch (e) {
+            console.error(e);
+        }
+        finally {
+            PROCESS_LOCK = false;
+        }
+    }
+
+    // To get the summary of the listened trasaction (offected states with the operation).
+    async #getTransactionSummary(data) {
         const trx = data.transaction;
         let affectedStates = [];
         let stateKeyHostAddrId = null;
@@ -197,7 +260,7 @@ class IndexManager {
         const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG];
 
         const memoType = trx.Memos[0].type;
-        console.log(`|${trx.Account}|${memoType}|Triggered a Transaction`);
+        console.log(`|${trx.Account}|${memoType}|Triggered a transaction.`);
 
         try {
             // HOST_ADDR State Key
@@ -210,7 +273,7 @@ class IndexManager {
                     break;
                 case MemoTypes.HOST_REG: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
-                    affectedStates.push(stateKeyHostAddrId.toString('hex').toUpperCase());
+                    affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId.toString('hex').toUpperCase() });
 
                     const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
                     let regNft = null;
@@ -238,52 +301,107 @@ class IndexManager {
                     }
 
                     stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
-                    affectedStates.push(stateKeyTokenId);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
                     break;
                 }
                 case MemoTypes.HOST_DEREG:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
-                    affectedStates.push(stateKeyHostAddrId);
                     break;
                 case MemoTypes.HOST_UPDATE_INFO:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG;
-                    affectedStates.push(stateKeyHostAddrId);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                     break;
                 case MemoTypes.HEARTBEAT:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
-                    affectedStates.push(stateKeyHostAddrId);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                     break;
                 case MemoTypes.HOST_POST_DEREG: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
-                    affectedStates.push(stateKeyHostAddrId);
-
-                    const nftTokenId = trx.Memos[0].data;
-                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(nftTokenId);
-                    affectedStates.push(stateKeyTokenId);
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
             }
 
-            await this.#persisit(affectedStates);
-            console.log(`|${trx.Account}|${memoType}|Completed Transaction Handling`);
+            console.log(`|${trx.Account}|${memoType}|Completed fetching transaction data`);
         }
         catch (e) {
             console.error(e);
         }
+
+        return affectedStates
     }
 
-    async #persisit(affectedStates, doRecover = false) {
+    // To update the Firestore index with a set of pending states in the queue.
+    async #updateIndexStates(processingStates) {
+        const inserts = [];
+        const updates = [];
+        const deletes = [];
+        const hookStates = await this.#registryClient.getHookStates();
+
+        processingStates.map(ps => {
+            const found = hookStates.find(hs => (hs.key === ps.key));
+            if (found)
+                ps.data = found.data;
+            if (ps.operation === 'INSERT')
+                inserts.push(ps);
+            else if (ps.operation === 'UPDATE')
+                updates.push(ps);
+            else
+                deletes.push(ps);
+        });
+
+        await Promise.all(inserts.map(async ps => {
+            const decoded = StateHelpers.decodeStateData(Buffer.from(ps.key, 'hex'), Buffer.from(ps.data, 'hex'));
+            if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+                await this.#firestoreManager.setConfig(decoded);
+            else {
+                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+                    decoded.key = decoded.addressKey;
+                    delete decoded.addressKey;
+                }
+                delete decoded.type;
+                await this.#firestoreManager.setHost(decoded);
+            }
+        }));
+
+        await Promise.all(updates.map(async ps => {
+            const decoded = StateHelpers.decodeStateData(Buffer.from(ps.key, 'hex'), Buffer.from(ps.data, 'hex'));
+            if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+                await this.#firestoreManager.setConfig(decoded, true);
+            else {
+                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+                    decoded.key = decoded.addressKey;
+                    delete decoded.addressKey;
+                }
+                delete decoded.type;
+                await this.#firestoreManager.setHost(decoded, true);
+            }
+
+        }));
+
+        await Promise.all(deletes.map(async ps => {
+            const decoded = StateHelpers.decodeStateKey(Buffer.from(ps.key, 'hex'));
+            if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
+                await this.#firestoreManager.deleteConfig(ps.key);
+            else {
+                if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
+                    await this.#firestoreManager.deleteHost(decoded.key);
+                }
+            }
+        }));
+    }
+
+    // To update the Firestore index in a recovery situation.
+    async #recoveryIndexUpdate(affectedStates) {
 
         const hookStates = await this.#registryClient.getHookStates();
-        const updatedStates = (doRecover) ? hookStates : (hookStates).filter(s => affectedStates.includes(s.key));
-        if (!updatedStates) {
-            console.log("No state entries were found for this hook account");
-            return;
+        if (!hookStates) {
+            throw "No state entries were found for this hook account";
         }
 
         // To find removed states.
-        const updatedStateKeys = updatedStates.map(s => s.key);
-        const removedStates = (affectedStates.filter(s => !(updatedStateKeys.includes(s)))).map(st => { return { key: st } });
+        const hookStateKeys = hookStates.map(s => s.key);
+        const removedStates = (affectedStates.filter(s => !(hookStateKeys.includes(s)))).map(st => { return { key: st } });
 
         let indexUpdates = {
             set: {
@@ -351,7 +469,7 @@ class IndexManager {
         }
 
         // Prepare for inset and update.
-        updatedStates.forEach(state => {
+        hookStates.forEach(state => {
             const keyBuf = Buffer.from(state.key, 'hex');
             const valueBuf = Buffer.from(state.data, 'hex');
             updateIndexSet(keyBuf, valueBuf);
