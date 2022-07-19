@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "evernode-js-client": "0.4.46",
+    "evernode-js-client": "0.4.47",
     "xrpl-hooks": "2.1.1"
   }
 }
