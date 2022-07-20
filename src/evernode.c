@@ -507,12 +507,13 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
                     TRACEVAR(token_seq);
 
-                    // Transfer fee and Taxon will be 0 for the minted NFT.
+                    // Flag, Transfer fee and Taxon will be 0 for the minted NFT.
+                    uint16_t tflag = 0;
                     uint32_t taxon = 0;
                     uint16_t tffee = 0;
 
                     uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
-                    GENERATE_NFT_TOKEN_ID(nft_token_id, tffee, hook_accid, taxon, token_seq);
+                    GENERATE_NFT_TOKEN_ID(nft_token_id, tflag, tffee, hook_accid, taxon, token_seq);
                     trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
                     TOKEN_ID_KEY(nft_token_id);
@@ -676,7 +677,7 @@ int64_t hook(uint32_t reserved)
                     COPY_BUF_GUARDM(uri, 7, txid, 0, HASH_SIZE, 1, 2);
 
                     uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
-                    PREPARE_NFT_MINT(nft_txn_out, tffee, taxon, uri, sizeof(uri));
+                    PREPARE_NFT_MINT(nft_txn_out, tflag, tffee, taxon, uri, sizeof(uri));
 
                     if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
                         rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
@@ -710,7 +711,7 @@ int64_t hook(uint32_t reserved)
                     //     {
                     //         // Loop through all the possible token sequences and generate the token ids.
                     //         uint8_t lookup_id[NFT_TOKEN_ID_SIZE];
-                    //         GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tffee, hook_accid, taxon, i, DEF_MAX_REG);
+                    //         GENERATE_NFT_TOKEN_ID_GUARD(lookup_id, tflag, tffee, hook_accid, taxon, i, DEF_MAX_REG);
 
                     //         // If the token id exists in the state (host is still registered),
                     //         // Rebate the halved registration fee.
