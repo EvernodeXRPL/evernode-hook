@@ -704,4 +704,12 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, FOUNDATION_REFUND_50, 19, empty_ptr, 0, empty_ptr, 0, 1); \
     }
 
+#define PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
+#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                               \
+    {                                                                                                                                                                     \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), empty_ptr, strlen(FORMAT_TEXT), empty_ptr, strlen(PRUNE_MESSAGE), 1); \
+    }
+
+
 #endif

@@ -8,6 +8,8 @@
 #define INITIALIZE "evnInitialize"
 #define FOUNDATION_REFUND_50 "evnFoundationRefund"
 #define HOST_POST_DEREG "evnHostPostDereg"
+#define DEAD_HOST_PRUNE "evnDeadHostPrune"
+#define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -16,6 +18,7 @@
 
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
+#define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -47,6 +50,7 @@ const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 2;
 const int32_t DEF_TARGET_PRICE_E = 0;
 const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 40;
+const uint16_t DEF_MAX_BAD_REG_DURATION = 48; // In moments.
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
