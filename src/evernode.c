@@ -192,13 +192,13 @@ int64_t hook(uint32_t reserved)
 
                     const uint32_t cur_moment = cur_ledger_seq / DEF_MOMENT_SIZE;
                     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>(X1zero)
-                    uint8_t reward_info[93] = {0};
+                    uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                     reward_info[EPOCH_OFFSET] = 1;
                     UINT32_TO_BUF(reward_info[SAVED_MOMENT_OFFSET], cur_moment);
                     UINT32_TO_BUF(reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
                     UINT32_TO_BUF(reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
                     for (int i = 0; GUARD(EPOCH_COUNT), i < EPOCH_COUNT; i++)
-                        INT64_TO_BUF(reward_info[EPOCH_POOL_OFFSET + i * 80], float_set(0, EPOCH_REWARD_AMOUNT));
+                        INT64_TO_BUF(reward_info[EPOCH_POOL_OFFSET + (i * 80)], float_set(0, EPOCH_REWARD_AMOUNT));
                     if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                         rollback(SBUF("Evernode: Could not set state for reward info."), 1);
 
@@ -279,7 +279,7 @@ int64_t hook(uint32_t reserved)
                         TRACEVAR(moment_size);
 
                         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>(X1zero)
-                        uint8_t reward_info[REWARD_INFO_VAL_SIZE] = {0};
+                        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
@@ -395,7 +395,7 @@ int64_t hook(uint32_t reserved)
                     if (last_heartbeat_moment > 0 && cur_moment > last_heartbeat_moment && last_heartbeat_moment > (cur_moment - heartbeat_freq - 1))
                     {
                         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>(X1zero)
-                        uint8_t reward_info[REWARD_INFO_VAL_SIZE] = {0};
+                        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
