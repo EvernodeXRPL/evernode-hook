@@ -379,6 +379,20 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         }                                                                                                                \
     }
 
+#define POW_GUARD(x, y, output, n)               \
+    {                                            \
+        output = 1;                              \
+        for (int it = 0; GUARD(n), it < y; ++it) \
+            output *= x;                         \
+    }
+
+#define GET_EPOCH_DURATION(epoch, duration)        \
+    {                                              \
+        uint32_t mul;                              \
+        POW_GUARD(2, epoch - 1, mul, EPOCH_COUNT); \
+        duration = FIRST_EPOCH_DURATION * mul;     \
+    }
+
 /**************************************************************************/
 /***************************NFT related MACROS*****************************/
 /**************************************************************************/
@@ -702,6 +716,13 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define PREPARE_PAYMENT_FOUNDATION_RETURN(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                               \
     {                                                                                                                                                                     \
         PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, FOUNDATION_REFUND_50, 19, empty_ptr, 0, empty_ptr, 0, 1); \
+    }
+
+#define PREPARE_PAYMENT_HOST_REWARD_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(13, 0, 0))
+#define PREPARE_PAYMENT_HOST_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                            \
+    {                                                                                                                                                            \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, HOST_REWARD, 13, empty_ptr, 0, empty_ptr, 0, 1); \
     }
 
 #endif
