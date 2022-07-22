@@ -438,7 +438,8 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Format should be text to prune the host."), 1);
 
                     uint8_t host_account_id[ACCOUNT_ID_SIZE];
-                    util_accid(SBUF(host_account_id), &data_ptr, 35);
+
+                    util_accid(SBUF(host_account_id), data_ptr, data_len);
 
                     HOST_ADDR_KEY(host_account_id); // Generate host account key.
                     // Check for registration entry.
@@ -454,42 +455,37 @@ int64_t hook(uint32_t reserved)
 
                     TOKEN_ID_KEY((uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
-                    // Burn Registration NFT
-                    if (reserved == AGAIN_HOOK)
-                    {
-                        // Check the ownership of the NFT to this user before proceeding.
-                        int nft_exists;
-                        uint8_t issuer[20], uri[64], uri_len;
-                        uint32_t taxon, nft_seq;
-                        uint16_t flags, tffee;
-                        uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
-                        GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+                    // Check the ownership of the NFT to this user before proceeding.
+                    int nft_exists;
+                    uint8_t issuer[20], uri[64], uri_len;
+                    uint32_t taxon, nft_seq;
+                    uint16_t flags, tffee;
+                    uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
+                    GET_NFT(host_account_id, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
-                        // Issuer of the NFT should be the registry contract.
-                        BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                    // Issuer of the NFT should be the registry contract.
+                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
-                        // Check whether the NFT URI is starting with 'evrhost'.
-                        BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
+                    // Check whether the NFT URI is starting with 'evrhost'.
+                    BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
 
-                        // Burn the NFT.
-                        etxn_reserve(1);
+                    // Reserve for 2 transaction emissions.
+                    etxn_reserve(2);
 
-                        uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-                        PREPARE_NFT_BURN(txn_out, data_ptr, hook_accid);
+                    // Burn Registration NFT.
+                    uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
+                    PREPARE_NFT_BURN(txn_out, token_id_ptr, host_account_id);
 
-                        uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                            rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                        accept(SBUF("Host de-registration nft burn successful."), 0);
-                    }
+                    uint8_t emithash[HASH_SIZE];
+                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Delete registration entries.
                     if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -507,9 +503,9 @@ int64_t hook(uint32_t reserved)
 
                     uint8_t issuer_accid[20];
                     if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
+                        rollback(SBUF("Evernode: Could not get issuer account id."), 1);
 
-                    // Sending 50% reg fee to Host account and to the epoch reward bucket.
+                    // Sending 50% reg fee to Host account and to the epoch Reward pool.
                     int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
 
                     if (reg_fee > fixed_reg_fee)
@@ -522,11 +518,10 @@ int64_t hook(uint32_t reserved)
                         uint8_t tx_buf[PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE];
                         PREPARE_PAYMENT_PRUNED_HOST_REBATE(tx_buf, amt_out_return, 0, host_account_id);
 
-                        uint8_t emithash[HASH_SIZE];
                         if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
                             rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
 
-                        // TODO Update the epoch Reward bucket.
+                        // TODO Update the epoch Reward pool.
                     }
 
                     accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
@@ -613,7 +608,7 @@ int64_t hook(uint32_t reserved)
                     TRACEVAR(token_seq);
 
                     // Flag, Transfer fee and Taxon will be 0 for the minted NFT.
-                    uint16_t tflag = 0;
+                    uint16_t tflag = tfBurnable; // Bitwise OR helps to add multiple flags.
                     uint32_t taxon = 0;
                     uint16_t tffee = 0;
 

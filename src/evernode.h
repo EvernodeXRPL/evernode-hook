@@ -706,7 +706,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
 #define PREPARE_PAYMENT_PRUNED_HOST_REBATE(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                               \
     {                                                                                                                                                                     \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), empty_ptr, strlen(FORMAT_TEXT), empty_ptr, strlen(PRUNE_MESSAGE), 1); \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
     }
 
 
