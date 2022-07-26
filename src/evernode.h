@@ -393,6 +393,41 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         duration = FIRST_EPOCH_DURATION * mul;     \
     }
 
+#define PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, is_heartbeat, reward_pool_amount_ref, reward_quota_ref) \
+    {                                                                                                                                \
+        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                \
+        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);            \
+        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                            \
+        const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;                                                \
+        if (saved_moment != cur_moment)                                                                                              \
+        {                                                                                                                            \
+            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                            \
+            prev_moment_active_host_count = cur_moment_active_host_count;                                                            \
+            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                        \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                \
+        }                                                                                                                            \
+        else if (is_heartbeat)                                                                                                       \
+        {                                                                                                                            \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], cur_moment_active_host_count + 1);                      \
+        }                                                                                                                            \
+                                                                                                                                     \
+        const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                             \
+        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                   \
+        uint32_t epoch_duration;                                                                                                     \
+        GET_EPOCH_DURATION(epoch, epoch_duration);                                                                                   \
+        reward_pool_amount = INT64_FROM_BUF(pool_ptr);                                                                               \
+        reward_quota_ref = float_divide(reward_pool_amount, float_set(0, epoch_duration * prev_moment_active_host_count));           \
+                                                                                                                                     \
+        if (float_compare(reward_quota_ref, float_set(0, REWARD_INFO_VAL_SIZE / epoch_duration), COMPARE_LESS) == 1)                 \
+        {                                                                                                                            \
+            reward_pool_amount = float_sum(float_set(0, EPOCH_REWARD_AMOUNT), reward_pool_amount);                                   \
+            INT64_TO_BUF(reward_info[epoch], reward_pool_amount);                                                                    \
+            reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                   \
+            GET_EPOCH_DURATION(epoch, epoch_duration);                                                                               \
+            reward_quota_ref = float_divide(reward_pool_amount, float_set(0, epoch_duration * prev_moment_active_host_count));       \
+        }                                                                                                                            \
+    }
+
 /**************************************************************************/
 /***************************NFT related MACROS*****************************/
 /**************************************************************************/

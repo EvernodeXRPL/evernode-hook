@@ -191,14 +191,13 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Could not set state for moment community target price."), 1);
 
                     const uint32_t cur_moment = cur_ledger_seq / DEF_MOMENT_SIZE;
-                    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>(X1zero)
+                    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                     reward_info[EPOCH_OFFSET] = 1;
-                    UINT32_TO_BUF(reward_info[SAVED_MOMENT_OFFSET], cur_moment);
-                    UINT32_TO_BUF(reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                    UINT32_TO_BUF(reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                    for (int i = 0; GUARD(EPOCH_COUNT), i < EPOCH_COUNT; i++)
-                        INT64_TO_BUF(reward_info[EPOCH_POOL_OFFSET + (i * 80)], float_set(0, EPOCH_REWARD_AMOUNT));
+                    UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
+                    UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+                    UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+                    INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, EPOCH_REWARD_AMOUNT));
                     if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                         rollback(SBUF("Evernode: Could not set state for reward info."), 1);
 
@@ -278,35 +277,14 @@ int64_t hook(uint32_t reserved)
                         GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
                         TRACEVAR(moment_size);
 
-                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>(X1zero)
+                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
-                        uint8_t epoch = reward_info[EPOCH_OFFSET];
-                        uint8_t *pool_ptr = &reward_info[epoch - 1];
-                        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);
-
-                        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);
-                        const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;
-                        if (saved_moment != cur_moment)
-                        {
-                            const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);
-                            prev_moment_active_host_count = cur_moment_active_host_count;
-                        }
-
-                        uint32_t epoch_duration;
-                        GET_EPOCH_DURATION(epoch, epoch_duration);
-                        int64_t reward_pool_amount = INT64_FROM_BUF(pool_ptr);
-                        int64_t reward_quota = float_divide(reward_pool_amount, float_set(0, epoch_duration * prev_moment_active_host_count));
-
-                        if (float_compare(reward_quota, float_set(0, REWARD_INFO_VAL_SIZE / epoch_duration), COMPARE_LESS) == 1)
-                        {
-                            *pool_ptr = &reward_info[epoch];
-                            reward_pool_amount = INT64_FROM_BUF(pool_ptr);
-                        }
-
-                        INT64_TO_BUF(pool_ptr, float_sum(reward_pool_amount, float_set(0, amount_half - 5)));
+                        int64_t reward_pool_amount, reward_quota;
+                        PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 0, reward_pool_amount, reward_quota);
+                        INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_set(0, amount_half - 5)));
 
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
@@ -366,7 +344,7 @@ int64_t hook(uint32_t reserved)
                     if (!nft_exists)
                         rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
-                    const uint8_t *heartbeat_ptr = host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
+                    const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
                     const int64_t last_heartbeat_idx = INT64_FROM_BUF(heartbeat_ptr);
 
                     INT64_TO_BUF(heartbeat_ptr, cur_ledger_seq);
@@ -374,7 +352,7 @@ int64_t hook(uint32_t reserved)
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
 
-                    // Take the moment base index from config.
+                    // Take the moment base idx from config.
                     uint64_t moment_base_idx;
                     GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_IDX, "Evernode: Could not get moment base index.");
                     TRACEVAR(moment_base_idx);
@@ -392,64 +370,37 @@ int64_t hook(uint32_t reserved)
                     const uint32_t last_heartbeat_moment = last_heartbeat_idx != 0 ? (last_heartbeat_idx - moment_base_idx) / moment_size : 0;
                     const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;
 
-                    if (last_heartbeat_moment > 0 && cur_moment > last_heartbeat_moment && last_heartbeat_moment > (cur_moment - heartbeat_freq - 1))
+                    if (cur_moment > last_heartbeat_moment)
                     {
-                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>(X1zero)
+                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
-                        uint8_t epoch = reward_info[EPOCH_OFFSET];
-                        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);
-                        uint8_t *pool_ptr = &reward_info[epoch - 1];
-                        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);
-                        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);
+                        int64_t reward_pool_amount, reward_quota;
+                        PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 1, reward_pool_amount, reward_quota);
 
-                        if (saved_moment == cur_moment)
+                        if (last_heartbeat_moment > 0 && last_heartbeat_moment > (cur_moment - heartbeat_freq - 1))
                         {
-                            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], cur_moment_active_host_count + 1);
+                            uint8_t issuer_accid[20];
+                            if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                                rollback(SBUF("Evernode: Could not get issuer address state."), 1);
+
+                            TRACEXFL(reward_quota);
+                            uint8_t amt_out[AMOUNT_BUF_SIZE];
+                            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, reward_quota);
+
+                            etxn_reserve(1);
+                            uint8_t txn_out[PREPARE_PAYMENT_HOST_REWARD_SIZE];
+                            PREPARE_PAYMENT_HOST_REWARD(txn_out, amt_out, 0, account_field);
+
+                            uint8_t emithash[HASH_SIZE];
+                            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                                rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                            INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_invert(reward_quota)));
                         }
-                        else
-                        {
-                            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
-                            prev_moment_active_host_count = cur_moment_active_host_count;
-                            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);
-                            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], 1);
-                        }
-
-                        uint32_t epoch_duration;
-                        GET_EPOCH_DURATION(epoch, epoch_duration);
-                        int64_t reward_pool_amount = INT64_FROM_BUF(pool_ptr);
-                        int64_t reward_quota = float_divide(reward_pool_amount, float_set(0, epoch_duration * prev_moment_active_host_count));
-
-                        if (float_compare(reward_quota, float_set(0, REWARD_INFO_VAL_SIZE / epoch_duration), COMPARE_LESS) == 1)
-                        {
-                            *pool_ptr = &reward_info[epoch];
-                            reward_pool_amount = float_sum(INT64_FROM_BUF(pool_ptr), reward_pool_amount);
-                            INT64_TO_BUF(reward_info[epoch], reward_pool_amount);
-                            epoch++;
-                            reward_info[EPOCH_OFFSET] = epoch;
-                            GET_EPOCH_DURATION(epoch, epoch_duration);
-                            reward_quota = float_divide(reward_pool_amount, float_set(0, epoch_duration * prev_moment_active_host_count));
-                        }
-
-                        uint8_t issuer_accid[20];
-                        if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-                            rollback(SBUF("Evernode: Could not get issuer address state."), 1);
-
-                        uint8_t amt_out[AMOUNT_BUF_SIZE];
-                        SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, reward_quota);
-
-                        etxn_reserve(1);
-                        uint8_t txn_out[PREPARE_PAYMENT_HOST_REWARD_SIZE];
-                        PREPARE_PAYMENT_HOST_REWARD(txn_out, amt_out, 0, account_field);
-
-                        uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                            rollback(SBUF("Evernode: Emitting txn failed"), 1);
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                        reward_pool_amount = float_sum(reward_pool_amount, float_invert(reward_quota));
 
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
