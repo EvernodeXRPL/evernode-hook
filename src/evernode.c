@@ -389,7 +389,7 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Emitting txn failed"), 1);
                             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                            INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_invert(reward_quota)));
+                            INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_negate(reward_quota)));
                         }
 
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
