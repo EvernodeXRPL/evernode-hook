@@ -262,7 +262,6 @@ int64_t hook(uint32_t reserved)
                     if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0 || state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
 
-                    // Sending 50% reg fee to foundation account.
                     int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
 
                     if (reg_fee > fixed_reg_fee)
@@ -282,27 +281,16 @@ int64_t hook(uint32_t reserved)
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
+                        // Add amount_half - 5 to the epoch's reward pool.
                         int64_t reward_pool_amount, reward_quota;
                         PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 0, reward_pool_amount, reward_quota);
                         INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_set(0, amount_half - 5)));
 
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
-
-                        // uint8_t amt_out_return[AMOUNT_BUF_SIZE];
-                        // // Since we have already sent 5 EVR in the registration process to the foundation. We should deduct 5 EVR from the 50% reg fee.
-                        // SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, (amount_half - 5)));
-                        // etxn_reserve(2);
-
-                        // // Prepare transaction to send 50% of reg fee to foundation account.
-                        // uint8_t tx_buf[PREPARE_PAYMENT_FOUNDATION_RETURN_SIZE];
-                        // PREPARE_PAYMENT_FOUNDATION_RETURN(tx_buf, amt_out_return, 0, foundation_accid);
-
-                        // uint8_t emithash[HASH_SIZE];
-                        // if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
-                        //     rollback(SBUF("Evernode: Emitting 1/2 reg fee to foundation failed."), 1);
                     }
 
+                    // Sending 50% reg fee to foundation account.
                     etxn_reserve(1);
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
@@ -370,6 +358,7 @@ int64_t hook(uint32_t reserved)
                     const uint32_t last_heartbeat_moment = last_heartbeat_idx != 0 ? (last_heartbeat_idx - moment_base_idx) / moment_size : 0;
                     const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;
 
+                    // Skip if already sent a heartbeat in this moment.
                     if (cur_moment > last_heartbeat_moment)
                     {
                         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
@@ -380,7 +369,8 @@ int64_t hook(uint32_t reserved)
                         int64_t reward_pool_amount, reward_quota;
                         PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 1, reward_pool_amount, reward_quota);
 
-                        if (last_heartbeat_moment > 0 && last_heartbeat_moment > (cur_moment - heartbeat_freq - 1))
+                        // Do not reward if this is the firts heartbeat of the host OR hosts is inactive in the previous moment OR reward quota is 0.
+                        if (last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) && (float_compare(reward_quota, float_set(0, 0), COMPARE_GREATER) == 1))
                         {
                             uint8_t issuer_accid[20];
                             if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
