@@ -171,6 +171,7 @@ int64_t hook(uint32_t reserved)
                     SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_IDX, "Evernode: Could not initialize state for moment base index.");
                     SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                     SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+                    SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, STK_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
 
                     if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
@@ -450,7 +451,11 @@ int64_t hook(uint32_t reserved)
                     uint64_t last_heartbeat = UINT64_FROM_BUF(reg_entry_buf + HOST_HEARTBEAT_LEDGER_IDX_OFFSET);
                     uint64_t heartbeat_delay = (cur_ledger_seq - last_heartbeat) / DEF_MOMENT_SIZE;
 
-                    if (heartbeat_delay < DEF_MAX_BAD_REG_DURATION)
+                    // Take the maximun tolerable downtime from config.
+                    uint64_t max_tolerable_downtime;
+                    GET_CONF_VALUE(max_tolerable_downtime, STK_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state.");
+
+                    if (heartbeat_delay < max_tolerable_downtime)
                         rollback(SBUF("Evernode: This host is not eligible for forceful removal based on inactiveness."), 1);
 
                     TOKEN_ID_KEY((uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET)); // Generate token id key.

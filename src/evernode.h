@@ -281,12 +281,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     }
 
 #define GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, n) \
-    {                                                                                      \
-        UINT16_TO_BUF(token_id, tflag);                                           \
-        UINT16_TO_BUF(token_id + 2, transaction_fee);                                      \
-        COPY_BUF_GUARD(token_id, 4, accid, 0, 20, n);                                      \
-        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));   \
-        UINT32_TO_BUF(token_id + 28, token_seq);                                           \
+    {                                                                                             \
+        UINT16_TO_BUF(token_id, tflag);                                                           \
+        UINT16_TO_BUF(token_id + 2, transaction_fee);                                             \
+        COPY_BUF_GUARD(token_id, 4, accid, 0, 20, n);                                             \
+        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));          \
+        UINT32_TO_BUF(token_id + 28, token_seq);                                                  \
     }
 
 #define GENERATE_NFT_TOKEN_ID(token_id, tflag, transaction_fee, accid, taxon, token_seq) \
@@ -584,19 +584,19 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 #define PREPARE_NFT_MINT_SIZE(uri_len) \
     (uri_len + 240)
-#define PREPARE_NFT_MINT(buf_out_master, tflag, transfer_fee, taxon, uri, uri_len)           \
+#define PREPARE_NFT_MINT(buf_out_master, tflag, transfer_fee, taxon, uri, uri_len)    \
     {                                                                                 \
         uint8_t *buf_out = buf_out_master;                                            \
         uint8_t acc[20];                                                              \
         uint32_t cls = (uint32_t)ledger_seq();                                        \
         hook_account(SBUF(acc));                                                      \
-        _01_02_ENCODE_TT(buf_out, ttNFT_MINT);        /* uint16  | size   3 */        \
-        _01_04_ENCODE_TF(buf_out, transfer_fee);      /* uint16  | size   3 */        \
-        _02_02_ENCODE_FLAGS(buf_out, tflag);          /* uint32  | size   5 */        \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);           /* uint32  | size   5 */        \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);          /* uint32  | size   6 */        \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);          /* uint32  | size   6 */        \
-        _02_42_ENCODE_TXON(buf_out, taxon);           /* uint32  | size   6 */        \
+        _01_02_ENCODE_TT(buf_out, ttNFT_MINT);   /* uint16  | size   3 */             \
+        _01_04_ENCODE_TF(buf_out, transfer_fee); /* uint16  | size   3 */             \
+        _02_02_ENCODE_FLAGS(buf_out, tflag);     /* uint32  | size   5 */             \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);      /* uint32  | size   5 */             \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);     /* uint32  | size   6 */             \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);     /* uint32  | size   6 */             \
+        _02_42_ENCODE_TXON(buf_out, taxon);      /* uint32  | size   6 */             \
         uint8_t *fee_ptr = buf_out;                                                   \
         _06_08_ENCODE_DROPS_FEE(buf_out, 0);        /* amount  | size   9 */          \
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out); /* pk      | size  35 */          \
@@ -704,8 +704,8 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 #define PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE \
     (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
-#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                               \
-    {                                                                                                                                                                     \
+#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                                                                                                  \
+    {                                                                                                                                                                                                                                         \
         PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
     }
 

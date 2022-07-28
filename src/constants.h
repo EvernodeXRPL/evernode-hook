@@ -51,7 +51,7 @@ const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 2;
 const int32_t DEF_TARGET_PRICE_E = 0;
 const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 40;
-const uint16_t DEF_MAX_BAD_REG_DURATION = 48; // In moments.
+const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 48; // In moments.
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
