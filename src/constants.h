@@ -63,6 +63,18 @@ const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
+const uint32_t REWARD_INFO_VAL_SIZE = 21;
+const uint32_t EPOCH_COUNT = 10;
+const uint32_t FIRST_EPOCH_DURATION = 1008;
+const uint32_t EPOCH_REWARD_AMOUNT = 5160960;
+
+// State value offsets
+// REsWARD_INFO
+const uint32_t EPOCH_OFFSET = 0;
+const uint32_t SAVED_MOMENT_OFFSET = 1;
+const uint32_t PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 5;
+const uint32_t CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 9;
+const uint32_t EPOCH_POOL_OFFSET = 13;
 
 // State value offsets
 // HOST_ADDR

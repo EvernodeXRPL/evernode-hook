@@ -526,7 +526,31 @@ int64_t hook(uint32_t reserved)
                         if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
                             rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
 
-                        // TODO Update the epoch Reward pool.
+                        // BEGIN: Update the epoch Reward pool.
+
+                        // Take the moment base idx from config.
+                        uint64_t moment_base_idx;
+                        GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_IDX, "Evernode: Could not get moment base index.");
+                        TRACEVAR(moment_base_idx);
+
+                        // Take the moment size from config.
+                        uint16_t moment_size;
+                        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
+                        TRACEVAR(moment_size);
+
+                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+                        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+                        if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+                            rollback(SBUF("Evernode: Could not get reward info state."), 1);
+
+                        int64_t reward_pool_amount, reward_quota;
+                        PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 0, reward_pool_amount, reward_quota);
+                        INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_set(0, amount_half - 5)));
+
+                        if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for reward info."), 1);
+
+                        // END: Update the epoch Reward pool.
                     }
 
                     accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
