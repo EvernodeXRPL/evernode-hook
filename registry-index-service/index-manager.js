@@ -342,9 +342,9 @@ class IndexManager {
             const found = hookStates.find(hs => (hs.key === ps.key));
             if (found)
                 ps.data = found.data;
-            if (ps.operation === 'INSERT')
+            if (ps.operation === 'INSERT' && ps.data)
                 inserts.push(ps);
-            else if (ps.operation === 'UPDATE')
+            else if (ps.operation === 'UPDATE' && ps.data)
                 updates.push(ps);
             else
                 deletes.push(ps);
