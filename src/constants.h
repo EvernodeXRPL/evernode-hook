@@ -65,7 +65,7 @@ const uint32_t FIRST_EPOCH_DURATION = 1008;
 const uint32_t EPOCH_REWARD_AMOUNT = 5160960;
 
 // State value offsets
-// RRWARD_INFO
+// REWARD_INFO
 const uint32_t EPOCH_OFFSET = 0;
 const uint32_t SAVED_MOMENT_OFFSET = 1;
 const uint32_t PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 5;

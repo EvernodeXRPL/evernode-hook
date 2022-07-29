@@ -16,7 +16,7 @@ const uint8_t STK_HOST_REG_FEE[32] = {'E', 'V', 'R', 52, 0, 0, 0, 0, 0, 0, 0, 0,
 // No. of theoretical maximum registrants.
 const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Rach epoch reward info.
+// Epoch reward info <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>.
 const uint8_t STK_REWARD_INFO[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /////////// Repetitive state keys. ///////////
