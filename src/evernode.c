@@ -290,7 +290,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
                     }
 
-                    // Sending 50% reg fee to foundation account.
+                    // Sending nft buy offer to the host.
                     etxn_reserve(1);
 
                     uint8_t amt_out[AMOUNT_BUF_SIZE];
