@@ -282,9 +282,11 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
                         // Add amount_half - 5 to the epoch's reward pool.
+                        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];
+                        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount_half - 5)));
+                        // Prepare reward info to update host counts and epoch.
                         int64_t reward_pool_amount, reward_amount;
                         PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
-                        INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_set(0, amount_half - 5)));
 
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
