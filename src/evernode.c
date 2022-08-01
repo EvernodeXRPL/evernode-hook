@@ -184,6 +184,15 @@ int64_t hook(uint32_t reserved)
                     SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
                     SET_UINT_STATE_VALUE(DEF_LEASE_ACQUIRE_WINDOW, CONF_LEASE_ACQUIRE_WINDOW, "Evernode: Could not initialize state for lease acquire window.");
 
+                    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>;
+                    uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+                    reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
+                    UINT32_TO_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
+                    UINT32_TO_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
+                    UINT32_TO_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+                    if (state_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+                        rollback(SBUF("Evernode: Could not set state for reward configuration."), 1);
+
                     int64_t purchaser_target_price = float_set(DEF_TARGET_PRICE_E, DEF_TARGET_PRICE_M);
                     uint8_t purchaser_target_price_buf[8];
                     INT64_TO_BUF(purchaser_target_price_buf, purchaser_target_price);
@@ -197,7 +206,7 @@ int64_t hook(uint32_t reserved)
                     UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
                     UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
                     UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                    INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, EPOCH_REWARD_AMOUNT));
+                    INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, DEF_EPOCH_REWARD_AMOUNT));
                     if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                         rollback(SBUF("Evernode: Could not set state for reward info."), 1);
 
@@ -276,17 +285,26 @@ int64_t hook(uint32_t reserved)
                         GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
                         TRACEVAR(moment_size);
 
+                        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+                        if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+                            rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
+
                         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
+
+                        const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+                        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                        const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
                         // Add amount_half - 5 to the epoch's reward pool.
                         const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];
                         INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount_half - 5)));
                         // Prepare reward info to update host counts and epoch.
                         int64_t reward_pool_amount, reward_amount;
-                        PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
+                        PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
 
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
@@ -363,16 +381,29 @@ int64_t hook(uint32_t reserved)
                     // Skip if already sent a heartbeat in this moment.
                     if (cur_moment > last_heartbeat_moment)
                     {
+                        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+                        if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+                            rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
+
                         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
-                        int64_t reward_pool_amount, reward_amount;
-                        PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, 1, reward_pool_amount, reward_amount);
+                        const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+                        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                        const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+                        const uint32_t reward_start_moment = UINT32_FROM_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
 
-                        // Do not reward if this is the firts heartbeat of the host OR hosts is inactive in the previous moment OR reward quota is 0.
-                        if (last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) && (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
+                        int64_t reward_pool_amount, reward_amount;
+                        PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 1, reward_pool_amount, reward_amount);
+
+                        // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
+                        // the eward quota is not 0.
+                        if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
+                            last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
+                            (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
                         {
                             uint8_t issuer_accid[20];
                             if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
