@@ -492,7 +492,7 @@ int out_len = 0;\
 #ifdef HAS_CALLBACK
 #define PREPARE_PAYMENT_SIMPLE_SIZE 270U
 #else
-#define PREPARE_PAYMENT_SIMPLE_SIZE 248U
+#define PREPARE_PAYMENT_SIMPLE_SIZE 247U
 #endif
 
 #define PREPARE_PAYMENT_SIMPLE(buf_out_master, drops_amount_raw, to_address, dest_tag_raw, src_tag_raw)\

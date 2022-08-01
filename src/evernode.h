@@ -576,6 +576,38 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                                                                              \
     }
 
+/////////// Macros to prepare simple payment with memos. ///////////
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
+    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + PREPARE_PAYMENT_SIMPLE_SIZE + 4)
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_amount_raw, to_address, dest_tag_raw, src_tag_raw, type, type_len, format, format_len, data, data_len, m) \
+    {                                                                                                                                                                         \
+        uint8_t *buf_out = buf_out_master;                                                                                                                                    \
+        uint8_t acc[20];                                                                                                                                                      \
+        uint64_t drops_amount = (drops_amount_raw);                                                                                                                           \
+        uint32_t dest_tag = (dest_tag_raw);                                                                                                                                   \
+        uint32_t src_tag = (src_tag_raw);                                                                                                                                     \
+        uint32_t cls = (uint32_t)ledger_seq();                                                                                                                                \
+        hook_account(SBUF(acc));                                                                                                                                              \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);              /* uint16  | size   3 */                                                                                           \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);         /* uint32  | size   5 */                                                                                           \
+        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);           /* uint32  | size   5 */                                                                                           \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */                                                                                           \
+        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);          /* uint32  | size   5 */                                                                                           \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */                                                                                           \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */                                                                                           \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */                                                                                           \
+        uint8_t *fee_ptr = buf_out;                                                                                                                                           \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);            /* amount  | size   9 */                                                                                              \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */                                                                                              \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */                                                                                              \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */                                                                                              \
+        _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                                 \
+        etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len)); /* emitdet | size 1?? */                                   \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len));                                                \
+        \ 
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                                                                \
+    }
+
 /**************************************************************************/
 /***********************NFT related transactions***************************/
 /**************************************************************************/
@@ -709,11 +741,11 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
     }
 
-#define POW_GUARD(x, y, output, n)               \
-    {                                            \
-        output = 1;                              \
-        for (int it = 0; GUARD(n), it < y; ++it) \
-            output *= x;                         \
+#define PREPARE_MIN_PAYMENT_PRUNED_HOST_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
+#define PREPARE_MIN_PAYMENT_PRUNED_HOST(buf_out_master, drops_fee_raw, to_address)                                                                                                                                           \
+    {                                                                                                                                                                                                                        \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
     }
 
 #define POW_GUARD(x, y, output, n)               \
@@ -723,59 +755,72 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             output *= x;                         \
     }
 
-#define GET_EPOCH_DURATION(epoch, duration)        \
+#define POW_GUARD(x, y, output, n)               \
+    {                                            \
+        output = 1;                              \
+        for (int it = 0; GUARD(n), it < y; ++it) \
+            output *= x;                         \
+    }
+
+#define GET_EPOCH_REWARD_QUOTA(epoch, quota)       \
     {                                              \
-        uint32_t mul;                              \
-        POW_GUARD(2, epoch - 1, mul, EPOCH_COUNT); \
-        duration = FIRST_EPOCH_DURATION * mul;     \
+        uint32_t div;                              \
+        POW_GUARD(2, epoch - 1, div, EPOCH_COUNT); \
+        quota = FIRST_EPOCH_REWARD_QUOTA / div;    \
     }
 
-#define PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, is_heartbeat, reward_pool_amount_ref, reward_quota_ref)                                                     \
-    {                                                                                                                                                                                    \
-        const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                                                                                 \
-        uint32_t epoch_duration;                                                                                                                                                         \
-        GET_EPOCH_DURATION(epoch, epoch_duration);                                                                                                                                       \
-        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                    \
-        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                \
-        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                                       \
-        reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                                                               \
-        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                                \
-        const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;                                                                                                    \
-        /* If this is a new moment */                                                                                                                                                    \
-        if (saved_moment != cur_moment)                                                                                                                                                  \
-        {                                                                                                                                                                                \
-            /* Remove previous moment data and move current moment data to previous moment. */                                                                                           \
-            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                                                                \
-            /* If the saved moment is not cur_moment - 1, We've missed some moments. Means there was no heartbeat received in previous moment. */                                        \
-            prev_moment_active_host_count = ((saved_moment == cur_moment - 1) ? cur_moment_active_host_count : 0);                                                                       \
-            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                                                            \
-            /* If the macro is called from heartbeat intialte cur moment active host count as 1. */                                                                                      \
-            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                                                                    \
-                                                                                                                                                                                         \
-            /* Reward pool amount is less than the minimum needed reward amount for the moment, Increment the epoch. And add the remaining to next epoch pool. */                        \
-            if (float_compare(reward_pool_amount_ref, float_set(0, EPOCH_REWARD_AMOUNT / epoch_duration), COMPARE_LESS) == 1)                                                            \
-            {                                                                                                                                                                            \
-                /* If the current epoch is < 10 increment otherwise skip. */                                                                                                             \
-                if (epoch < EPOCH_COUNT)                                                                                                                                                 \
-                {                                                                                                                                                                        \
-                    reward_pool_amount_ref = float_sum(float_set(0, EPOCH_REWARD_AMOUNT), reward_pool_amount_ref);                                                                       \
-                    INT64_TO_BUF(pool_ptr, reward_pool_amount_ref);                                                                                                                      \
-                    reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                                                               \
-                    /* When epoch incremented by 1, epoch_duration doubles. */                                                                                                           \
-                    epoch_duration = epoch_duration * 2;                                                                                                                                 \
-                }                                                                                                                                                                        \
-                else if (epoch == EPOCH_COUNT)                                                                                                                                           \
-                {                                                                                                                                                                        \
-                    reward_pool_amount_ref = 0;                                                                                                                                          \
-                }                                                                                                                                                                        \
-            }                                                                                                                                                                            \
-        }                                                                                                                                                                                \
-        /* If the macro is called from heartbeat increase cur moment active host count by 1. */                                                                                          \
-        else if (is_heartbeat)                                                                                                                                                           \
-        {                                                                                                                                                                                \
-            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (cur_moment_active_host_count + 1));                                                                        \
-        }                                                                                                                                                                                \
-        /* Calculate the reward quota for the current epoch. */                                                                                                                          \
-        reward_quota_ref = ((prev_moment_active_host_count > 0) ? float_divide(reward_pool_amount_ref, float_set(0, epoch_duration * prev_moment_active_host_count)) : float_set(0, 0)); \
+#define PREPARE_EPOCH_REWARD_INFO(reward_info, moment_base_idx, moment_size, is_heartbeat, reward_pool_amount_ref, reward_amount_ref)                   \
+    {                                                                                                                                                   \
+        const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                                                \
+        uint32_t reward_quota;                                                                                                                          \
+        GET_EPOCH_REWARD_QUOTA(epoch, reward_quota);                                                                                                    \
+        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                   \
+        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                               \
+        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                      \
+        reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                              \
+        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                               \
+        const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;                                                                   \
+        /* If this is a new moment */                                                                                                                   \
+        if (saved_moment != cur_moment)                                                                                                                 \
+        {                                                                                                                                               \
+            /* Remove previous moment data and move current moment data to previous moment. */                                                          \
+            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                               \
+            /* If the saved moment is not cur_moment - 1, We've missed some moments. Means there was no heartbeat received in previous moment. */       \
+            prev_moment_active_host_count = ((saved_moment == cur_moment - 1) ? cur_moment_active_host_count : 0);                                      \
+            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                           \
+            /* If the macro is called from heartbeat intialte cur moment active host count as 1. */                                                     \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                                   \
+                                                                                                                                                        \
+            /* If the reward pool amount is less than the reward quota for the moment, increase the epoch. And add the remaining to next epoch pool. */ \
+            if (float_compare(reward_pool_amount_ref, float_set(0, reward_quota), COMPARE_LESS) == 1)                                                   \
+            {                                                                                                                                           \
+                /* If the current epoch is < 10 increment otherwise skip. */                                                                            \
+                if (epoch < EPOCH_COUNT)                                                                                                                \
+                {                                                                                                                                       \
+                    reward_pool_amount_ref = float_sum(float_set(0, EPOCH_REWARD_AMOUNT), reward_pool_amount_ref);                                      \
+                    INT64_TO_BUF(pool_ptr, reward_pool_amount_ref);                                                                                     \
+                    reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                              \
+                    /* When epoch incremented by 1, reward quota halves. */                                                                             \
+                    reward_quota = reward_quota / 2;                                                                                                    \
+                }                                                                                                                                       \
+                else                                                                                                                                    \
+                {                                                                                                                                       \
+                    reward_quota = 0;                                                                                                                   \
+                }                                                                                                                                       \
+            }                                                                                                                                           \
+        }                                                                                                                                               \
+        /* If the macro is called from heartbeat increase cur moment active host count by 1. */                                                         \
+        else if (is_heartbeat)                                                                                                                          \
+        {                                                                                                                                               \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (cur_moment_active_host_count + 1));                                       \
+        }                                                                                                                                               \
+        /* Calculate the reward quota for the current epoch. */                                                                                         \
+        /* Use float division only if modulo is not zero to reduce floating point complications. */                                                     \
+        if (prev_moment_active_host_count == 0)                                                                                                         \
+            reward_amount_ref = float_set(0, 0);                                                                                                        \
+        else if (reward_quota % prev_moment_active_host_count == 0)                                                                                     \
+            reward_amount_ref = float_set(0, (reward_quota / prev_moment_active_host_count));                                                           \
+        else                                                                                                                                            \
+            reward_amount_ref = float_divide(float_set(0, reward_quota), float_set(0, prev_moment_active_host_count));                                  \
     }
 #endif

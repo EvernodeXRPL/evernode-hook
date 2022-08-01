@@ -51,7 +51,7 @@ const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 2;
 const int32_t DEF_TARGET_PRICE_E = 0;
 const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 40;
-const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 48; // In moments.
+const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 240; // In moments.
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
@@ -65,6 +65,7 @@ const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
 const uint32_t EPOCH_COUNT = 10;
+const uint32_t FIRST_EPOCH_REWARD_QUOTA = 5120;
 const uint32_t FIRST_EPOCH_DURATION = 1008;
 const uint32_t EPOCH_REWARD_AMOUNT = 5160960;
 
