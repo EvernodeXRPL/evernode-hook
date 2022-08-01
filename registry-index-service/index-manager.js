@@ -54,6 +54,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
         { operation: 'INSERT', key: HookStateKeys.PURCHASER_TARGET_PRICE },
         { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
+        { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
