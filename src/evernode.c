@@ -161,22 +161,29 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
                     // First check if the states are already initialized by checking one state key for existence.
+                    int already_intialized = 0;  // For Beta test purposes
                     uint8_t host_count_buf[8];
                     if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST)
-                        rollback(SBUF("Evernode: State is already initialized."), 1);
+                    {
+                        already_intialized = 1;
+                        // rollback(SBUF("Evernode: State is already initialized."), 1);
+                    }
 
                     // Initialize the state.
-                    const uint64_t zero = 0;
-                    SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-                    SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_IDX, "Evernode: Could not initialize state for moment base index.");
-                    SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
-                    SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+                    if (!already_intialized)
+                    {
+                        const uint64_t zero = 0;
+                        SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
+                        SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_IDX, "Evernode: Could not initialize state for moment base index.");
+                        SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
+                        SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
-                    if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
+                        if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
 
-                    if (state_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
+                        if (state_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
+                    }
 
                     SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
                     SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
