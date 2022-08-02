@@ -444,8 +444,15 @@ int64_t hook(uint32_t reserved)
                     if (state(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                         rollback(SBUF("Evernode: This host is not registered."), 1);
 
+                    // Take the moment size from config.
+                    uint16_t moment_size;
+                    GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
+                    TRACEVAR(moment_size);
+
                     uint64_t last_heartbeat = UINT64_FROM_BUF(reg_entry_buf + HOST_HEARTBEAT_LEDGER_IDX_OFFSET);
-                    uint64_t heartbeat_delay = (cur_ledger_seq - last_heartbeat) / DEF_MOMENT_SIZE;
+                    TRACEVAR(last_heartbeat);
+                    uint64_t heartbeat_delay = (cur_ledger_seq - last_heartbeat) / moment_size;
+                    TRACEVAR(heartbeat_delay);
 
                     // Take the maximun tolerable downtime from config.
                     uint16_t max_tolerable_downtime;
@@ -477,17 +484,26 @@ int64_t hook(uint32_t reserved)
                     if (!nft_exists)
                         rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
 
-                    // Reserve for 2 transaction emissions.
-                    etxn_reserve(2);
-
-                    // Burn Registration NFT.
-                    uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-                    PREPARE_NFT_BURN(txn_out, token_id_ptr, data_ptr);
-
                     uint8_t emithash[HASH_SIZE];
-                    if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                        rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    uint8_t index_for_burnability = 0;
+                    if((flags & (1 << index_for_burnability)) != 0)
+                    {
+                        // Reserve for two transaction emissions.
+                        etxn_reserve(2);
+
+                        // Burn Registration NFT.
+                        uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
+                        PREPARE_NFT_BURN(txn_out, token_id_ptr, data_ptr);
+
+                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                            rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
+                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    }
+                    else
+                    {
+                        // Reserve for a transaction emission.
+                        etxn_reserve(1);
+                    }
 
                     // Delete registration entries.
                     if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -521,6 +537,7 @@ int64_t hook(uint32_t reserved)
                         PREPARE_PAYMENT_PRUNED_HOST_REBATE(tx_buf, amt_out_return, 0, data_ptr);
                         if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
                             rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
+                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // BEGIN: Update the epoch Reward pool.
 
@@ -557,6 +574,7 @@ int64_t hook(uint32_t reserved)
 
                         if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
                             rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);
+                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     }
                 }
 
