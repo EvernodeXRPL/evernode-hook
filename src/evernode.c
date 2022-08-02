@@ -449,10 +449,11 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
                     TRACEVAR(moment_size);
 
-                    uint64_t last_heartbeat = UINT64_FROM_BUF(reg_entry_buf + HOST_HEARTBEAT_LEDGER_IDX_OFFSET);
+                    uint8_t *host_hearbeat_ledger_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
+                    int64_t last_hearbeat_ledger = INT64_FROM_BUF(host_hearbeat_ledger_ptr);
                     TRACEVAR(cur_ledger_seq);
-                    TRACEVAR(last_heartbeat);
-                    uint64_t heartbeat_delay = (cur_ledger_seq - last_heartbeat) / moment_size;
+                    TRACEVAR(last_hearbeat_ledger);
+                    int64_t heartbeat_delay = (cur_ledger_seq - last_hearbeat_ledger) / moment_size;
                     TRACEVAR(heartbeat_delay);
 
                     // Take the maximun tolerable downtime from config.
