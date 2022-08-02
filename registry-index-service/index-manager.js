@@ -50,14 +50,18 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
         { operation: 'INSERT', key: HookStateKeys.PURCHASER_TARGET_PRICE },
         { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
+        { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_BASE_IDX },
         { operation: 'INSERT', key: HookStateKeys.HOST_REG_FEE },
-        { operation: 'INSERT', key: HookStateKeys.MAX_REG }
+        { operation: 'INSERT', key: HookStateKeys.MAX_REG },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
     ],
     HEARTBEAT: [
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
@@ -71,7 +75,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_DEREG: [
-        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT }
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
     ],
     HOST_UPDATE_REG: [
         // NOTE: Repetetative State keys
