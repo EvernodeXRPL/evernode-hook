@@ -2,3 +2,4 @@ node_modules
 service-acc
 data
 dist
+index-manager.json

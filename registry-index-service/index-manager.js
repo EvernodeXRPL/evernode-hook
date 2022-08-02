@@ -28,14 +28,10 @@ const ACTION = process.env.ACTION || 'run';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
-const CONFIG_FILE = 'accounts.json';
+const ACCOUNT_CONFIG_FILE = 'accounts.json';
+const CONFIG_FILE = 'index-manager.json';
 const HOOK_DATA_DIR = DATA_DIR + '/data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
-
-const HOOK_INITIALIZER = {
-    address: 'rMv668j9M6x2ww4HNEF4AhB8ju77oSxFJD',
-    secret: 'sn6TNZivVQY9KxXrLy8XdH9oXk3aG'
-}
 
 const NFT_WAIT_TIMEOUT = 80;
 const MAX_BATCH_SIZE = 500;
@@ -486,7 +482,7 @@ class IndexManager {
     }
 }
 
-async function initRegistryConfigs(config, configPath, rippledServer) {
+async function initRegistryConfigs(initializerInfo, config, accountConfigPath, rippledServer) {
     // Get issuer and foundation cold wallet account ids.
     let memoData = Buffer.allocUnsafe(40);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
@@ -494,7 +490,7 @@ async function initRegistryConfigs(config, configPath, rippledServer) {
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
-    const initAccount = new XrplAccount(HOOK_INITIALIZER.address, HOOK_INITIALIZER.secret, { xrplApi: xrplApi });
+    const initAccount = new XrplAccount(initializerInfo.address, initializerInfo.secret, { xrplApi: xrplApi });
     const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
         [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
@@ -502,7 +498,7 @@ async function initRegistryConfigs(config, configPath, rippledServer) {
         // Listen for the transaction with tx hash.
         // Update the config initialized flag and write the config.
         config.initialized = true;
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
+        fs.writeFileSync(accountConfigPath, JSON.stringify(config, null, 4));
         return res;
     }
     else {
@@ -517,17 +513,27 @@ async function main() {
         return;
     }
     const registryAddress = process.argv[2];
-    const configPath = path.resolve(HOOK_DATA_DIR, registryAddress, CONFIG_FILE);
+    const configPath = path.resolve(DATA_DIR, CONFIG_FILE);
+    const accountConfigPath = path.resolve(HOOK_DATA_DIR, registryAddress, ACCOUNT_CONFIG_FILE);
 
-    // If config doesn't exist, skip the execution.
+    // If configs doesn't exist, skip the execution.
     if (!fs.existsSync(configPath)) {
-        console.error(`${configPath} not found, run the account setup tool and generate the accounts.`);
+        console.error(`${configPath} not found.`);
         return;
     }
-    let config = JSON.parse(fs.readFileSync(configPath).toString());
+    else if (!fs.existsSync(accountConfigPath)) {
+        console.error(`${accountConfigPath} not found, run the account setup tool and generate the accounts.`);
+        return;
+    }
+    const config = JSON.parse(fs.readFileSync(configPath).toString());
+    const accountConfig = JSON.parse(fs.readFileSync(accountConfigPath).toString());
 
     // If required files and config data doesn't exist, skip the execution.
-    if (!config.registry || !config.registry.address || !config.registry.secret) {
+    if (!config.hookInitializer || !config.hookInitializer.address || !config.hookInitializer.secret) {
+        console.error('Hook initializer account info not found.');
+        return;
+    }
+    else if (!accountConfig.registry || !accountConfig.registry.address || !accountConfig.registry.secret) {
         console.error('Registry account info not found, run the account setup tool and generate the accounts.');
         return;
     }
@@ -538,10 +544,10 @@ async function main() {
         return;
     }
 
-    // Send the config init transaction to the registry account.
-    if (!config.initialized) {
+    // Send the accountConfig init transaction to the registry account.
+    if (!accountConfig.initialized) {
         console.log('Sending registry contract initialization transation.');
-        const res = await initRegistryConfigs(config, configPath, RIPPLED_URL).catch(e => {
+        const res = await initRegistryConfigs(config.hookInitializer, accountConfig, accountConfigPath, RIPPLED_URL).catch(e => {
             throw `Registry contract initialization transaction failed with ${e}.`;
         });
         if (res)
@@ -549,7 +555,7 @@ async function main() {
     }
 
     // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, config.registry.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.registry.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await indexManager.init(FIREBASE_SEC_KEY_PATH);
 }
 
