@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "evernode-js-client": "^0.4.48"
+    "evernode-js-client": "^0.4.48",
+    "ripple-address-codec": "^4.2.4"
   }
 }
