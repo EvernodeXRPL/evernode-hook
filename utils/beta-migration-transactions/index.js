@@ -1,4 +1,3 @@
-
 const process = require('process');
 const fs = require('fs');
 const codec = require('ripple-address-codec');
