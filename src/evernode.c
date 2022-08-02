@@ -586,11 +586,15 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
                     TRACEVAR(moment_size);
 
-                    uint8_t *host_hearbeat_ledger_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
-                    int64_t last_hearbeat_ledger = INT64_FROM_BUF(host_hearbeat_ledger_ptr);
-                    TRACEVAR(cur_ledger_seq);
-                    TRACEVAR(last_hearbeat_ledger);
-                    int64_t heartbeat_delay = (cur_ledger_seq - last_hearbeat_ledger) / moment_size;
+                    uint8_t *last_active_ledger_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
+                    int64_t last_active_ledger = INT64_FROM_BUF(last_active_ledger_ptr);
+                    // If host haven heartbeated yet, take the registration redger as the last active ledger.
+                    if (last_active_ledger == 0)
+                    {
+                        last_active_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
+                        last_active_ledger = INT64_FROM_BUF(last_active_ledger_ptr);
+                    }
+                    const int64_t heartbeat_delay = (cur_ledger_seq - last_active_ledger) / moment_size;
                     TRACEVAR(heartbeat_delay);
 
                     // Take the maximun tolerable downtime from config.
@@ -654,7 +658,7 @@ int64_t hook(uint32_t reserved)
                     host_count -= 1;
                     SET_HOST_COUNT(host_count);
 
-                    uint64_t reg_fee = UINT64_FROM_BUF(reg_entry_buf + HOST_REG_FEE_OFFSET);
+                    const uint64_t reg_fee = UINT64_FROM_BUF(reg_entry_buf + HOST_REG_FEE_OFFSET);
                     uint64_t fixed_reg_fee;
                     GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
@@ -668,7 +672,7 @@ int64_t hook(uint32_t reserved)
 
                         // Sending 50% reg fee to Host account and to the epoch Reward pool.
                         uint8_t amt_out_return[AMOUNT_BUF_SIZE];
-                        int64_t amount_half = reg_fee / 2;
+                        const int64_t amount_half = reg_fee / 2;
 
                         SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
 
