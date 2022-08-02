@@ -33,32 +33,37 @@ function readConfigs() {
 async function transferEvrToRegistry(config) {
     const xrplApi = new XrplApi(RIPPLED_URL);
     await xrplApi.connect();
-
-    const regClient = new RegistryClient({"registryAddress": config.registry.address});
+    const regClient = new RegistryClient({ "registryAddress": config.registry.address });
     await regClient.connect();
 
-    console.log('Registry:', config.registry.address);
-    console.log('Issuer:', regClient.config.evrIssuerAddress);
+    try {
+        // Get issuer and foundation cold wallet account ids.
+        let memoData = Buffer.allocUnsafe(40);
+        codec.decodeAccountID(regClient.config.evrIssuerAddress).copy(memoData);
+        codec.decodeAccountID(regClient.config.foundationAddress).copy(memoData, 20);
 
-    // Get issuer and foundation cold wallet account ids.
-    let memoData = Buffer.allocUnsafe(40);
-    codec.decodeAccountID(regClient.config.evrIssuerAddress).copy(memoData);
-    codec.decodeAccountID(regClient.config.foundationAddress).copy(memoData, 20);
+        const purchaserWallet = new XrplAccount(config.purchaser.address, config.purchaser.secret, { xrplApi: xrplApi });
+        let res = await purchaserWallet.makePayment(config.registry.address, '51609600', EvernodeConstants.EVR, regClient.config.evrIssuerAddress,
+            [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
+        if (res.code !== 'tesSUCCESS')
+            throw res;
 
-    const purchaserWallet = new XrplAccount(config.purchaser.address, config.purchaser.secret, { xrplApi: xrplApi });
-    res = await purchaserWallet.makePayment(config.registry.address, '51609600', EvernodeConstants.EVR, regClient.config.evrIssuerAddress,
-        [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
-    if (res.code !== 'tesSUCCESS')
-        throw res;
+        const initAccount = new XrplAccount(config.initializer.address, config.initializer.secret, { xrplApi: xrplApi });
+        res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+            [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
-    const initAccount = new XrplAccount(config.initializer.address, config.initializer.secret, { xrplApi: xrplApi });
-    let res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
-        [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
-
-    if (res.code === 'tesSUCCESS')
-        return res;
-    else {
-        throw res;
+        if (res.code === 'tesSUCCESS')
+            return res;
+        else {
+            throw res;
+        }
+    }
+    catch (e) {
+        throw e;
+    }
+    finally {
+        await regClient.disconnect();
+        await xrplApi.disconnect();
     }
 }
 
