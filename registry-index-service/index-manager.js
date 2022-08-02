@@ -88,7 +88,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     DEAD_HOST_PRUNE: [
-        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT }
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ]
