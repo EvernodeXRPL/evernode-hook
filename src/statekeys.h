@@ -47,7 +47,7 @@ const uint8_t CONF_PURCHASER_TARGET_PRICE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0
 // Lease acquire ledger window.
 const uint8_t CONF_LEASE_ACQUIRE_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8};
 // The maximum tolerable downtime for a host.
-const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9};
+const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10};
 
 #define STATE_KEY(buf, prefix, key, key_len)                      \
     buf[0] = 'E';                                                 \

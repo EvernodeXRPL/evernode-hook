@@ -450,6 +450,7 @@ int64_t hook(uint32_t reserved)
                     TRACEVAR(moment_size);
 
                     uint64_t last_heartbeat = UINT64_FROM_BUF(reg_entry_buf + HOST_HEARTBEAT_LEDGER_IDX_OFFSET);
+                    TRACEVAR(cur_ledger_seq);
                     TRACEVAR(last_heartbeat);
                     uint64_t heartbeat_delay = (cur_ledger_seq - last_heartbeat) / moment_size;
                     TRACEVAR(heartbeat_delay);
@@ -486,7 +487,7 @@ int64_t hook(uint32_t reserved)
 
                     uint8_t emithash[HASH_SIZE];
                     uint8_t index_for_burnability = 0;
-                    if((flags & (1 << index_for_burnability)) != 0)
+                    if ((flags & (1 << index_for_burnability)) != 0)
                     {
                         // Reserve for two transaction emissions.
                         etxn_reserve(2);
