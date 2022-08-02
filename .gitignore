@@ -4,4 +4,4 @@ hook.cfg
 node_modules
 dist
 utils/recreate-template/hook/*.wasm
-utils/issuer-transactions/evr-transfer-config.json
+utils/beta-migration-transactions/evr-transfer-config.json
