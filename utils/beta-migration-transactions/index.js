@@ -34,16 +34,20 @@ async function transferEvrToRegistry(config) {
     const xrplApi = new XrplApi(RIPPLED_URL);
     await xrplApi.connect();
 
-    const regClient = new RegistryClient(config.registry.address);
+    const regClient = new RegistryClient({"registryAddress": config.registry.address});
     await regClient.connect();
+
+    console.log('Registry:', config.registry.address);
+    console.log('Issuer:', regClient.config.evrIssuerAddress);
 
     // Get issuer and foundation cold wallet account ids.
     let memoData = Buffer.allocUnsafe(40);
-    codec.decodeAccountID(regClient.configs.issuerAddress).copy(memoData);
-    codec.decodeAccountID(config.purchaser.address).copy(memoData, 20);
+    codec.decodeAccountID(regClient.config.evrIssuerAddress).copy(memoData);
+    codec.decodeAccountID(regClient.config.foundationAddress).copy(memoData, 20);
 
     const purchaserWallet = new XrplAccount(config.purchaser.address, config.purchaser.secret, { xrplApi: xrplApi });
-    res = await purchaserWallet.makePayment(config.registry.address, '51609600', EvernodeConstants.EVR, regClient.configs.issuerAddress);
+    res = await purchaserWallet.makePayment(config.registry.address, '51609600', EvernodeConstants.EVR, regClient.config.evrIssuerAddress,
+        [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
     if (res.code !== 'tesSUCCESS')
         throw res;
 
