@@ -1,5 +1,7 @@
 build
 hook.json
+hook.cfg
 node_modules
 dist
 utils/recreate-template/hook/*.wasm
+utils/issuer-transactions/evr-transfer-config.json
