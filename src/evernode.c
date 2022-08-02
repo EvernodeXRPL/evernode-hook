@@ -169,18 +169,27 @@ int64_t hook(uint32_t reserved)
                         // rollback(SBUF("Evernode: State is already initialized."), 1);
                     }
 
+                    const uint64_t zero = 0;
                     // Initialize the state.
                     if (!already_intialized)
                     {
-                        const uint64_t zero = 0;
                         SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
                         SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_IDX, "Evernode: Could not initialize state for moment base index.");
                         SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                         SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
+                        if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
+
+                        if (state_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
+                    }
+
+                    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+                    uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+                    if (state(SBUF(reward_info), SBUF(STK_REWARD_INFO)) == DOESNT_EXIST)
+                    {
                         const uint32_t cur_moment = cur_ledger_seq / DEF_MOMENT_SIZE;
-                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-                        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         reward_info[EPOCH_OFFSET] = 1;
                         UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
                         UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
@@ -188,12 +197,6 @@ int64_t hook(uint32_t reserved)
                         INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, DEF_EPOCH_REWARD_AMOUNT));
                         if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
-
-                        if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
-                            rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
-
-                        if (state_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR)) < 0)
-                            rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
                     }
 
                     SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
