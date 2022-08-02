@@ -50,6 +50,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
         { operation: 'INSERT', key: HookStateKeys.PURCHASER_TARGET_PRICE },
         { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
+        { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
 
         // Singleton
@@ -83,6 +84,11 @@ const AFFECTED_HOOK_STATE_MAP = {
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_POST_DEREG: [
+        // NOTE: Repetetative State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
+    ],
+    DEAD_HOST_PRUNE: [
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT }
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ]
@@ -151,11 +157,14 @@ class IndexManager {
             await this.#recover()
         }
 
+        this.#registryClient.on(RegistryEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
 
@@ -258,7 +267,7 @@ class IndexManager {
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
 
-        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG];
+        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE];
 
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Triggered a transaction.`);
@@ -266,7 +275,7 @@ class IndexManager {
         try {
             // HOST_ADDR State Key
             if (hostTrxs.includes(memoType))
-                stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey(trx.Account);
+                stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey((memoType !== MemoTypes.DEAD_HOST_PRUNE) ? trx.Account : data.host);
 
             switch (memoType) {
                 case MemoTypes.REGISTRY_INIT:
@@ -318,6 +327,11 @@ class IndexManager {
                     break;
                 case MemoTypes.HOST_POST_DEREG: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
+                    break;
+                }
+                case MemoTypes.DEAD_HOST_PRUNE: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE;
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
