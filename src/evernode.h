@@ -280,17 +280,17 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             rollback(SBUF("Evernode: Could not set default state for host count."), 1); \
     }
 
-#define GENERATE_NFT_TOKEN_ID_GUARD(token_id, transaction_fee, accid, taxon, token_seq, n) \
-    {                                                                                      \
-        UINT16_TO_BUF(token_id, tfTransferable);                                           \
-        UINT16_TO_BUF(token_id + 2, transaction_fee);                                      \
-        COPY_BUF_GUARD(token_id, 4, accid, 0, 20, n);                                      \
-        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));   \
-        UINT32_TO_BUF(token_id + 28, token_seq);                                           \
+#define GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, n) \
+    {                                                                                             \
+        UINT16_TO_BUF(token_id, tflag);                                                           \
+        UINT16_TO_BUF(token_id + 2, transaction_fee);                                             \
+        COPY_BUF_GUARD(token_id, 4, accid, 0, 20, n);                                             \
+        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));          \
+        UINT32_TO_BUF(token_id + 28, token_seq);                                                  \
     }
 
-#define GENERATE_NFT_TOKEN_ID(token_id, transaction_fee, accid, taxon, token_seq) \
-    GENERATE_NFT_TOKEN_ID_GUARD(token_id, transaction_fee, accid, taxon, token_seq, 1)
+#define GENERATE_NFT_TOKEN_ID(token_id, tflag, transaction_fee, accid, taxon, token_seq) \
+    GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, 1)
 
 enum LedgerEntryType
 {
@@ -377,6 +377,74 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             nft_seq = UINT32_FROM_BUF(cur_id + 28);                                                                      \
             nft_taxon = taxon ^ ((NFT_TAXON_M * nft_seq) + NFT_TAXON_C);                                                 \
         }                                                                                                                \
+    }
+
+#define POW_GUARD(x, y, output, n)               \
+    {                                            \
+        output = 1;                              \
+        for (int it = 0; GUARD(n), it < y; ++it) \
+            output *= x;                         \
+    }
+
+#define GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, quota) \
+    {                                                                  \
+        uint32_t div;                                                  \
+        POW_GUARD(2, epoch - 1, div, DEF_EPOCH_COUNT);                 \
+        quota = first_epoch_reward_quota / div;                        \
+    }
+
+#define PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, is_heartbeat, reward_pool_amount_ref, reward_amount_ref) \
+    {                                                                                                                                                                                             \
+        const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                                                                                          \
+        uint32_t reward_quota;                                                                                                                                                                    \
+        GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, reward_quota);                                                                                                                    \
+        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                             \
+        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                         \
+        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                                                \
+        reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                                                                        \
+        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                                         \
+        const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;                                                                                                             \
+        /* If this is a new moment, update the host counts. */                                                                                                                                    \
+        if (saved_moment != cur_moment)                                                                                                                                                           \
+        {                                                                                                                                                                                         \
+            /* Remove previous moment data and move current moment data to previous moment. */                                                                                                    \
+            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                                                                         \
+            /* If the saved moment is not cur_moment - 1, We've missed some moments. Means there was no heartbeat received in previous moment. */                                                 \
+            prev_moment_active_host_count = ((saved_moment == cur_moment - 1) ? cur_moment_active_host_count : 0);                                                                                \
+            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                                                                     \
+            /* If the macro is called from heartbeat intialte cur moment active host count as 1. */                                                                                               \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                                                                             \
+        }                                                                                                                                                                                         \
+        /* If the macro is called from heartbeat increase cur moment active host count by 1. */                                                                                                   \
+        else if (is_heartbeat)                                                                                                                                                                    \
+        {                                                                                                                                                                                         \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (cur_moment_active_host_count + 1));                                                                                 \
+        }                                                                                                                                                                                         \
+        /* Reward pool amount is less than the reward quota for the moment, Increment the epoch. And add the remaining to the next epoch pool. */                                                 \
+        if (float_compare(reward_pool_amount_ref, float_set(0, reward_quota), COMPARE_LESS) == 1)                                                                                                 \
+        {                                                                                                                                                                                         \
+            /* If the current epoch is < epoch count increment otherwise skip. */                                                                                                                 \
+            if (epoch < epoch_count)                                                                                                                                                              \
+            {                                                                                                                                                                                     \
+                reward_pool_amount_ref = float_sum(float_set(0, epoch_reward_amount), reward_pool_amount_ref);                                                                                    \
+                INT64_TO_BUF(pool_ptr, reward_pool_amount_ref);                                                                                                                                   \
+                reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                                                                            \
+                /* When epoch incremented by 1, reward quota halves. */                                                                                                                           \
+                reward_quota = reward_quota / 2;                                                                                                                                                  \
+            }                                                                                                                                                                                     \
+            else                                                                                                                                                                                  \
+            {                                                                                                                                                                                     \
+                reward_quota = 0;                                                                                                                                                                 \
+            }                                                                                                                                                                                     \
+        }                                                                                                                                                                                         \
+        /* Calculate the reward quota for the current epoch. */                                                                                                                                   \
+        /* Use float division only if modulo is not zero to reduce floating point complications. */                                                                                               \
+        if (prev_moment_active_host_count == 0)                                                                                                                                                   \
+            reward_amount_ref = float_set(0, 0);                                                                                                                                                  \
+        else if (reward_quota % prev_moment_active_host_count == 0)                                                                                                                               \
+            reward_amount_ref = float_set(0, (reward_quota / prev_moment_active_host_count));                                                                                                     \
+        else                                                                                                                                                                                      \
+            reward_amount_ref = float_divide(float_set(0, reward_quota), float_set(0, prev_moment_active_host_count));                                                                            \
     }
 
 /**************************************************************************/
@@ -576,6 +644,38 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                                                                              \
     }
 
+/////////// Macros to prepare simple payment with memos. ///////////
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
+    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + PREPARE_PAYMENT_SIMPLE_SIZE + 4)
+#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_amount_raw, to_address, dest_tag_raw, src_tag_raw, type, type_len, format, format_len, data, data_len, m) \
+    {                                                                                                                                                                         \
+        uint8_t *buf_out = buf_out_master;                                                                                                                                    \
+        uint8_t acc[20];                                                                                                                                                      \
+        uint64_t drops_amount = (drops_amount_raw);                                                                                                                           \
+        uint32_t dest_tag = (dest_tag_raw);                                                                                                                                   \
+        uint32_t src_tag = (src_tag_raw);                                                                                                                                     \
+        uint32_t cls = (uint32_t)ledger_seq();                                                                                                                                \
+        hook_account(SBUF(acc));                                                                                                                                              \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);              /* uint16  | size   3 */                                                                                           \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);         /* uint32  | size   5 */                                                                                           \
+        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);           /* uint32  | size   5 */                                                                                           \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */                                                                                           \
+        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);          /* uint32  | size   5 */                                                                                           \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */                                                                                           \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */                                                                                           \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */                                                                                           \
+        uint8_t *fee_ptr = buf_out;                                                                                                                                           \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);            /* amount  | size   9 */                                                                                              \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */                                                                                              \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */                                                                                              \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */                                                                                              \
+        _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                                 \
+        etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len)); /* emitdet | size 1?? */                                   \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len));                                                \
+        \ 
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                                                                \
+    }
+
 /**************************************************************************/
 /***********************NFT related transactions***************************/
 /**************************************************************************/
@@ -584,21 +684,19 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 #define PREPARE_NFT_MINT_SIZE(uri_len) \
     (uri_len + 240)
-// Preapare a transferable NFT mint transaction.
-// Note - Only the transferable flag will be set.
-#define PREPARE_NFT_MINT(buf_out_master, transfer_fee, taxon, uri, uri_len)           \
+#define PREPARE_NFT_MINT(buf_out_master, tflag, transfer_fee, taxon, uri, uri_len)    \
     {                                                                                 \
         uint8_t *buf_out = buf_out_master;                                            \
         uint8_t acc[20];                                                              \
         uint32_t cls = (uint32_t)ledger_seq();                                        \
         hook_account(SBUF(acc));                                                      \
-        _01_02_ENCODE_TT(buf_out, ttNFT_MINT);        /* uint16  | size   3 */        \
-        _01_04_ENCODE_TF(buf_out, transfer_fee);      /* uint16  | size   3 */        \
-        _02_02_ENCODE_FLAGS(buf_out, tfTransferable); /* uint32  | size   5 */        \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);           /* uint32  | size   5 */        \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);          /* uint32  | size   6 */        \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);          /* uint32  | size   6 */        \
-        _02_42_ENCODE_TXON(buf_out, taxon);           /* uint32  | size   6 */        \
+        _01_02_ENCODE_TT(buf_out, ttNFT_MINT);   /* uint16  | size   3 */             \
+        _01_04_ENCODE_TF(buf_out, transfer_fee); /* uint16  | size   3 */             \
+        _02_02_ENCODE_FLAGS(buf_out, tflag);     /* uint32  | size   5 */             \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);      /* uint32  | size   5 */             \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);     /* uint32  | size   6 */             \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);     /* uint32  | size   6 */             \
+        _02_42_ENCODE_TXON(buf_out, taxon);      /* uint32  | size   6 */             \
         uint8_t *fee_ptr = buf_out;                                                   \
         _06_08_ENCODE_DROPS_FEE(buf_out, 0);        /* amount  | size   9 */          \
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out); /* pk      | size  35 */          \
@@ -702,6 +800,27 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define PREPARE_PAYMENT_FOUNDATION_RETURN(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                               \
     {                                                                                                                                                                     \
         PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, FOUNDATION_REFUND_50, 19, empty_ptr, 0, empty_ptr, 0, 1); \
+    }
+
+#define PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
+#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                                                                                                  \
+    {                                                                                                                                                                                                                                         \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
+    }
+
+#define PREPARE_MIN_PAYMENT_PRUNED_HOST_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
+#define PREPARE_MIN_PAYMENT_PRUNED_HOST(buf_out_master, drops_fee_raw, to_address)                                                                                                                                           \
+    {                                                                                                                                                                                                                        \
+        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
+    }
+
+#define PREPARE_PAYMENT_HOST_REWARD_SIZE \
+    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(13, 0, 0))
+#define PREPARE_PAYMENT_HOST_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                            \
+    {                                                                                                                                                            \
+        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, HOST_REWARD, 13, empty_ptr, 0, empty_ptr, 0, 1); \
     }
 
 #endif

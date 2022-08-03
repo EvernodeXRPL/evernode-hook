@@ -8,6 +8,9 @@
 #define INITIALIZE "evnInitialize"
 #define FOUNDATION_REFUND_50 "evnFoundationRefund"
 #define HOST_POST_DEREG "evnHostPostDereg"
+#define DEAD_HOST_PRUNE "evnDeadHostPrune"
+#define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
+#define HOST_REWARD "evnHostReward"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -16,6 +19,7 @@
 
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
+#define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -24,6 +28,7 @@
 #define ttNFT_OFFER 27
 #define tfSetNoRipple 0x00020000 // Disable rippling on this trust line.
 #define tfTransferable 0x00000008
+#define tfBurnable 0x00000001
 #define tfSellToken 0x00000001
 #define tfBuyToken 0x00000000
 
@@ -37,8 +42,8 @@
 #define AGAIN_HOOK 2
 
 // Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rMv668j9M6x2ww4HNEF4AhB8ju77oSxFJD";
-const uint16_t DEF_MOMENT_SIZE = 900;
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
+const uint16_t DEF_MOMENT_SIZE = 1190;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;
@@ -47,6 +52,11 @@ const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 2;
 const int32_t DEF_TARGET_PRICE_E = 0;
 const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 40;
+const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 240; // In moments.
+const uint8_t DEF_EPOCH_COUNT = 10;
+const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
+const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
+const uint32_t DEF_REWARD_START_MOMENT = 0;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
@@ -58,8 +68,23 @@ const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
+const uint32_t REWARD_INFO_VAL_SIZE = 21;
+const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 
 // State value offsets
+// REWARD_INFO
+const uint32_t EPOCH_OFFSET = 0;
+const uint32_t SAVED_MOMENT_OFFSET = 1;
+const uint32_t PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 5;
+const uint32_t CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 9;
+const uint32_t EPOCH_POOL_OFFSET = 13;
+
+// REWARD_CONFIGURATION
+const uint32_t EPOCH_COUNT_OFFSET = 0;
+const uint32_t FIRST_EPOCH_REWARD_QUOTA_OFFSET = 1;
+const uint32_t EPOCH_REWARD_AMOUNT_OFFSET = 5;
+const uint32_t REWARD_START_MOMENT_OFFSET = 9;
+
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
 const uint32_t HOST_COUNTRY_CODE_OFFSET = 32;

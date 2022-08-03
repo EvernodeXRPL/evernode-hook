@@ -42,7 +42,7 @@ if [ -z "$arg1" ]; then # If 1st param is empty, Create a new instance.
     ! ACCOUNT_DATA_DIR=$data_dir $(which node) $account_setup && echo "Account setup faild." && exit 1
     arg1=$(ls -t $hook_data_dir/ | head -1)
     ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
-    sleep 1 # Sleep for 1 sec so all the pre required setup is completed before start the index service.
+    sleep 2 # Sleep for 2 sec so all the pre required setup is completed before start the index service.
 elif [ ! -d "$hook_data_dir/$arg1" ]; then # If 1st param is given check for data directory existance.
     echo "Data directory $hook_data_dir/$arg1 does not exist: Run \"./run-registry-index\" to create a new instance."
     exit 1

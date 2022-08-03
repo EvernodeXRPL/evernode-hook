@@ -5,7 +5,7 @@ const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
-const PURCHASER_COLD_WALLET_EVRS = "51609600";
+const REGISTRY_EVRS = "51609600";
 const CONFIG_FILE = 'accounts.json';
 
 // BEGIN - Endpoints.
@@ -29,7 +29,7 @@ const ACCOUNT_DATA_DIR = process.env.ACCOUNT_DATA_DIR || __dirname;
 const HOOK_DATA_DIR = ACCOUNT_DATA_DIR + '/data'
 
 // Account names
-const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "PURCHASER_COLD_WALLET", "REGISTRY", "PURCHASER_HOT_WALLET"];
+const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "REGISTRY"];
 
 // XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
@@ -105,22 +105,10 @@ async function main() {
             await newAccounts[1].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
-        const comm_bank_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        if (comm_bank_lines.length === 0) {
-            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_COLD_WALLET_EVRS);
-        }
-
-        const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        const registry_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (registry_lines.length === 0) {
-            await newAccounts[3].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
-        }
-
-        const purchaser_lines = await newAccounts[4].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        if (purchaser_lines.length === 0) {
-            await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, PURCHASER_COLD_WALLET_EVRS);
+            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
         console.log("Trust Lines initiated");
@@ -131,9 +119,9 @@ async function main() {
 
         console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
 
-        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, PURCHASER_COLD_WALLET_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, REGISTRY_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${PURCHASER_COLD_WALLET_EVRS} EVRs were transferred to Purchaser cold wallet by the Foundation`);
+        console.log(`${REGISTRY_EVRS} EVRs were transferred to Registry by the Foundation`);
         // END - Transfer Currency
 
         // ISSUER Blackholing
@@ -166,7 +154,7 @@ async function main() {
         // Save the generated account data in the config.
         const configDir = path.resolve(HOOK_DATA_DIR, config.registry.address);
         fs.mkdirSync(configDir, { recursive: true });
-        const configPath = path.resolve(configDir, CONFIG_FILE);
+        const configPath = `${configDir}/${CONFIG_FILE}`;
         console.log(`Recording account data in ${configPath}`);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
 
