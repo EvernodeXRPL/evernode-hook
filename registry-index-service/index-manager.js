@@ -280,10 +280,10 @@ class IndexManager {
 
             switch (memoType) {
                 case MemoTypes.REGISTRY_INIT:
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.INIT;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.INIT.slice();
                     break;
                 case MemoTypes.HOST_REG: {
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG.slice();
                     affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId.toString('hex').toUpperCase() });
 
                     const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
@@ -316,23 +316,23 @@ class IndexManager {
                     break;
                 }
                 case MemoTypes.HOST_DEREG:
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG.slice();
                     break;
                 case MemoTypes.HOST_UPDATE_INFO:
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                     break;
                 case MemoTypes.HEARTBEAT:
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                     break;
                 case MemoTypes.HOST_POST_DEREG: {
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
                 case MemoTypes.DEAD_HOST_PRUNE: {
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE;
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
