@@ -20,6 +20,7 @@
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
 #define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
+#define MOMENT_DEFINED_WITH_LEDGERS 1
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -42,8 +43,8 @@
 #define AGAIN_HOOK 2
 
 // Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
-const uint16_t DEF_MOMENT_SIZE = 1190;
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rMv668j9M6x2ww4HNEF4AhB8ju77oSxFJD";
+const uint16_t DEF_MOMENT_SIZE = 3600;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;
@@ -57,6 +58,8 @@ const uint8_t DEF_EPOCH_COUNT = 10;
 const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
 const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
 const uint32_t DEF_REWARD_START_MOMENT = 0;
+const uint32_t DEF_TRANSITION_UNIX_TIMESTAMP = 1666149087; //1666085126;
+const int64_t DEF_XRPL_TIMESTAMP_OFFSET = 946684800;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
@@ -70,6 +73,8 @@ const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
+const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 13;
+const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 12;
 
 // State value offsets
 // REWARD_INFO
@@ -111,5 +116,15 @@ const uint64_t MIN_DROPS = 1;
 const uint32_t NFT_TAXON_M = 384160001;
 const uint32_t NFT_TAXON_C = 2459;
 const char *empty_ptr = 0;
+
+// MOMENT_TRANSIT_INFO
+const uint32_t TRANSIT_TIMESTAMP_OFFSET = 0;
+const uint32_t TRANSIT_MOMENT_SIZE_OFFSET = 8;
+const uint32_t MOMENT_DEFINITION_TYPE_OFFSET = 12;
+
+
+// MOMENT_BASE_INFO
+const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
+const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 
 #endif
