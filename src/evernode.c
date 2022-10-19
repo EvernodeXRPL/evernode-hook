@@ -141,7 +141,7 @@ int64_t hook(uint32_t reserved)
             if (state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) != DOESNT_EXIST)
             {
                 int64_t transition_point = UINT64_FROM_BUF(&moment_transition_info[TRANSIT_TIMESTAMP_OFFSET]);
-                // If there is transition, transition_point specify a timestamp value to perform that.
+                // If there is a transition, transition_point specifies a timestamp value to perform that.
                 if (transition_point > 0)
                 {
                     uint8_t moment_definition_type = moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET];
