@@ -8,6 +8,7 @@
 const uint8_t STK_HOST_COUNT[32] = {'E', 'V', 'R', 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Ledger index when the CONF_MOMENT_SIZE last changed on.
+// After the moment transition, this is a composite state which contains <transition timestamp><transition_moment>
 const uint8_t STK_MOMENT_BASE_INFO[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // The host registration fee in Evers.

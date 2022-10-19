@@ -162,7 +162,7 @@ int64_t hook(uint32_t reserved)
                         {
                             TRACEVAR("Moment definition transiting from ledgers to timestamp.");
                             uint64_t moment_base_ledger_idx;
-                            GET_CONF_VALUE(moment_base_ledger_idx, STK_MOMENT_BASE_INFO, "Evernode: Could not get moment base info11.");
+                            GET_CONF_VALUE(moment_base_ledger_idx, STK_MOMENT_BASE_INFO, "Evernode: Could not get moment base info.");
                             cur_moment = (cur_ledger_seq - moment_base_ledger_idx) / moment_size;
 
                             uint8_t new_moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
@@ -479,7 +479,7 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get-moment size.");
                     TRACEVAR(moment_size);
 
-                    // Take the heartbeat freaquency.
+                    // Take the heartbeat frequency.
                     uint16_t heartbeat_freq;
                     GET_CONF_VALUE(heartbeat_freq, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not get heartbeat frequency.");
                     TRACEVAR(heartbeat_freq);

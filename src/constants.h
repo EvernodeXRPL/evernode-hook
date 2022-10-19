@@ -43,7 +43,7 @@
 #define AGAIN_HOOK 2
 
 // Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rMv668j9M6x2ww4HNEF4AhB8ju77oSxFJD";
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
 const uint16_t DEF_MOMENT_SIZE = 1190;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
@@ -58,7 +58,9 @@ const uint8_t DEF_EPOCH_COUNT = 10;
 const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
 const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
 const uint32_t DEF_REWARD_START_MOMENT = 0;
-const uint64_t DEF_TRANSITION_UNIX_TIMESTAMP = 1666149087; //1666085126;
+
+// Transition related definitions.
+const uint64_t DEF_TRANSITION_UNIX_TIMESTAMP = 1666149087;
 const int64_t DEF_XRPL_TIMESTAMP_OFFSET = 946684800;
 const uint16_t DEF_NEW_MOMENT_SIZE = 3600;
 
@@ -122,7 +124,6 @@ const char *empty_ptr = 0;
 const uint32_t TRANSIT_TIMESTAMP_OFFSET = 0;
 const uint32_t TRANSIT_MOMENT_SIZE_OFFSET = 8;
 const uint32_t MOMENT_DEFINITION_TYPE_OFFSET = 10;
-
 
 // MOMENT_BASE_INFO
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
