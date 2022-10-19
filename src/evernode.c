@@ -136,12 +136,21 @@ int64_t hook(uint32_t reserved)
 
             // transition_timestamp(8 bytes)><moment_size(2 bytes)><moment_definition_type(1 byte)>
             uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
+
+            // Begin : Transition availability check.
             if (state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) != DOESNT_EXIST)
             {
                 int64_t transition_point = UINT64_FROM_BUF(&moment_transition_info[TRANSIT_TIMESTAMP_OFFSET]);
+                // If there is transition, transition_point specify a timestamp value to perform that.
                 if (transition_point > 0)
                 {
                     uint8_t moment_definition_type = moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET];
+
+                    /**
+                     * Calculate corresponding XRPL timestamp.
+                     * This calculation is based on the UNIX timestamp & XRPL timestamp relationship
+                     * https://xrpl-hooks.readme.io/reference/ledger_last_time#behaviour
+                     */
                     if (cur_ledger_timestamp >= (transition_point - DEF_XRPL_TIMESTAMP_OFFSET))
                     {
                         TRACEVAR("Transition is started.");
@@ -158,7 +167,11 @@ int64_t hook(uint32_t reserved)
 
                             uint8_t new_moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
 
-                            // Starting timestamp of the current moment.
+                            /**
+                             * Calculate current UNIX timestamp.
+                             * This calculation is based on the UNIX timestamp & XRPL timestamp relationship
+                             * https://xrpl-hooks.readme.io/reference/ledger_last_time#behaviour
+                             */
                             INT64_TO_BUF(&new_moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_ledger_timestamp + DEF_XRPL_TIMESTAMP_OFFSET);
 
                             // The ongoing moment when the transition is occurring.
@@ -179,6 +192,7 @@ int64_t hook(uint32_t reserved)
                     }
                 }
             }
+            // End : Transition availability check.
 
             if (is_xrp)
             {
