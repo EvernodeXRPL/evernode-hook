@@ -19,7 +19,7 @@ const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Epoch reward info <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>.
 const uint8_t STK_REWARD_INFO[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Moment transition info <transition_ledger_index(uint8_t)><moment_size<uint32_t)>.
+// Moment transition info <transition_ledger_index(int64_t)><moment_size<uint32_t)><moment_definition_type(uint_8)>.
 const uint8_t STK_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /////////// Repetitive state keys. ///////////
