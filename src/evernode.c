@@ -118,7 +118,26 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: transaction id missing."), 1);
 
             int64_t cur_ledger_seq = ledger_seq();
-            int64_t cur_ledger_timestamp = ledger_last_time();
+            /**
+             * Calculate corresponding XRPL timestamp.
+             * This calculation is based on the UNIX timestamp & XRPL timestamp relationship
+             * https://xrpl-hooks.readme.io/reference/ledger_last_time#behaviour
+             */
+            int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
+
+            /////// Moment transition related logic is handled here ///////
+
+            // If the transition state does not exist or transition state is empty, Update the new transition info.
+            // <transition_timestamp(8 bytes)><moment_size(2 bytes)><moment_definition_type(1 byte)>
+            uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
+            int res = state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO));
+            if (res < 0 && res != DOESNT_EXIST)
+                rollback(SBUF("Evernode: Error getting moment size transaction info state."), 1);
+
+            uint8_t moment_definition_type = moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET];
+            uint64_t cur_idx = (moment_definition_type == MOMENT_DEFINED_WITH_LEDGERS) ? cur_ledger_seq : cur_ledger_timestamp;
+
+            ///////////////////////////////////////////////////////////////
 
             // specifically we're interested in the amount sent
             int64_t oslot = otxn_slot(0);
@@ -134,65 +153,32 @@ int64_t hook(uint32_t reserved)
             if (is_xrp < 0)
                 rollback(SBUF("Evernode: Could not determine sent amount type"), 1);
 
-            // transition_timestamp(8 bytes)><moment_size(2 bytes)><moment_definition_type(1 byte)>
-            uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
-
-            // Begin : Transition availability check.
-            if (state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) != DOESNT_EXIST)
+            // Begin : Moment size transition implementation.
+            // If there is a transition, transition_idx specifies a index value to perform that.
+            uint64_t transition_idx = UINT64_FROM_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET]);
+            if (transition_idx > 0 && cur_idx >= transition_idx)
             {
-                int64_t transition_point = UINT64_FROM_BUF(&moment_transition_info[TRANSIT_TIMESTAMP_OFFSET]);
-                // If there is a transition, transition_point specifies a timestamp value to perform that.
-                if (transition_point > 0)
-                {
-                    uint8_t moment_definition_type = moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET];
+                uint32_t cur_moment;
+                GET_MOMENT(cur_moment, cur_idx);
 
-                    /**
-                     * Calculate corresponding XRPL timestamp.
-                     * This calculation is based on the UNIX timestamp & XRPL timestamp relationship
-                     * https://xrpl-hooks.readme.io/reference/ledger_last_time#behaviour
-                     */
-                    if (cur_ledger_timestamp >= (transition_point - DEF_XRPL_TIMESTAMP_OFFSET))
-                    {
-                        TRACEVAR("Transition is started.");
-                        uint16_t moment_size;
-                        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
-                        uint32_t cur_moment;
+                // Add new moment size to the state.
+                uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
+                if (state_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE)) < 0)
+                    rollback(SBUF("Evernode: Could not update the state for moment size."), 1);
 
-                        if (moment_definition_type == MOMENT_DEFINED_WITH_LEDGERS)
-                        {
-                            TRACEVAR("Moment definition transiting from ledgers to timestamp.");
-                            uint64_t moment_base_ledger_idx;
-                            GET_CONF_VALUE(moment_base_ledger_idx, STK_MOMENT_BASE_INFO, "Evernode: Could not get moment base info.");
-                            cur_moment = (cur_ledger_seq - moment_base_ledger_idx) / moment_size;
+                // Update the moment base info.
+                uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
+                UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
+                UINT32_TO_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], cur_moment);
+                if (state_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
 
-                            uint8_t new_moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
-
-                            /**
-                             * Calculate current UNIX timestamp.
-                             * This calculation is based on the UNIX timestamp & XRPL timestamp relationship
-                             * https://xrpl-hooks.readme.io/reference/ledger_last_time#behaviour
-                             */
-                            INT64_TO_BUF(&new_moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_ledger_timestamp + DEF_XRPL_TIMESTAMP_OFFSET);
-
-                            // The ongoing moment when the transition is occurring.
-                            UINT32_TO_BUF(&new_moment_base_info[MOMENT_AT_TRANSITION_OFFSET], cur_moment);
-                            if (state_set(new_moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)
-                                rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
-
-                            // Add new moment size to the state.
-                            uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
-                            if (state_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE)) < 0)
-                                rollback(SBUF("Evernode: Could not update the state for moment size."), 1);
-
-                            // Assign the transition state values with zeros.
-                            CLEARBUF(moment_transition_info);
-                            if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) < 0)
-                                rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
-                        }
-                    }
-                }
+                // Assign the transition state values with zeros.
+                CLEARBUF(moment_transition_info);
+                if (state_set(SBUF(moment_transition_info), SBUF(STK_MOMENT_TRANSIT_INFO)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
             }
-            // End : Transition availability check.
+            // End : Moment size transition implementation.
 
             if (is_xrp)
             {
@@ -220,16 +206,6 @@ int64_t hook(uint32_t reserved)
                     BUFFER_EQUAL(is_initialize, initializer_accid, account_field, ACCOUNT_ID_SIZE);
                     if (!is_initialize)
                         rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
-
-                    // Set Moment transition info with the configured value;
-                    // moment_definition_type(uint8_t)><transition_timestamp(int64_t)><moment_size(uint32_t)>
-                    uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
-                    INT64_TO_BUF(&moment_transition_info[TRANSIT_TIMESTAMP_OFFSET], DEF_TRANSITION_UNIX_TIMESTAMP);
-                    UINT16_TO_BUF(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], DEF_NEW_MOMENT_SIZE);
-                    moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET] = MOMENT_DEFINED_WITH_LEDGERS;
-
-                    if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) < 0)
-                        rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
 
                     // First check if the states are already initialized by checking one state key for existence.
                     int already_intialized = 0; // For Beta test purposes
@@ -262,7 +238,8 @@ int64_t hook(uint32_t reserved)
                     if (state(SBUF(reward_info), SBUF(STK_REWARD_INFO)) == DOESNT_EXIST)
                     {
                         // TODO : need access the moment size via the state key.
-                        const uint32_t cur_moment = cur_ledger_seq / DEF_MOMENT_SIZE;
+                        uint32_t cur_moment;
+                        GET_MOMENT(cur_moment, cur_idx);
                         reward_info[EPOCH_OFFSET] = 1;
                         UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
                         UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
@@ -293,6 +270,29 @@ int64_t hook(uint32_t reserved)
                     INT64_TO_BUF(purchaser_target_price_buf, purchaser_target_price);
                     if (state_set(SBUF(purchaser_target_price_buf), SBUF(CONF_PURCHASER_TARGET_PRICE)) < 0)
                         rollback(SBUF("Evernode: Could not set state for moment community target price."), 1);
+
+                    // Begin : Moment size transition implementation.
+                    // Do the moment size transition. If new moment size is specified.
+                    // Set Moment transition info with the configured value;
+                    if (NEW_MOMENT_SIZE > 0)
+                    {
+                        int is_empty = 0;
+                        IS_BUF_EMPTY(is_empty, moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE);
+                        if (!is_empty)
+                            rollback(SBUF("Evernode: There is an already scheduled moment size transition."), 1);
+
+                        uint64_t moment_end_idx;
+                        GET_MOMENT_END_INDEX(moment_end_idx, cur_idx);
+
+                        // <transition_timestamp(int64_t)><moment_size(uint32_t)><moment_definition_type(uint8_t)>
+                        UINT64_TO_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET], moment_end_idx);
+                        UINT16_TO_BUF(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
+                        moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET] = MOMENT_DEFINITION_TYPE;
+
+                        if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
+                    }
+                    // End : Moment size transition implementation.
 
                     accept(SBUF("Evernode: Initialization successful."), 0);
                 }
@@ -446,33 +446,10 @@ int64_t hook(uint32_t reserved)
                     const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
                     const int64_t last_heartbeat_idx = INT64_FROM_BUF(heartbeat_ptr);
 
-                    INT64_TO_BUF(heartbeat_ptr, (moment_definition_type == MOMENT_DEFINED_WITH_LEDGERS) ? cur_ledger_seq : cur_ledger_timestamp);
+                    INT64_TO_BUF(heartbeat_ptr, cur_idx);
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
-
-                    int64_t moment_base_idx;
-                    uint32_t moment_at_last_transition = 0;
-                    uint32_t transition_adjustment = 0;
-                    if (moment_definition_type == MOMENT_DEFINED_WITH_LEDGERS)
-                    {
-                        GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_INFO, "Evernode: Could not get moment base info.");
-                        TRACEVAR(moment_base_idx);
-                    }
-                    else
-                    {
-                        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
-                        if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)
-                            rollback(SBUF("Evernode: Could not get state for moment base info."), 1);
-
-                        // Here this figure is the timestamp when transition has been occurred.
-                        uint8_t *moment_base_timestamp_ptr = &moment_base_info[MOMENT_BASE_POINT_OFFSET];
-                        moment_base_idx = INT64_FROM_BUF(moment_base_timestamp_ptr);
-                        // Once the inital transition from ledgers is completed, following field is added to the moment base info state.
-                        // This denotes how many moments have been passed until the transition.
-                        moment_at_last_transition = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
-                        transition_adjustment = moment_at_last_transition + 1;
-                    }
 
                     // Take the moment size from config.
                     uint16_t moment_size;
@@ -484,11 +461,29 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(heartbeat_freq, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not get heartbeat frequency.");
                     TRACEVAR(heartbeat_freq);
 
-                    const uint32_t last_heartbeat_moment = last_heartbeat_idx != 0 ? (last_heartbeat_idx - moment_base_idx) / moment_size + transition_adjustment : 0;
-                    const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size + transition_adjustment;
+                    uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
+                    if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)
+                        rollback(SBUF("Evernode: Could not get moment base info state."), 1);
+                    uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+                    uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+
+                    uint32_t cur_moment, last_heartbeat_moment = 0;
+                    GET_MOMENT(cur_moment, cur_idx);
 
                     // Skip if already sent a heartbeat in this moment.
-                    if (cur_moment > last_heartbeat_moment)
+                    int accept_heartbeat = 0;
+                    if (last_heartbeat_idx == 0)
+                        accept_heartbeat = 1;
+                    else if (moment_base_idx > last_heartbeat_idx)
+                        accept_heartbeat = 1;
+                    else
+                    {
+                        GET_MOMENT(last_heartbeat_moment, last_heartbeat_idx);
+                        if (cur_moment > last_heartbeat_moment)
+                            accept_heartbeat = 1;
+                    }
+
+                    if (accept_heartbeat)
                     {
                         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
                         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
@@ -509,7 +504,7 @@ int64_t hook(uint32_t reserved)
                         PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 1, reward_pool_amount, reward_amount);
 
                         // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
-                        // the eward quota is not 0.
+                        // the reward quota is not 0.
                         if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
                             last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
                             (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
@@ -827,9 +822,9 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     }
-                }
 
-                accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
+                    accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
+                }
             }
             else
             {

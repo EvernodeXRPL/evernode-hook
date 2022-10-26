@@ -58,11 +58,11 @@ const uint8_t DEF_EPOCH_COUNT = 10;
 const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
 const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
 const uint32_t DEF_REWARD_START_MOMENT = 0;
+const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 
-// Transition related definitions.
-const uint64_t DEF_TRANSITION_UNIX_TIMESTAMP = 1666149087;
-const int64_t DEF_XRPL_TIMESTAMP_OFFSET = 946684800;
-const uint16_t DEF_NEW_MOMENT_SIZE = 3600;
+// Transition related definitions. Transition state is added on the init transaction if this has >0 value
+const uint16_t NEW_MOMENT_SIZE = 3600;
+const uint8_t MOMENT_DEFINITION_TYPE = MOMENT_DEFINED_WITH_LEDGERS;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
@@ -121,7 +121,7 @@ const uint32_t NFT_TAXON_C = 2459;
 const char *empty_ptr = 0;
 
 // MOMENT_TRANSIT_INFO
-const uint32_t TRANSIT_TIMESTAMP_OFFSET = 0;
+const uint32_t TRANSIT_IDX_OFFSET = 0;
 const uint32_t TRANSIT_MOMENT_SIZE_OFFSET = 8;
 const uint32_t MOMENT_DEFINITION_TYPE_OFFSET = 10;
 
