@@ -167,7 +167,7 @@ int64_t hook(uint32_t reserved)
                     rollback(SBUF("Evernode: Could not update the state for moment size."), 1);
 
                 // Update the moment base info.
-                uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
+                uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
                 UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
                 UINT32_TO_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], cur_moment);
                 if (state_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO)) < 0)
@@ -184,7 +184,67 @@ int64_t hook(uint32_t reserved)
             {
                 // Host initialization.
                 int is_initialize = 0;
-                BUFFER_EQUAL_STR_GUARD(is_initialize, type_ptr, type_len, INITIALIZE, 1);
+                BUFFER_EQUAL_STR(is_initialize, type_ptr, type_len, INITIALIZE);
+
+                // Host deregistration.
+                int is_host_de_reg = 0;
+                BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
+
+                // Host heartbeat.
+                int is_host_heartbeat = 0;
+                BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
+
+                // Host update registration.
+                int is_host_update_reg = 0;
+                BUFFER_EQUAL_STR(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG);
+
+                // Dead Host Prune.
+                int is_dead_host_prune = 0;
+                BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
+
+                // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
+                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+
+                // Common logic for host deregistration, heartbeat and update registration.
+                if (is_host_de_reg || is_host_heartbeat || is_host_update_reg)
+                {
+                    if (is_host_de_reg)
+                    {
+                        int is_format_hex = 0;
+                        BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+                        if (!is_format_hex)
+                            rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
+                    }
+                    else if (is_host_update_reg)
+                    {
+                        int is_format_plain_text = 0;
+                        BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
+                        if (!is_format_plain_text)
+                            rollback(SBUF("Evernode: Instance update info format not supported."), 1);
+                    }
+
+                    HOST_ADDR_KEY(account_field); // Generate host account key.
+                    // Check for registration entry.
+                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                        rollback(SBUF("Evernode: This host is not registered."), 1);
+
+                    // Check the ownership of the NFT to this user before proceeding.
+                    int nft_exists;
+                    uint8_t issuer[20], uri[64], uri_len;
+                    uint32_t taxon, nft_seq;
+                    uint16_t flags, tffee;
+                    uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
+                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+
+                    // Issuer of the NFT should be the registry contract.
+                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                }
+
                 if (is_initialize)
                 {
                     BUFFER_EQUAL_STR(is_initialize, format_ptr, format_len, FORMAT_HEX);
@@ -296,45 +356,15 @@ int64_t hook(uint32_t reserved)
 
                     accept(SBUF("Evernode: Initialization successful."), 0);
                 }
-
-                // Host deregistration.
-                int is_host_de_reg = 0;
-                BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
-                if (is_host_de_reg)
+                else if (is_host_de_reg)
                 {
-                    int is_format_hex = 0;
-                    BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
-                    if (!is_format_hex)
-                        rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
-
-                    HOST_ADDR_KEY(account_field); // Generate host account key.
-                    // Check for registration entry.
-                    uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: This host is not registered."), 1);
-
                     int is_token_match = 0;
-                    BUFFER_EQUAL(is_token_match, data_ptr, reg_entry_buf + HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
+                    BUFFER_EQUAL(is_token_match, data_ptr, host_addr + HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
 
                     if (!is_token_match)
                         rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
 
-                    TOKEN_ID_KEY((uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
-
-                    // Check the ownership of the NFT to this user before proceeding.
-                    int nft_exists;
-                    uint8_t issuer[20], uri[64], uri_len;
-                    uint32_t taxon, nft_seq;
-                    uint16_t flags, tffee;
-                    uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
-                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                    // Issuer of the NFT should be the registry contract.
-                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                    TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
                     // Delete registration entries.
                     if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -346,7 +376,7 @@ int64_t hook(uint32_t reserved)
                     host_count -= 1;
                     SET_HOST_COUNT(host_count);
 
-                    uint64_t reg_fee = UINT64_FROM_BUF(reg_entry_buf + HOST_REG_FEE_OFFSET);
+                    uint64_t reg_fee = UINT64_FROM_BUF(host_addr + HOST_REG_FEE_OFFSET);
                     uint64_t fixed_reg_fee;
                     GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
@@ -402,47 +432,15 @@ int64_t hook(uint32_t reserved)
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
                     // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
                     uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, account_field, (uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET));
+                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
                         rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
 
                     accept(SBUF("Evernode: Host de-registration successful."), 0);
                 }
-
-                // Host heartbeat.
-                int is_host_heartbeat = 0;
-                BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
-                if (is_host_heartbeat)
+                else if (is_host_heartbeat)
                 {
-                    HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
-                    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not get host address state."), 1);
-
-                    // Check the ownership of the NFT to this user before proceeding.
-                    int nft_exists;
-                    uint8_t issuer[20], uri[64], uri_len;
-                    uint32_t taxon, nft_seq;
-                    uint16_t flags, tffee;
-                    uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                    // Access moment transistion state to check whether transition happened or not.
-                    uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
-                    uint8_t moment_definition_type = MOMENT_DEFINED_WITH_LEDGERS;
-                    if (state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(STK_MOMENT_TRANSIT_INFO)) != DOESNT_EXIST)
-                        moment_definition_type = moment_transition_info[MOMENT_DEFINITION_TYPE_OFFSET];
-
-                    // Issuer of the NFT should be the registry contract.
-                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
-
                     const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
                     const int64_t last_heartbeat_idx = INT64_FROM_BUF(heartbeat_ptr);
 
@@ -534,23 +532,8 @@ int64_t hook(uint32_t reserved)
 
                     accept(SBUF("Evernode: Host heartbeat successful."), 0);
                 }
-
-                int is_host_update_reg = 0;
-                BUFFER_EQUAL_STR_GUARD(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG, 1);
-                if (is_host_update_reg)
+                else if (is_host_update_reg)
                 {
-                    int is_format_plain_text = 0;
-                    BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
-                    if (!is_format_plain_text)
-                        rollback(SBUF("Evernode: Instance update info format not supported."), 1);
-
-                    HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
-                    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not get host address state."), 1);
-
                     // Msg format.
                     // <token_id>;<country_code>;<cpu_microsec>;<ram_mb>;<disk_mb>;<total_instance_count>;<active_instances>;<description>;<version>
                     uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
@@ -657,13 +640,9 @@ int64_t hook(uint32_t reserved)
 
                     accept(SBUF("Evernode: Update host info successful."), 0);
                 }
-
-                // Dead Host Prune.
-                // TODO Need to revise moment calculation.
-                int is_dead_host_prune = 0;
-                BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
-                if (is_dead_host_prune)
+                else if (is_dead_host_prune)
                 {
+                    // TODO Need to revise moment calculation.
                     int is_format_text = 0;
                     BUFFER_EQUAL_STR(is_format_text, format_ptr, format_len, FORMAT_HEX);
                     if (!is_format_text)
