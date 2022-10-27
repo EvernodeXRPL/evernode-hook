@@ -27,8 +27,8 @@ int64_t hook(uint32_t reserved)
         rollback(SBUF("Evernode: Could not get moment base info state."), 1);
     uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
     uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
-    uint8_t cur_idx_type = moment_base_info[MOMENT_IDX_TYPE_OFFSET];
-    uint64_t cur_idx = cur_idx_type == IDX_IN_TIMESTAMP ? cur_ledger_timestamp : cur_ledger_seq;
+    uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+    uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
 
     ///////////////////////////////////////////////////////////////
     /////// Moment transition related logic is handled here ///////
@@ -47,21 +47,29 @@ int64_t hook(uint32_t reserved)
         TRACEVAR(transition_idx);
         if (transition_idx > 0 && cur_idx >= transition_idx)
         {
-            uint8_t transit_idx_type = moment_transition_info[TRANSIT_IDX_OFFSET];
+            uint8_t transit_moment_type = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
 
             // Take the transition moment
             uint32_t transition_moment;
             GET_MOMENT(transition_moment, transition_idx);
 
             // Take the transition index.
-            // TODO : Convert transition index based on transistion type.
+            // TODO : Get timestamp using ledger index, and ledger using timestamp. Ledger time is currently assumed as 3 seconds.
             uint32_t converted_transition_idx;
-            if (cur_idx_type == transit_idx_type) // Index type hasn't changed, Use the transition index as it is.
+            if (cur_moment_type == transit_moment_type) // Index type hasn't changed, Use the transition index as it is.
                 converted_transition_idx = transition_idx;
-            else if (cur_idx_type == IDX_IN_TIMESTAMP) // If transitioning from timestamp to ledgers, Convert transitioning index to ledgers.
-                converted_transition_idx = transition_idx;
+            else if (cur_moment_type == TIMESTAMP_MOMENT_TYPE) // If transitioning from timestamp to ledgers, Convert transitioning index to ledgers.
+            {
+                // Time difference.
+                const uint64_t diff = cur_idx - transition_idx;
+                converted_transition_idx = cur_ledger_seq - (diff / 3);
+            }
             else // If transitioning from ledgers to timestamp, Convert transitioning index to timestamp.
-                converted_transition_idx = transition_idx;
+            {
+                // Ledger difference.
+                const uint64_t diff = cur_idx - transition_idx;
+                converted_transition_idx = cur_ledger_timestamp - (diff * 3);
+            }
 
             // Add new moment size to the state.
             const uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
@@ -71,7 +79,7 @@ int64_t hook(uint32_t reserved)
             // Update the moment base info.
             UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], converted_transition_idx);
             UINT32_TO_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
-            moment_base_info[MOMENT_IDX_TYPE_OFFSET] = moment_transition_info[TRANSIT_IDX_TYPE_OFFSET];
+            moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
             if (state_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO)) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
 
@@ -82,8 +90,8 @@ int64_t hook(uint32_t reserved)
 
             moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
             prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
-            cur_idx_type = moment_base_info[MOMENT_IDX_TYPE_OFFSET];
-            cur_idx = cur_idx_type == IDX_IN_TIMESTAMP ? cur_ledger_timestamp : cur_ledger_seq;
+            cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+            cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
         }
         // End : Moment size transition implementation.
     }
@@ -381,7 +389,7 @@ int64_t hook(uint32_t reserved)
 
                         UINT64_TO_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET], moment_end_idx);
                         UINT16_TO_BUF(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
-                        moment_transition_info[TRANSIT_IDX_TYPE_OFFSET] = NEW_IDX_DEFINITION_TYPE;
+                        moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
 
                         if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
                             rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
