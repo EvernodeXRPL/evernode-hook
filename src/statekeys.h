@@ -8,7 +8,7 @@
 const uint8_t STK_HOST_COUNT[32] = {'E', 'V', 'R', 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Ledger index when the CONF_MOMENT_SIZE last changed on.
-// After the moment transition, this is a composite state which contains <transition timestamp><transition_moment>
+// After the moment transition, this is a composite state which contains <transition index(uint64_t)><transition_moment(uint32_t)><index_type(uint8_t)>
 const uint8_t STK_MOMENT_BASE_INFO[32] = {'E', 'V', 'R', 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // The host registration fee in Evers.
@@ -19,9 +19,6 @@ const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 // Epoch reward info <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>.
 const uint8_t STK_REWARD_INFO[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-// Moment transition info <transition_ledger_index(int64_t)><moment_size<uint32_t)><moment_definition_type(uint_8)>.
-const uint8_t STK_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /////////// Repetitive state keys. ///////////
 
@@ -54,6 +51,8 @@ const uint8_t CONF_LEASE_ACQUIRE_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 
 const uint8_t CONF_REWARD_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9};
 // The maximum tolerable downtime for a host.
 const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10};
+// Moment transition info <transition_index(uint64_t)><moment_size<uint16_t)><index_type(uint_8)>.
+const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11};
 
 #define STATE_KEY(buf, prefix, key, key_len)                      \
     buf[0] = 'E';                                                 \

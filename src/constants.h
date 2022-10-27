@@ -20,7 +20,8 @@
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
 #define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
-#define MOMENT_DEFINED_WITH_LEDGERS 1
+#define IDX_IN_LEDGERS 0
+#define IDX_IN_TIMESTAMP 1
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -62,7 +63,7 @@ const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
 const uint16_t NEW_MOMENT_SIZE = 3600;
-const uint8_t MOMENT_DEFINITION_TYPE = MOMENT_DEFINED_WITH_LEDGERS;
+const uint8_t NEW_IDX_DEFINITION_TYPE = IDX_IN_TIMESTAMP;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 103;
@@ -77,7 +78,7 @@ const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
-const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 12;
+const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 
 // State value offsets
 // REWARD_INFO
@@ -123,10 +124,11 @@ const char *empty_ptr = 0;
 // MOMENT_TRANSIT_INFO
 const uint32_t TRANSIT_IDX_OFFSET = 0;
 const uint32_t TRANSIT_MOMENT_SIZE_OFFSET = 8;
-const uint32_t MOMENT_DEFINITION_TYPE_OFFSET = 10;
+const uint32_t TRANSIT_IDX_TYPE_OFFSET = 10;
 
 // MOMENT_BASE_INFO
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
+const uint32_t MOMENT_IDX_TYPE_OFFSET = 12;
 
 #endif
