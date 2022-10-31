@@ -66,7 +66,7 @@ const uint16_t NEW_MOMENT_SIZE = 3600;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 103;
+const uint32_t HOST_ADDR_VAL_SIZE = 111;
 const uint32_t TOKEN_ID_VAL_SIZE = 76;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
