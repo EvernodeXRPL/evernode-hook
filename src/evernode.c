@@ -682,7 +682,6 @@ int64_t hook(uint32_t reserved)
                 }
                 else if (is_dead_host_prune)
                 {
-                    // TODO Need to revise moment calculation.
                     int is_format_text = 0;
                     BUFFER_EQUAL_STR(is_format_text, format_ptr, format_len, FORMAT_HEX);
                     if (!is_format_text)
@@ -699,15 +698,17 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
                     TRACEVAR(moment_size);
 
-                    uint8_t *last_active_ledger_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
-                    int64_t last_active_ledger = INT64_FROM_BUF(last_active_ledger_ptr);
-                    // If host haven heartbeated yet, take the registration redger as the last active ledger.
-                    if (last_active_ledger == 0)
+                    uint8_t *last_active_idx_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
+                    int64_t last_active_idx = INT64_FROM_BUF(last_active_idx_ptr);
+                    // If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger.
+                    if (last_active_idx == 0)
                     {
-                        last_active_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
-                        last_active_ledger = INT64_FROM_BUF(last_active_ledger_ptr);
+                        uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
+                        // TODO : This conditional assignment should be modified once the transition is stable.
+                        // Assumption : One ledger lasts 3 seconds.
+                        last_active_idx = (moment_base_idx > last_active_idx) ? cur_ledger_timestamp - (cur_ledger_seq - INT64_FROM_BUF(reg_ledger_ptr)) * 3 : INT64_FROM_BUF(reg_ledger_ptr);
                     }
-                    const int64_t heartbeat_delay = (cur_ledger_seq - last_active_ledger) / moment_size;
+                    const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;
                     TRACEVAR(heartbeat_delay);
 
                     // Take the maximun tolerable downtime from config.
@@ -796,11 +797,6 @@ int64_t hook(uint32_t reserved)
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // BEGIN: Update the epoch Reward pool.
-
-                        // Take the moment size from config.
-                        uint16_t moment_size;
-                        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
-                        TRACEVAR(moment_size);
 
                         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
                         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
