@@ -54,7 +54,7 @@ int64_t hook(uint32_t reserved)
             GET_MOMENT(transition_moment, transition_idx);
 
             // Take the transition index.
-            // TODO : Get timestamp using ledger index, and ledger using timestamp. Ledger time is currently assumed as 3 seconds.
+            // TODO : This can be removed when the moment transition is stable.
             uint32_t converted_transition_idx;
             if (cur_moment_type == transit_moment_type) // Index type hasn't changed, Use the transition index as it is.
                 converted_transition_idx = transition_idx;
@@ -330,11 +330,9 @@ int64_t hook(uint32_t reserved)
                     }
 
                     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-                    // TODO : Rearrange the moment calculation.
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                     if (state(SBUF(reward_info), SBUF(STK_REWARD_INFO)) == DOESNT_EXIST)
                     {
-                        // TODO : need access the moment size via the state key.
                         uint32_t cur_moment;
                         GET_MOMENT(cur_moment, cur_idx);
                         reward_info[EPOCH_OFFSET] = 1;
@@ -502,9 +500,20 @@ int64_t hook(uint32_t reserved)
                     // Skip if already sent a heartbeat in this moment.
                     int accept_heartbeat = 0;
                     if (last_heartbeat_idx == 0)
+                    {
+                        last_heartbeat_moment = 0;
                         accept_heartbeat = 1;
+                    }
+                    // TODO : This can be removed when the moment transition is stable.
                     else if (moment_base_idx > last_heartbeat_idx)
+                    {
+                        // If last heartbeat moment is sent before heartbeat frequency. Moment size is taken as 1190 ledgers.
+                        if (((cur_ledger_seq - last_heartbeat_idx) / DEF_MOMENT_SIZE) < heartbeat_freq)
+                            last_heartbeat_moment = cur_moment;
+                        else
+                            last_heartbeat_moment = 0;
                         accept_heartbeat = 1;
+                    }
                     else
                     {
                         GET_MOMENT(last_heartbeat_moment, last_heartbeat_idx);
@@ -1029,6 +1038,7 @@ int64_t hook(uint32_t reserved)
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                     UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
                     UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
+                    UINT64_TO_BUF(&token_id[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for token_id."), 1);
