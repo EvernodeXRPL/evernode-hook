@@ -706,7 +706,7 @@ int64_t hook(uint32_t reserved)
                         uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
                         // TODO : This conditional assignment should be modified once the transition is stable.
                         // Assumption : One ledger lasts 3 seconds.
-                        last_active_idx = (moment_base_idx > last_active_idx) ? cur_ledger_timestamp - (cur_ledger_seq - INT64_FROM_BUF(reg_ledger_ptr)) * 3 : INT64_FROM_BUF(reg_ledger_ptr);
+                        last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - INT64_FROM_BUF(reg_ledger_ptr)) * 3 : INT64_FROM_BUF(reg_ledger_ptr);
                     }
                     const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;
                     TRACEVAR(heartbeat_delay);
