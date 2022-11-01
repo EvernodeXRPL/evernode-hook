@@ -704,7 +704,7 @@ int64_t hook(uint32_t reserved)
                     if (last_active_idx == 0)
                     {
                         uint8_t *reg_timestamp_ptr = &reg_entry_buf[HOST_REG_TIMESTAMP_OFFSET];
-                        int64_t registration_timestamp = INT64_FROM_BUF(reg_timestamp_ptr);
+                        uint64_t registration_timestamp = UINT64_FROM_BUF(reg_timestamp_ptr);
 
                         // TODO : Revisit once the transition is stable.
                         if (registration_timestamp > 0 && (cur_moment_type == TIMESTAMP_MOMENT_TYPE))
@@ -712,7 +712,7 @@ int64_t hook(uint32_t reserved)
                         else
                         {
                             uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
-                            int64_t reg_ledger = INT64_FROM_BUF(reg_ledger_ptr);
+                            uint64_t reg_ledger = UINT64_FROM_BUF(reg_ledger_ptr);
                             // Assumption : One ledger lasts 3 seconds.
                             last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - reg_ledger) * 3 : reg_ledger;
                         }
@@ -1039,7 +1039,6 @@ int64_t hook(uint32_t reserved)
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                     UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
                     UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
-                    INT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for token_id."), 1);
