@@ -304,17 +304,17 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
                     // First check if the states are already initialized by checking one state key for existence.
-                    int already_intialized = 0; // For Beta test purposes
+                    int already_initalized = 0; // For Beta test purposes
                     uint8_t host_count_buf[8];
                     if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST)
                     {
-                        already_intialized = 1;
+                        already_initalized = 1;
                         // rollback(SBUF("Evernode: State is already initialized."), 1);
                     }
 
                     const uint64_t zero = 0;
                     // Initialize the state.
-                    if (!already_intialized)
+                    if (!already_initalized)
                     {
                         SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
                         SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_INFO, "Evernode: Could not initialize state for moment base info.");
