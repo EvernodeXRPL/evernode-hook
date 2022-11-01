@@ -706,6 +706,7 @@ int64_t hook(uint32_t reserved)
                         uint8_t *reg_timestamp_ptr = &reg_entry_buf[HOST_REG_TIMESTAMP_OFFSET];
                         int64_t registration_timestamp = INT64_FROM_BUF(reg_timestamp_ptr);
 
+                        // TODO : Revisit once the transition is stable.
                         if (registration_timestamp > 0 && (cur_moment_type == TIMESTAMP_MOMENT_TYPE))
                             last_active_idx = registration_timestamp;
                         else
