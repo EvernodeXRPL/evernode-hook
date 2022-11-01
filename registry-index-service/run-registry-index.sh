@@ -63,6 +63,7 @@ elif [ ! -z "$arg2" ]; then # If 2nd param is given.
                 Group=root
                 WorkingDirectory=$(pwd)
                 Environment=\"DATA_DIR=$data_dir\"
+                Environment=\"ACTION=recover\"
                 ExecStart=$(which node) $index $arg1
                 Restart=on-failure
                 RestartSec=5
