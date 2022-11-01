@@ -699,18 +699,25 @@ int64_t hook(uint32_t reserved)
                     // If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger.
                     if (last_active_idx == 0)
                     {
-                        uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
-                        // TODO : This conditional assignment should be modified once the transition is stable.
-                        // Assumption : One ledger lasts 3 seconds.
-                        last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - INT64_FROM_BUF(reg_ledger_ptr)) * 3 : INT64_FROM_BUF(reg_ledger_ptr);
+                        uint8_t *reg_timestamp_ptr = &reg_entry_buf[HOST_REG_TIMESTAMP_OFFSET];
+                        uint64_t registration_timestamp = UINT64_FROM_BUF(reg_timestamp_ptr);
+
+                        // TODO : Revisit once the transition is stable.
+                        if (registration_timestamp > 0 && (cur_moment_type == TIMESTAMP_MOMENT_TYPE))
+                            last_active_idx = registration_timestamp;
+                        else
+                        {
+                            uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
+                            uint64_t reg_ledger = UINT64_FROM_BUF(reg_ledger_ptr);
+                            // Assumption : One ledger lasts 3 seconds.
+                            last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - reg_ledger) * 3 : reg_ledger;
+                        }
                     }
                     const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;
-                    TRACEVAR(heartbeat_delay);
 
                     // Take the maximun tolerable downtime from config.
                     uint16_t max_tolerable_downtime;
                     GET_CONF_VALUE(max_tolerable_downtime, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state.");
-                    TRACEVAR(max_tolerable_downtime);
 
                     if (heartbeat_delay < max_tolerable_downtime)
                         rollback(SBUF("Evernode: This host is not eligible for forceful removal based on inactiveness."), 1);
@@ -881,7 +888,7 @@ int64_t hook(uint32_t reserved)
                     HOST_ADDR_KEY(account_field);
 
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)><registration_timestamp(8)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
