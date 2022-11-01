@@ -883,7 +883,7 @@ int64_t hook(uint32_t reserved)
 
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
-                    
+
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
@@ -898,7 +898,7 @@ int64_t hook(uint32_t reserved)
 
                     // Generate the NFT token id.
 
-                    // Take the account token squence from keylet.
+                    // Take the account token sequence from keylet.
                     uint8_t keylet[34];
                     if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
                         rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
@@ -933,8 +933,8 @@ int64_t hook(uint32_t reserved)
                     COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
                     COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
 
-                    // Read instace details from the memo.
-                    // We cannot predict the lengths of the numarical values.
+                    // Read instance details from the memo.
+                    // We cannot predict the lengths of the numerical values.
                     // So we scan bytes and keep pointers and lengths to set in host address buffer.
                     uint32_t section_number = 0;
                     uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
@@ -1019,6 +1019,7 @@ int64_t hook(uint32_t reserved)
                     INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                     UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                     UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
+                    UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
@@ -1031,7 +1032,6 @@ int64_t hook(uint32_t reserved)
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                     UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
                     UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
-                    UINT64_TO_BUF(&token_id[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for token_id."), 1);
@@ -1046,7 +1046,7 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(conf_fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee state.");
                     TRACEVAR(conf_fixed_reg_fee);
 
-                    // Take the fixed theoritical maximum registrants value from config.
+                    // Take the fixed theoretical maximum registrants value from config.
                     uint64_t conf_max_reg;
                     GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
                     TRACEVAR(conf_max_reg);
@@ -1111,7 +1111,7 @@ int64_t hook(uint32_t reserved)
                     //     conf_max_reg *= 2;
                     //     UINT64_TO_BUF(state_buf, conf_max_reg);
                     //     if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
-                    //         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
+                    //         rollback(SBUF("Evernode: Could not update state for max theoretical registrants."), 1);
 
                     //     // Refund the EVR balance.
                     //     for (int i = 0; GUARD(DEF_MAX_REG), i < token_seq + 1; ++i)
