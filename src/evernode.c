@@ -889,19 +889,22 @@ int64_t hook(uint32_t reserved)
 
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
+
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)><registration_timestamp(8)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+                    CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
                     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
+                    CLEAR_BUF(token_id, 0, TOKEN_ID_VAL_SIZE); // Initialize buffer wih 0s
 
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                         rollback(SBUF("Evernode: Host already registered."), 1);
 
                     // Generate the NFT token id.
 
-                    // Take the account token squence from keylet.
+                    // Take the account token sequence from keylet.
                     uint8_t keylet[34];
                     if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
                         rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
@@ -933,12 +936,11 @@ int64_t hook(uint32_t reserved)
 
                     TOKEN_ID_KEY(nft_token_id);
 
-                    CLEARBUF(host_addr);
                     COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
                     COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
 
-                    // Read instace details from the memo.
-                    // We cannot predict the lengths of the numarical values.
+                    // Read instance details from the memo.
+                    // We cannot predict the lengths of the numerical values.
                     // So we scan bytes and keep pointers and lengths to set in host address buffer.
                     uint32_t section_number = 0;
                     uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
@@ -1019,13 +1021,11 @@ int64_t hook(uint32_t reserved)
                     STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
 
                     // Populate tvalues to the state address buffer and set state.
-                    CLEAR_BUF(host_addr, HOST_RESERVED_OFFSET, 8);
                     COPY_BUF_NON_CONST_LEN_GUARDM(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len, DESCRIPTION_LEN, 1, 1);
-                    if (description_len < DESCRIPTION_LEN)
-                        CLEAR_BUF_NON_CONST_LEN(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len, DESCRIPTION_LEN);
                     INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                     UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                     UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
+                    UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
@@ -1033,8 +1033,6 @@ int64_t hook(uint32_t reserved)
                     // Populate the values to the token id buffer and set state.
                     COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
                     COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
-                    if (cpu_model_len < CPU_MODEl_NAME_LEN)
-                        CLEAR_BUF_NON_CONST_LEN(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len, CPU_MODEl_NAME_LEN);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
@@ -1055,7 +1053,7 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(conf_fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee state.");
                     TRACEVAR(conf_fixed_reg_fee);
 
-                    // Take the fixed theoritical maximum registrants value from config.
+                    // Take the fixed theoretical maximum registrants value from config.
                     uint64_t conf_max_reg;
                     GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
                     TRACEVAR(conf_max_reg);
@@ -1120,7 +1118,7 @@ int64_t hook(uint32_t reserved)
                     //     conf_max_reg *= 2;
                     //     UINT64_TO_BUF(state_buf, conf_max_reg);
                     //     if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
-                    //         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
+                    //         rollback(SBUF("Evernode: Could not update state for max theoretical registrants."), 1);
 
                     //     // Refund the EVR balance.
                     //     for (int i = 0; GUARD(DEF_MAX_REG), i < token_seq + 1; ++i)
