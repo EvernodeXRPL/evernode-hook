@@ -703,10 +703,21 @@ int64_t hook(uint32_t reserved)
                     // If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger.
                     if (last_active_idx == 0)
                     {
-                        uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
-                        // TODO : This conditional assignment should be modified once the transition is stable.
-                        // Assumption : One ledger lasts 3 seconds.
-                        last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - INT64_FROM_BUF(reg_ledger_ptr)) * 3 : INT64_FROM_BUF(reg_ledger_ptr);
+                        uint8_t *reg_timestamp_ptr = &reg_entry_buf[HOST_REG_TIMESTAMP_OFFSET];
+                        int64_t registration_timestamp = INT64_FROM_BUF(reg_timestamp_ptr);
+
+                        // TODO : This check can be modified once the transition is stable.
+                        if (registration_timestamp > 0 && (cur_moment_type == TIMESTAMP_MOMENT_TYPE))
+                        {
+                            last_active_idx = registration_timestamp;
+                        }
+                        else
+                        {
+                            uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
+                            // TODO : This conditional assignment should be modified once the transition is stable.
+                            // Assumption : One ledger lasts 3 seconds.
+                            last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - INT64_FROM_BUF(reg_ledger_ptr)) * 3 : INT64_FROM_BUF(reg_ledger_ptr);
+                        }
                     }
                     const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;
                     TRACEVAR(heartbeat_delay);
@@ -884,7 +895,7 @@ int64_t hook(uint32_t reserved)
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)><registration_timestamp(8)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
                     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
@@ -1034,7 +1045,7 @@ int64_t hook(uint32_t reserved)
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                     UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
                     UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
-                    UINT64_TO_BUF(&token_id[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                    INT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                         rollback(SBUF("Evernode: Could not set state for token_id."), 1);
