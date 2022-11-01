@@ -507,11 +507,7 @@ int64_t hook(uint32_t reserved)
                     // TODO : This can be removed when the moment transition is stable.
                     else if (moment_base_idx > last_heartbeat_idx)
                     {
-                        // If last heartbeat moment is sent before heartbeat frequency. Moment size is taken as 1190 ledgers.
-                        if (((cur_ledger_seq - last_heartbeat_idx) / DEF_MOMENT_SIZE) < heartbeat_freq)
-                            last_heartbeat_moment = cur_moment;
-                        else
-                            last_heartbeat_moment = 0;
+                        last_heartbeat_moment = last_heartbeat_idx / DEF_MOMENT_SIZE;
                         accept_heartbeat = 1;
                     }
                     else
