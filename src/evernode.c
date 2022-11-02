@@ -239,7 +239,7 @@ int64_t hook(uint32_t reserved)
                 BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
 
                 // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
+                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
                 uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
                 // Common logic for host deregistration, heartbeat and update registration.
@@ -888,7 +888,7 @@ int64_t hook(uint32_t reserved)
                     HOST_ADDR_KEY(account_field);
 
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)><registration_timestamp(8)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
@@ -1143,8 +1143,8 @@ int64_t hook(uint32_t reserved)
 
                     //             // Updating the current reg fee in the host state.
                     //             HOST_ADDR_KEY_GUARD(host_accid, DEF_MAX_REG);
-                    //             // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    //             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                    //             // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                    //             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
                     //             uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
                     //             if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     //                 rollback(SBUF("Evernode: Could not get host address state."), 1);
