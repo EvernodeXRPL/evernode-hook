@@ -52,10 +52,11 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
         { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
+        { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
-        { operation: 'INSERT', key: HookStateKeys.MOMENT_BASE_IDX },
+        { operation: 'INSERT', key: HookStateKeys.MOMENT_BASE_INFO },
         { operation: 'INSERT', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'INSERT', key: HookStateKeys.MAX_REG },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }

@@ -20,6 +20,8 @@
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
 #define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
+#define LEDGER_MOMENT_TYPE 0
+#define TIMESTAMP_MOMENT_TYPE 1
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -57,9 +59,14 @@ const uint8_t DEF_EPOCH_COUNT = 10;
 const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
 const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
 const uint32_t DEF_REWARD_START_MOMENT = 0;
+const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
+
+// Transition related definitions. Transition state is added on the init transaction if this has >0 value
+const uint16_t NEW_MOMENT_SIZE = 3600;
+const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 103;
+const uint32_t HOST_ADDR_VAL_SIZE = 111;
 const uint32_t TOKEN_ID_VAL_SIZE = 76;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
@@ -70,6 +77,8 @@ const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
+const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
+const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 
 // State value offsets
 // REWARD_INFO
@@ -96,6 +105,7 @@ const uint32_t HOST_TOT_INS_COUNT_OFFSET = 84;
 const uint32_t HOST_ACT_INS_COUNT_OFFSET = 88;
 const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 92;
 const uint32_t HOST_VERSION_OFFSET = 100;
+const uint32_t HOST_REG_TIMESTAMP_OFFSET = 103;
 
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;
@@ -111,5 +121,15 @@ const uint64_t MIN_DROPS = 1;
 const uint32_t NFT_TAXON_M = 384160001;
 const uint32_t NFT_TAXON_C = 2459;
 const char *empty_ptr = 0;
+
+// MOMENT_TRANSIT_INFO
+const uint32_t TRANSIT_IDX_OFFSET = 0;
+const uint32_t TRANSIT_MOMENT_SIZE_OFFSET = 8;
+const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
+
+// MOMENT_BASE_INFO
+const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
+const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
+const uint32_t MOMENT_TYPE_OFFSET = 12;
 
 #endif

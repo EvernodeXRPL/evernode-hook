@@ -2,6 +2,7 @@
 
 dev_path="/root/dev-test"
 beta_path="/root/beta1"
+migration_path="/root/migration-test"
 build_path="../dist"
 bundle="registry-index.tar.gz"
 
@@ -15,6 +16,10 @@ if [[ $mode = "dev" ]]; then
     to_path="$dev_path"
     index_path="$to_path/registry-index"
     registry_address="raaFre81618XegCrzTzVotAmarBcqNSAvK"
+elif [[ $mode = "migration" ]]; then
+    to_path="$migration_path"
+    index_path="$to_path/registry-index"
+    registry_address="rNEKvvVw5dP38yFDjZbWuEQSi8f7FURahu"
 # elif [[ $mode = "beta" ]]; then
 #     to_path="$beta_path"
 #     index_path="$to_path/registry-index"
@@ -45,8 +50,15 @@ cp -r $index_path $index_bk_path
 echo 'Overriding the registry index the binaries.'
 tar -xf $bundle_path --strip-components=1 -C $index_path
 
+pushd $index_path
+
 echo 'Performing set-hook.'
-pushd $index_path && ./run-registry-index.sh $registry_address set-hook && popd
+./run-registry-index.sh $registry_address set-hook
+
+echo 'Re-configuring the service'
+./run-registry-index.sh $registry_address service-reconfig
+
+popd
 
 echo 'Restarting the service.'
 systemctl restart registry-index-$registry_address.service
