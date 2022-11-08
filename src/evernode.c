@@ -13,6 +13,91 @@ int64_t cbak(uint32_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
+    int64_t cur_ledger_seq = ledger_seq();
+    /**
+     * Calculate corresponding XRPL timestamp.
+     * This calculation is based on the UNIX timestamp & XRPL timestamp relationship
+     * https://xrpl-hooks.readme.io/reference/ledger_last_time#behaviour
+     */
+    int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
+
+    // <transition index><transition_moment><index_type>
+    uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];
+    if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)
+        rollback(SBUF("Evernode: Could not get moment base info state."), 1);
+    uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+    uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+    uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+    uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
+
+    ///////////////////////////////////////////////////////////////
+    /////// Moment transition related logic is handled here ///////
+
+    // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
+    uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
+    int transition_state_res = state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO));
+    if (transition_state_res < 0 && transition_state_res != DOESNT_EXIST)
+        rollback(SBUF("Evernode: Error getting moment size transaction info state."), 1);
+
+    if (transition_state_res >= 0)
+    {
+        // Begin : Moment size transition implementation.
+        // If there is a transition, transition_idx specifies a index value to perform that.
+        uint64_t transition_idx = UINT64_FROM_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET]);
+        TRACEVAR(transition_idx);
+        if (transition_idx > 0 && cur_idx >= transition_idx)
+        {
+            uint8_t transit_moment_type = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
+
+            // Take the transition moment
+            uint32_t transition_moment;
+            GET_MOMENT(transition_moment, transition_idx);
+
+            // Take the transition index.
+            // TODO : This can be removed when the moment transition is stable.
+            uint32_t converted_transition_idx;
+            if (cur_moment_type == transit_moment_type) // Index type hasn't changed, Use the transition index as it is.
+                converted_transition_idx = transition_idx;
+            else if (cur_moment_type == TIMESTAMP_MOMENT_TYPE) // If transitioning from timestamp to ledgers, Convert transitioning index to ledgers.
+            {
+                // Time difference.
+                const uint64_t diff = cur_idx - transition_idx;
+                converted_transition_idx = cur_ledger_seq - (diff / 3);
+            }
+            else // If transitioning from ledgers to timestamp, Convert transitioning index to timestamp.
+            {
+                // Ledger difference.
+                const uint64_t diff = cur_idx - transition_idx;
+                converted_transition_idx = cur_ledger_timestamp - (diff * 3);
+            }
+
+            // Add new moment size to the state.
+            const uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
+            if (state_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE)) < 0)
+                rollback(SBUF("Evernode: Could not update the state for moment size."), 1);
+
+            // Update the moment base info.
+            UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], converted_transition_idx);
+            UINT32_TO_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
+            moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
+            if (state_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO)) < 0)
+                rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
+
+            // Assign the transition state values with zeros.
+            CLEARBUF(moment_transition_info);
+            if (state_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
+                rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
+
+            moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+            prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+            cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+            cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
+        }
+        // End : Moment size transition implementation.
+    }
+
+    ///////////////////////////////////////////////////////////////
+
     int64_t txn_type = otxn_type();
     if ((reserved == STRONG_HOOK || reserved == AGAIN_HOOK) && (txn_type == ttPAYMENT || txn_type == ttNFT_ACCEPT_OFFER))
     {
@@ -117,8 +202,6 @@ int64_t hook(uint32_t reserved)
             if (txid_len < HASH_SIZE)
                 rollback(SBUF("Evernode: transaction id missing."), 1);
 
-            int64_t cur_ledger_seq = ledger_seq();
-
             // specifically we're interested in the amount sent
             int64_t oslot = otxn_slot(0);
             if (oslot < 0)
@@ -137,7 +220,67 @@ int64_t hook(uint32_t reserved)
             {
                 // Host initialization.
                 int is_initialize = 0;
-                BUFFER_EQUAL_STR_GUARD(is_initialize, type_ptr, type_len, INITIALIZE, 1);
+                BUFFER_EQUAL_STR(is_initialize, type_ptr, type_len, INITIALIZE);
+
+                // Host deregistration.
+                int is_host_de_reg = 0;
+                BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
+
+                // Host heartbeat.
+                int is_host_heartbeat = 0;
+                BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
+
+                // Host update registration.
+                int is_host_update_reg = 0;
+                BUFFER_EQUAL_STR(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG);
+
+                // Dead Host Prune.
+                int is_dead_host_prune = 0;
+                BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
+
+                // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
+                uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+
+                // Common logic for host deregistration, heartbeat and update registration.
+                if (is_host_de_reg || is_host_heartbeat || is_host_update_reg)
+                {
+                    if (is_host_de_reg)
+                    {
+                        int is_format_hex = 0;
+                        BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+                        if (!is_format_hex)
+                            rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
+                    }
+                    else if (is_host_update_reg)
+                    {
+                        int is_format_plain_text = 0;
+                        BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
+                        if (!is_format_plain_text)
+                            rollback(SBUF("Evernode: Instance update info format not supported."), 1);
+                    }
+
+                    HOST_ADDR_KEY(account_field); // Generate host account key.
+                    // Check for registration entry.
+                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                        rollback(SBUF("Evernode: This host is not registered."), 1);
+
+                    // Check the ownership of the NFT to this user before proceeding.
+                    int nft_exists;
+                    uint8_t issuer[20], uri[64], uri_len;
+                    uint32_t taxon, nft_seq;
+                    uint16_t flags, tffee;
+                    uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
+                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+
+                    // Issuer of the NFT should be the registry contract.
+                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                    if (!nft_exists)
+                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                }
+
                 if (is_initialize)
                 {
                     BUFFER_EQUAL_STR(is_initialize, format_ptr, format_len, FORMAT_HEX);
@@ -161,20 +304,21 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
                     // First check if the states are already initialized by checking one state key for existence.
-                    int already_intialized = 0; // For Beta test purposes
+                    int already_initalized = 0; // For Beta test purposes
                     uint8_t host_count_buf[8];
                     if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST)
                     {
-                        already_intialized = 1;
+                        already_initalized = 1;
                         // rollback(SBUF("Evernode: State is already initialized."), 1);
                     }
 
                     const uint64_t zero = 0;
                     // Initialize the state.
-                    if (!already_intialized)
+                    if (!already_initalized)
                     {
                         SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-                        SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_IDX, "Evernode: Could not initialize state for moment base index.");
+                        SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_INFO, "Evernode: Could not initialize state for moment base info.");
+                        SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
                         SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                         SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
@@ -189,7 +333,8 @@ int64_t hook(uint32_t reserved)
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                     if (state(SBUF(reward_info), SBUF(STK_REWARD_INFO)) == DOESNT_EXIST)
                     {
-                        const uint32_t cur_moment = cur_ledger_seq / DEF_MOMENT_SIZE;
+                        uint32_t cur_moment;
+                        GET_MOMENT(cur_moment, cur_idx);
                         reward_info[EPOCH_OFFSET] = 1;
                         UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
                         UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
@@ -199,7 +344,6 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not set state for reward info."), 1);
                     }
 
-                    SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
                     SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
                     SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
                     SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
@@ -221,47 +365,47 @@ int64_t hook(uint32_t reserved)
                     if (state_set(SBUF(purchaser_target_price_buf), SBUF(CONF_PURCHASER_TARGET_PRICE)) < 0)
                         rollback(SBUF("Evernode: Could not set state for moment community target price."), 1);
 
+                    ///////////////////////////////////////////////////////////////
+                    // Begin : Moment size transition implementation.
+
+                    // Take the moment size from config.
+                    uint16_t moment_size;
+                    GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
+                    TRACEVAR(moment_size);
+
+                    // Do the moment size transition. If new moment size is specified.
+                    // Set Moment transition info with the configured value;
+                    if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
+                    {
+                        int is_empty = 0;
+                        IS_BUF_EMPTY(is_empty, moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE);
+                        if (!is_empty)
+                            rollback(SBUF("Evernode: There is an already scheduled moment size transition."), 1);
+
+                        uint64_t moment_end_idx;
+                        GET_MOMENT_END_INDEX(moment_end_idx, cur_idx);
+
+                        UINT64_TO_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET], moment_end_idx);
+                        UINT16_TO_BUF(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
+                        moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
+
+                        if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
+                            rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
+                    }
+                    // End : Moment size transition implementation.
+                    ///////////////////////////////////////////////////////////////
+
                     accept(SBUF("Evernode: Initialization successful."), 0);
                 }
-
-                // Host deregistration.
-                int is_host_de_reg = 0;
-                BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
-                if (is_host_de_reg)
+                else if (is_host_de_reg)
                 {
-                    int is_format_hex = 0;
-                    BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
-                    if (!is_format_hex)
-                        rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
-
-                    HOST_ADDR_KEY(account_field); // Generate host account key.
-                    // Check for registration entry.
-                    uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: This host is not registered."), 1);
-
                     int is_token_match = 0;
-                    BUFFER_EQUAL(is_token_match, data_ptr, reg_entry_buf + HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
+                    BUFFER_EQUAL(is_token_match, data_ptr, host_addr + HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
 
                     if (!is_token_match)
                         rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
 
-                    TOKEN_ID_KEY((uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
-
-                    // Check the ownership of the NFT to this user before proceeding.
-                    int nft_exists;
-                    uint8_t issuer[20], uri[64], uri_len;
-                    uint32_t taxon, nft_seq;
-                    uint16_t flags, tffee;
-                    uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
-                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                    // Issuer of the NFT should be the registry contract.
-                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+                    TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
                     // Delete registration entries.
                     if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -273,7 +417,7 @@ int64_t hook(uint32_t reserved)
                     host_count -= 1;
                     SET_HOST_COUNT(host_count);
 
-                    uint64_t reg_fee = UINT64_FROM_BUF(reg_entry_buf + HOST_REG_FEE_OFFSET);
+                    uint64_t reg_fee = UINT64_FROM_BUF(host_addr + HOST_REG_FEE_OFFSET);
                     uint64_t fixed_reg_fee;
                     GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
@@ -286,11 +430,6 @@ int64_t hook(uint32_t reserved)
 
                     if (reg_fee > fixed_reg_fee)
                     {
-                        // Take the moment base idx from config.
-                        uint64_t moment_base_idx;
-                        GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_IDX, "Evernode: Could not get moment base index.");
-                        TRACEVAR(moment_base_idx);
-
                         // Take the moment size from config.
                         uint16_t moment_size;
                         GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
@@ -328,69 +467,57 @@ int64_t hook(uint32_t reserved)
                     SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
                     // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
                     uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, account_field, (uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET));
+                    PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
                     uint8_t emithash[HASH_SIZE];
                     if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
                         rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
 
                     accept(SBUF("Evernode: Host de-registration successful."), 0);
                 }
-
-                // Host heartbeat.
-                int is_host_heartbeat = 0;
-                BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
-                if (is_host_heartbeat)
+                else if (is_host_heartbeat)
                 {
-                    HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
-                    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not get host address state."), 1);
-
-                    // Check the ownership of the NFT to this user before proceeding.
-                    int nft_exists;
-                    uint8_t issuer[20], uri[64], uri_len;
-                    uint32_t taxon, nft_seq;
-                    uint16_t flags, tffee;
-                    uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-                    GET_NFT(account_field, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                    // Issuer of the NFT should be the registry contract.
-                    BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
-                    if (!nft_exists)
-                        rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
-
                     const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
                     const int64_t last_heartbeat_idx = INT64_FROM_BUF(heartbeat_ptr);
 
-                    INT64_TO_BUF(heartbeat_ptr, cur_ledger_seq);
+                    INT64_TO_BUF(heartbeat_ptr, cur_idx);
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
 
-                    // Take the moment base idx from config.
-                    uint64_t moment_base_idx;
-                    GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_IDX, "Evernode: Could not get moment base index.");
-                    TRACEVAR(moment_base_idx);
-
                     // Take the moment size from config.
                     uint16_t moment_size;
-                    GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
+                    GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get-moment size.");
                     TRACEVAR(moment_size);
 
-                    // Take the heartbeat freaquency.
+                    // Take the heartbeat frequency.
                     uint16_t heartbeat_freq;
                     GET_CONF_VALUE(heartbeat_freq, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not get heartbeat frequency.");
                     TRACEVAR(heartbeat_freq);
 
-                    const uint32_t last_heartbeat_moment = last_heartbeat_idx != 0 ? (last_heartbeat_idx - moment_base_idx) / moment_size : 0;
-                    const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;
+                    uint32_t cur_moment, last_heartbeat_moment = 0;
+                    GET_MOMENT(cur_moment, cur_idx);
 
                     // Skip if already sent a heartbeat in this moment.
-                    if (cur_moment > last_heartbeat_moment)
+                    int accept_heartbeat = 0;
+                    if (last_heartbeat_idx == 0)
+                    {
+                        last_heartbeat_moment = 0;
+                        accept_heartbeat = 1;
+                    }
+                    // TODO : This can be removed when the moment transition is stable.
+                    else if (moment_base_idx > last_heartbeat_idx)
+                    {
+                        last_heartbeat_moment = last_heartbeat_idx / DEF_MOMENT_SIZE;
+                        accept_heartbeat = 1;
+                    }
+                    else
+                    {
+                        GET_MOMENT(last_heartbeat_moment, last_heartbeat_idx);
+                        if (cur_moment > last_heartbeat_moment)
+                            accept_heartbeat = 1;
+                    }
+
+                    if (accept_heartbeat)
                     {
                         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
                         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
@@ -411,7 +538,7 @@ int64_t hook(uint32_t reserved)
                         PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 1, reward_pool_amount, reward_amount);
 
                         // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
-                        // the eward quota is not 0.
+                        // the reward quota is not 0.
                         if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
                             last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
                             (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
@@ -441,23 +568,8 @@ int64_t hook(uint32_t reserved)
 
                     accept(SBUF("Evernode: Host heartbeat successful."), 0);
                 }
-
-                int is_host_update_reg = 0;
-                BUFFER_EQUAL_STR_GUARD(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG, 1);
-                if (is_host_update_reg)
+                else if (is_host_update_reg)
                 {
-                    int is_format_plain_text = 0;
-                    BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
-                    if (!is_format_plain_text)
-                        rollback(SBUF("Evernode: Instance update info format not supported."), 1);
-
-                    HOST_ADDR_KEY(account_field);
-                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
-                    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                        rollback(SBUF("Evernode: Could not get host address state."), 1);
-
                     // Msg format.
                     // <token_id>;<country_code>;<cpu_microsec>;<ram_mb>;<disk_mb>;<total_instance_count>;<active_instances>;<description>;<version>
                     uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
@@ -564,11 +676,7 @@ int64_t hook(uint32_t reserved)
 
                     accept(SBUF("Evernode: Update host info successful."), 0);
                 }
-
-                // Dead Host Prune.
-                int is_dead_host_prune = 0;
-                BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
-                if (is_dead_host_prune)
+                else if (is_dead_host_prune)
                 {
                     int is_format_text = 0;
                     BUFFER_EQUAL_STR(is_format_text, format_ptr, format_len, FORMAT_HEX);
@@ -586,21 +694,30 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
                     TRACEVAR(moment_size);
 
-                    uint8_t *last_active_ledger_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
-                    int64_t last_active_ledger = INT64_FROM_BUF(last_active_ledger_ptr);
-                    // If host haven heartbeated yet, take the registration redger as the last active ledger.
-                    if (last_active_ledger == 0)
+                    uint8_t *last_active_idx_ptr = &reg_entry_buf[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
+                    int64_t last_active_idx = INT64_FROM_BUF(last_active_idx_ptr);
+                    // If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger.
+                    if (last_active_idx == 0)
                     {
-                        last_active_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
-                        last_active_ledger = INT64_FROM_BUF(last_active_ledger_ptr);
+                        uint8_t *reg_timestamp_ptr = &reg_entry_buf[HOST_REG_TIMESTAMP_OFFSET];
+                        uint64_t registration_timestamp = UINT64_FROM_BUF(reg_timestamp_ptr);
+
+                        // TODO : Revisit once the transition is stable.
+                        if (registration_timestamp > 0 && (cur_moment_type == TIMESTAMP_MOMENT_TYPE))
+                            last_active_idx = registration_timestamp;
+                        else
+                        {
+                            uint8_t *reg_ledger_ptr = &reg_entry_buf[HOST_REG_LEDGER_OFFSET];
+                            uint64_t reg_ledger = UINT64_FROM_BUF(reg_ledger_ptr);
+                            // Assumption : One ledger lasts 3 seconds.
+                            last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - reg_ledger) * 3 : reg_ledger;
+                        }
                     }
-                    const int64_t heartbeat_delay = (cur_ledger_seq - last_active_ledger) / moment_size;
-                    TRACEVAR(heartbeat_delay);
+                    const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;
 
                     // Take the maximun tolerable downtime from config.
                     uint16_t max_tolerable_downtime;
                     GET_CONF_VALUE(max_tolerable_downtime, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state.");
-                    TRACEVAR(max_tolerable_downtime);
 
                     if (heartbeat_delay < max_tolerable_downtime)
                         rollback(SBUF("Evernode: This host is not eligible for forceful removal based on inactiveness."), 1);
@@ -684,16 +801,6 @@ int64_t hook(uint32_t reserved)
 
                         // BEGIN: Update the epoch Reward pool.
 
-                        // Take the moment base idx from config.
-                        uint64_t moment_base_idx;
-                        GET_CONF_VALUE(moment_base_idx, STK_MOMENT_BASE_IDX, "Evernode: Could not get moment base index.");
-                        TRACEVAR(moment_base_idx);
-
-                        // Take the moment size from config.
-                        uint16_t moment_size;
-                        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
-                        TRACEVAR(moment_size);
-
                         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
                         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
                         if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
@@ -728,9 +835,9 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     }
-                }
 
-                accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
+                    accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
+                }
             }
             else
             {
@@ -779,19 +886,22 @@ int64_t hook(uint32_t reserved)
 
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
+
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)><version(3)>
+                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+                    CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
                     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
+                    CLEAR_BUF(token_id, 0, TOKEN_ID_VAL_SIZE); // Initialize buffer wih 0s
 
                     if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                         rollback(SBUF("Evernode: Host already registered."), 1);
 
                     // Generate the NFT token id.
 
-                    // Take the account token squence from keylet.
+                    // Take the account token sequence from keylet.
                     uint8_t keylet[34];
                     if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
                         rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
@@ -823,12 +933,11 @@ int64_t hook(uint32_t reserved)
 
                     TOKEN_ID_KEY(nft_token_id);
 
-                    CLEARBUF(host_addr);
                     COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
                     COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
 
-                    // Read instace details from the memo.
-                    // We cannot predict the lengths of the numarical values.
+                    // Read instance details from the memo.
+                    // We cannot predict the lengths of the numerical values.
                     // So we scan bytes and keep pointers and lengths to set in host address buffer.
                     uint32_t section_number = 0;
                     uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
@@ -909,13 +1018,11 @@ int64_t hook(uint32_t reserved)
                     STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
 
                     // Populate tvalues to the state address buffer and set state.
-                    CLEAR_BUF(host_addr, HOST_RESERVED_OFFSET, 8);
                     COPY_BUF_NON_CONST_LEN_GUARDM(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len, DESCRIPTION_LEN, 1, 1);
-                    if (description_len < DESCRIPTION_LEN)
-                        CLEAR_BUF_NON_CONST_LEN(host_addr, HOST_DESCRIPTION_OFFSET + description_len, DESCRIPTION_LEN - description_len, DESCRIPTION_LEN);
                     INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                     UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                     UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
+                    UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                     if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                         rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
@@ -923,8 +1030,6 @@ int64_t hook(uint32_t reserved)
                     // Populate the values to the token id buffer and set state.
                     COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
                     COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
-                    if (cpu_model_len < CPU_MODEl_NAME_LEN)
-                        CLEAR_BUF_NON_CONST_LEN(token_id, HOST_CPU_MODEL_NAME_OFFSET + cpu_model_len, CPU_MODEl_NAME_LEN - cpu_model_len, CPU_MODEl_NAME_LEN);
                     UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                     UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                     UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
@@ -944,7 +1049,7 @@ int64_t hook(uint32_t reserved)
                     GET_CONF_VALUE(conf_fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee state.");
                     TRACEVAR(conf_fixed_reg_fee);
 
-                    // Take the fixed theoritical maximum registrants value from config.
+                    // Take the fixed theoretical maximum registrants value from config.
                     uint64_t conf_max_reg;
                     GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
                     TRACEVAR(conf_max_reg);
@@ -1009,7 +1114,7 @@ int64_t hook(uint32_t reserved)
                     //     conf_max_reg *= 2;
                     //     UINT64_TO_BUF(state_buf, conf_max_reg);
                     //     if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
-                    //         rollback(SBUF("Evernode: Could not update state for max theoritical registrants."), 1);
+                    //         rollback(SBUF("Evernode: Could not update state for max theoretical registrants."), 1);
 
                     //     // Refund the EVR balance.
                     //     for (int i = 0; GUARD(DEF_MAX_REG), i < token_seq + 1; ++i)
@@ -1038,8 +1143,8 @@ int64_t hook(uint32_t reserved)
 
                     //             // Updating the current reg fee in the host state.
                     //             HOST_ADDR_KEY_GUARD(host_accid, DEF_MAX_REG);
-                    //             // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    //             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_ledger(8)>
+                    //             // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
+                    //             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
                     //             uint8_t rebate_host_addr[HOST_ADDR_VAL_SIZE];
                     //             if (state(SBUF(rebate_host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     //                 rollback(SBUF("Evernode: Could not get host address state."), 1);

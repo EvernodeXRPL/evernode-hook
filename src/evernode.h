@@ -292,6 +292,31 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define GENERATE_NFT_TOKEN_ID(token_id, tflag, transaction_fee, accid, taxon, token_seq) \
     GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, 1)
 
+#define GET_MOMENT(moment, idx)                                                                            \
+    {                                                                                                      \
+        uint16_t moment_size;                                                                              \
+        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");             \
+        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                               \
+        if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)            \
+            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                          \
+        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);           \
+        uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]); \
+        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                       \
+        moment = prev_transition_moment + relative_n;                                                      \
+    }
+
+#define GET_MOMENT_END_INDEX(moment_end_idx, idx)                                                \
+    {                                                                                            \
+        uint16_t moment_size;                                                                    \
+        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");   \
+        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                     \
+        if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)  \
+            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                \
+        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]); \
+        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                             \
+        moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                     \
+    }
+
 enum LedgerEntryType
 {
     ltNFTOKEN_PAGE = 0x0050
@@ -403,7 +428,8 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                                                \
         reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                                                                        \
         const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                                         \
-        const uint32_t cur_moment = (cur_ledger_seq - moment_base_idx) / moment_size;                                                                                                             \
+        uint32_t cur_moment;                                                                                                                                                                      \
+        GET_MOMENT(cur_moment, cur_idx);                                                                                                                                                          \
         /* If this is a new moment, update the host counts. */                                                                                                                                    \
         if (saved_moment != cur_moment)                                                                                                                                                           \
         {                                                                                                                                                                                         \

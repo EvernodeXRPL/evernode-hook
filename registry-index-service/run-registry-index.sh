@@ -19,13 +19,14 @@ wasm_path="$hook_setup/evernode.wasm"
 arg1=$1
 arg2=$2
 if ([ ! -z $arg1 ] && [[ ! "$arg1" =~ ^r[a-zA-Z0-9]{24,34}$ ]]) ||
-    ([ ! -z $arg2 ] && [ "$arg2" != "service-start" ] && [ "$arg2" != "service-stop" ] &&
+    ([ ! -z $arg2 ] && [ "$arg2" != "service-reconfig" ] && [ "$arg2" != "service-start" ] && [ "$arg2" != "service-stop" ] &&
         [ "$arg2" != "service-rm" ] && [ "$arg2" != "rm" ] && [ "$arg2" != "set-hook" ] && [ "$arg2" != "recover-start" ]); then # Check for commandline params.
     echo "Invalid arguments: Usage \"./run-registry-index [registry address] [command]\""
     echo "Optional registry address: Registry address for registry index"
     echo "                           If empty instantiate a new registry index instance"
     echo "Optional command: set-hook - Upload the hook and send init transaction"
     echo "                  recover-start - Starts registry index in terminal session and perform a bulk update for all the hook states"
+    echo "                  service-reconfig - Re-configuring the systemd service for registry index"
     echo "                  service-start - Initiate and start systemd service for registry index"
     echo "                  service-stop - Stop the systemd service"
     echo "                  service-rm - Remove the systemd service"
@@ -37,23 +38,8 @@ fi
 service="registry-index-$arg1"
 systemd_file="/etc/systemd/system/$service.service"
 
-if [ -z "$arg1" ]; then # If 1st param is empty, Create a new instance.
-    [ ! -d "$hook_data_dir" ] && mkdir "$hook_data_dir"
-    ! ACCOUNT_DATA_DIR=$data_dir $(which node) $account_setup && echo "Account setup faild." && exit 1
-    arg1=$(ls -t $hook_data_dir/ | head -1)
-    ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
-    sleep 2 # Sleep for 2 sec so all the pre required setup is completed before start the index service.
-elif [ ! -d "$hook_data_dir/$arg1" ]; then # If 1st param is given check for data directory existance.
-    echo "Data directory $hook_data_dir/$arg1 does not exist: Run \"./run-registry-index\" to create a new instance."
-    exit 1
-elif [ ! -z "$arg2" ]; then # If 2nd param is given.
-    if ([ "$arg2" == "service-start" ] || [ "$arg2" == "service-stop" ] || [ "$arg2" == "service-rm" ] || [ "$arg2" == "rm" ]) &&
-        [ $(id -u) -ne 0 ]; then # Check for root permissions.
-        echo "\"./run-registry-index $arg1 $arg2\" must run as root"
-        exit 1
-    elif [ "$arg2" == "service-start" ]; then
-        if [ ! -f "$systemd_file" ]; then # Create a systemd service if not exist.
-            echo "[Unit]
+function create_service() {
+    echo "[Unit]
                 Description=Registry index service for address $arg1
                 After=network.target
                 StartLimitIntervalSec=0
@@ -69,8 +55,30 @@ elif [ ! -z "$arg2" ]; then # If 2nd param is given.
                 RestartSec=5
                 [Install]
                 WantedBy=multi-user.target" >$systemd_file
-            systemctl daemon-reload
-            systemctl enable $service
+    systemctl daemon-reload
+    systemctl enable $service
+}
+
+if [ -z "$arg1" ]; then # If 1st param is empty, Create a new instance.
+    [ ! -d "$hook_data_dir" ] && mkdir "$hook_data_dir"
+    ! ACCOUNT_DATA_DIR=$data_dir $(which node) $account_setup && echo "Account setup faild." && exit 1
+    arg1=$(ls -t $hook_data_dir/ | head -1)
+    ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
+    sleep 2                                # Sleep for 2 sec so all the pre required setup is completed before start the index service.
+elif [ ! -d "$hook_data_dir/$arg1" ]; then # If 1st param is given check for data directory existance.
+    echo "Data directory $hook_data_dir/$arg1 does not exist: Run \"./run-registry-index\" to create a new instance."
+    exit 1
+elif [ ! -z "$arg2" ]; then # If 2nd param is given.
+    if ([ "$arg2" == "service-reconfig" ] || [ "$arg2" == "service-start" ] || [ "$arg2" == "service-stop" ] || [ "$arg2" == "service-rm" ] || [ "$arg2" == "rm" ]) &&
+        [ $(id -u) -ne 0 ]; then # Check for root permissions.
+        echo "\"./run-registry-index $arg1 $arg2\" must run as root"
+        exit 1
+    elif [ "$arg2" == "service-reconfig" ]; then
+        create_service
+        echo "Created systemd service $service"
+    elif [ "$arg2" == "service-start" ]; then
+        if [ ! -f "$systemd_file" ]; then # Create a systemd service if not exist.
+            create_service
             echo "Created systemd service $service"
         fi
         systemctl start $service
