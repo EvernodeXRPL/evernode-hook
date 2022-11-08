@@ -45,8 +45,15 @@ cp -r $index_path $index_bk_path
 echo 'Overriding the registry index the binaries.'
 tar -xf $bundle_path --strip-components=1 -C $index_path
 
+pushd $index_path
+
 echo 'Performing set-hook.'
-pushd $index_path && ./run-registry-index.sh $registry_address set-hook && popd
+./run-registry-index.sh $registry_address set-hook
+
+echo 'Re-configuring the service'
+./run-registry-index.sh $registry_address service-reconfig
+
+popd
 
 echo 'Restarting the service.'
 systemctl restart registry-index-$registry_address.service
