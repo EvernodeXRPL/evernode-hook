@@ -14,7 +14,7 @@ if [ ! -f $index ]; then
     index="index-manager.js"
 fi
 
-wasm_path="$hook_setup/evernode.wasm"
+wasm_path="$hook_setup"
 
 arg1=$1
 arg2=$2

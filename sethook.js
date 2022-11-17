@@ -14,7 +14,13 @@ const NAMESPACE = '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC66
 const server = 'wss://hooks-testnet-v2.xrpl-labs.com';
 
 const CONFIG_PATH = process.env.CONFIG_PATH || 'hook.json';
-const WASM_PATH = process.env.WASM_PATH || "build/evernode.wasm"
+
+const WASM_PATH = process.env.WASM_PATH || "build"
+
+const WASM_PATH_ZERO = `${WASM_PATH}/evernodezero.wasm`;
+const WASM_PATH_ONE = `${WASM_PATH}/evernodeone.wasm`;
+
+console.log(WASM_PATH_ZERO,WASM_PATH_ONE);
 
 let cfg;
 
@@ -102,7 +108,9 @@ else {
     }
 
     const account = xrpljs.Wallet.fromSeed(secret)
-    const binary = fs.readFileSync(WASM_PATH).toString('hex').toUpperCase();
+    const binaryZero = fs.readFileSync(WASM_PATH_ZERO).toString('hex').toUpperCase();
+    const binaryOne = fs.readFileSync(WASM_PATH_ONE).toString('hex').toUpperCase();
+
     const hookTx = {
         Account: account.classicAddress,
         TransactionType: "SetHook",
@@ -110,7 +118,16 @@ else {
             [
                 {
                     Hook: {
-                        CreateCode: binary.slice(0, 194252),
+                        CreateCode: binaryZero.slice(0, 194252),
+                        HookOn: '0000000000000000',
+                        HookNamespace: NAMESPACE,
+                        HookApiVersion: 0,
+                        Flags: hsfOVERRIDE
+                    }
+                },
+                {
+                    Hook: {
+                        CreateCode: binaryOne.slice(0, 194252),
                         HookOn: '0000000000000000',
                         HookNamespace: NAMESPACE,
                         HookApiVersion: 0,
