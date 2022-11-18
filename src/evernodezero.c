@@ -28,7 +28,8 @@ int64_t hook(uint32_t reserved)
         rollback(SBUF("Evernode: Could not get moment base info state."), 1);
     uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
     uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
-    uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+    // If state does not exist, take the moment type from default constant.
+    uint8_t cur_moment_type = (moment_base_info_state_res == DOESNT_EXIST) ? DEF_MOMENT_TYPE : moment_base_info[MOMENT_TYPE_OFFSET];
     uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
 
     ///////////////////////////////////////////////////////////////

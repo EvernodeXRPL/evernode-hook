@@ -34,8 +34,7 @@ int64_t hook(uint32_t reserved)
         uint64_t moment_base_idx = UINT64_FROM_BUF(&chain_two_params[MOMENT_BASE_IDX_PARAM_OFFSET]);
         uint8_t cur_moment_type = chain_two_params[CUR_MOMENT_TYPE_PARAM_OFFSET];
         uint64_t cur_idx = UINT64_FROM_BUF(&chain_two_params[CUR_IDX_PARAM_OFFSET]);
-        uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
-        COPY_BUF(moment_transition_info, 0, chain_two_params, MOMENT_TRANSITION_INFO_PARAM_OFFSET, MOMENT_BASE_INFO_VAL_SIZE);
+        uint8_t *moment_transition_info = &chain_two_params[MOMENT_TRANSITION_INFO_PARAM_OFFSET];
 
         // Memos
         uint8_t memos[MAX_MEMO_SIZE];
@@ -156,7 +155,12 @@ int64_t hook(uint32_t reserved)
             if (!already_initalized)
             {
                 SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-                SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_INFO, "Evernode: Could not initialize state for moment base info.");
+
+                uint8_t moment_base_info_buf[MOMENT_BASE_INFO_VAL_SIZE] = {0};
+                moment_base_info_buf[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
+                if (state_set(SBUF(moment_base_info_buf), SBUF(STK_MOMENT_BASE_INFO)) < 0)
+                    rollback(SBUF("Evernode: Could not initialize state for moment base info."), 1);
+
                 SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
                 SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                 SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
@@ -224,8 +228,8 @@ int64_t hook(uint32_t reserved)
                 uint64_t moment_end_idx;
                 GET_MOMENT_END_INDEX(moment_end_idx, cur_idx);
 
-                UINT64_TO_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET], moment_end_idx);
-                UINT16_TO_BUF(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
+                UINT64_TO_BUF(moment_transition_info + TRANSIT_IDX_OFFSET, moment_end_idx);
+                UINT16_TO_BUF(moment_transition_info + TRANSIT_MOMENT_SIZE_OFFSET, NEW_MOMENT_SIZE);
                 moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
 
                 if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)

@@ -31,12 +31,10 @@ int64_t hook(uint32_t reserved)
         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
         if (hook_param(SBUF(chain_one_params), SBUF(CHAIN_ONE_PARAMS)) < 0)
             rollback(SBUF("Evernode: Could not get params for chain one."), 1);
-        uint8_t amount_buffer[AMOUNT_BUF_SIZE];
-        COPY_BUF(amount_buffer, 0, chain_one_params, AMOUNT_BUF_PARAM_OFFSET, AMOUNT_BUF_SIZE);
+        uint8_t *amount_buffer = &chain_one_params[AMOUNT_BUF_PARAM_OFFSET];
         uint8_t *float_amt_ptr = &chain_one_params[FLOAT_AMT_PARAM_OFFSET];
         int64_t float_amt = INT64_FROM_BUF(float_amt_ptr);
-        uint8_t txid[HASH_SIZE];
-        COPY_BUF(txid, 0, chain_one_params, TXID_PARAM_OFFSET, HASH_SIZE);
+        uint8_t *txid = &chain_one_params[TXID_PARAM_OFFSET];
 
         // Memos
         uint8_t memos[MAX_MEMO_SIZE];
