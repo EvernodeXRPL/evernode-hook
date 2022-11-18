@@ -11,6 +11,7 @@
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
 #define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
 #define HOST_REWARD "evnHostReward"
+#define HOST_REBATE "evnHostRebate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
