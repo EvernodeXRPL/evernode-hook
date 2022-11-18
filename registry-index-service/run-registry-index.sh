@@ -59,11 +59,15 @@ function create_service() {
     systemctl enable $service
 }
 
+function sethook() {
+    ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
+}
+
 if [ -z "$arg1" ]; then # If 1st param is empty, Create a new instance.
     [ ! -d "$hook_data_dir" ] && mkdir "$hook_data_dir"
     ! ACCOUNT_DATA_DIR=$data_dir $(which node) $account_setup && echo "Account setup faild." && exit 1
     arg1=$(ls -t $hook_data_dir/ | head -1)
-    ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
+    sethook
     sleep 2                                # Sleep for 2 sec so all the pre required setup is completed before start the index service.
 elif [ ! -d "$hook_data_dir/$arg1" ]; then # If 1st param is given check for data directory existance.
     echo "Data directory $hook_data_dir/$arg1 does not exist: Run \"./run-registry-index\" to create a new instance."
@@ -98,7 +102,7 @@ elif [ ! -z "$arg2" ]; then # If 2nd param is given.
         fi
         [ "$arg2" == "rm" ] && rm -r $hook_data_dir/$arg1 && echo "Removed instance $arg1"
     elif [ "$arg2" == "set-hook" ]; then
-        ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
+        sethook
         echo "Hook setup successful."
     elif [ "$arg2" == "recover-start" ]; then
         DATA_DIR=$data_dir ACTION=recover $(which node) $index $arg1 || echo "Recover starting registry index failed."

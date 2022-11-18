@@ -12,6 +12,10 @@ build:
 	wasm-opt -O2 ./build/evernodeone.wasm -o ./build/evernodeone.wasm
 	hook-cleaner ./build/evernodeone.wasm
 
+	wasmcc ./src/evernodetwo.c -o ./build/evernodetwo.wasm -O0 -Wl,--allow-undefined -I../
+	wasm-opt -O2 ./build/evernodetwo.wasm -o ./build/evernodetwo.wasm
+	hook-cleaner ./build/evernodetwo.wasm
+
 upload:
 	node sethook.js
 
