@@ -65,10 +65,6 @@ int64_t hook(uint32_t reserved)
         int is_host_reg = 0;
         BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
 
-        // Host initiate transfer
-        int is_host_initiate_transfer = 0;
-        BUFFER_EQUAL_STR_GUARD(is_host_initiate_transfer, type_ptr, type_len, HOST_INIT_TRANSFER, 1);
-
         if (is_host_reg)
         {
             // Currency should be EVR.
@@ -305,89 +301,6 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             accept(SBUF("Host registration successful."), 0);
-        }
-        else if (is_host_initiate_transfer)
-        {
-            // Checking whether this host is already registered.
-            HOST_ADDR_KEY(account_field);
-
-            uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-            CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
-
-            if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
-                rollback(SBUF("Evernode: Host is not a registered one."), 1);
-
-            // Check the ownership of the NFT to this user before proceeding.
-            int nft_exists;
-            uint8_t issuer[20], uri[64], uri_len;
-            uint32_t taxon, nft_seq;
-            uint16_t flags, tffee;
-            uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-            GET_NFT(data_ptr, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-            if (!nft_exists)
-                rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-            // Check for registration entry, if transferee is different from transfer (transferring to a new account).
-            int is_host_as_transferee = 0;
-            BUFFER_EQUAL(is_host_as_transferee, data_ptr, account_field, 20);
-            if (is_host_as_transferee == 0)
-            {
-                HOST_ADDR_KEY(data_ptr); // Generate account key for transferee.
-                uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
-                if (state(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
-                    rollback(SBUF("Evernode: New transferee also a registered host."), 1);
-            }
-
-            // Check whether this host has an initiated transfer.
-            uint8_t host_transfer_flag = host_addr[HOST_TRANSFER_FLAG_OFFSET];
-            if (host_transfer_flag == PENDING_TRANSFER)
-                rollback(SBUF("Evernode: Host has a pending transfer."), 1);
-
-            // Check whether there is an already initiated transfer for the transferee
-            TRANSFEREE_ADDR_KEY(data_ptr);
-            // <transferring_host_address(20)><registration_ledger(8)><token_id(20)>
-            uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
-            CLEAR_BUF(transferee_addr, 0, TRANSFEREE_ADDR_VAL_SIZE); // Initialize buffer wih 0s
-
-            if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
-                rollback(SBUF("Evernode: There is a previously initiated transfer for this transferee."), 1);
-
-            // Saving the Pending transfer in Hook States.
-            COPY_BUF(transferee_addr, TRANSFER_HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
-            INT64_TO_BUF(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
-            COPY_BUF(transferee_addr, TRANSFER_HOST_TOKEN_ID_OFFSET, token_id_ptr, 0, NFT_TOKEN_ID_SIZE);
-
-            if (state_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) < 0)
-                rollback(SBUF("Evernode: Could not set state for transferee_addr."), 1);
-
-            // Add transfer in progress flag to existing registration record.
-            HOST_ADDR_KEY(account_field);
-            host_addr[HOST_TRANSFER_FLAG_OFFSET] = TRANSFER_FLAG;
-
-            if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
-
-            // Sending nft buy offer to the host.
-            etxn_reserve(1);
-
-            uint8_t amt_out[AMOUNT_BUF_SIZE];
-            int64_t amount = MIN_DROPS;
-
-            uint8_t issuer_accid[20];
-            if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-                rollback(SBUF("Evernode: Could not get issuer account id."), 1);
-
-            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount));
-
-            // Creating the NFT buying offer for 0 EVRs.
-            uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-            PREPARE_NFT_BUY_OFFER(buy_tx_buf, amt_out, account_field, token_id_ptr);
-            uint8_t emithash[HASH_SIZE];
-
-            if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
-                rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
-
-            accept(SBUF("Evernode: Host transfer initiated successfully."), 0);
         }
     }
     else if (common_params[CHAIN_IDX_PARAM_OFFSET] != 1)
