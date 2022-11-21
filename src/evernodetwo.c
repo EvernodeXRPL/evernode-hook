@@ -77,7 +77,7 @@ int64_t hook(uint32_t reserved)
         uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
         // Common logic for host deregistration, heartbeat and update registration.
-        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg)
+        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg || is_host_rebate)
         {
             if (is_host_de_reg)
             {
@@ -683,7 +683,7 @@ int64_t hook(uint32_t reserved)
         }
         else if (is_host_rebate)
         {
-            uint64_t reg_fee = UINT64_FROM_BUF(host_addr + HOST_REG_FEE_OFFSET);
+            uint64_t reg_fee = UINT64_FROM_BUF(&host_addr[HOST_REG_FEE_OFFSET]);
             TRACEVAR(reg_fee);
 
             uint64_t host_reg_fee;
@@ -692,17 +692,19 @@ int64_t hook(uint32_t reserved)
 
             if (reg_fee > host_reg_fee)
             {
+                // Reserve for a transaction emission.
+                etxn_reserve(1);
+
                 uint8_t amt_out[AMOUNT_BUF_SIZE];
                 SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)));
 
                 // Create the outgoing hosting token txn.
-                uint8_t *host_accid = &account_field;
                 uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-                PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, host_accid, 0, 0);
+                PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, account_field, 0, 0);
 
                 uint8_t emithash[32];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+                    rollback(SBUF("Evernode: Emitting EVR rebate txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 // Updating the current reg fee in the host state.
