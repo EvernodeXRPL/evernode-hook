@@ -813,7 +813,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */  \
         _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */  \
         etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */  \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_SIZE);        \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_SIZE);    \
         \ 
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                      \
     }
@@ -821,31 +821,31 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 /////////// Macro to prepare a nft buy offer.(IOU) ///////////
 
 #define PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE 338
-#define PREPARE_NFT_BUY_OFFER_TRUSTLINE(buf_out_master, tlamt, to_address, tknid)        \
-    {                                                                              \
-        uint8_t *buf_out = buf_out_master;                                         \
-        uint8_t acc[20];                                                           \
-        uint32_t cls = (uint32_t)ledger_seq();                                     \
-        hook_account(SBUF(acc));                                                   \
-        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);           /* uint16  | size   3 */ \
-        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);         /* uint32  | size   5 */ \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);               /* uint32  | size   5 */ \
-        _02_10_ENCODE_EXPIRATION_MAX(buf_out);            /* uint32  | size   5 */ \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);              /* uint32  | size   6 */ \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);              /* uint32  | size   6 */ \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);          /* amount  | size  49 */ \
-        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid); /* tknid   | size  33 */ \
-        uint8_t *fee_ptr = buf_out;                                                \
-        _06_08_ENCODE_DROPS_FEE(buf_out, 0);              /* amount  | size   9 */ \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */ \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */ \
-        _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */ \
-        etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */ \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE);   \
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE 338
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE(buf_out_master, tlamt, to_address, tknid)          \
+    {                                                                                      \
+        uint8_t *buf_out = buf_out_master;                                                 \
+        uint8_t acc[20];                                                                   \
+        uint32_t cls = (uint32_t)ledger_seq();                                             \
+        hook_account(SBUF(acc));                                                           \
+        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);           /* uint16  | size   3 */         \
+        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);         /* uint32  | size   5 */         \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);               /* uint32  | size   5 */         \
+        _02_10_ENCODE_EXPIRATION_MAX(buf_out);            /* uint32  | size   5 */         \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);              /* uint32  | size   6 */         \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);              /* uint32  | size   6 */         \
+        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);          /* amount  | size  49 */         \
+        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid); /* tknid   | size  33 */         \
+        uint8_t *fee_ptr = buf_out;                                                        \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);              /* amount  | size   9 */         \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */         \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */         \
+        _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */         \
+        etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */         \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE); \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                     \
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                             \
     }
-
 
 /**************************************************************************/
 /******************Macros with evernode specific logic*********************/

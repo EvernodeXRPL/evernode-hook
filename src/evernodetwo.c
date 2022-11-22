@@ -694,7 +694,6 @@ int64_t hook(uint32_t reserved)
             TRANSFEREE_ADDR_KEY(data_ptr);
             // <transferring_host_address(20)><registration_ledger(8)><token_id(20)>
             uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
-            CLEAR_BUF(transferee_addr, 0, TRANSFEREE_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
             if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
                 rollback(SBUF("Evernode: There is a previously initiated transfer for this transferee."), 1);
@@ -702,9 +701,7 @@ int64_t hook(uint32_t reserved)
             // Saving the Pending transfer in Hook States.
             COPY_BUF(transferee_addr, TRANSFER_HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
             INT64_TO_BUF(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
-
-            uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-            COPY_BUF(transferee_addr, TRANSFER_HOST_TOKEN_ID_OFFSET, token_id_ptr, 0, NFT_TOKEN_ID_SIZE);
+            COPY_BUF(transferee_addr, TRANSFER_HOST_TOKEN_ID_OFFSET, host_addr, HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
 
             if (state_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) < 0)
                 rollback(SBUF("Evernode: Could not set state for transferee_addr."), 1);
@@ -721,7 +718,7 @@ int64_t hook(uint32_t reserved)
 
             // Creating the NFT buy offer for 1 XRP drop.
             uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-            PREPARE_NFT_BUY_OFFER(buy_tx_buf, 1, account_field, token_id_ptr);
+            PREPARE_NFT_BUY_OFFER(buy_tx_buf, 1, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
             uint8_t emithash[HASH_SIZE];
 
             if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
