@@ -93,7 +93,11 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
-    ]
+    ],
+    HOST_TRANSFER: [
+        // NOTE: Repetetative State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
+    ],
 }
 
 /**
@@ -166,6 +170,7 @@ class IndexManager {
         this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
@@ -269,7 +274,7 @@ class IndexManager {
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
 
-        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE];
+        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE, MemoTypes.HOST_TRANSFER];
 
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Triggered a transaction.`);
@@ -336,6 +341,10 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
+                }
+                case MemoTypes.HOST_TRANSFER: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_TRANSFER.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                 }
             }
 
