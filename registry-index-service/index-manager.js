@@ -69,7 +69,7 @@ const AFFECTED_HOOK_STATE_MAP = {
     ],
     HOST_REG: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
-        { operation: 'UPDATE', key: HookStateKeys.FIXED_REG_FEE },
+        { operation: 'UPDATE', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'UPDATE', key: HookStateKeys.MAX_REG }
 
         // NOTE: Repetetative State keys
@@ -98,6 +98,10 @@ const AFFECTED_HOOK_STATE_MAP = {
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
+    HOST_REBATE: [
+        // NOTE: Repetetative State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
+    ]
 }
 
 /**
@@ -170,6 +174,7 @@ class IndexManager {
         this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
@@ -274,7 +279,7 @@ class IndexManager {
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
 
-        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE, MemoTypes.HOST_TRANSFER];
+        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE, MemoTypes.HOST_REBATE, MemoTypes.HOST_TRANSFER];
 
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Triggered a transaction.`);
@@ -342,9 +347,15 @@ class IndexManager {
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
+                case MemoTypes.HOST_REBATE: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REBATE.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+                    break;
+                }
                 case MemoTypes.HOST_TRANSFER: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_TRANSFER.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+                    break;
                 }
             }
 

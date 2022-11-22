@@ -34,8 +34,7 @@ int64_t hook(uint32_t reserved)
         uint64_t moment_base_idx = UINT64_FROM_BUF(&chain_two_params[MOMENT_BASE_IDX_PARAM_OFFSET]);
         uint8_t cur_moment_type = chain_two_params[CUR_MOMENT_TYPE_PARAM_OFFSET];
         uint64_t cur_idx = UINT64_FROM_BUF(&chain_two_params[CUR_IDX_PARAM_OFFSET]);
-        uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE];
-        COPY_BUF(moment_transition_info, 0, chain_two_params, MOMENT_TRANSITION_INFO_PARAM_OFFSET, MOMENT_BASE_INFO_VAL_SIZE);
+        uint8_t *moment_transition_info = &chain_two_params[MOMENT_TRANSITION_INFO_PARAM_OFFSET];
 
         // Memos
         uint8_t memos[MAX_MEMO_SIZE];
@@ -68,16 +67,21 @@ int64_t hook(uint32_t reserved)
         int is_dead_host_prune = 0;
         BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
 
+        // Host rebate.
+        int is_host_rebate = 0;
+        BUFFER_EQUAL_STR(is_host_rebate, type_ptr, type_len, HOST_REBATE);
+
         // Host initiate transfer
         int is_host_transfer = 0;
-        BUFFER_EQUAL_STR_GUARD(is_host_transfer, type_ptr, type_len, HOST_INIT_TRANSFER, 1);
+        BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
 
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+        uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
         // Common logic for host deregistration, heartbeat and update registration.
-        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg || is_host_transfer)
+        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg || is_host_rebate || is_host_transfer)
         {
             if (is_host_de_reg || is_host_transfer)
             {
@@ -113,6 +117,10 @@ int64_t hook(uint32_t reserved)
             BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
             if (!nft_exists)
                 rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+
+            // Issuer address is needed for de registration and rebate.
+            if ((is_host_de_reg || is_host_rebate) && state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
         }
 
         if (is_initialize)
@@ -151,7 +159,12 @@ int64_t hook(uint32_t reserved)
             if (!already_initalized)
             {
                 SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-                SET_UINT_STATE_VALUE(zero, STK_MOMENT_BASE_INFO, "Evernode: Could not initialize state for moment base info.");
+
+                uint8_t moment_base_info_buf[MOMENT_BASE_INFO_VAL_SIZE] = {0};
+                moment_base_info_buf[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
+                if (state_set(SBUF(moment_base_info_buf), SBUF(STK_MOMENT_BASE_INFO)) < 0)
+                    rollback(SBUF("Evernode: Could not initialize state for moment base info."), 1);
+
                 SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
                 SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
                 SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
@@ -219,8 +232,8 @@ int64_t hook(uint32_t reserved)
                 uint64_t moment_end_idx;
                 GET_MOMENT_END_INDEX(moment_end_idx, cur_idx);
 
-                UINT64_TO_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET], moment_end_idx);
-                UINT16_TO_BUF(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
+                UINT64_TO_BUF(moment_transition_info + TRANSIT_IDX_OFFSET, moment_end_idx);
+                UINT16_TO_BUF(moment_transition_info + TRANSIT_MOMENT_SIZE_OFFSET, NEW_MOMENT_SIZE);
                 moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
 
                 if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
@@ -671,6 +684,40 @@ int64_t hook(uint32_t reserved)
             }
 
             accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
+        }
+        else if (is_host_rebate)
+        {
+            uint64_t reg_fee = UINT64_FROM_BUF(&host_addr[HOST_REG_FEE_OFFSET]);
+            TRACEVAR(reg_fee);
+
+            uint64_t host_reg_fee;
+            GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
+            TRACEVAR(host_reg_fee);
+
+            if (reg_fee > host_reg_fee)
+            {
+                // Reserve for a transaction emission.
+                etxn_reserve(1);
+
+                uint8_t amt_out[AMOUNT_BUF_SIZE];
+                SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)));
+
+                // Create the outgoing hosting token txn.
+                uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
+                PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, account_field, 0, 0);
+
+                uint8_t emithash[32];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting EVR rebate txn failed"), 1);
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                // Updating the current reg fee in the host state.
+                UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not update host address state."), 1);
+            }
+
+            accept(SBUF("Evernode: Host rebate successful."), 0);
         }
         else if (is_host_transfer)
         {
