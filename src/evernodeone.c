@@ -291,7 +291,7 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // If maximum theoretical host count reached, halve the registration fee.
-            if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
+            if (host_reg_fee > conf_fixed_reg_fee && host_count >= (conf_max_reg / 2))
             {
                 uint8_t state_buf[8] = {0};
 
