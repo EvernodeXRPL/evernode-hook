@@ -11,6 +11,7 @@
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
 #define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
 #define HOST_REWARD "evnHostReward"
+#define HOST_REBATE "evnHostRebate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -46,6 +47,7 @@
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
 const uint16_t DEF_MOMENT_SIZE = 1190;
+const uint16_t DEF_MOMENT_TYPE = LEDGER_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;

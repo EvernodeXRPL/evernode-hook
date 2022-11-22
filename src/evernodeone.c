@@ -31,12 +31,10 @@ int64_t hook(uint32_t reserved)
         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
         if (hook_param(SBUF(chain_one_params), SBUF(CHAIN_ONE_PARAMS)) < 0)
             rollback(SBUF("Evernode: Could not get params for chain one."), 1);
-        uint8_t amount_buffer[AMOUNT_BUF_SIZE];
-        COPY_BUF(amount_buffer, 0, chain_one_params, AMOUNT_BUF_PARAM_OFFSET, AMOUNT_BUF_SIZE);
+        uint8_t *amount_buffer = &chain_one_params[AMOUNT_BUF_PARAM_OFFSET];
         uint8_t *float_amt_ptr = &chain_one_params[FLOAT_AMT_PARAM_OFFSET];
         int64_t float_amt = INT64_FROM_BUF(float_amt_ptr);
-        uint8_t txid[HASH_SIZE];
-        COPY_BUF(txid, 0, chain_one_params, TXID_PARAM_OFFSET, HASH_SIZE);
+        uint8_t *txid = &chain_one_params[TXID_PARAM_OFFSET];
 
         // Memos
         uint8_t memos[MAX_MEMO_SIZE];
@@ -252,13 +250,6 @@ int64_t hook(uint32_t reserved)
             GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
             TRACEVAR(conf_max_reg);
 
-            // int max_reached = 0;
-            // if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
-            // {
-            //     max_reached = 1;
-            //     etxn_reserve(host_count + 3);
-            // }
-            // else
             etxn_reserve(3);
 
             // Froward 5 EVRs to foundation.
@@ -298,6 +289,22 @@ int64_t hook(uint32_t reserved)
             if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+            // If maximum theoretical host count reached, halve the registration fee.
+            if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
+            {
+                uint8_t state_buf[8] = {0};
+
+                host_reg_fee /= 2;
+                UINT64_TO_BUF(state_buf, host_reg_fee);
+                if (state_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE)) < 0)
+                    rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
+
+                conf_max_reg *= 2;
+                UINT64_TO_BUF(state_buf, conf_max_reg);
+                if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
+                    rollback(SBUF("Evernode: Could not update state for max theoretical registrants."), 1);
+            }
 
             accept(SBUF("Host registration successful."), 0);
         }
