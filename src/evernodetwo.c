@@ -69,17 +69,17 @@ int64_t hook(uint32_t reserved)
         BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
 
         // Host initiate transfer
-        int is_host_initiate_transfer = 0;
-        BUFFER_EQUAL_STR_GUARD(is_host_initiate_transfer, type_ptr, type_len, HOST_INIT_TRANSFER, 1);
+        int is_host_transfer = 0;
+        BUFFER_EQUAL_STR_GUARD(is_host_transfer, type_ptr, type_len, HOST_INIT_TRANSFER, 1);
 
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
         // Common logic for host deregistration, heartbeat and update registration.
-        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg || is_host_initiate_transfer)
+        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg || is_host_transfer)
         {
-            if (is_host_de_reg || is_host_initiate_transfer)
+            if (is_host_de_reg || is_host_transfer)
             {
                 int is_format_hex = 0;
                 BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
@@ -300,8 +300,8 @@ int64_t hook(uint32_t reserved)
             uint8_t amt_out[AMOUNT_BUF_SIZE];
             SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
             // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
-            uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_IOU_SIZE];
-            PREPARE_NFT_BUY_OFFER_IOU(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+            uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE];
+            PREPARE_NFT_BUY_OFFER_TRUSTLINE(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
             uint8_t emithash[HASH_SIZE];
             if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
                 rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
@@ -672,7 +672,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
         }
-        else if (is_host_initiate_transfer)
+        else if (is_host_transfer)
         {
             // Check for registration entry, if transferee is different from transfer (transferring to a new account).
             int is_host_as_transferee = 0;

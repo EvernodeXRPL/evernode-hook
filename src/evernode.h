@@ -820,8 +820,8 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 /////////// Macro to prepare a nft buy offer.(IOU) ///////////
 
-#define PREPARE_NFT_BUY_OFFER_IOU_SIZE 338
-#define PREPARE_NFT_BUY_OFFER_IOU(buf_out_master, tlamt, to_address, tknid)        \
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE 338
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE(buf_out_master, tlamt, to_address, tknid)        \
     {                                                                              \
         uint8_t *buf_out = buf_out_master;                                         \
         uint8_t acc[20];                                                           \
@@ -841,7 +841,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */ \
         _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */ \
         etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */ \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_IOU_SIZE);   \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE);   \
         \ 
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                     \
     }
