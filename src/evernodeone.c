@@ -19,6 +19,7 @@ int64_t hook(uint32_t reserved)
 
     if (common_params[CHAIN_IDX_PARAM_OFFSET] == 1)
     {
+        uint8_t op_type = common_params[OP_TYPE_PARAM_OFFSET];
         uint8_t *seq_param_ptr = &common_params[CUR_LEDGER_SEQ_PARAM_OFFSET];
         int64_t cur_ledger_seq = INT64_FROM_BUF(seq_param_ptr);
         uint8_t *ts_param_ptr = &common_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET];
@@ -47,30 +48,28 @@ int64_t hook(uint32_t reserved)
         uint32_t memo_len, type_len, format_len, data_len;
         GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
-        int64_t amt_drops = float_int(float_amt, 6, 0);
-        if (amt_drops < 0)
-            rollback(SBUF("Evernode: Could not parse amount."), 1);
-        int64_t amt_int = amt_drops / 1000000;
-
-        uint8_t issuer_accid[20];
-        if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not get issuer address state."), 1);
-
-        int is_evr;
-        IS_EVR(is_evr, amount_buffer, issuer_accid);
-
-        // Host registration.
-        int is_host_reg = 0;
-        BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
-        if (is_host_reg)
+        if (op_type == OP_HOST_REG)
         {
+            int is_valid = 0;
+            BUFFER_EQUAL_STR_GUARD(is_valid, format_ptr, format_len, FORMAT_TEXT, 1);
+            if (!is_valid)
+                rollback(SBUF("Evernode: Memo format should be text."), 1);
+
+            int64_t amt_drops = float_int(float_amt, 6, 0);
+            if (amt_drops < 0)
+                rollback(SBUF("Evernode: Could not parse amount."), 1);
+            int64_t amt_int = amt_drops / 1000000;
+
+            uint8_t issuer_accid[20];
+            if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                rollback(SBUF("Evernode: Could not get issuer address state."), 1);
+
+            int is_evr;
+            IS_EVR(is_evr, amount_buffer, issuer_accid);
+
             // Currency should be EVR.
             if (!is_evr)
                 rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
-
-            BUFFER_EQUAL_STR_GUARD(is_host_reg, format_ptr, format_len, FORMAT_TEXT, 1);
-            if (!is_host_reg)
-                rollback(SBUF("Evernode: Memo format should be text."), 1);
 
             // Take the host reg fee from config.
             int64_t host_reg_fee;
@@ -307,6 +306,67 @@ int64_t hook(uint32_t reserved)
             }
 
             accept(SBUF("Host registration successful."), 0);
+        }
+        else if (op_type == OP_HOST_POST_DEREG)
+        {
+            int is_valid_format = 0;
+            BUFFER_EQUAL_STR(is_valid_format, format_ptr, format_len, FORMAT_HEX);
+            if (!is_valid_format)
+                rollback(SBUF("Evernode: Memo format should be hex."), 1);
+
+            // Check whether the host address state is deleted.
+            HOST_ADDR_KEY(account_field);
+            uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+            if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+                rollback(SBUF("Evernode: The host address state exists."), 1);
+
+            // Check whether the host token id state is deleted.
+            TOKEN_ID_KEY(data_ptr);
+            uint8_t token_id[TOKEN_ID_VAL_SIZE];
+            if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
+                rollback(SBUF("Evernode: The host token id state exists."), 1);
+
+            if (reserved == STRONG_HOOK)
+            {
+                if (hook_again() != 1)
+                    rollback(SBUF("Evernode: Hook again faild on post deregistration."), 1);
+
+                accept(SBUF("Host de-registration nft accept successful."), 0);
+            }
+            else if (reserved == AGAIN_HOOK)
+            {
+                // Check the ownership of the NFT to the hook before proceeding.
+                int nft_exists;
+                uint8_t issuer[20], uri[64], uri_len;
+                uint32_t taxon, nft_seq;
+                uint16_t flags, tffee;
+                GET_NFT(hook_accid, data_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+                if (!nft_exists)
+                    rollback(SBUF("Evernode: Token mismatch with registration."), 1);
+
+                // Issuer of the NFT should be the registry contract.
+                BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                if (!nft_exists)
+                    rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
+
+                // Check whether the NFT URI is starting with 'evrhost'.
+                BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
+                if (!nft_exists)
+                    rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
+
+                // Burn the NFT.
+                etxn_reserve(1);
+
+                uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
+                PREPARE_NFT_BURN(txn_out, data_ptr, hook_accid);
+
+                uint8_t emithash[HASH_SIZE];
+                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                    rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                accept(SBUF("Host de-registration nft burn successful."), 0);
+            }
         }
     }
     else if (common_params[CHAIN_IDX_PARAM_OFFSET] != 1)
