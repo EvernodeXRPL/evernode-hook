@@ -307,67 +307,6 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Host registration successful."), 0);
         }
-        else if (op_type == OP_HOST_POST_DEREG)
-        {
-            int is_valid_format = 0;
-            BUFFER_EQUAL_STR(is_valid_format, format_ptr, format_len, FORMAT_HEX);
-            if (!is_valid_format)
-                rollback(SBUF("Evernode: Memo format should be hex."), 1);
-
-            // Check whether the host address state is deleted.
-            HOST_ADDR_KEY(account_field);
-            uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-            if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
-                rollback(SBUF("Evernode: The host address state exists."), 1);
-
-            // Check whether the host token id state is deleted.
-            TOKEN_ID_KEY(data_ptr);
-            uint8_t token_id[TOKEN_ID_VAL_SIZE];
-            if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
-                rollback(SBUF("Evernode: The host token id state exists."), 1);
-
-            if (reserved == STRONG_HOOK)
-            {
-                if (hook_again() != 1)
-                    rollback(SBUF("Evernode: Hook again faild on post deregistration."), 1);
-
-                accept(SBUF("Host de-registration nft accept successful."), 0);
-            }
-            else if (reserved == AGAIN_HOOK)
-            {
-                // Check the ownership of the NFT to the hook before proceeding.
-                int nft_exists;
-                uint8_t issuer[20], uri[64], uri_len;
-                uint32_t taxon, nft_seq;
-                uint16_t flags, tffee;
-                GET_NFT(hook_accid, data_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                if (!nft_exists)
-                    rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                // Issuer of the NFT should be the registry contract.
-                BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
-                if (!nft_exists)
-                    rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
-
-                // Check whether the NFT URI is starting with 'evrhost'.
-                BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
-                if (!nft_exists)
-                    rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
-
-                // Burn the NFT.
-                etxn_reserve(1);
-
-                uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-                PREPARE_NFT_BURN(txn_out, data_ptr, hook_accid);
-
-                uint8_t emithash[HASH_SIZE];
-                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
-                    rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                accept(SBUF("Host de-registration nft burn successful."), 0);
-            }
-        }
     }
     else if (common_params[CHAIN_IDX_PARAM_OFFSET] != 1)
     {
