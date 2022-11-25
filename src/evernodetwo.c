@@ -415,8 +415,9 @@ int64_t hook(uint32_t reserved)
         {
             // Msg format.
             // <token_id>;<country_code>;<cpu_microsec>;<ram_mb>;<disk_mb>;<total_instance_count>;<active_instances>;<description>;<version>
-            uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
-            uint8_t *active_instances_ptr, *version_ptr;
+            uint32_t section_number = 0, cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, active_instances_len = 0, version_len = 0;
+            uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *active_instances_ptr, *version_ptr;
+
             int info_updated = 0;
             for (int i = 0; GUARD(MAX_MEMO_DATA_LEN), i < data_len; ++i)
             {
@@ -432,7 +433,43 @@ int64_t hook(uint32_t reserved)
                 else if (*str_ptr == 0)
                     break;
 
-                if (section_number == 6) // We only handle active instances for now.
+                if (section_number == 2)
+                {
+                    if (cpu_microsec_len == 0)
+                    {
+                        cpu_microsec_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    cpu_microsec_len++;
+                }
+                else if (section_number == 3)
+                {
+                    if (ram_mb_len == 0)
+                    {
+                        ram_mb_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    ram_mb_len++;
+                }
+                else if (section_number == 4)
+                {
+                    if (disk_mb_len == 0)
+                    {
+                        disk_mb_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    disk_mb_len++;
+                }
+                else if (section_number == 5)
+                {
+                    if (total_ins_count_len == 0)
+                    {
+                        total_ins_count_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    total_ins_count_len++;
+                }
+                else if (section_number == 6)
                 {
                     if (active_instances_len == 0)
                     {
@@ -455,15 +492,35 @@ int64_t hook(uint32_t reserved)
             // All data fields are optional in update info transaction. Update state only if an information update is detected.
             if (info_updated)
             {
-                uint32_t active_instances;
-                STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
-
-                TRACEVAR(active_instances);
-
-                // Populate the values to the buffer.
-                UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
-
-                if (version_len > 0) // Version update detected.
+                if (cpu_microsec_len > 0)
+                {
+                    uint32_t cpu_microsec;
+                    STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
+                    TRACEVAR(cpu_microsec);
+                    UINT32_TO_BUF(host_addr + HOST_CPU_MICROSEC_OFFSET, cpu_microsec);
+                }
+                if (ram_mb_len > 0)
+                {
+                    uint32_t ram_mb;
+                    STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
+                    TRACEVAR(ram_mb);
+                    UINT32_TO_BUF(host_addr + HOST_RAM_MB_OFFSET, ram_mb);
+                }
+                if (disk_mb_len > 0)
+                {
+                    uint32_t disk_mb;
+                    STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
+                    TRACEVAR(disk_mb);
+                    UINT32_TO_BUF(host_addr + HOST_DISK_MB_OFFSET, disk_mb);
+                }
+                if (active_instances_len > 0)
+                {
+                    uint32_t active_instances;
+                    STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
+                    TRACEVAR(active_instances);
+                    UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
+                }
+                if (version_len > 0)
                 {
                     uint8_t *major_ptr, *minor_ptr, *patch_ptr;
                     uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
