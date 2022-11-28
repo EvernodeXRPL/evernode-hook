@@ -46,6 +46,17 @@
 #define WEAK_HOOK 1
 #define AGAIN_HOOK 2
 
+#define OP_NONE 0
+#define OP_INITIALIZE 1
+#define OP_HOST_REG 2
+#define OP_HOST_DE_REG 3
+#define OP_HOST_POST_DEREG 4
+#define OP_HOST_UPDATE_REG 5
+#define OP_HEARTBEAT 6
+#define OP_DEAD_HOST_PRUNE 7
+#define OP_HOST_REBATE 8
+#define OP_HOST_TRANSFER 9
+
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
 const uint16_t DEF_MOMENT_SIZE = 1190;
@@ -75,7 +86,7 @@ const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 112;
 const uint32_t TOKEN_ID_VAL_SIZE = 76;
-const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 84;
+const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
 const uint32_t NFT_TOKEN_ID_SIZE = 32;
@@ -128,7 +139,7 @@ const uint32_t HOST_DISK_MB_OFFSET = 72;
 // TRANSFEREE_ADDR
 const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
 const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
-const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 52;
+const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
@@ -147,12 +158,13 @@ const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
 
 #define COMMON_CHAIN_PARAMS "common_params"
-const uint32_t COMMON_CHAIN_PARAMS_SIZE = 57;
+const uint32_t COMMON_CHAIN_PARAMS_SIZE = 58;
 const uint32_t CHAIN_IDX_PARAM_OFFSET = 0;
-const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 1;
-const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 9;
-const uint32_t HOOK_ACCID_PARAM_OFFSET = 17;
-const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 37;
+const uint32_t OP_TYPE_PARAM_OFFSET = 1;
+const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 2;
+const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 10;
+const uint32_t HOOK_ACCID_PARAM_OFFSET = 18;
+const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
 
 #define CHAIN_ONE_PARAMS "chain_one_params"
 const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;

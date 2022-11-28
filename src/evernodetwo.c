@@ -19,6 +19,7 @@ int64_t hook(uint32_t reserved)
 
     if (common_params[CHAIN_IDX_PARAM_OFFSET] == 2)
     {
+        uint8_t op_type = common_params[OP_TYPE_PARAM_OFFSET];
         uint8_t *seq_param_ptr = &common_params[CUR_LEDGER_SEQ_PARAM_OFFSET];
         int64_t cur_ledger_seq = INT64_FROM_BUF(seq_param_ptr);
         uint8_t *ts_param_ptr = &common_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET];
@@ -47,50 +48,22 @@ int64_t hook(uint32_t reserved)
         uint32_t memo_len, type_len, format_len, data_len;
         GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
-        // Host initialization.
-        int is_initialize = 0;
-        BUFFER_EQUAL_STR(is_initialize, type_ptr, type_len, INITIALIZE);
-
-        // Host deregistration.
-        int is_host_de_reg = 0;
-        BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
-
-        // Host heartbeat.
-        int is_host_heartbeat = 0;
-        BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
-
-        // Host update registration.
-        int is_host_update_reg = 0;
-        BUFFER_EQUAL_STR(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG);
-
-        // Dead Host Prune.
-        int is_dead_host_prune = 0;
-        BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
-
-        // Host rebate.
-        int is_host_rebate = 0;
-        BUFFER_EQUAL_STR(is_host_rebate, type_ptr, type_len, HOST_REBATE);
-
-        // Host initiate transfer
-        int is_host_transfer = 0;
-        BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
-
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
         uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
         // Common logic for host deregistration, heartbeat and update registration.
-        if (is_host_de_reg || is_host_heartbeat || is_host_update_reg || is_host_rebate || is_host_transfer)
+        if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE)
         {
-            if (is_host_de_reg || is_host_transfer)
+            if (op_type == OP_HOST_DE_REG)
             {
                 int is_format_hex = 0;
                 BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
                 if (!is_format_hex)
                     rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
             }
-            else if (is_host_update_reg)
+            else if (op_type == OP_HOST_UPDATE_REG)
             {
                 int is_format_plain_text = 0;
                 BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
@@ -119,14 +92,15 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
             // Issuer address is needed for de registration and rebate.
-            if ((is_host_de_reg || is_host_rebate) && state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+            if ((op_type == OP_HOST_DE_REG || op_type == OP_HOST_REBATE) && state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
                 rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
         }
 
-        if (is_initialize)
+        if (op_type == OP_INITIALIZE)
         {
-            BUFFER_EQUAL_STR(is_initialize, format_ptr, format_len, FORMAT_HEX);
-            if (!is_initialize)
+            int is_valid = 0;
+            BUFFER_EQUAL_STR(is_valid, format_ptr, format_len, FORMAT_HEX);
+            if (!is_valid)
                 rollback(SBUF("Evernode: Format should be hex for initialize request."), 1);
 
             if (data_len != (2 * ACCOUNT_ID_SIZE))
@@ -141,8 +115,8 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
 
             // We accept only the init transaction from hook intializer account
-            BUFFER_EQUAL(is_initialize, initializer_accid, account_field, ACCOUNT_ID_SIZE);
-            if (!is_initialize)
+            BUFFER_EQUAL(is_valid, initializer_accid, account_field, ACCOUNT_ID_SIZE);
+            if (!is_valid)
                 rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
             // First check if the states are already initialized by checking one state key for existence.
@@ -244,7 +218,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Initialization successful."), 0);
         }
-        else if (is_host_de_reg)
+        else if (op_type == OP_HOST_DE_REG)
         {
             int is_token_match = 0;
             BUFFER_EQUAL(is_token_match, data_ptr, host_addr + HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
@@ -321,7 +295,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Host de-registration successful."), 0);
         }
-        else if (is_host_heartbeat)
+        else if (op_type == OP_HEARTBEAT)
         {
             const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
             const int64_t last_heartbeat_idx = INT64_FROM_BUF(heartbeat_ptr);
@@ -415,7 +389,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Host heartbeat successful."), 0);
         }
-        else if (is_host_update_reg)
+        else if (op_type == OP_HOST_UPDATE_REG)
         {
             // Msg format.
             // <token_id>;<country_code>;<cpu_microsec>;<ram_mb>;<disk_mb>;<total_instance_count>;<active_instances>;<description>;<version>
@@ -523,7 +497,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Update host info successful."), 0);
         }
-        else if (is_dead_host_prune)
+        else if (op_type == OP_DEAD_HOST_PRUNE)
         {
             int is_format_hex = 0;
             BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
@@ -685,7 +659,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Dead Host Pruning successful."), 0);
         }
-        else if (is_host_rebate)
+        else if (op_type == OP_HOST_REBATE)
         {
             uint64_t reg_fee = UINT64_FROM_BUF(&host_addr[HOST_REG_FEE_OFFSET]);
             TRACEVAR(reg_fee);
@@ -719,7 +693,7 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Evernode: Host rebate successful."), 0);
         }
-        else if (is_host_transfer)
+        else if (op_type == OP_HOST_TRANSFER)
         {
             // Check for registration entry, if transferee is different from transfer (transferring to a new account).
             int is_host_as_transferee = 0;

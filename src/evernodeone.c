@@ -19,6 +19,7 @@ int64_t hook(uint32_t reserved)
 
     if (common_params[CHAIN_IDX_PARAM_OFFSET] == 1)
     {
+        uint8_t op_type = common_params[OP_TYPE_PARAM_OFFSET];
         uint8_t *seq_param_ptr = &common_params[CUR_LEDGER_SEQ_PARAM_OFFSET];
         int64_t cur_ledger_seq = INT64_FROM_BUF(seq_param_ptr);
         uint8_t *ts_param_ptr = &common_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET];
@@ -47,31 +48,28 @@ int64_t hook(uint32_t reserved)
         uint32_t memo_len, type_len, format_len, data_len;
         GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
-        int64_t amt_drops = float_int(float_amt, 6, 0);
-        if (amt_drops < 0)
-            rollback(SBUF("Evernode: Could not parse amount."), 1);
-        int64_t amt_int = amt_drops / 1000000;
-
-        uint8_t issuer_accid[20];
-        if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not get issuer address state."), 1);
-
-        int is_evr;
-        IS_EVR(is_evr, amount_buffer, issuer_accid);
-
-        // Host registration.
-        int is_host_reg = 0;
-        BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
-
-        if (is_host_reg)
+        if (op_type == OP_HOST_REG)
         {
+            int is_valid = 0;
+            BUFFER_EQUAL_STR_GUARD(is_valid, format_ptr, format_len, FORMAT_TEXT, 1);
+            if (!is_valid)
+                rollback(SBUF("Evernode: Memo format should be text."), 1);
+
+            int64_t amt_drops = float_int(float_amt, 6, 0);
+            if (amt_drops < 0)
+                rollback(SBUF("Evernode: Could not parse amount."), 1);
+            int64_t amt_int = amt_drops / 1000000;
+
+            uint8_t issuer_accid[20];
+            if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+                rollback(SBUF("Evernode: Could not get issuer address state."), 1);
+
+            int is_evr;
+            IS_EVR(is_evr, amount_buffer, issuer_accid);
+
             // Currency should be EVR.
             if (!is_evr)
                 rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
-
-            BUFFER_EQUAL_STR_GUARD(is_host_reg, format_ptr, format_len, FORMAT_TEXT, 1);
-            if (!is_host_reg)
-                rollback(SBUF("Evernode: Memo format should be text."), 1);
 
             // Take the host reg fee from config.
             int64_t host_reg_fee;
@@ -292,7 +290,7 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // If maximum theoretical host count reached, halve the registration fee.
-            if (host_reg_fee > conf_fixed_reg_fee && host_count > (conf_max_reg / 2))
+            if (host_reg_fee > conf_fixed_reg_fee && host_count >= (conf_max_reg / 2))
             {
                 uint8_t state_buf[8] = {0};
 
