@@ -44,6 +44,16 @@
 #define WEAK_HOOK 1
 #define AGAIN_HOOK 2
 
+#define OP_NONE 0
+#define OP_INITIALIZE 1
+#define OP_HOST_REG 2
+#define OP_HOST_DE_REG 3
+#define OP_HOST_POST_DEREG 4
+#define OP_HOST_UPDATE_REG 5
+#define OP_HEARTBEAT 6
+#define OP_DEAD_HOST_PRUNE 7
+#define OP_HOST_REBATE 8
+
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
 const uint16_t DEF_MOMENT_SIZE = 1190;
@@ -135,12 +145,13 @@ const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
 
 #define COMMON_CHAIN_PARAMS "common_params"
-const uint32_t COMMON_CHAIN_PARAMS_SIZE = 57;
+const uint32_t COMMON_CHAIN_PARAMS_SIZE = 58;
 const uint32_t CHAIN_IDX_PARAM_OFFSET = 0;
-const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 1;
-const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 9;
-const uint32_t HOOK_ACCID_PARAM_OFFSET = 17;
-const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 37;
+const uint32_t OP_TYPE_PARAM_OFFSET = 1;
+const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 2;
+const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 10;
+const uint32_t HOOK_ACCID_PARAM_OFFSET = 18;
+const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
 
 #define CHAIN_ONE_PARAMS "chain_one_params"
 const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;
