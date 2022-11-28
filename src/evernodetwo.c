@@ -497,6 +497,13 @@ int64_t hook(uint32_t reserved)
                     TRACEVAR(disk_mb);
                     UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
                 }
+                if (total_ins_count_len > 0)
+                {
+                    uint32_t total_ins_count;
+                    STR_TO_UINT(total_ins_count, total_ins_count_ptr, total_ins_count_len);
+                    TRACEVAR(total_ins_count);
+                    UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
+                }
                 if (active_instances_len > 0)
                 {
                     uint32_t active_instances;
