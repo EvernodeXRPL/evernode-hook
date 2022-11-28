@@ -12,6 +12,7 @@
 #define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
 #define HOST_REWARD "evnHostReward"
 #define HOST_REBATE "evnHostRebate"
+#define NEW_SET_HOOK_HASHES "evnNewSetHookHashes"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -26,6 +27,7 @@
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
+#define ttHOOK_SET 22
 #define ttNFT_MINT 25
 #define ttNFT_BURN 26
 #define ttNFT_OFFER 27
@@ -34,6 +36,8 @@
 #define tfBurnable 0x00000001
 #define tfSellToken 0x00000001
 #define tfBuyToken 0x00000000
+#define tfOnlyXRP  0x00000002
+#define tfHookOveride 0x00000001
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 #define MAX_UINT_STR_LEN 20
@@ -53,6 +57,7 @@
 #define OP_HEARTBEAT 6
 #define OP_DEAD_HOST_PRUNE 7
 #define OP_HOST_REBATE 8
+#define OP_SET_HOOK 9
 
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
