@@ -54,9 +54,9 @@ int64_t hook(uint32_t reserved)
         uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
         // Common logic for host deregistration, heartbeat and update registration.
-        if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE)
+        if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER)
         {
-            if (op_type == OP_HOST_DE_REG)
+            if (op_type == OP_HOST_DE_REG || op_type == OP_HOST_TRANSFER)
             {
                 int is_format_hex = 0;
                 BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
@@ -713,7 +713,7 @@ int64_t hook(uint32_t reserved)
 
             // Check whether there is an already initiated transfer for the transferee
             TRANSFEREE_ADDR_KEY(data_ptr);
-            // <transferring_host_address(20)><registration_ledger(8)><token_id(20)>
+            // <transferring_host_address(20)><registration_ledger(8)><token_id(32)>
             uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
 
             if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
