@@ -53,10 +53,10 @@ int64_t hook(uint32_t reserved)
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
         uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
-        // Common logic for host deregistration, heartbeat and update registration.
-        if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE)
+        // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
+        if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER)
         {
-            if (op_type == OP_HOST_DE_REG)
+            if (op_type == OP_HOST_DE_REG || op_type == OP_HOST_TRANSFER)
             {
                 int is_format_hex = 0;
                 BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
