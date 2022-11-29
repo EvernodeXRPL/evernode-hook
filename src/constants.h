@@ -11,6 +11,7 @@
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
 #define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
 #define HOST_REWARD "evnHostReward"
+#define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
 
 #define FORMAT_HEX "hex"
@@ -23,6 +24,7 @@
 #define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
 #define LEDGER_MOMENT_TYPE 0
 #define TIMESTAMP_MOMENT_TYPE 1
+#define PENDING_TRANSFER 1
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -53,6 +55,7 @@
 #define OP_HEARTBEAT 6
 #define OP_DEAD_HOST_PRUNE 7
 #define OP_HOST_REBATE 8
+#define OP_HOST_TRANSFER 9
 
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
@@ -77,9 +80,13 @@ const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const uint16_t NEW_MOMENT_SIZE = 3600;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
+// Transfer process related definitions
+const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
+
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 111;
+const uint32_t HOST_ADDR_VAL_SIZE = 112;
 const uint32_t TOKEN_ID_VAL_SIZE = 76;
+const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
 const uint32_t NFT_TOKEN_ID_SIZE = 32;
@@ -118,6 +125,7 @@ const uint32_t HOST_ACT_INS_COUNT_OFFSET = 88;
 const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 92;
 const uint32_t HOST_VERSION_OFFSET = 100;
 const uint32_t HOST_REG_TIMESTAMP_OFFSET = 103;
+const uint32_t HOST_TRANSFER_FLAG_OFFSET = 111;
 
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;
@@ -127,6 +135,11 @@ const uint32_t HOST_CPU_SPEED_OFFSET = 62;
 const uint32_t HOST_CPU_MICROSEC_OFFSET = 64;
 const uint32_t HOST_RAM_MB_OFFSET = 68;
 const uint32_t HOST_DISK_MB_OFFSET = 72;
+
+// TRANSFEREE_ADDR
+const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
+const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
+const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
