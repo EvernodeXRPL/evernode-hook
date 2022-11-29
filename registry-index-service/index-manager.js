@@ -297,13 +297,22 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG.slice();
                     affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId.toString('hex').toUpperCase() });
 
+                    let transferredNFTokenId = null;
+
+                    if (trx.Amount.value == EvernodeConstants.NOW_IN_EVRS) {
+                        const previousHostRec = await this.#registryClient.getHosts({ futureOwnerAddress: trx.Account });
+                        const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
+                        affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey.toString('hex').toUpperCase() });
+                        transferredNFTokenId = previousHostRec[0]?.nfTokenId;
+                    }
+
                     const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
                     let regNft = null;
                     const hostXrplAcc = new XrplAccount(trx.Account);
                     let attempts = 0;
                     while (attempts < NFT_WAIT_TIMEOUT) {
                         // Check in Registry.
-                        regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
+                        regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri || n.NFTokenID == transferredNFTokenId));
                         if (!regNft) {
                             // Check in Host.
                             regNft = (await hostXrplAcc.getNfts()).find(n => (n.URI === uri));
@@ -355,6 +364,8 @@ class IndexManager {
                 case MemoTypes.HOST_TRANSFER: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_TRANSFER.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+                    const transfereeAddressKey = StateHelpers.generateTransfereeAddrStateKey(data.transferee);
+                    affectedStates.push({ operation: 'UPDATE', key: transfereeAddressKey });
                     break;
                 }
             }
@@ -396,6 +407,13 @@ class IndexManager {
                     decoded.key = decoded.addressKey;
                     delete decoded.addressKey;
                 }
+
+                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                    decoded.key = decoded.prevHostAddressKey;
+                    delete decoded.prevHostAddress;
+                    delete decoded.prevHostAddressKey;
+                    delete decoded.transferredNfTokenId;
+                }
                 delete decoded.type;
                 await this.#firestoreManager.setHost(decoded);
             }
@@ -409,6 +427,13 @@ class IndexManager {
                 if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
                     decoded.key = decoded.addressKey;
                     delete decoded.addressKey;
+                }
+
+                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                    decoded.key = decoded.prevHostAddressKey;
+                    delete decoded.prevHostAddress;
+                    delete decoded.prevHostAddressKey;
+                    delete decoded.transferredNfTokenId;
                 }
                 delete decoded.type;
                 await this.#firestoreManager.setHost(decoded, true);
@@ -455,12 +480,21 @@ class IndexManager {
             const decoded = StateHelpers.decodeStateData(key, value);
             // If the object already exists we override it.
             // We combine host address and token objects.
-            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID || decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
                 // If this is a token id update we replace the key with address key,
                 // So the existing host address state will get updated.
                 if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
                     decoded.key = decoded.addressKey;
                     delete decoded.addressKey;
+                }
+
+                // If this is a transferee addr state update we add additional data to the host info.
+                // So the existing host address state will get updated.
+                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                    decoded.key = decoded.prevHostAddressKey;
+                    delete decoded.prevHostAddress;
+                    delete decoded.prevHostAddressKey;
+                    delete decoded.transferredNfTokenId;
                 }
 
                 delete decoded.type;
