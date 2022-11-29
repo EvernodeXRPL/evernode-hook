@@ -518,6 +518,21 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define _07_11_ENCODE_DELETEHOOK(buf_out)\
     ENCODE_DELETEHOOK(buf_out);
 
+#define ENCODE_NAMESPACE_SIZE 34
+#define ENCODE_NAMESPACE(buf_out, namespace)\
+    {\
+        buf_out[0] = 0x50U + 0U;\
+        buf_out[1] = 0x20U;\
+        *(uint64_t *)(buf_out + 2) = *(uint64_t *)(namespace + 0);    \
+        *(uint64_t *)(buf_out + 10) = *(uint64_t *)(namespace + 8);   \
+        *(uint64_t *)(buf_out + 18) = *(uint64_t *)(namespace + 16);  \
+        *(uint64_t *)(buf_out + 26) = *(uint64_t *)(namespace + 24);  \
+        buf_out += ENCODE_NAMESPACE_SIZE;\
+    }
+
+#define _05_32_ENCODE_NAMESPACE(buf_out, namespace)\
+    ENCODE_NAMESPACE(buf_out, namespace);
+
 #define ENCODE_TXON_SIZE 6U
 #define ENCODE_TXON(buf_out, tf) \
     ENCODE_UINT32_UNCOMMON(buf_out, tf, 0x2A);
@@ -853,7 +868,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order) \
     (231 + GET_HOOKSET_OPERATION_SIZE(operation_order[0]) + GET_HOOKSET_OPERATION_SIZE(operation_order[1]) + GET_HOOKSET_OPERATION_SIZE(operation_order[2]) + GET_HOOKSET_OPERATION_SIZE(operation_order[3]))
 
-#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr)                                       \
+#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr, namespace)                            \
     {                                                                                                                          \
         uint8_t *buf_out = buf_out_master;                                                                                     \
         uint32_t cls = (uint32_t)ledger_seq();                                                                                 \
@@ -877,6 +892,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/    /* uint32  | size   1 */                                \
                 _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);           /* uint32  | size   5 */                                \
                 _05_31_ENCODE_HOOKHASH(buf_out, hash_pointers_arr[i]); /* uint256 | size  34 */                                \
+                _05_32_ENCODE_NAMESPACE(buf_out, namespace);           /* uint256 | size  34 */                                \
                 ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/       /* uint32  | size   1 */                                \
                 break;                                                                                                         \
             case 2:                                                                                                            \

@@ -556,6 +556,6 @@ int out_len = 0;\
 #endif
 
 #define GET_HOOKSET_OPERATION_SIZE(operation_type)\
-    (operation_type == 1U ? 41 : operation_type == 2 ? 9 : 2)
+    (operation_type == 1U ? 75 : operation_type == 2 ? 9 : 2)
 
 

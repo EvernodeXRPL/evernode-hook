@@ -311,7 +311,6 @@ int64_t hook(uint32_t reserved)
             }
             else if (op_type == OP_SET_HOOK)
             {
-                TRACESTR("This ran in one hook file");
                 int is_format_hex = 0;
                 BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
                 if (!is_format_hex)
@@ -327,19 +326,19 @@ int64_t hook(uint32_t reserved)
                 if (!is_initializer_account)
                     rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
 
-                uint8_t *hash_ptrs[4];
+                uint8_t *hash_ptrs[4], *namespace_ptr;
                 uint8_t operation_order[4] = {0}, index_operation, index, operation;
                 uint8_t *current_ptr = data_ptr;
 
-                // memo data format: '<hook_position - 1B><operation(01 for installation | 02 for deletion | 00 for no operation ) - 1B><Hook hash if installation - 32B >'
+                // memo data format: '<hook_position - 1B><operation(01 for installation | 02 for deletion | 00 for no operation ) - 1B><Hook hash if installation - 32B >(x 4)<Namespace - 32B >'
 
-                for (int i = 0; GUARD(4), i < 4, (current_ptr - data_ptr) < data_len; ++i)
+                for (int i = 0; GUARD(4), i < 4, (current_ptr - data_ptr) < (data_len - HASH_SIZE); ++i)
                 {
                     index = *current_ptr;
                     ++current_ptr;
                     operation = *current_ptr;
-                    ++current_ptr;
                     operation_order[index] = operation;
+                    ++current_ptr;
                     if (operation == 1) // For hook installation
                     {
                         hash_ptrs[index] = current_ptr;
@@ -350,11 +349,13 @@ int64_t hook(uint32_t reserved)
                         hash_ptrs[index] = 0;
                     }
                 }
+                
+                namespace_ptr = current_ptr;
 
                 etxn_reserve(1);
                 TRACEVAR(PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));
                 uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
-                PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, hash_ptrs);
+                PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, hash_ptrs, namespace_ptr);
 
                 uint8_t emithash[HASH_SIZE];
                 if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
