@@ -200,7 +200,7 @@ int64_t hook(uint32_t reserved)
                         if (is_host_rebate)
                             op_type = OP_HOST_REBATE;
 
-                        // Host rebate.
+                        // Host transfer.
                         int is_host_transfer = 0;
                         BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
                         if (is_host_transfer)

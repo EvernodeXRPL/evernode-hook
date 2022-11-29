@@ -237,9 +237,9 @@ int64_t hook(uint32_t reserved)
 
             if (has_initiated_transfer == 0)
             {
+                // Continuation of normal registration flow.
                 COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
 
-                trace(SBUF("state regg Host"), SBUF(STP_HOST_ADDR), 1);
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
@@ -257,7 +257,6 @@ int64_t hook(uint32_t reserved)
 
                 TOKEN_ID_KEY(nft_token_id);
 
-                trace(SBUF("state regg Token"), SBUF(STP_TOKEN_ID), 1);
                 if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
@@ -336,14 +335,13 @@ int64_t hook(uint32_t reserved)
             }
             else
             {
+                // Continuation of re-registration flow (completion of an existing transfer).
                 COPY_BUF(host_addr, 0, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET), 0, NFT_TOKEN_ID_SIZE);
                 const uint8_t *heartbeat_ptr = &prev_host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
                 INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], INT64_FROM_BUF(heartbeat_ptr));
                 UINT64_TO_BUF(&host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET], UINT64_FROM_BUF(prev_host_addr + HOST_HEARTBEAT_LEDGER_IDX_OFFSET));
                 UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], UINT64_FROM_BUF(prev_host_addr + HOST_REG_TIMESTAMP_OFFSET));
 
-                TRACEVAR("state re Host");
-                trace(SBUF("state re Host"), SBUF(STP_HOST_ADDR), 1);
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
@@ -356,15 +354,16 @@ int64_t hook(uint32_t reserved)
                 UINT32_TO_BUF(&prev_token_id[HOST_RAM_MB_OFFSET], ram_mb);
                 UINT32_TO_BUF(&prev_token_id[HOST_DISK_MB_OFFSET], disk_mb);
 
+                // Set the STP_TOKEN_ID correctly.
                 TOKEN_ID_KEY((uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
-                TRACEVAR("state re Token");
-                trace(SBUF("state re token"), SBUF(STP_TOKEN_ID), 1);
+
                 if (state_set(SBUF(prev_token_id), SBUF(STP_TOKEN_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
                 etxn_reserve(1);
                 // Amount will be 0.
                 uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
+                // Create a sell offer for the transferring NFT.
                 PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
 
                 uint8_t emithash[32];
@@ -372,9 +371,9 @@ int64_t hook(uint32_t reserved)
                     rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
+                // Set the STP_HOST_ADDR correctly of the deleting state.
                 HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
 
-                trace(SBUF("state re Host makuwa"), SBUF(STP_HOST_ADDR), 1);
                 // Delete previous HOST_ADDR state and the relevant TRANSFEREE_ADDR state entries
                 if (state_set(0, 0, SBUF(STP_TRANSFEREE_ADDR)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not delete state entries related to transfer."), 1);
