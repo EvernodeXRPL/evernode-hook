@@ -13,7 +13,7 @@
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
-#define NEW_SET_HOOK_HASHES "evnNewSetHookHashes"
+#define NEW_SET_HOOK_HASHES "evnHookUpdate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"

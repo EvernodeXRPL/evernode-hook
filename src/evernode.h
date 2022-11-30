@@ -894,6 +894,13 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 /**************************************************************************/
 /************** Set Hook Related Transactions *****************************/
 /**************************************************************************/
+#define OP_HOOK_INSTALLATION 1
+#define OP_HOOK_DELETION 2
+#define ENCODE_HOOK_INSTALLATION_SIZE 75
+#define ENCODE_HOOK_DELETION_SIZE 9
+#define ENCODE_HOOK_NO_OPERATION_SIZE 2
+#define GET_HOOKSET_OPERATION_SIZE(operation_type)\
+    (operation_type == OP_HOOK_INSTALLATION ? ENCODE_HOOK_INSTALLATION_SIZE : operation_type == OP_HOOK_DELETION ? ENCODE_HOOK_DELETION_SIZE : ENCODE_HOOK_NO_OPERATION_SIZE)
 
 #define PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order) \
     (231 + GET_HOOKSET_OPERATION_SIZE(operation_order[0]) + GET_HOOKSET_OPERATION_SIZE(operation_order[1]) + GET_HOOKSET_OPERATION_SIZE(operation_order[2]) + GET_HOOKSET_OPERATION_SIZE(operation_order[3]))
