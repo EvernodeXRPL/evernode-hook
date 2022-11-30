@@ -252,7 +252,6 @@ int64_t hook(uint32_t reserved)
                     }
                     else if (op_type == OP_HOST_REG || op_type == OP_SET_HOOK)
                     {
-                        TRACESTR("This ran in zero hook file");
                         hook_skip(SBUF(chain_two_hash), 0);
                         common_params[CHAIN_IDX_PARAM_OFFSET] = 1;
 

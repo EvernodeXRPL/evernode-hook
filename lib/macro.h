@@ -555,7 +555,12 @@ int out_len = 0;\
 
 #endif
 
+#define OP_HOOK_INSTALLATION 1
+#define OP_HOOK_DELETION 2
+#define ENCODE_HOOK_INSTALLATION_SIZE 75
+#define ENCODE_HOOK_DELETION_SIZE 9
+#define ENCODE_HOOK_NO_OPERATION_SIZE 2
 #define GET_HOOKSET_OPERATION_SIZE(operation_type)\
-    (operation_type == 1U ? 41 : operation_type == 2 ? 9 : 2)
+    (operation_type == OP_HOOK_INSTALLATION ? ENCODE_HOOK_INSTALLATION_SIZE : operation_type == OP_HOOK_DELETION ? ENCODE_HOOK_DELETION_SIZE : ENCODE_HOOK_NO_OPERATION_SIZE)
 
 
