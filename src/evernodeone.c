@@ -67,40 +67,27 @@ int64_t hook(uint32_t reserved)
             int is_evr;
             IS_EVR(is_evr, amount_buffer, issuer_accid);
 
+            // Currency should be EVR.
+            if (!is_evr)
+                rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
+
             // Checking whether this host has an initiated transfer to continue.
             int has_initiated_transfer = 0;
             TRANSFEREE_ADDR_KEY(account_field);
 
             uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
-            uint8_t prev_host_addr[HOST_ADDR_VAL_SIZE];
-            uint8_t prev_token_id[TOKEN_ID_VAL_SIZE];
             if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
-            {
                 has_initiated_transfer = 1;
-
-                HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
-                if (state(SBUF(prev_host_addr), SBUF(STP_HOST_ADDR)) < 0)
-                    rollback(SBUF("Evernode: Previous host address state not found."), 1);
-
-                TOKEN_ID_KEY((uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
-                if (state(SBUF(prev_token_id), SBUF(STP_TOKEN_ID)) < 0)
-                    rollback(SBUF("Evernode: Previous host token id state not found."), 1);
-            }
-
-            // Currency should be EVR.
-            if (!is_evr)
-                rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
 
             // Take the host reg fee from config.
             int64_t host_reg_fee;
             GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
             TRACEVAR(host_reg_fee);
 
-            if (float_compare(float_amt, float_set(0, host_reg_fee), COMPARE_LESS) == 1)
-            {
-                if ((has_initiated_transfer != 0) && (float_compare(float_amt, float_set(0, NOW_IN_EVRS), COMPARE_LESS) == 1))
-                    rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
-            }
+            int64_t comparison_status = (has_initiated_transfer == 0) ? float_compare(float_amt, float_set(0, host_reg_fee), COMPARE_LESS) : float_compare(float_amt, float_set(0, NOW_IN_EVRS), COMPARE_LESS);
+
+            if (comparison_status == 1)
+                rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
 
             // Checking whether this host is already registered.
             HOST_ADDR_KEY(account_field);
@@ -112,38 +99,6 @@ int64_t hook(uint32_t reserved)
 
             if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                 rollback(SBUF("Evernode: Host already registered."), 1);
-
-            // Generate the NFT token id.
-
-            // Take the account token sequence from keylet.
-            uint8_t keylet[34];
-            if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
-                rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
-
-            int64_t slot_no = slot_set(SBUF(keylet), 0);
-            if (slot_no < 0)
-                rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
-
-            int64_t token_seq_slot = slot_subfield(slot_no, sfMintedNFTokens, 0);
-            uint32_t token_seq = 0;
-            if (token_seq_slot >= 0)
-            {
-                uint8_t token_seq_buf[4];
-                token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
-                token_seq = UINT32_FROM_BUF(token_seq_buf);
-            }
-            else if (token_seq_slot != DOESNT_EXIST)
-                rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
-            TRACEVAR(token_seq);
-
-            // If there are multiple flags, we can perform "Bitwise OR" to apply them all to tflag.
-            uint16_t tflag = tfBurnable;
-            uint32_t taxon = 0;
-            uint16_t tffee = 0;
-
-            uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
-            GENERATE_NFT_TOKEN_ID(nft_token_id, tflag, tffee, hook_accid, taxon, token_seq);
-            trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
             COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
 
@@ -237,7 +192,40 @@ int64_t hook(uint32_t reserved)
 
             if (has_initiated_transfer == 0)
             {
-                // Continuation of normal registration flow.
+                // Continuation of normal registration flow...
+
+                // Generate the NFT token id.
+
+                // Take the account token sequence from keylet.
+                uint8_t keylet[34];
+                if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
+                    rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
+
+                int64_t slot_no = slot_set(SBUF(keylet), 0);
+                if (slot_no < 0)
+                    rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
+
+                int64_t token_seq_slot = slot_subfield(slot_no, sfMintedNFTokens, 0);
+                uint32_t token_seq = 0;
+                if (token_seq_slot >= 0)
+                {
+                    uint8_t token_seq_buf[4];
+                    token_seq_slot = slot(SBUF(token_seq_buf), token_seq_slot);
+                    token_seq = UINT32_FROM_BUF(token_seq_buf);
+                }
+                else if (token_seq_slot != DOESNT_EXIST)
+                    rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
+                TRACEVAR(token_seq);
+
+                // If there are multiple flags, we can perform "Bitwise OR" to apply them all to tflag.
+                uint16_t tflag = tfBurnable;
+                uint32_t taxon = 0;
+                uint16_t tffee = 0;
+
+                uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
+                GENERATE_NFT_TOKEN_ID(nft_token_id, tflag, tffee, hook_accid, taxon, token_seq);
+                trace("NFT token id:", 13, SBUF(nft_token_id), 1);
+
                 COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
 
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
@@ -335,12 +323,29 @@ int64_t hook(uint32_t reserved)
             }
             else
             {
-                // Continuation of re-registration flow (completion of an existing transfer).
+                // Continuation of re-registration flow (completion of an existing transfer)...
+
+                uint8_t prev_host_addr[HOST_ADDR_VAL_SIZE];
+                HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
+                if (state(SBUF(prev_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Previous host address state not found."), 1);
+
+                uint8_t prev_token_id[TOKEN_ID_VAL_SIZE];
+                TOKEN_ID_KEY((uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
+                if (state(SBUF(prev_token_id), SBUF(STP_TOKEN_ID)) < 0)
+                    rollback(SBUF("Evernode: Previous host token id state not found."), 1);
+
+                // Use the previous NFToken id for this re-reg flow.
                 COPY_BUF(host_addr, 0, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET), 0, NFT_TOKEN_ID_SIZE);
+
+                // Copy some of the previous host state figures to the new HOST_ADDR state.
                 const uint8_t *heartbeat_ptr = &prev_host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
                 INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], INT64_FROM_BUF(heartbeat_ptr));
                 UINT64_TO_BUF(&host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET], UINT64_FROM_BUF(prev_host_addr + HOST_HEARTBEAT_LEDGER_IDX_OFFSET));
                 UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], UINT64_FROM_BUF(prev_host_addr + HOST_REG_TIMESTAMP_OFFSET));
+
+                // Set the STP_HOST_ADDR with corresponding new state's key.
+                HOST_ADDR_KEY(account_field);
 
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
@@ -353,9 +358,6 @@ int64_t hook(uint32_t reserved)
                 UINT32_TO_BUF(&prev_token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                 UINT32_TO_BUF(&prev_token_id[HOST_RAM_MB_OFFSET], ram_mb);
                 UINT32_TO_BUF(&prev_token_id[HOST_DISK_MB_OFFSET], disk_mb);
-
-                // Set the STP_TOKEN_ID correctly.
-                TOKEN_ID_KEY((uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
 
                 if (state_set(SBUF(prev_token_id), SBUF(STP_TOKEN_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for token_id."), 1);
