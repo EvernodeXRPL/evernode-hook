@@ -338,10 +338,16 @@ class IndexManager {
                 case MemoTypes.HOST_DEREG:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG.slice();
                     break;
-                case MemoTypes.HOST_UPDATE_INFO:
+                case MemoTypes.HOST_UPDATE_INFO: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+
+                    const info = await this.#registryClient.getHostInfo(trx.Account);
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.nfTokenId);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
+
                     break;
+                }
                 case MemoTypes.HEARTBEAT:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });

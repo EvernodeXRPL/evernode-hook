@@ -51,6 +51,8 @@ int64_t hook(uint32_t reserved)
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+        // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
+        uint8_t token_id[TOKEN_ID_VAL_SIZE];
         uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
         // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
@@ -74,6 +76,11 @@ int64_t hook(uint32_t reserved)
             HOST_ADDR_KEY(account_field); // Generate host account key.
             // Check for registration entry.
             if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+                rollback(SBUF("Evernode: This host is not registered."), 1);
+
+            TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
+            // Check for token id entry.
+            if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) == DOESNT_EXIST)
                 rollback(SBUF("Evernode: This host is not registered."), 1);
 
             // Check the ownership of the NFT to this user before proceeding.
@@ -225,8 +232,6 @@ int64_t hook(uint32_t reserved)
 
             if (!is_token_match)
                 rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
-
-            TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
             // Delete registration entries.
             if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
@@ -393,8 +398,9 @@ int64_t hook(uint32_t reserved)
         {
             // Msg format.
             // <token_id>;<country_code>;<cpu_microsec>;<ram_mb>;<disk_mb>;<total_instance_count>;<active_instances>;<description>;<version>
-            uint32_t section_number = 0, active_instances_len = 0, version_len = 0;
-            uint8_t *active_instances_ptr, *version_ptr;
+            uint32_t section_number = 0, cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, active_instances_len = 0, version_len = 0;
+            uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *active_instances_ptr, *version_ptr;
+
             int info_updated = 0;
             for (int i = 0; GUARD(MAX_MEMO_DATA_LEN), i < data_len; ++i)
             {
@@ -410,7 +416,43 @@ int64_t hook(uint32_t reserved)
                 else if (*str_ptr == 0)
                     break;
 
-                if (section_number == 6) // We only handle active instances for now.
+                if (section_number == 2)
+                {
+                    if (cpu_microsec_len == 0)
+                    {
+                        cpu_microsec_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    cpu_microsec_len++;
+                }
+                else if (section_number == 3)
+                {
+                    if (ram_mb_len == 0)
+                    {
+                        ram_mb_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    ram_mb_len++;
+                }
+                else if (section_number == 4)
+                {
+                    if (disk_mb_len == 0)
+                    {
+                        disk_mb_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    disk_mb_len++;
+                }
+                else if (section_number == 5)
+                {
+                    if (total_ins_count_len == 0)
+                    {
+                        total_ins_count_ptr = str_ptr;
+                        info_updated = 1;
+                    }
+                    total_ins_count_len++;
+                }
+                else if (section_number == 6)
                 {
                     if (active_instances_len == 0)
                     {
@@ -433,15 +475,42 @@ int64_t hook(uint32_t reserved)
             // All data fields are optional in update info transaction. Update state only if an information update is detected.
             if (info_updated)
             {
-                uint32_t active_instances;
-                STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
-
-                TRACEVAR(active_instances);
-
-                // Populate the values to the buffer.
-                UINT32_TO_BUF(host_addr + HOST_ACT_INS_COUNT_OFFSET, active_instances);
-
-                if (version_len > 0) // Version update detected.
+                if (cpu_microsec_len > 0)
+                {
+                    uint32_t cpu_microsec;
+                    STR_TO_UINT(cpu_microsec, cpu_microsec_ptr, cpu_microsec_len);
+                    TRACEVAR(cpu_microsec);
+                    UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
+                }
+                if (ram_mb_len > 0)
+                {
+                    uint32_t ram_mb;
+                    STR_TO_UINT(ram_mb, ram_mb_ptr, ram_mb_len);
+                    TRACEVAR(ram_mb);
+                    UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
+                }
+                if (disk_mb_len > 0)
+                {
+                    uint32_t disk_mb;
+                    STR_TO_UINT(disk_mb, disk_mb_ptr, disk_mb_len);
+                    TRACEVAR(disk_mb);
+                    UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
+                }
+                if (total_ins_count_len > 0)
+                {
+                    uint32_t total_ins_count;
+                    STR_TO_UINT(total_ins_count, total_ins_count_ptr, total_ins_count_len);
+                    TRACEVAR(total_ins_count);
+                    UINT32_TO_BUF(&host_addr[HOST_TOT_INS_COUNT_OFFSET], total_ins_count);
+                }
+                if (active_instances_len > 0)
+                {
+                    uint32_t active_instances;
+                    STR_TO_UINT(active_instances, active_instances_ptr, active_instances_len);
+                    TRACEVAR(active_instances);
+                    UINT32_TO_BUF(&host_addr[HOST_ACT_INS_COUNT_OFFSET], active_instances);
+                }
+                if (version_len > 0)
                 {
                     uint8_t *major_ptr, *minor_ptr, *patch_ptr;
                     uint8_t version_section = 0, major_len = 0, minor_len = 0, patch_len = 0;
@@ -491,7 +560,7 @@ int64_t hook(uint32_t reserved)
                     STR_TO_UINT(host_addr[HOST_VERSION_OFFSET + 2], patch_ptr, patch_len);
                 }
 
-                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+                if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0 || state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
                     rollback(SBUF("Evernode: Could not set state for info update."), 1);
             }
 
