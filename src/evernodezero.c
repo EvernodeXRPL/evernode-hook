@@ -200,6 +200,12 @@ int64_t hook(uint32_t reserved)
                         if (is_host_rebate)
                             op_type = OP_HOST_REBATE;
 
+                        // Set hook with HookHashes
+                        int is_new_sethook = 0;
+                        BUFFER_EQUAL_STR(is_new_sethook, type_ptr, type_len, NEW_SET_HOOK_HASHES);
+                        if (is_new_sethook)
+                            op_type = OP_SET_HOOK;
+                        
                         // Host rebate.
                         int is_host_transfer = 0;
                         BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
@@ -251,7 +257,7 @@ int64_t hook(uint32_t reserved)
 
                         accept(0, 0, 0);
                     }
-                    else if (op_type == OP_HOST_REG)
+                    else if (op_type == OP_HOST_REG || op_type == OP_SET_HOOK)
                     {
                         hook_skip(SBUF(chain_two_hash), 0);
                         common_params[CHAIN_IDX_PARAM_OFFSET] = 1;
@@ -263,13 +269,18 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: transaction id missing."), 1);
 
                         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
-                        int64_t result = slot(&chain_one_params[AMOUNT_BUF_PARAM_OFFSET], AMOUNT_BUF_SIZE, amt_slot);
-                        if (result != AMOUNT_BUF_SIZE)
-                            rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
-                        int64_t float_amt = slot_float(amt_slot);
-                        if (float_amt < 0)
-                            rollback(SBUF("Evernode: Could not parse amount."), 1);
-                        INT64_TO_BUF(&chain_one_params[FLOAT_AMT_PARAM_OFFSET], float_amt);
+                        
+                        if (op_type == OP_HOST_REG)
+                        {
+                            int64_t result = slot(&chain_one_params[AMOUNT_BUF_PARAM_OFFSET], AMOUNT_BUF_SIZE, amt_slot);
+                            if (result != AMOUNT_BUF_SIZE)
+                                rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
+                            int64_t float_amt = slot_float(amt_slot);
+                            if (float_amt < 0)
+                                rollback(SBUF("Evernode: Could not parse amount."), 1);
+                            INT64_TO_BUF(&chain_one_params[FLOAT_AMT_PARAM_OFFSET], float_amt);
+                        }
+
                         COPY_BUF(chain_one_params, TXID_PARAM_OFFSET, txid, 0, HASH_SIZE);
 
                         if (hook_param_set(SBUF(common_params), SBUF(COMMON_CHAIN_PARAMS), SBUF(chain_one_hash)) < 0)

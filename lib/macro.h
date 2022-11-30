@@ -553,8 +553,4 @@ int out_len = 0;\
         _06_08_ENCODE_DROPS_FEE            (fee_ptr, fee                            );                               \
     }
 
-
-
 #endif
-
-

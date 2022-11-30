@@ -8,6 +8,8 @@
 #define OBJECT 0xE0U
 #define MEMOS 0X9
 #define MEMO 0XA
+#define HOOKS 0XB
+#define HOOK 0XE
 #define END 1
 #define MEMO_TYPE 0xC
 #define MEMO_DATA 0xD
@@ -486,8 +488,50 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         buf_out[2] = (uto >> 0) & 0xFFU; \
         buf_out += ENCODE_TF_SIZE;       \
     }
+
 #define _01_04_ENCODE_TF(buf_out, to) \
     ENCODE_TF(buf_out, to);
+
+#define ENCODE_HOOKHASH_SIZE 34
+#define ENCODE_HOOKHASH(buf_out, hash_ptr)\
+    {\
+        buf_out[0] = 0x50U + 0U;\
+        buf_out[1] = 0x1FU;\
+        *(uint64_t *)(buf_out + 2) = *(uint64_t *)(hash_ptr + 0);   \
+        *(uint64_t *)(buf_out + 10) = *(uint64_t *)(hash_ptr + 8);   \
+        *(uint64_t *)(buf_out + 18) = *(uint64_t *)(hash_ptr + 16); \
+        *(uint64_t *)(buf_out + 26) = *(uint64_t *)(hash_ptr + 24); \
+        buf_out += ENCODE_HOOKHASH_SIZE;\
+    }
+
+#define _05_31_ENCODE_HOOKHASH(buf_out, hash_ptr)\
+    ENCODE_HOOKHASH(buf_out, hash_ptr);
+
+#define ENCODE_DELETEHOOK_SIZE 2
+#define ENCODE_DELETEHOOK(buf_out)\
+{\
+    buf_out[0] = 0x70U + 0xBU;\
+    buf_out[1] = 0x00U;\
+    buf_out += ENCODE_DELETEHOOK_SIZE;\
+}
+
+#define _07_11_ENCODE_DELETEHOOK(buf_out)\
+    ENCODE_DELETEHOOK(buf_out);
+
+#define ENCODE_NAMESPACE_SIZE 34
+#define ENCODE_NAMESPACE(buf_out, namespace)\
+    {\
+        buf_out[0] = 0x50U + 0U;\
+        buf_out[1] = 0x20U;\
+        *(uint64_t *)(buf_out + 2) = *(uint64_t *)(namespace + 0);    \
+        *(uint64_t *)(buf_out + 10) = *(uint64_t *)(namespace + 8);   \
+        *(uint64_t *)(buf_out + 18) = *(uint64_t *)(namespace + 16);  \
+        *(uint64_t *)(buf_out + 26) = *(uint64_t *)(namespace + 24);  \
+        buf_out += ENCODE_NAMESPACE_SIZE;\
+    }
+
+#define _05_32_ENCODE_NAMESPACE(buf_out, namespace)\
+    ENCODE_NAMESPACE(buf_out, namespace);
 
 #define ENCODE_TXON_SIZE 6U
 #define ENCODE_TXON(buf_out, tf) \
@@ -845,6 +889,64 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE); \
         \ 
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                             \
+    }
+
+/**************************************************************************/
+/************** Set Hook Related Transactions *****************************/
+/**************************************************************************/
+#define OP_HOOK_INSTALLATION 1
+#define OP_HOOK_DELETION 2
+#define ENCODE_HOOK_INSTALLATION_SIZE 75
+#define ENCODE_HOOK_DELETION_SIZE 9
+#define ENCODE_HOOK_NO_OPERATION_SIZE 2
+#define GET_HOOKSET_OPERATION_SIZE(operation_type)\
+    (operation_type == OP_HOOK_INSTALLATION ? ENCODE_HOOK_INSTALLATION_SIZE : operation_type == OP_HOOK_DELETION ? ENCODE_HOOK_DELETION_SIZE : ENCODE_HOOK_NO_OPERATION_SIZE)
+
+#define PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order) \
+    (231 + GET_HOOKSET_OPERATION_SIZE(operation_order[0]) + GET_HOOKSET_OPERATION_SIZE(operation_order[1]) + GET_HOOKSET_OPERATION_SIZE(operation_order[2]) + GET_HOOKSET_OPERATION_SIZE(operation_order[3]))
+
+#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr, namespace)                            \
+    {                                                                                                                          \
+        uint8_t *buf_out = buf_out_master;                                                                                     \
+        uint32_t cls = (uint32_t)ledger_seq();                                                                                 \
+        uint8_t acc[20];                                                                                                       \
+        hook_account(SBUF(acc));                                                                                               \
+        _01_02_ENCODE_TT(buf_out, ttHOOK_SET);   /* uint16  | size   3 */                                                      \
+        _02_02_ENCODE_FLAGS(buf_out, tfOnlyXRP); /* uint32  | size   5 */                                                      \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);      /* uint32  | size   5 */                                                      \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);     /* uint32  | size   6 */                                                      \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);     /* uint32  | size   6 */                                                      \
+        uint8_t *fee_ptr = buf_out;                                                                                            \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);                /* amount  | size   9 */                                           \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);         /* pk      | size  35 */                                           \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);            /* account | size  22 */                                           \
+        ENCODE_FIELDS(buf_out, ARRAY, HOOKS); /*Arr Start*/ /* uint32  | size   1 */                                           \
+        for (int i = 0; GUARD(4), i < 4; ++i)                                                                                  \
+        {                                                                                                                      \
+            switch (operation_order[i])                                                                                        \
+            {                                                                                                                  \
+            case 1:                                                                                                            \
+                ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/    /* uint32  | size   1 */                                \
+                _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);           /* uint32  | size   5 */                                \
+                _05_31_ENCODE_HOOKHASH(buf_out, hash_pointers_arr[i]); /* uint256 | size  34 */                                \
+                _05_32_ENCODE_NAMESPACE(buf_out, namespace);           /* uint256 | size  34 */                                \
+                ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/       /* uint32  | size   1 */                                \
+                break;                                                                                                         \
+            case 2:                                                                                                            \
+                ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                                   \
+                _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);        /* uint32  | size   5 */                                   \
+                _07_11_ENCODE_DELETEHOOK(buf_out);                  /* blob    | size   2 */                                   \
+                ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/    /* uint32  | size   1 */                                   \
+                break;                                                                                                         \
+            default:                                                                                                           \
+                ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                                   \
+                ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/    /* uint32  | size   1 */                                   \
+            }                                                                                                                  \
+        }                                                                                                                      \
+        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/ /* uint32  | size   1 */                                               \
+        etxn_details((uint32_t)buf_out, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)); /* emitdet | size 138 */ \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));                       \
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                 \
     }
 
 /**************************************************************************/

@@ -13,6 +13,7 @@
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
+#define NEW_SET_HOOK_HASHES "evnHookUpdate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -28,6 +29,7 @@
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
+#define ttHOOK_SET 22
 #define ttNFT_MINT 25
 #define ttNFT_BURN 26
 #define ttNFT_OFFER 27
@@ -36,6 +38,8 @@
 #define tfBurnable 0x00000001
 #define tfSellToken 0x00000001
 #define tfBuyToken 0x00000000
+#define tfOnlyXRP 0x00000002
+#define tfHookOveride 0x00000001
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 #define MAX_UINT_STR_LEN 20
@@ -56,6 +60,7 @@
 #define OP_DEAD_HOST_PRUNE 7
 #define OP_HOST_REBATE 8
 #define OP_HOST_TRANSFER 9
+#define OP_SET_HOOK 10
 
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
@@ -68,7 +73,7 @@ const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const int32_t DEF_TARGET_PRICE_M = 2;
 const int32_t DEF_TARGET_PRICE_E = 0;
-const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 160;  // In seconds
+const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 160;   // In seconds
 const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 240; // In moments.
 const uint8_t DEF_EPOCH_COUNT = 10;
 const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;

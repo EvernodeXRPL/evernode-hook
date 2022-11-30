@@ -307,6 +307,60 @@ int64_t hook(uint32_t reserved)
 
             accept(SBUF("Host registration successful."), 0);
         }
+        else if (op_type == OP_SET_HOOK)
+        {
+            int is_format_hex = 0;
+            BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+            if (!is_format_hex)
+                rollback(SBUF("Evernode: Format should be hex for Hook set."), 1);
+
+            uint8_t initializer_accid[ACCOUNT_ID_SIZE];
+            const int initializer_accid_len = util_accid(SBUF(initializer_accid), HOOK_INITIALIZER_ADDR, 35);
+            if (initializer_accid_len < ACCOUNT_ID_SIZE)
+                rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
+
+            int is_initializer_account = 0;
+            BUFFER_EQUAL(is_initializer_account, initializer_accid, account_field, ACCOUNT_ID_SIZE);
+            if (!is_initializer_account)
+                rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
+
+            uint8_t *hash_ptrs[4], *namespace_ptr;
+            uint8_t operation_order[4] = {0}, index_operation, index, operation;
+            uint8_t *current_ptr = data_ptr;
+
+            // memo data format: '<hook_position - 1B><operation(01 for installation | 02 for deletion | 00 for no operation ) - 1B><Hook hash if installation - 32B >(x 4)<Namespace - 32B >'
+
+            for (int i = 0; GUARD(4), i < 4, (current_ptr - data_ptr) < (data_len - HASH_SIZE); ++i)
+            {
+                index = *current_ptr;
+                ++current_ptr;
+                operation = *current_ptr;
+                operation_order[index] = operation;
+                ++current_ptr;
+                if (operation == 1) // For hook installation
+                {
+                    hash_ptrs[index] = current_ptr;
+                    current_ptr += HASH_SIZE;
+                }
+                else if (operation == 2) // For hook deletion
+                {
+                    hash_ptrs[index] = 0;
+                }
+            }
+
+            namespace_ptr = current_ptr;
+
+            etxn_reserve(1);
+            uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
+            PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, hash_ptrs, namespace_ptr);
+
+            uint8_t emithash[HASH_SIZE];
+            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                rollback(SBUF("Evernode: Hook set transaction failed."), 1);
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+            accept(SBUF("Evernode: Successfully emiited SetHook transaction."), 0);
+        }
     }
     else if (common_params[CHAIN_IDX_PARAM_OFFSET] != 1)
     {
