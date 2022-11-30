@@ -353,7 +353,6 @@ int64_t hook(uint32_t reserved)
                 namespace_ptr = current_ptr;
 
                 etxn_reserve(1);
-                TRACEVAR(PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));
                 uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
                 PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, hash_ptrs, namespace_ptr);
 
