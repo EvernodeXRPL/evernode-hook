@@ -106,8 +106,8 @@ int64_t hook(uint32_t reserved)
             // We cannot predict the lengths of the numerical values.
             // So we scan bytes and keep pointers and lengths to set in host address buffer.
             uint32_t section_number = 0;
-            uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr;
-            uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, cpu_model_len = 0, cpu_count_len = 0, cpu_speed_len = 0, description_len = 0;
+            uint8_t *cpu_microsec_ptr, *ram_mb_ptr, *disk_mb_ptr, *total_ins_count_ptr, *cpu_model_ptr, *cpu_count_ptr, *cpu_speed_ptr, *description_ptr, *email_address_ptr;
+            uint32_t cpu_microsec_len = 0, ram_mb_len = 0, disk_mb_len = 0, total_ins_count_len = 0, cpu_model_len = 0, cpu_count_len = 0, cpu_speed_len = 0, description_len = 0, email_address_len = 0;
 
             for (int i = 2; GUARD(MAX_MEMO_DATA_LEN), i < data_len; ++i)
             {
@@ -170,6 +170,12 @@ int64_t hook(uint32_t reserved)
                     if (description_len == 0)
                         description_ptr = str_ptr;
                     description_len++;
+                }
+                else if (section_number == 9)
+                {
+                    if (email_address_len == 0)
+                        email_address_ptr = str_ptr;
+                    email_address_len++;
                 }
             }
 
@@ -237,6 +243,7 @@ int64_t hook(uint32_t reserved)
                 CLEAR_BUF(token_id, 0, TOKEN_ID_VAL_SIZE); // Initialize buffer wih 0s
                 COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
                 COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
+                COPY_BUF_NON_CONST_LEN_GUARDM(token_id, EMAIL_ADDRESS_OFFSET, email_address_ptr, 0, email_address_len, EMAIL_ADDRESS_LEN, 1, 1);
                 UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                 UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                 UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);

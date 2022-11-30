@@ -91,7 +91,7 @@ const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 112;
-const uint32_t TOKEN_ID_VAL_SIZE = 76;
+const uint32_t TOKEN_ID_VAL_SIZE = 116;
 const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
 const uint32_t HASH_SIZE = 32;
@@ -104,6 +104,7 @@ const uint32_t REWARD_INFO_VAL_SIZE = 21;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
+const uint32_t EMAIL_ADDRESS_LEN = 40;
 
 // State value offsets
 // REWARD_INFO
@@ -141,6 +142,7 @@ const uint32_t HOST_CPU_SPEED_OFFSET = 62;
 const uint32_t HOST_CPU_MICROSEC_OFFSET = 64;
 const uint32_t HOST_RAM_MB_OFFSET = 68;
 const uint32_t HOST_DISK_MB_OFFSET = 72;
+const uint32_t EMAIL_ADDRESS_OFFSET = 76;
 
 // TRANSFEREE_ADDR
 const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
