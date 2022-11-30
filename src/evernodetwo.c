@@ -713,7 +713,7 @@ int64_t hook(uint32_t reserved)
 
             // Check whether there is an already initiated transfer for the transferee
             TRANSFEREE_ADDR_KEY(data_ptr);
-            // <transferring_host_address(20)><registration_ledger(8)><token_id(20)>
+            // <transferring_host_address(20)><registration_ledger(8)><token_id(32)>
             uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
 
             if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
