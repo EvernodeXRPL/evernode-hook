@@ -78,7 +78,8 @@ int64_t hook(uint32_t reserved)
             if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
                 rollback(SBUF("Evernode: This host is not registered."), 1);
 
-            TOKEN_ID_KEY(host_addr);
+            TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
+            // Check for token id entry.
             if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) == DOESNT_EXIST)
                 rollback(SBUF("Evernode: This host is not registered."), 1);
 
@@ -231,8 +232,6 @@ int64_t hook(uint32_t reserved)
 
             if (!is_token_match)
                 rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
-
-            TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
             // Delete registration entries.
             if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
