@@ -28,6 +28,9 @@ uint8_t STP_TOKEN_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Host address keys (Host registration entries for xrpl address-based lookup). Last 20 bytes will be replaced by host address in runtime.
 uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+// Pending Transfers (Host transfer initiations for transferee address based lookup)
+uint8_t STP_TRANSFEREE_ADDR[32] = {'E', 'V', 'R', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 /////////// Hook Configuration. ///////////
 // All configuration keys has the prefix STP_CONF = 1;
 
@@ -86,6 +89,12 @@ const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0
             STP_TOKEN_ID[i] = token_id[i];      \
     }
 
+#define TRANSFEREE_ADDR_KEY(transferee_addr)                  \
+    {                                                         \
+        for (int i = 12; GUARD(20), i < 32; i++)              \
+            STP_TRANSFEREE_ADDR[i] = transferee_addr[i - 12]; \
+    }
+
 #define HOST_ADDR_KEY_GUARD(host_addr, n)            \
     {                                                \
         for (int i = 12; GUARD(21 * n), i < 32; i++) \
@@ -96,6 +105,12 @@ const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0
     {                                               \
         for (int i = 4; GUARD(29 * n), i < 32; i++) \
             STP_TOKEN_ID[i] = token_id[i];          \
+    }
+
+#define TRANSFEREE_ADDR_KEY_GUARD(transferee_addr, n)         \
+    {                                                         \
+        for (int i = 12; GUARD(21 * n), i < 32; i++)          \
+            STP_TRANSFEREE_ADDR[i] = transferee_addr[i - 12]; \
     }
 
 #define CONF_KEY(buf, conf_key)                        \

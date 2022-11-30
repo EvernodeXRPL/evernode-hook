@@ -518,6 +518,21 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define _07_11_ENCODE_DELETEHOOK(buf_out)\
     ENCODE_DELETEHOOK(buf_out);
 
+#define ENCODE_NAMESPACE_SIZE 34
+#define ENCODE_NAMESPACE(buf_out, namespace)\
+    {\
+        buf_out[0] = 0x50U + 0U;\
+        buf_out[1] = 0x20U;\
+        *(uint64_t *)(buf_out + 2) = *(uint64_t *)(namespace + 0);    \
+        *(uint64_t *)(buf_out + 10) = *(uint64_t *)(namespace + 8);   \
+        *(uint64_t *)(buf_out + 18) = *(uint64_t *)(namespace + 16);  \
+        *(uint64_t *)(buf_out + 26) = *(uint64_t *)(namespace + 24);  \
+        buf_out += ENCODE_NAMESPACE_SIZE;\
+    }
+
+#define _05_32_ENCODE_NAMESPACE(buf_out, namespace)\
+    ENCODE_NAMESPACE(buf_out, namespace);
+
 #define ENCODE_TXON_SIZE 6U
 #define ENCODE_TXON(buf_out, tf) \
     ENCODE_UINT32_UNCOMMON(buf_out, tf, 0x2A);
@@ -820,30 +835,60 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 /////////// Macro to prepare a nft buy offer. ///////////
 
-#define PREPARE_NFT_BUY_OFFER_SIZE 338
-#define PREPARE_NFT_BUY_OFFER(buf_out_master, tlamt, to_address, tknid)            \
-    {                                                                              \
-        uint8_t *buf_out = buf_out_master;                                         \
-        uint8_t acc[20];                                                           \
-        uint32_t cls = (uint32_t)ledger_seq();                                     \
-        hook_account(SBUF(acc));                                                   \
-        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);           /* uint16  | size   3 */ \
-        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);         /* uint32  | size   5 */ \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);               /* uint32  | size   5 */ \
-        _02_10_ENCODE_EXPIRATION_MAX(buf_out);            /* uint32  | size   5 */ \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);              /* uint32  | size   6 */ \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);              /* uint32  | size   6 */ \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);          /* amount  | size  49 */ \
-        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid); /* tknid   | size  33 */ \
-        uint8_t *fee_ptr = buf_out;                                                \
-        _06_08_ENCODE_DROPS_FEE(buf_out, 0);              /* amount  | size   9 */ \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */ \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */ \
-        _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */ \
-        etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */ \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_SIZE);   \
+#define PREPARE_NFT_BUY_OFFER_SIZE 298
+#define PREPARE_NFT_BUY_OFFER(buf_out_master, drops_amount_raw, to_address, tknid)  \
+    {                                                                               \
+        uint8_t *buf_out = buf_out_master;                                          \
+        uint8_t acc[20];                                                            \
+        uint64_t drops_amount = (drops_amount_raw);                                 \
+        uint32_t cls = (uint32_t)ledger_seq();                                      \
+        hook_account(SBUF(acc));                                                    \
+        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);            /* uint16  | size   3 */ \
+        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);          /* uint32  | size   5 */ \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */ \
+        _02_10_ENCODE_EXPIRATION_MAX(buf_out);             /* uint32  | size   5 */ \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */ \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */ \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */ \
+        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid);  /* tknid   | size  33 */ \
+        uint8_t *fee_ptr = buf_out;                                                 \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);              /* amount  | size   9 */  \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */  \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */  \
+        _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */  \
+        etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */  \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_SIZE);    \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                     \
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                      \
+    }
+
+/////////// Macro to prepare a nft buy offer.(IOU) ///////////
+
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE 338
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE 338
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE(buf_out_master, tlamt, to_address, tknid)          \
+    {                                                                                      \
+        uint8_t *buf_out = buf_out_master;                                                 \
+        uint8_t acc[20];                                                                   \
+        uint32_t cls = (uint32_t)ledger_seq();                                             \
+        hook_account(SBUF(acc));                                                           \
+        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);           /* uint16  | size   3 */         \
+        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);         /* uint32  | size   5 */         \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);               /* uint32  | size   5 */         \
+        _02_10_ENCODE_EXPIRATION_MAX(buf_out);            /* uint32  | size   5 */         \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);              /* uint32  | size   6 */         \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);              /* uint32  | size   6 */         \
+        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);          /* amount  | size  49 */         \
+        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid); /* tknid   | size  33 */         \
+        uint8_t *fee_ptr = buf_out;                                                        \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);              /* amount  | size   9 */         \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */         \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);          /* account | size  22 */         \
+        _08_02_ENCODE_ACCOUNT_OWNER(buf_out, to_address); /* account | size  22 */         \
+        etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */         \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE); \
+        \ 
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                             \
     }
 
 /**************************************************************************/
@@ -853,7 +898,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order) \
     (231 + GET_HOOKSET_OPERATION_SIZE(operation_order[0]) + GET_HOOKSET_OPERATION_SIZE(operation_order[1]) + GET_HOOKSET_OPERATION_SIZE(operation_order[2]) + GET_HOOKSET_OPERATION_SIZE(operation_order[3]))
 
-#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr)                                       \
+#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr, namespace)                            \
     {                                                                                                                          \
         uint8_t *buf_out = buf_out_master;                                                                                     \
         uint32_t cls = (uint32_t)ledger_seq();                                                                                 \
@@ -877,6 +922,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/    /* uint32  | size   1 */                                \
                 _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);           /* uint32  | size   5 */                                \
                 _05_31_ENCODE_HOOKHASH(buf_out, hash_pointers_arr[i]); /* uint256 | size  34 */                                \
+                _05_32_ENCODE_NAMESPACE(buf_out, namespace);           /* uint256 | size  34 */                                \
                 ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/       /* uint32  | size   1 */                                \
                 break;                                                                                                         \
             case 2:                                                                                                            \

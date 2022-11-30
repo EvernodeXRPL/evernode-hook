@@ -205,6 +205,12 @@ int64_t hook(uint32_t reserved)
                         BUFFER_EQUAL_STR(is_new_sethook, type_ptr, type_len, NEW_SET_HOOK_HASHES);
                         if (is_new_sethook)
                             op_type = OP_SET_HOOK;
+                        
+                        // Host rebate.
+                        int is_host_transfer = 0;
+                        BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
+                        if (is_host_transfer)
+                            op_type = OP_HOST_TRANSFER;
                     }
                     else
                     {
@@ -232,7 +238,8 @@ int64_t hook(uint32_t reserved)
                         op_type == OP_HOST_UPDATE_REG ||
                         op_type == OP_HOST_DE_REG ||
                         op_type == OP_DEAD_HOST_PRUNE ||
-                        op_type == OP_HOST_REBATE)
+                        op_type == OP_HOST_REBATE ||
+                        op_type == OP_HOST_TRANSFER)
                     {
                         hook_skip(SBUF(chain_one_hash), 0);
                         common_params[CHAIN_IDX_PARAM_OFFSET] = 2;
