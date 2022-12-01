@@ -243,13 +243,12 @@ int64_t hook(uint32_t reserved)
                 CLEAR_BUF(token_id, 0, TOKEN_ID_VAL_SIZE); // Initialize buffer wih 0s
                 COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
                 COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
-                COPY_BUF_NON_CONST_LEN_GUARDM(token_id, EMAIL_ADDRESS_OFFSET, email_address_ptr, 0, email_address_len, EMAIL_ADDRESS_LEN, 1, 1);
                 UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                 UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                 UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                 UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
                 UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
-
+                COPY_BUF_NON_CONST_LEN_GUARDM(token_id, EMAIL_ADDRESS_OFFSET, email_address_ptr, 0, email_address_len, EMAIL_ADDRESS_LEN, 1, 1);
                 TOKEN_ID_KEY(nft_token_id);
 
                 if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
