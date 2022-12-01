@@ -73,11 +73,17 @@ int64_t hook(uint32_t reserved)
 
             // Checking whether this host has an initiated transfer to continue.
             int has_initiated_transfer = 0;
+            int parties_are_similar = 0;
+
             TRANSFEREE_ADDR_KEY(account_field);
 
             uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
             if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
+            {
+                // Check whether host was a transferer of the transfer. (same account continuation).
                 has_initiated_transfer = 1;
+                BUFFER_EQUAL(parties_are_similar, (uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field, 20);
+            }
 
             // Take the host reg fee from config.
             int64_t host_reg_fee;
@@ -97,7 +103,7 @@ int64_t hook(uint32_t reserved)
             uint8_t host_addr[HOST_ADDR_VAL_SIZE];
             CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
-            if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+            if ((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                 rollback(SBUF("Evernode: Host already registered."), 1);
 
             COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
@@ -376,9 +382,13 @@ int64_t hook(uint32_t reserved)
                 // Set the STP_HOST_ADDR correctly of the deleting state.
                 HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
 
-                // Delete previous HOST_ADDR state and the relevant TRANSFEREE_ADDR state entries
-                if (state_set(0, 0, SBUF(STP_TRANSFEREE_ADDR)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
-                    rollback(SBUF("Evernode: Could not delete state entries related to transfer."), 1);
+                // Delete previous HOST_ADDR state and the relevant TRANSFEREE_ADDR state entries accordingly.
+
+                if (!parties_are_similar && (state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0))
+                    rollback(SBUF("Evernode: Could not delete the previous host state entry."), 1);
+
+                if (state_set(0, 0, SBUF(STP_TRANSFEREE_ADDR)) < 0)
+                    rollback(SBUF("Evernode: Could not delete state related to transfer."), 1);
 
                 accept(SBUF("Host re-registration successful."), 0);
             }
