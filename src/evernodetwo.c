@@ -759,6 +759,8 @@ int64_t hook(uint32_t reserved)
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not update host address state."), 1);
             }
+            else
+                rollback(SBUF("Evernode: No pending rebates for the host."), 1);
 
             accept(SBUF("Evernode: Host rebate successful."), 0);
         }
