@@ -7,7 +7,7 @@
         "lint": "./node_modules/.bin/eslint ./sethook.js",
         "build:hook": "make build",
         "build:self": "npm run lint && ncc build sethook.js --minify -o dist",
-        "build": "npm run build:hook && npm run build:self && cp ./build/evernode.wasm dist/"
+        "build": "npm run build:hook && npm run build:self && cp ./build/* dist/"
     },
     "dependencies": {
         "xrpl-hooks": "2.1.1"

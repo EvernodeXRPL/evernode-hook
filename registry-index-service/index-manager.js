@@ -69,7 +69,7 @@ const AFFECTED_HOOK_STATE_MAP = {
     ],
     HOST_REG: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
-        { operation: 'UPDATE', key: HookStateKeys.FIXED_REG_FEE },
+        { operation: 'UPDATE', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'UPDATE', key: HookStateKeys.MAX_REG }
 
         // NOTE: Repetetative State keys
@@ -91,6 +91,14 @@ const AFFECTED_HOOK_STATE_MAP = {
     DEAD_HOST_PRUNE: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+        // NOTE: Repetetative State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
+    ],
+    HOST_TRANSFER: [
+        // NOTE: Repetetative State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
+    ],
+    HOST_REBATE: [
         // NOTE: Repetetative State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ]
@@ -166,6 +174,8 @@ class IndexManager {
         this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
         this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
@@ -269,7 +279,7 @@ class IndexManager {
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
 
-        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE];
+        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE, MemoTypes.HOST_REBATE, MemoTypes.HOST_TRANSFER];
 
         const memoType = trx.Memos[0].type;
         console.log(`|${trx.Account}|${memoType}|Triggered a transaction.`);
@@ -287,13 +297,22 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG.slice();
                     affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId.toString('hex').toUpperCase() });
 
+                    let transferredNFTokenId = null;
+
+                    if (trx.Amount.value == EvernodeConstants.NOW_IN_EVRS) {
+                        const previousHostRec = await this.#registryClient.getHosts({ futureOwnerAddress: trx.Account });
+                        const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
+                        affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey.toString('hex').toUpperCase() });
+                        transferredNFTokenId = previousHostRec[0]?.nfTokenId;
+                    }
+
                     const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
                     let regNft = null;
                     const hostXrplAcc = new XrplAccount(trx.Account);
                     let attempts = 0;
                     while (attempts < NFT_WAIT_TIMEOUT) {
                         // Check in Registry.
-                        regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri));
+                        regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri || n.NFTokenID == transferredNFTokenId));
                         if (!regNft) {
                             // Check in Host.
                             regNft = (await hostXrplAcc.getNfts()).find(n => (n.URI === uri));
@@ -319,10 +338,16 @@ class IndexManager {
                 case MemoTypes.HOST_DEREG:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG.slice();
                     break;
-                case MemoTypes.HOST_UPDATE_INFO:
+                case MemoTypes.HOST_UPDATE_INFO: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+
+                    const info = await this.#registryClient.getHostInfo(trx.Account);
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.nfTokenId);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
+
                     break;
+                }
                 case MemoTypes.HEARTBEAT:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
@@ -335,6 +360,18 @@ class IndexManager {
                 case MemoTypes.DEAD_HOST_PRUNE: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
+                    break;
+                }
+                case MemoTypes.HOST_REBATE: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REBATE.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+                    break;
+                }
+                case MemoTypes.HOST_TRANSFER: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_TRANSFER.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+                    const transfereeAddressKey = StateHelpers.generateTransfereeAddrStateKey(data.transferee);
+                    affectedStates.push({ operation: 'UPDATE', key: transfereeAddressKey });
                     break;
                 }
             }
@@ -376,6 +413,13 @@ class IndexManager {
                     decoded.key = decoded.addressKey;
                     delete decoded.addressKey;
                 }
+
+                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                    decoded.key = decoded.prevHostAddressKey;
+                    delete decoded.prevHostAddress;
+                    delete decoded.prevHostAddressKey;
+                    delete decoded.transferredNfTokenId;
+                }
                 delete decoded.type;
                 await this.#firestoreManager.setHost(decoded);
             }
@@ -389,6 +433,13 @@ class IndexManager {
                 if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
                     decoded.key = decoded.addressKey;
                     delete decoded.addressKey;
+                }
+
+                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                    decoded.key = decoded.prevHostAddressKey;
+                    delete decoded.prevHostAddress;
+                    delete decoded.prevHostAddressKey;
+                    delete decoded.transferredNfTokenId;
                 }
                 delete decoded.type;
                 await this.#firestoreManager.setHost(decoded, true);
@@ -435,12 +486,21 @@ class IndexManager {
             const decoded = StateHelpers.decodeStateData(key, value);
             // If the object already exists we override it.
             // We combine host address and token objects.
-            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
+            if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID || decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
                 // If this is a token id update we replace the key with address key,
                 // So the existing host address state will get updated.
                 if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
                     decoded.key = decoded.addressKey;
                     delete decoded.addressKey;
+                }
+
+                // If this is a transferee addr state update we add additional data to the host info.
+                // So the existing host address state will get updated.
+                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                    decoded.key = decoded.prevHostAddressKey;
+                    delete decoded.prevHostAddress;
+                    delete decoded.prevHostAddressKey;
+                    delete decoded.transferredNfTokenId;
                 }
 
                 delete decoded.type;
