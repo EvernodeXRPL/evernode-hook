@@ -205,7 +205,7 @@ int64_t hook(uint32_t reserved)
                         BUFFER_EQUAL_STR(is_new_sethook, type_ptr, type_len, NEW_SET_HOOK_HASHES);
                         if (is_new_sethook)
                             op_type = OP_SET_HOOK;
-                        
+
                         // Host transfer.
                         int is_host_transfer = 0;
                         BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
@@ -269,7 +269,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: transaction id missing."), 1);
 
                         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
-                        
+
                         if (op_type == OP_HOST_REG)
                         {
                             int64_t result = slot(&chain_one_params[AMOUNT_BUF_PARAM_OFFSET], AMOUNT_BUF_SIZE, amt_slot);
