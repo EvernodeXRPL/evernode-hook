@@ -57,66 +57,18 @@ const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0
 // Moment transition info <transition_index(uint64_t)><moment_size<uint16_t)><index_type(uint_8)>.
 const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11};
 
-#define STATE_KEY(buf, prefix, key, key_len)                      \
-    buf[0] = 'E';                                                 \
-    buf[1] = 'V';                                                 \
-    buf[2] = 'R';                                                 \
-    buf[3] = prefix;                                              \
-    {                                                             \
-        int pad_len = sizeof(buf) - 4 - key_len;                  \
-        int key_limit = key_len;                                  \
-        if (pad_len < 0)                                          \
-        {                                                         \
-            pad_len = 0;                                          \
-            key_limit = key_len - 4;                              \
-        }                                                         \
-        for (int i = 0; GUARDM(pad_len, 1), i < pad_len; i++)     \
-            buf[i + 4] = 0;                                       \
-                                                                  \
-        for (int j = 0; GUARDM(key_limit, 2), j < key_limit; j++) \
-            buf[j + pad_len + 4] = key[j];                        \
-    }
+#define HOST_ADDR_KEY(host_addr) \
+    COPY_20BYTES(STP_HOST_ADDR, 12, host_addr, 0)
 
-#define HOST_ADDR_KEY(host_addr)                  \
-    {                                             \
-        for (int i = 12; GUARD(20), i < 32; i++)  \
-            STP_HOST_ADDR[i] = host_addr[i - 12]; \
-    }
-
-#define TOKEN_ID_KEY(token_id)                  \
-    {                                           \
-        for (int i = 4; GUARD(28), i < 32; i++) \
-            STP_TOKEN_ID[i] = token_id[i];      \
-    }
-
-#define TRANSFEREE_ADDR_KEY(transferee_addr)                  \
-    {                                                         \
-        for (int i = 12; GUARD(20), i < 32; i++)              \
-            STP_TRANSFEREE_ADDR[i] = transferee_addr[i - 12]; \
-    }
-
-#define HOST_ADDR_KEY_GUARD(host_addr, n)            \
-    {                                                \
-        for (int i = 12; GUARD(21 * n), i < 32; i++) \
-            STP_HOST_ADDR[i] = host_addr[i - 12];    \
-    }
-
-#define TOKEN_ID_KEY_GUARD(token_id, n)             \
-    {                                               \
-        for (int i = 4; GUARD(29 * n), i < 32; i++) \
-            STP_TOKEN_ID[i] = token_id[i];          \
-    }
-
-#define TRANSFEREE_ADDR_KEY_GUARD(transferee_addr, n)         \
-    {                                                         \
-        for (int i = 12; GUARD(21 * n), i < 32; i++)          \
-            STP_TRANSFEREE_ADDR[i] = transferee_addr[i - 12]; \
-    }
-
-#define CONF_KEY(buf, conf_key)                        \
+#define TOKEN_ID_KEY(token_id)                         \
     {                                                  \
-        uint8_t *ptr = &conf_key;                      \
-        STATE_KEY(buf, STP_CONF, ptr, sizeof(uint8_t)) \
+        COPY_8BYTES(STP_TOKEN_ID + 4, token_id + 4);   \
+        COPY_8BYTES(STP_TOKEN_ID + 12, token_id + 12); \
+        COPY_8BYTES(STP_TOKEN_ID + 20, token_id + 20); \
+        COPY_4BYTES(STP_TOKEN_ID + 28, token_id + 28); \
     }
+
+#define TRANSFEREE_ADDR_KEY(transferee_addr) \
+    COPY_20BYTES(STP_TRANSFEREE_ADDR, 12, transferee_addr, 0)
 
 #endif

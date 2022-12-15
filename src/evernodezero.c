@@ -88,7 +88,7 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
 
             // Assign the transition state values with zeros.
-            CLEARBUF(moment_transition_info);
+            CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info, 0);
             if (state_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
 
@@ -125,7 +125,7 @@ int64_t hook(uint32_t reserved)
 
         // Accept any outgoing transactions without further processing.
         int is_outgoing = 0;
-        BUFFER_EQUAL(is_outgoing, hook_accid, account_field, 20);
+        EQUAL_20BYTES(is_outgoing, hook_accid, account_field);
         if (!is_outgoing)
         {
             // Memos
@@ -149,7 +149,7 @@ int64_t hook(uint32_t reserved)
                 {
                     // Host deregistration nft accept.
                     int is_host_de_reg_nft_accept = 0;
-                    BUFFER_EQUAL_STR(is_host_de_reg_nft_accept, type_ptr, type_len, HOST_POST_DEREG);
+                    EQUAL_HOST_POST_DEREG(is_host_de_reg_nft_accept, type_ptr, type_len);
                     if (is_host_de_reg_nft_accept)
                         op_type = OP_HOST_POST_DEREG;
                 }
@@ -166,49 +166,49 @@ int64_t hook(uint32_t reserved)
                     {
                         // Host initialization.
                         int is_initialize = 0;
-                        BUFFER_EQUAL_STR(is_initialize, type_ptr, type_len, INITIALIZE);
+                        EQUAL_INITIALIZE(is_initialize, type_ptr, type_len);
                         if (is_initialize)
                             op_type = OP_INITIALIZE;
 
                         // Host deregistration.
                         int is_host_de_reg = 0;
-                        BUFFER_EQUAL_STR(is_host_de_reg, type_ptr, type_len, HOST_DE_REG);
+                        EQUAL_HOST_DE_REG(is_host_de_reg, type_ptr, type_len);
                         if (is_host_de_reg)
                             op_type = OP_HOST_DE_REG;
 
                         // Host heartbeat.
                         int is_host_heartbeat = 0;
-                        BUFFER_EQUAL_STR(is_host_heartbeat, type_ptr, type_len, HEARTBEAT);
+                        EQUAL_HEARTBEAT(is_host_heartbeat, type_ptr, type_len);
                         if (is_host_heartbeat)
                             op_type = OP_HEARTBEAT;
 
                         // Host update registration.
                         int is_host_update_reg = 0;
-                        BUFFER_EQUAL_STR(is_host_update_reg, type_ptr, type_len, HOST_UPDATE_REG);
+                        EQUAL_HOST_UPDATE_REG(is_host_update_reg, type_ptr, type_len);
                         if (is_host_update_reg)
                             op_type = OP_HOST_UPDATE_REG;
 
                         // Dead Host Prune.
                         int is_dead_host_prune = 0;
-                        BUFFER_EQUAL_STR(is_dead_host_prune, type_ptr, type_len, DEAD_HOST_PRUNE);
+                        EQUAL_DEAD_HOST_PRUNE(is_dead_host_prune, type_ptr, type_len);
                         if (is_dead_host_prune)
                             op_type = OP_DEAD_HOST_PRUNE;
 
                         // Host rebate.
                         int is_host_rebate = 0;
-                        BUFFER_EQUAL_STR(is_host_rebate, type_ptr, type_len, HOST_REBATE);
+                        EQUAL_HOST_REBATE(is_host_rebate, type_ptr, type_len);
                         if (is_host_rebate)
                             op_type = OP_HOST_REBATE;
 
                         // Set hook with HookHashes
                         int is_new_sethook = 0;
-                        BUFFER_EQUAL_STR(is_new_sethook, type_ptr, type_len, NEW_SET_HOOK_HASHES);
+                        EQUAL_HOOK_UPDATE(is_new_sethook, type_ptr, type_len);
                         if (is_new_sethook)
                             op_type = OP_SET_HOOK;
-                        
+
                         // Host transfer.
                         int is_host_transfer = 0;
-                        BUFFER_EQUAL_STR(is_host_transfer, type_ptr, type_len, HOST_TRANSFER);
+                        EQUAL_HOST_TRANSFER(is_host_transfer, type_ptr, type_len);
                         if (is_host_transfer)
                             op_type = OP_HOST_TRANSFER;
                     }
@@ -218,7 +218,7 @@ int64_t hook(uint32_t reserved)
 
                         // Host registration.
                         int is_host_reg = 0;
-                        BUFFER_EQUAL_STR_GUARD(is_host_reg, type_ptr, type_len, HOST_REG, 1);
+                        EQUAL_HOST_REG(is_host_reg, type_ptr, type_len);
                         if (is_host_reg)
                             op_type = OP_HOST_REG;
                     }
@@ -230,8 +230,8 @@ int64_t hook(uint32_t reserved)
                     common_params[OP_TYPE_PARAM_OFFSET] = op_type;
                     INT64_TO_BUF(&common_params[CUR_LEDGER_SEQ_PARAM_OFFSET], cur_ledger_seq);
                     INT64_TO_BUF(&common_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET], cur_ledger_timestamp);
-                    COPY_BUF(common_params, HOOK_ACCID_PARAM_OFFSET, hook_accid, 0, ACCOUNT_ID_SIZE);
-                    COPY_BUF(common_params, ACCOUNT_FIELD_PARAM_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
+                    COPY_20BYTES(common_params, HOOK_ACCID_PARAM_OFFSET, hook_accid, 0);
+                    COPY_20BYTES(common_params, ACCOUNT_FIELD_PARAM_OFFSET, account_field, 0);
 
                     if (op_type == OP_INITIALIZE ||
                         op_type == OP_HEARTBEAT ||
@@ -248,7 +248,7 @@ int64_t hook(uint32_t reserved)
                         UINT64_TO_BUF(&chain_two_params[MOMENT_BASE_IDX_PARAM_OFFSET], moment_base_idx);
                         chain_two_params[CUR_MOMENT_TYPE_PARAM_OFFSET] = cur_moment_type;
                         UINT64_TO_BUF(&chain_two_params[CUR_IDX_PARAM_OFFSET], cur_idx);
-                        COPY_BUF(chain_two_params, MOMENT_TRANSITION_INFO_PARAM_OFFSET, moment_transition_info, 0, MOMENT_TRANSIT_INFO_VAL_SIZE);
+                        COPY_MOMENT_TRANSIT_INFO(chain_two_params, MOMENT_TRANSITION_INFO_PARAM_OFFSET, moment_transition_info, 0);
 
                         if (hook_param_set(SBUF(common_params), SBUF(COMMON_CHAIN_PARAMS), SBUF(chain_two_hash)) < 0)
                             rollback(SBUF("Evernode: Could not set common chain params for chain two."), 1);
@@ -269,7 +269,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: transaction id missing."), 1);
 
                         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
-                        
+
                         if (op_type == OP_HOST_REG)
                         {
                             int64_t result = slot(&chain_one_params[AMOUNT_BUF_PARAM_OFFSET], AMOUNT_BUF_SIZE, amt_slot);
@@ -281,7 +281,7 @@ int64_t hook(uint32_t reserved)
                             INT64_TO_BUF(&chain_one_params[FLOAT_AMT_PARAM_OFFSET], float_amt);
                         }
 
-                        COPY_BUF(chain_one_params, TXID_PARAM_OFFSET, txid, 0, HASH_SIZE);
+                        COPY_32BYTES(chain_one_params, TXID_PARAM_OFFSET, txid, 0);
 
                         if (hook_param_set(SBUF(common_params), SBUF(COMMON_CHAIN_PARAMS), SBUF(chain_one_hash)) < 0)
                             rollback(SBUF("Evernode: Could not set common chain params for chain one."), 1);
@@ -297,7 +297,7 @@ int64_t hook(uint32_t reserved)
                     hook_skip(SBUF(chain_two_hash), 0);
 
                     int is_valid_format = 0;
-                    BUFFER_EQUAL_STR(is_valid_format, format_ptr, format_len, FORMAT_HEX);
+                    EQUAL_FORMAT_HEX(is_valid_format, format_ptr, format_len);
                     if (!is_valid_format)
                         rollback(SBUF("Evernode: Memo format should be hex."), 1);
 
@@ -332,12 +332,12 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
                         // Issuer of the NFT should be the registry contract.
-                        BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+                        EQUAL_20BYTES(nft_exists, issuer, hook_accid);
                         if (!nft_exists)
                             rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
                         // Check whether the NFT URI is starting with 'evrhost'.
-                        BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
+                        EQUAL_EVR_HOST_PREFIX(nft_exists, uri + 7);
                         if (!nft_exists)
                             rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
 

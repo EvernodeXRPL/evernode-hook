@@ -25,9 +25,9 @@ int64_t hook(uint32_t reserved)
         uint8_t *ts_param_ptr = &common_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET];
         int64_t cur_ledger_timestamp = INT64_FROM_BUF(ts_param_ptr);
         unsigned char hook_accid[ACCOUNT_ID_SIZE];
-        COPY_BUF(hook_accid, 0, common_params, HOOK_ACCID_PARAM_OFFSET, ACCOUNT_ID_SIZE);
+        COPY_20BYTES(hook_accid, 0, common_params, HOOK_ACCID_PARAM_OFFSET);
         uint8_t account_field[ACCOUNT_ID_SIZE];
-        COPY_BUF(account_field, 0, common_params, ACCOUNT_FIELD_PARAM_OFFSET, ACCOUNT_ID_SIZE);
+        COPY_20BYTES(account_field, 0, common_params, ACCOUNT_FIELD_PARAM_OFFSET);
 
         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
         if (hook_param(SBUF(chain_one_params), SBUF(CHAIN_ONE_PARAMS)) < 0)
@@ -51,7 +51,7 @@ int64_t hook(uint32_t reserved)
         if (op_type == OP_HOST_REG)
         {
             int is_valid = 0;
-            BUFFER_EQUAL_STR_GUARD(is_valid, format_ptr, format_len, FORMAT_TEXT, 1);
+            EQUAL_FORMAT_TEXT(is_valid, format_ptr, format_len);
             if (!is_valid)
                 rollback(SBUF("Evernode: Memo format should be text."), 1);
 
@@ -82,7 +82,7 @@ int64_t hook(uint32_t reserved)
             {
                 // Check whether host was a transferer of the transfer. (same account continuation).
                 has_initiated_transfer = 1;
-                BUFFER_EQUAL(parties_are_similar, (uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field, 20);
+                EQUAL_20BYTES(parties_are_similar, (uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field);
             }
 
             // Take the host reg fee from config.
@@ -101,12 +101,11 @@ int64_t hook(uint32_t reserved)
             // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
             // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
             uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-            CLEAR_BUF(host_addr, 0, HOST_ADDR_VAL_SIZE); // Initialize buffer wih 0s
 
             if ((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
                 rollback(SBUF("Evernode: Host already registered."), 1);
 
-            COPY_BUF(host_addr, HOST_COUNTRY_CODE_OFFSET, data_ptr, 0, COUNTRY_CODE_LEN);
+            COPY_2BYTES(host_addr + HOST_COUNTRY_CODE_OFFSET, data_ptr);
 
             // Read instance details from the memo.
             // We cannot predict the lengths of the numerical values.
@@ -196,6 +195,9 @@ int64_t hook(uint32_t reserved)
             STR_TO_UINT(cpu_speed, cpu_speed_ptr, cpu_speed_len);
 
             // Populate values to the state address buffer and set state.
+            // Clear reserve and description sections first.
+            CLEAR_20BYTES(host_addr + HOST_RESERVED_OFFSET);
+            CLEAR_20BYTES(host_addr + HOST_RESERVED_OFFSET + 20);
             COPY_BUF_NON_CONST_LEN_GUARDM(host_addr, HOST_DESCRIPTION_OFFSET, description_ptr, 0, description_len, DESCRIPTION_LEN, 1, 1);
             INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
             UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
@@ -238,7 +240,7 @@ int64_t hook(uint32_t reserved)
                 GENERATE_NFT_TOKEN_ID(nft_token_id, tflag, tffee, hook_accid, taxon, token_seq);
                 trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
-                COPY_BUF(host_addr, 0, nft_token_id, 0, NFT_TOKEN_ID_SIZE);
+                COPY_32BYTES(host_addr, 0, nft_token_id, 0);
 
                 if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
@@ -246,14 +248,15 @@ int64_t hook(uint32_t reserved)
                 // Populate the values to the token id buffer and set state.
                 // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
                 uint8_t token_id[TOKEN_ID_VAL_SIZE];
-                CLEAR_BUF(token_id, 0, TOKEN_ID_VAL_SIZE); // Initialize buffer wih 0s
-                COPY_BUF(token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
+                COPY_20BYTES(token_id, HOST_ADDRESS_OFFSET, account_field, 0);
+                CLEAR_20BYTES(token_id + HOST_CPU_MODEL_NAME_OFFSET);
                 COPY_BUF_NON_CONST_LEN_GUARDM(token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
                 UINT16_TO_BUF(&token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                 UINT16_TO_BUF(&token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
                 UINT32_TO_BUF(&token_id[HOST_CPU_MICROSEC_OFFSET], cpu_microsec);
                 UINT32_TO_BUF(&token_id[HOST_RAM_MB_OFFSET], ram_mb);
                 UINT32_TO_BUF(&token_id[HOST_DISK_MB_OFFSET], disk_mb);
+                CLEAR_20BYTES(token_id + EMAIL_ADDRESS_OFFSET);
                 COPY_BUF_NON_CONST_LEN_GUARDM(token_id, EMAIL_ADDRESS_OFFSET, email_address_ptr, 0, email_address_len, EMAIL_ADDRESS_LEN, 1, 1);
                 TOKEN_ID_KEY(nft_token_id);
 
@@ -297,8 +300,8 @@ int64_t hook(uint32_t reserved)
                 // Mint the nft token.
                 // Transaction URI would be the 'evrhost' + registration transaction hash.
                 uint8_t uri[39];
-                COPY_BUF_GUARDM(uri, 0, EVR_HOST, 0, 7, 1, 1);
-                COPY_BUF_GUARDM(uri, 7, txid, 0, HASH_SIZE, 1, 2);
+                COPY_EVR_HOST_PREFIX(uri, 0);
+                COPY_32BYTES(uri, 7, txid, 0);
 
                 uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
                 PREPARE_NFT_MINT(nft_txn_out, tflag, tffee, taxon, uri, sizeof(uri));
@@ -348,7 +351,7 @@ int64_t hook(uint32_t reserved)
                     rollback(SBUF("Evernode: Previous host token id state not found."), 1);
 
                 // Use the previous NFToken id for this re-reg flow.
-                COPY_BUF(host_addr, 0, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET), 0, NFT_TOKEN_ID_SIZE);
+                COPY_32BYTES(host_addr, 0, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET), 0);
 
                 // Copy some of the previous host state figures to the new HOST_ADDR state.
                 const uint8_t *heartbeat_ptr = &prev_host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];
@@ -363,7 +366,7 @@ int64_t hook(uint32_t reserved)
                     rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
                 // Update previous TOKEN_ID state entry with the new attributes.
-                COPY_BUF(prev_token_id, HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
+                COPY_20BYTES(prev_token_id, HOST_ADDRESS_OFFSET, account_field, 0);
                 COPY_BUF_NON_CONST_LEN_GUARDM(prev_token_id, HOST_CPU_MODEL_NAME_OFFSET, cpu_model_ptr, 0, cpu_model_len, CPU_MODEl_NAME_LEN, 1, 1);
                 UINT16_TO_BUF(&prev_token_id[HOST_CPU_COUNT_OFFSET], cpu_count);
                 UINT16_TO_BUF(&prev_token_id[HOST_CPU_SPEED_OFFSET], cpu_speed);
@@ -402,7 +405,7 @@ int64_t hook(uint32_t reserved)
         else if (op_type == OP_SET_HOOK)
         {
             int is_format_hex = 0;
-            BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+            EQUAL_FORMAT_HEX(is_format_hex, format_ptr, format_len);
             if (!is_format_hex)
                 rollback(SBUF("Evernode: Format should be hex for Hook set."), 1);
 
@@ -412,7 +415,7 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
 
             int is_initializer_account = 0;
-            BUFFER_EQUAL(is_initializer_account, initializer_accid, account_field, ACCOUNT_ID_SIZE);
+            EQUAL_20BYTES(is_initializer_account, initializer_accid, account_field);
             if (!is_initializer_account)
                 rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
 

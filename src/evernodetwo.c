@@ -25,9 +25,9 @@ int64_t hook(uint32_t reserved)
         uint8_t *ts_param_ptr = &common_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET];
         int64_t cur_ledger_timestamp = INT64_FROM_BUF(ts_param_ptr);
         unsigned char hook_accid[ACCOUNT_ID_SIZE];
-        COPY_BUF(hook_accid, 0, common_params, HOOK_ACCID_PARAM_OFFSET, ACCOUNT_ID_SIZE);
+        COPY_20BYTES(hook_accid, 0, common_params, HOOK_ACCID_PARAM_OFFSET);
         uint8_t account_field[ACCOUNT_ID_SIZE];
-        COPY_BUF(account_field, 0, common_params, ACCOUNT_FIELD_PARAM_OFFSET, ACCOUNT_ID_SIZE);
+        COPY_20BYTES(account_field, 0, common_params, ACCOUNT_FIELD_PARAM_OFFSET);
 
         uint8_t chain_two_params[CHAIN_TWO_PARAMS_SIZE];
         if (hook_param(SBUF(chain_two_params), SBUF(CHAIN_TWO_PARAMS)) < 0)
@@ -61,14 +61,14 @@ int64_t hook(uint32_t reserved)
             if (op_type == OP_HOST_DE_REG || op_type == OP_HOST_TRANSFER)
             {
                 int is_format_hex = 0;
-                BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+                EQUAL_FORMAT_HEX(is_format_hex, format_ptr, format_len);
                 if (!is_format_hex)
                     rollback(SBUF("Evernode: Format should be hex for host deregistration."), 1);
             }
             else if (op_type == OP_HOST_UPDATE_REG)
             {
                 int is_format_plain_text = 0;
-                BUFFER_EQUAL_STR_GUARD(is_format_plain_text, format_ptr, format_len, FORMAT_TEXT, 1);
+                EQUAL_FORMAT_TEXT(is_format_plain_text, format_ptr, format_len);
                 if (!is_format_plain_text)
                     rollback(SBUF("Evernode: Instance update info format not supported."), 1);
             }
@@ -94,7 +94,7 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
             // Issuer of the NFT should be the registry contract.
-            BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+            EQUAL_20BYTES(nft_exists, issuer, hook_accid);
             if (!nft_exists)
                 rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
@@ -106,7 +106,7 @@ int64_t hook(uint32_t reserved)
         if (op_type == OP_INITIALIZE)
         {
             int is_valid = 0;
-            BUFFER_EQUAL_STR(is_valid, format_ptr, format_len, FORMAT_HEX);
+            EQUAL_FORMAT_HEX(is_valid, format_ptr, format_len);
             if (!is_valid)
                 rollback(SBUF("Evernode: Format should be hex for initialize request."), 1);
 
@@ -122,7 +122,7 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
 
             // We accept only the init transaction from hook intializer account
-            BUFFER_EQUAL(is_valid, initializer_accid, account_field, ACCOUNT_ID_SIZE);
+            EQUAL_20BYTES(is_valid, initializer_accid, account_field);
             if (!is_valid)
                 rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
@@ -206,7 +206,7 @@ int64_t hook(uint32_t reserved)
             if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
             {
                 int is_empty = 0;
-                IS_BUF_EMPTY(is_empty, moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE);
+                IS_MOMENT_TRANSIT_INFO_EMPTY(is_empty, moment_transition_info);
                 if (!is_empty)
                     rollback(SBUF("Evernode: There is an already scheduled moment size transition."), 1);
 
@@ -228,7 +228,7 @@ int64_t hook(uint32_t reserved)
         else if (op_type == OP_HOST_DE_REG)
         {
             int is_token_match = 0;
-            BUFFER_EQUAL(is_token_match, data_ptr, host_addr + HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
+            EQUAL_32BYTES(is_token_match, data_ptr, host_addr + HOST_TOKEN_ID_OFFSET);
 
             if (!is_token_match)
                 rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
@@ -569,7 +569,7 @@ int64_t hook(uint32_t reserved)
         else if (op_type == OP_DEAD_HOST_PRUNE)
         {
             int is_format_hex = 0;
-            BUFFER_EQUAL_STR(is_format_hex, format_ptr, format_len, FORMAT_HEX);
+            EQUAL_FORMAT_HEX(is_format_hex, format_ptr, format_len);
             if (!is_format_hex)
                 rollback(SBUF("Evernode: Format should be in HEX to prune the host."), 1);
 
@@ -625,12 +625,12 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
             // Issuer of the NFT should be the registry contract.
-            BUFFER_EQUAL(nft_exists, issuer, hook_accid, ACCOUNT_ID_SIZE);
+            EQUAL_20BYTES(nft_exists, issuer, hook_accid);
             if (!nft_exists)
                 rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
 
             // Check whether the NFT URI is starting with 'evrhost'.
-            BUFFER_EQUAL_STR(nft_exists, uri, 7, EVR_HOST);
+            EQUAL_EVR_HOST_PREFIX(nft_exists, uri + 7);
             if (!nft_exists)
                 rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
 
@@ -768,7 +768,7 @@ int64_t hook(uint32_t reserved)
         {
             // Check for registration entry, if transferee is different from transfer (transferring to a new account).
             int is_host_as_transferee = 0;
-            BUFFER_EQUAL(is_host_as_transferee, data_ptr, account_field, 20);
+            EQUAL_20BYTES(is_host_as_transferee, data_ptr, account_field);
             if (is_host_as_transferee == 0)
             {
                 HOST_ADDR_KEY(data_ptr); // Generate account key for transferee.
@@ -791,9 +791,9 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: There is a previously initiated transfer for this transferee."), 1);
 
             // Saving the Pending transfer in Hook States.
-            COPY_BUF(transferee_addr, TRANSFER_HOST_ADDRESS_OFFSET, account_field, 0, ACCOUNT_ID_SIZE);
+            COPY_20BYTES(transferee_addr, TRANSFER_HOST_ADDRESS_OFFSET, account_field, 0);
             INT64_TO_BUF(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
-            COPY_BUF(transferee_addr, TRANSFER_HOST_TOKEN_ID_OFFSET, host_addr, HOST_TOKEN_ID_OFFSET, NFT_TOKEN_ID_SIZE);
+            COPY_32BYTES(transferee_addr, TRANSFER_HOST_TOKEN_ID_OFFSET, host_addr, HOST_TOKEN_ID_OFFSET);
 
             if (state_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) < 0)
                 rollback(SBUF("Evernode: Could not set state for transferee_addr."), 1);
