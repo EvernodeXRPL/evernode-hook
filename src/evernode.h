@@ -27,18 +27,11 @@
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 // Checks for EVR currency issued by issuer account.
-#define IS_EVR(is_evr, amount_buffer, issuer_accid)                  \
-    {                                                                \
-        EQUAL_20BYTES(is_evr, amount_buffer + 8, evr_currency);      \
-        if (is_evr)                                                  \
-            EQUAL_20BYTES(is_evr, amount_buffer + 28, issuer_accid); \
-    }
-
-#define STR_TO_UINT(number, str_ptr, str_len)                      \
-    {                                                              \
-        number = 0;                                                \
-        for (int i = 0; GUARD(MAX_UINT_STR_LEN), i < str_len; i++) \
-            number = number * 10 + (int)str_ptr[i] - '0';          \
+#define IS_EVR(is_evr, amount_buffer, issuer_accid)                    \
+    {                                                                  \
+        EQUAL_20BYTES(is_evr, (amount_buffer + 8), evr_currency);      \
+        if (is_evr)                                                    \
+            EQUAL_20BYTES(is_evr, (amount_buffer + 28), issuer_accid); \
     }
 
 #define MAX(num1, num2) \
@@ -54,32 +47,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define IS_FLOAT_ZERO(float) \
     (float == 0 || float == -29)
 
-#define COPY_BUF_NON_CONST_LEN_GUARDM(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos, len, max_len, n, m) \
-    {                                                                                               \
-        int itr = (len / 8);                                                                        \
-        const int guard = (max_len / 8);                                                            \
-        int pos = 0;                                                                                \
-        for (int i = 0; GUARDM((n * (guard + 1)), m), i < itr; ++i)                                 \
-        {                                                                                           \
-            *(uint64_t *)(lhsbuf + lhsbuf_spos + pos) = *(uint64_t *)(rhsbuf + rhsbuf_spos + pos);  \
-            pos += 8;                                                                               \
-        }                                                                                           \
-        if ((len - pos) >= 4)                                                                       \
-        {                                                                                           \
-            *(uint32_t *)(lhsbuf + lhsbuf_spos + pos) = *(uint32_t *)(rhsbuf + rhsbuf_spos + pos);  \
-            pos += 4;                                                                               \
-        }                                                                                           \
-        if ((len - pos) >= 2)                                                                       \
-        {                                                                                           \
-            *(uint16_t *)(lhsbuf + lhsbuf_spos + pos) = *(uint16_t *)(rhsbuf + rhsbuf_spos + pos);  \
-            pos += 2;                                                                               \
-        }                                                                                           \
-        if ((len - pos) >= 1)                                                                       \
-        {                                                                                           \
-            *(uint8_t *)(lhsbuf + lhsbuf_spos + pos) = *(uint8_t *)(rhsbuf + rhsbuf_spos + pos);    \
-        }                                                                                           \
-    }
-
 #define EQUAL_BYTE(output, buf1, buf2) \
     output = *(uint8_t *)(buf1) == *(uint8_t *)(buf2);
 
@@ -92,24 +59,24 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define EQUAL_8BYTES(output, buf1, buf2) \
     output = *(uint64_t *)(buf1) == *(uint64_t *)(buf2);
 
-#define EQUAL_20BYTES(output, buf1, buf2)               \
-    {                                                   \
-        EQUAL_8BYTES(output, buf1, buf2);               \
-        if (output)                                     \
-            EQUAL_8BYTES(output, buf1 + 8, buf2 + 8);   \
-        if (output)                                     \
-            EQUAL_4BYTES(output, buf1 + 16, buf2 + 16); \
+#define EQUAL_20BYTES(output, buf1, buf2)                   \
+    {                                                       \
+        EQUAL_8BYTES(output, buf1, buf2);                   \
+        if (output)                                         \
+            EQUAL_8BYTES(output, (buf1 + 8), (buf2 + 8));   \
+        if (output)                                         \
+            EQUAL_4BYTES(output, (buf1 + 16), (buf2 + 16)); \
     }
 
-#define EQUAL_32BYTES(output, buf1, buf2)               \
-    {                                                   \
-        EQUAL_8BYTES(output, buf1, buf2);               \
-        if (output)                                     \
-            EQUAL_8BYTES(output, buf1 + 8, buf2 + 8);   \
-        if (output)                                     \
-            EQUAL_8BYTES(output, buf1 + 16, buf2 + 16); \
-        if (output)                                     \
-            EQUAL_8BYTES(output, buf1 + 24, buf2 + 24); \
+#define EQUAL_32BYTES(output, buf1, buf2)                   \
+    {                                                       \
+        EQUAL_8BYTES(output, buf1, buf2);                   \
+        if (output)                                         \
+            EQUAL_8BYTES(output, (buf1 + 8), (buf2 + 8));   \
+        if (output)                                         \
+            EQUAL_8BYTES(output, (buf1 + 16), (buf2 + 16)); \
+        if (output)                                         \
+            EQUAL_8BYTES(output, (buf1 + 24), (buf2 + 24)); \
     }
 
 #define COPY_BYTE(lhsbuf, rhsbuf) \
@@ -124,16 +91,28 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define COPY_8BYTES(lhsbuf, rhsbuf) \
     *(uint64_t *)(lhsbuf) = *(uint64_t *)(rhsbuf);
 
-#define COPY_20BYTES(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos)       \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos, rhsbuf + rhsbuf_spos);         \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos + 8, rhsbuf + rhsbuf_spos + 8); \
-    COPY_4BYTES(lhsbuf + lhsbuf_spos + 16, rhsbuf + rhsbuf_spos + 16);
+#define COPY_10BYTES(lhsbuf, rhsbuf) \
+    COPY_8BYTES(lhsbuf, rhsbuf);     \
+    COPY_2BYTES((lhsbuf + 8), (rhsbuf + 8));
 
-#define COPY_32BYTES(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos)         \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos, rhsbuf + rhsbuf_spos);           \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos + 8, rhsbuf + rhsbuf_spos + 8);   \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos + 16, rhsbuf + rhsbuf_spos + 16); \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos + 24, rhsbuf + rhsbuf_spos + 24);
+#define COPY_16BYTES(lhsbuf, rhsbuf) \
+    COPY_8BYTES(lhsbuf, rhsbuf);     \
+    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8));
+
+#define COPY_20BYTES(lhsbuf, rhsbuf)         \
+    COPY_8BYTES(lhsbuf, rhsbuf);             \
+    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8)); \
+    COPY_4BYTES((lhsbuf + 16), (rhsbuf + 16));
+
+#define COPY_32BYTES(lhsbuf, rhsbuf)           \
+    COPY_8BYTES(lhsbuf, rhsbuf);               \
+    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8));   \
+    COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
+    COPY_8BYTES((lhsbuf + 24), (rhsbuf + 24));
+
+#define COPY_40BYTES(lhsbuf, rhsbuf) \
+    COPY_32BYTES(lhsbuf, rhsbuf);    \
+    COPY_8BYTES((lhsbuf + 32), (rhsbuf + 32));
 
 #define CLEAR_BYTE(buf) \
     *(uint8_t *)(buf) = 0;
@@ -147,183 +126,228 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define CLEAR_8BYTES(buf) \
     UINT64_TO_BUF(buf, 0);
 
-#define CLEAR_20BYTES(buf) \
-    CLEAR_8BYTES(buf);     \
-    CLEAR_8BYTES(buf + 8); \
-    CLEAR_4BYTES(buf + 16);
+#define CLEAR_20BYTES(buf)   \
+    CLEAR_8BYTES(buf);       \
+    CLEAR_8BYTES((buf + 8)); \
+    CLEAR_4BYTES((buf + 16));
+
+#define IS_BYTE_EMPTY(output, buf) \
+    output = *(uint8_t *)(buf) == 0;
+
+#define IS_2BYTES_EMPTY(output, buf) \
+    output = *(uint16_t *)(buf) == 0;
+
+#define IS_4BYTES_EMPTY(output, buf) \
+    output = *(uint32_t *)(buf) == 0;
+
+#define IS_8BYTES_EMPTY(output, buf) \
+    output = *(uint64_t *)(buf) == 0;
+
+#define IS_20BYTES_EMPTY(output, buf)       \
+    IS_8BYTES_EMPTY(output, buf);           \
+    if (output)                             \
+        IS_8BYTES_EMPTY(output, (buf + 8)); \
+    if (output)                             \
+        IS_4BYTES_EMPTY(output, (buf + 16));
+
+#define IS_32BYTES_EMPTY(output, buf)        \
+    IS_8BYTES_EMPTY(output, buf);            \
+    if (output)                              \
+        IS_8BYTES_EMPTY(output, (buf + 8));  \
+    if (output)                              \
+        IS_8BYTES_EMPTY(output, (buf + 16)); \
+    if (output)                              \
+        IS_8BYTES_EMPTY(output, (buf + 24));
 
 // Domain related comparer macros.
 
-#define EQUAL_FORMAT_HEX(output, buf, len)               \
-    {                                                    \
-        output = sizeof(FORMAT_HEX) == (len + 1);        \
-        if (output)                                      \
-            EQUAL_2BYTES(output, buf, FORMAT_HEX);       \
-        if (output)                                      \
-            EQUAL_BYTE(output, buf + 2, FORMAT_HEX + 2); \
+#define EQUAL_FORMAT_HEX(output, buf, len)                   \
+    {                                                        \
+        output = sizeof(FORMAT_HEX) == (len + 1);            \
+        if (output)                                          \
+            EQUAL_2BYTES(output, buf, FORMAT_HEX);           \
+        if (output)                                          \
+            EQUAL_BYTE(output, (buf + 2), (FORMAT_HEX + 2)); \
     }
 
-#define EQUAL_FORMAT_TEXT(output, buf, len)                 \
-    {                                                       \
-        output = sizeof(FORMAT_TEXT) == (len + 1);          \
-        if (output)                                         \
-            EQUAL_8BYTES(output, buf, FORMAT_TEXT);         \
-        if (output)                                         \
-            EQUAL_2BYTES(output, buf + 8, FORMAT_TEXT + 8); \
+#define EQUAL_FORMAT_TEXT(output, buf, len)                     \
+    {                                                           \
+        output = sizeof(FORMAT_TEXT) == (len + 1);              \
+        if (output)                                             \
+            EQUAL_8BYTES(output, buf, FORMAT_TEXT);             \
+        if (output)                                             \
+            EQUAL_2BYTES(output, (buf + 8), (FORMAT_TEXT + 8)); \
     }
 
-#define EQUAL_FORMAT_BASE64(output, buf, len)                 \
+#define EQUAL_FORMAT_BASE64(output, buf, len)                     \
+    {                                                             \
+        output = sizeof(FORMAT_BASE64) == (len + 1);              \
+        if (output)                                               \
+            EQUAL_4BYTES(output, buf, FORMAT_BASE64);             \
+        if (output)                                               \
+            EQUAL_2BYTES(output, (buf + 4), (FORMAT_BASE64 + 4)); \
+    }
+
+#define EQUAL_FORMAT_JSON(output, buf, len)                   \
     {                                                         \
-        output = sizeof(FORMAT_BASE64) == (len + 1);          \
+        output = sizeof(FORMAT_JSON) == (len + 1);            \
         if (output)                                           \
-            EQUAL_4BYTES(output, buf, FORMAT_BASE64);         \
+            EQUAL_8BYTES(output, buf, FORMAT_JSON);           \
         if (output)                                           \
-            EQUAL_2BYTES(output, buf + 4, FORMAT_BASE64 + 4); \
+            EQUAL_BYTE(output, (buf + 8), (FORMAT_JSON + 8)); \
     }
 
-#define EQUAL_FORMAT_JSON(output, buf, len)               \
-    {                                                     \
-        output = sizeof(FORMAT_JSON) == (len + 1);        \
-        if (output)                                       \
-            EQUAL_8BYTES(output, buf, FORMAT_JSON);       \
-        if (output)                                       \
-            EQUAL_BYTE(output, buf + 8, FORMAT_JSON + 8); \
+#define EQUAL_EVR_HOST_PREFIX(output, buf)                   \
+    {                                                        \
+        EQUAL_4BYTES(output, buf, EVR_HOST);                 \
+        if (output)                                          \
+            EQUAL_2BYTES(output, (buf + 4), (EVR_HOST + 4)); \
+        if (output)                                          \
+            EQUAL_BYTE(output, (buf + 6), (EVR_HOST + 6));   \
     }
 
-#define EQUAL_EVR_HOST_PREFIX(output, buf)               \
-    {                                                    \
-        EQUAL_4BYTES(output, buf, EVR_HOST);             \
-        if (output)                                      \
-            EQUAL_2BYTES(output, buf + 4, EVR_HOST + 4); \
-        if (output)                                      \
-            EQUAL_BYTE(output, buf + 6, EVR_HOST + 6);   \
+#define EQUAL_HOST_REG(output, buf, len)                     \
+    {                                                        \
+        output = sizeof(HOST_REG) == (len + 1);              \
+        if (output)                                          \
+            EQUAL_8BYTES(output, buf, HOST_REG);             \
+        if (output)                                          \
+            EQUAL_2BYTES(output, (buf + 8), (HOST_REG + 8)); \
     }
 
-#define EQUAL_HOST_REG(output, buf, len)                 \
-    {                                                    \
-        output = sizeof(HOST_REG) == (len + 1);          \
-        if (output)                                      \
-            EQUAL_8BYTES(output, buf, HOST_REG);         \
-        if (output)                                      \
-            EQUAL_2BYTES(output, buf + 8, HOST_REG + 8); \
-    }
-
-#define EQUAL_HOST_DE_REG(output, buf, len)                 \
-    {                                                       \
-        output = sizeof(HOST_DE_REG) == (len + 1);          \
-        if (output)                                         \
-            EQUAL_8BYTES(output, buf, HOST_DE_REG);         \
-        if (output)                                         \
-            EQUAL_4BYTES(output, buf + 8, HOST_DE_REG + 8); \
-    }
-
-#define EQUAL_HOST_UPDATE_REG(output, buf, len)                 \
+#define EQUAL_HOST_DE_REG(output, buf, len)                     \
     {                                                           \
-        output = sizeof(HOST_UPDATE_REG) == (len + 1);          \
+        output = sizeof(HOST_DE_REG) == (len + 1);              \
         if (output)                                             \
-            EQUAL_8BYTES(output, buf, HOST_UPDATE_REG);         \
+            EQUAL_8BYTES(output, buf, HOST_DE_REG);             \
         if (output)                                             \
-            EQUAL_8BYTES(output, buf + 8, HOST_UPDATE_REG + 8); \
+            EQUAL_4BYTES(output, (buf + 8), (HOST_DE_REG + 8)); \
     }
 
-#define EQUAL_HEARTBEAT(output, buf, len)                 \
-    {                                                     \
-        output = sizeof(HEARTBEAT) == (len + 1);          \
-        if (output)                                       \
-            EQUAL_8BYTES(output, buf, HEARTBEAT);         \
-        if (output)                                       \
-            EQUAL_4BYTES(output, buf + 8, HEARTBEAT + 8); \
+#define EQUAL_HOST_UPDATE_REG(output, buf, len)                     \
+    {                                                               \
+        output = sizeof(HOST_UPDATE_REG) == (len + 1);              \
+        if (output)                                                 \
+            EQUAL_8BYTES(output, buf, HOST_UPDATE_REG);             \
+        if (output)                                                 \
+            EQUAL_8BYTES(output, (buf + 8), (HOST_UPDATE_REG + 8)); \
     }
 
-#define EQUAL_INITIALIZE(output, buf, len)                 \
-    {                                                      \
-        output = sizeof(INITIALIZE) == (len + 1);          \
-        if (output)                                        \
-            EQUAL_8BYTES(output, buf, INITIALIZE);         \
-        if (output)                                        \
-            EQUAL_4BYTES(output, buf + 8, INITIALIZE + 8); \
-        if (output)                                        \
-            EQUAL_BYTE(output, buf + 12, INITIALIZE + 12); \
-    }
-
-#define EQUAL_HOST_POST_DEREG(output, buf, len)                 \
-    {                                                           \
-        output = sizeof(HOST_POST_DEREG) == (len + 1);          \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf, HOST_POST_DEREG);         \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf + 8, HOST_POST_DEREG + 8); \
-    }
-
-#define EQUAL_DEAD_HOST_PRUNE(output, buf, len)                 \
-    {                                                           \
-        output = sizeof(DEAD_HOST_PRUNE) == (len + 1);          \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf, DEAD_HOST_PRUNE);         \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf + 8, DEAD_HOST_PRUNE + 8); \
-    }
-
-#define EQUAL_HOST_TRANSFER(output, buf, len)                 \
+#define EQUAL_HEARTBEAT(output, buf, len)                     \
     {                                                         \
-        output = sizeof(HOST_TRANSFER) == (len + 1);          \
+        output = sizeof(HEARTBEAT) == (len + 1);              \
         if (output)                                           \
-            EQUAL_8BYTES(output, buf, HOST_TRANSFER);         \
+            EQUAL_8BYTES(output, buf, HEARTBEAT);             \
         if (output)                                           \
-            EQUAL_2BYTES(output, buf + 8, HOST_TRANSFER + 8); \
-        if (output)                                           \
-            EQUAL_BYTE(output, buf + 10, HOST_TRANSFER + 10); \
+            EQUAL_4BYTES(output, (buf + 8), (HEARTBEAT + 8)); \
     }
 
-#define EQUAL_HOST_REBATE(output, buf, len)                 \
-    {                                                       \
-        output = sizeof(HOST_REBATE) == (len + 1);          \
-        if (output)                                         \
-            EQUAL_8BYTES(output, buf, HOST_REBATE);         \
-        if (output)                                         \
-            EQUAL_4BYTES(output, buf + 8, HOST_REBATE + 8); \
-        if (output)                                         \
-            EQUAL_BYTE(output, buf + 12, HOST_REBATE + 12); \
+#define EQUAL_INITIALIZE(output, buf, len)                     \
+    {                                                          \
+        output = sizeof(INITIALIZE) == (len + 1);              \
+        if (output)                                            \
+            EQUAL_8BYTES(output, buf, INITIALIZE);             \
+        if (output)                                            \
+            EQUAL_4BYTES(output, (buf + 8), (INITIALIZE + 8)); \
+        if (output)                                            \
+            EQUAL_BYTE(output, (buf + 12), (INITIALIZE + 12)); \
     }
 
-#define EQUAL_HOOK_UPDATE(output, buf, len)                 \
-    {                                                       \
-        output = sizeof(HOOK_UPDATE) == (len + 1);          \
-        if (output)                                         \
-            EQUAL_8BYTES(output, buf, HOOK_UPDATE);         \
-        if (output)                                         \
-            EQUAL_4BYTES(output, buf + 8, HOOK_UPDATE + 8); \
-        if (output)                                         \
-            EQUAL_BYTE(output, buf + 12, HOOK_UPDATE + 12); \
+#define EQUAL_HOST_POST_DEREG(output, buf, len)                     \
+    {                                                               \
+        output = sizeof(HOST_POST_DEREG) == (len + 1);              \
+        if (output)                                                 \
+            EQUAL_8BYTES(output, buf, HOST_POST_DEREG);             \
+        if (output)                                                 \
+            EQUAL_8BYTES(output, (buf + 8), (HOST_POST_DEREG + 8)); \
+    }
+
+#define EQUAL_DEAD_HOST_PRUNE(output, buf, len)                     \
+    {                                                               \
+        output = sizeof(DEAD_HOST_PRUNE) == (len + 1);              \
+        if (output)                                                 \
+            EQUAL_8BYTES(output, buf, DEAD_HOST_PRUNE);             \
+        if (output)                                                 \
+            EQUAL_8BYTES(output, (buf + 8), (DEAD_HOST_PRUNE + 8)); \
+    }
+
+#define EQUAL_HOST_TRANSFER(output, buf, len)                     \
+    {                                                             \
+        output = sizeof(HOST_TRANSFER) == (len + 1);              \
+        if (output)                                               \
+            EQUAL_8BYTES(output, buf, HOST_TRANSFER);             \
+        if (output)                                               \
+            EQUAL_2BYTES(output, (buf + 8), (HOST_TRANSFER + 8)); \
+        if (output)                                               \
+            EQUAL_BYTE(output, (buf + 10), (HOST_TRANSFER + 10)); \
+    }
+
+#define EQUAL_HOST_REBATE(output, buf, len)                     \
+    {                                                           \
+        output = sizeof(HOST_REBATE) == (len + 1);              \
+        if (output)                                             \
+            EQUAL_8BYTES(output, buf, HOST_REBATE);             \
+        if (output)                                             \
+            EQUAL_4BYTES(output, (buf + 8), (HOST_REBATE + 8)); \
+        if (output)                                             \
+            EQUAL_BYTE(output, (buf + 12), (HOST_REBATE + 12)); \
+    }
+
+#define EQUAL_HOOK_UPDATE(output, buf, len)                     \
+    {                                                           \
+        output = sizeof(HOOK_UPDATE) == (len + 1);              \
+        if (output)                                             \
+            EQUAL_8BYTES(output, buf, HOOK_UPDATE);             \
+        if (output)                                             \
+            EQUAL_4BYTES(output, (buf + 8), (HOOK_UPDATE + 8)); \
+        if (output)                                             \
+            EQUAL_BYTE(output, (buf + 12), (HOOK_UPDATE + 12)); \
     }
 
 // Domain related copy macros.
 
-#define COPY_EVR_HOST_PREFIX(buf, spos)        \
-    COPY_4BYTES(buf + spos, EVR_HOST);         \
-    COPY_2BYTES(buf + spos + 4, EVR_HOST + 4); \
-    COPY_BYTE(buf + spos + 6, EVR_HOST + 6);
+#define COPY_EVR_HOST_PREFIX(buf, spos)            \
+    COPY_4BYTES((buf + spos), EVR_HOST);           \
+    COPY_2BYTES((buf + spos + 4), (EVR_HOST + 4)); \
+    COPY_BYTE((buf + spos + 6), (EVR_HOST + 6));
 
-#define COPY_MOMENT_TRANSIT_INFO(lhsbuf, lhsbuf_spos, rhsbuf, rhsbuf_spos) \
-    COPY_8BYTES(lhsbuf + lhsbuf_spos, rhsbuf + rhsbuf_spos);               \
-    COPY_2BYTES(lhsbuf + lhsbuf_spos + 8, rhsbuf + rhsbuf_spos + 8);       \
-    COPY_BYTE(lhsbuf + lhsbuf_spos + 10, rhsbuf + rhsbuf_spos + 10);
+#define COPY_MOMENT_TRANSIT_INFO(lhsbuf, rhsbuf) \
+    COPY_8BYTES(lhsbuf, rhsbuf);                 \
+    COPY_2BYTES((lhsbuf + 8), (rhsbuf + 8));     \
+    COPY_BYTE((lhsbuf + 10), (rhsbuf + 10));
+
+#define COPY_DESCRIPTION(lhsbuf, rhsbuf)       \
+    COPY_8BYTES(lhsbuf, rhsbuf);               \
+    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8));   \
+    COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
+    COPY_2BYTES((lhsbuf + 24), (rhsbuf + 24));
+
+#define COPY_REG_NFT_URI(lhsbuf, rhsbuf)       \
+    COPY_32BYTES(lhsbuf, rhsbuf);              \
+    COPY_4BYTES((lhsbuf + 32), (rhsbuf + 32)); \
+    COPY_2BYTES((lhsbuf + 36), (rhsbuf + 36)); \
+    COPY_BYTE((lhsbuf + 38), (rhsbuf + 38));
 
 // Domain related clear macros.
 
 #define CLEAR_MOMENT_TRANSIT_INFO(buf, spos) \
     CLEAR_8BYTES(buf);                       \
-    CLEAR_2BYTES(buf + 8);                   \
-    CLEAR_BYTE(buf + 2)
+    CLEAR_2BYTES((buf + 8));                 \
+    CLEAR_BYTE((buf + 2))
 
 // Domain related empty check macros.
 
 #define IS_MOMENT_TRANSIT_INFO_EMPTY(output, buf) \
-    output = *(uint64_t *)(buf) == 0;             \
+    IS_8BYTES_EMPTY(output, buf);                 \
     if (output)                                   \
-        output = *(uint16_t *)(buf) == 0;         \
+        IS_2BYTES_EMPTY(output, (buf + 8));       \
     if (output)                                   \
-        output = *(uint8_t *)(buf) == 0;
+        IS_BYTE_EMPTY(output, (buf + 10));
+
+#define IS_VERSION_EMPTY(output, buf) \
+    IS_2BYTES_EMPTY(output, buf);     \
+    if (output)                       \
+        IS_BYTE_EMPTY(output, (buf + 2));
 
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
@@ -336,8 +360,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                         \
         if (float_sto(SBUF(amt_out), SBUF(currency), issuer, 20, amount, -1) < 0) \
             rollback(SBUF("Evernode: Could not dump token amount into sto"), 1);  \
-        COPY_20BYTES(amt_out, 8, currency, 0);                                    \
-        COPY_20BYTES(amt_out, 28, issuer, 0);                                     \
+        COPY_20BYTES((amt_out + 8), currency);                                    \
+        COPY_20BYTES((amt_out + 28), issuer);                                     \
         if (amount == 0)                                                          \
             amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/     \
     }
@@ -462,10 +486,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, n) \
     {                                                                                             \
         UINT16_TO_BUF(token_id, tflag);                                                           \
-        UINT16_TO_BUF(token_id + 2, transaction_fee);                                             \
-        COPY_20BYTES(token_id, 4, accid, 0);                                                      \
-        UINT32_TO_BUF(token_id + 24, taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C));          \
-        UINT32_TO_BUF(token_id + 28, token_seq);                                                  \
+        UINT16_TO_BUF((token_id + 2), transaction_fee);                                           \
+        COPY_20BYTES((token_id + 4), accid);                                                      \
+        UINT32_TO_BUF((token_id + 24), (taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C)));      \
+        UINT32_TO_BUF((token_id + 28), token_seq);                                                \
     }
 
 #define GENERATE_NFT_TOKEN_ID(token_id, tflag, transaction_fee, accid, taxon, token_seq) \
@@ -508,10 +532,10 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         nft_exists = 0;                                                                                                      \
         uint8_t lo_keylet[34];                                                                                               \
         uint8_t buf[32] = {0};                                                                                               \
-        COPY_20BYTES(buf, 0, account, 0);                                                                                    \
+        COPY_20BYTES(buf, account);                                                                                          \
         lo_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
         lo_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        COPY_32BYTES(lo_keylet, 2, buf, 0);                                                                                  \
+        COPY_32BYTES((lo_keylet + 2), buf);                                                                                  \
                                                                                                                              \
         uint8_t id_keylet[34] = {0};                                                                                         \
         id_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
@@ -521,12 +545,12 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                                                                                                                              \
         uint8_t hi_keylet[34];                                                                                               \
         uint8_t id[32];                                                                                                      \
-        COPY_20BYTES(id, 0, account, 0);                                                                                     \
-        COPY_8BYTES(id + ACCOUNT_ID_SIZE, page_mask + ACCOUNT_ID_SIZE);                                                      \
-        COPY_4BYTES(id + ACCOUNT_ID_SIZE + 8, page_mask + ACCOUNT_ID_SIZE + 8);                                              \
+        COPY_20BYTES(id, account);                                                                                           \
+        COPY_8BYTES((id + ACCOUNT_ID_SIZE), (page_mask + ACCOUNT_ID_SIZE));                                                  \
+        COPY_4BYTES((id + ACCOUNT_ID_SIZE + 8), (page_mask + ACCOUNT_ID_SIZE + 8));                                          \
         hi_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
         hi_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        COPY_32BYTES(hi_keylet, 2, id, 0);                                                                                   \
+        COPY_32BYTES((hi_keylet + 2), id);                                                                                   \
                                                                                                                              \
         uint8_t nft_keylet[34];                                                                                              \
         if (ledger_keylet(SBUF(nft_keylet), SBUF(id_keylet), SBUF(hi_keylet)) != 34)                                         \
@@ -566,27 +590,28 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         if (nft_exists)                                                                                                      \
         {                                                                                                                    \
             nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0]; \
-            COPY_BUF_NON_CONST_LEN_GUARDM(nft_uri, 0, uri_read_buf, 1, nft_uri_len, sizeof(uri_read_buf), 1, 9);             \
+            COPY_REG_NFT_URI(nft_uri, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1)));                                       \
             nft_flags = UINT16_FROM_BUF(cur_id);                                                                             \
-            nft_tffee = UINT16_FROM_BUF(cur_id + 2);                                                                         \
-            COPY_20BYTES(nft_issuer, 0, cur_id, 4);                                                                          \
-            uint32_t taxon = UINT32_FROM_BUF(cur_id + 24);                                                                   \
-            nft_seq = UINT32_FROM_BUF(cur_id + 28);                                                                          \
+            nft_tffee = UINT16_FROM_BUF((cur_id + 2));                                                                       \
+            COPY_20BYTES(nft_issuer, (cur_id + 4));                                                                          \
+            uint32_t taxon = UINT32_FROM_BUF((cur_id + 24));                                                                 \
+            nft_seq = UINT32_FROM_BUF((cur_id + 28));                                                                        \
             nft_taxon = taxon ^ ((NFT_TAXON_M * nft_seq) + NFT_TAXON_C);                                                     \
         }                                                                                                                    \
     }
 
-#define POW_GUARD(x, y, output, n)               \
-    {                                            \
-        output = 1;                              \
-        for (int it = 0; GUARD(n), it < y; ++it) \
-            output *= x;                         \
+#define POW_OF_TWO(exp, output)              \
+    {                                        \
+        uint16_t val = 32768;                \
+        val = (uint16_t)(val >> (15 - exp)); \
+        output = val;                        \
     }
 
 #define GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, quota) \
     {                                                                  \
-        uint32_t div;                                                  \
-        POW_GUARD(2, epoch - 1, div, DEF_EPOCH_COUNT);                 \
+        uint32_t div = 1;                                              \
+        if (epoch > 1)                                                 \
+            POW_OF_TWO((epoch - 1), div);                              \
         quota = first_epoch_reward_quota / div;                        \
     }
 
@@ -709,13 +734,12 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define _02_42_ENCODE_TXON(buf_out, tf) \
     ENCODE_TXON(buf_out, tf);
 
-#define ENCODE_URI(buf_out, uri, uri_len)                                             \
-    {                                                                                 \
-        buf_out[0] = 0x75U;                                                           \
-        buf_out[1] = uri_len;                                                         \
-        for (int i = 0; GUARD(uri_len / 8 + (uri_len % 8 != 0)), i < uri_len; i += 8) \
-            *(uint64_t *)(buf_out + i + 2) = *(uint64_t *)(uri + i);                  \
-        buf_out += uri_len + 2;                                                       \
+#define ENCODE_URI(buf_out, uri, uri_len)     \
+    {                                         \
+        buf_out[0] = 0x75U;                   \
+        buf_out[1] = uri_len;                 \
+        COPY_REG_NFT_URI((buf_out + 2), uri); \
+        buf_out += REG_NFT_URI_SIZE + 2;      \
     }
 #define _07_05_ENCODE_URI(buf_out, uri, uri_len) \
     ENCODE_URI(buf_out, uri, uri_len);
@@ -752,25 +776,57 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         buf_out += ENCODE_FIELDS_SIZE;      \
     }
 
-#define ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m)                     \
-    {                                                                                         \
-        uint8_t *ptr = (uint8_t *)&data;                                                      \
-        uint8_t uf = field;                                                                   \
-        buf_out[0] = 0x70U + (uf & 0x0FU);                                                    \
-        if (data_len <= 192) /*Data length is represented with 2 bytes if (>192)*/            \
-        {                                                                                     \
-            buf_out[1] = data_len;                                                            \
-            buf_out += 2;                                                                     \
-        }                                                                                     \
-        else                                                                                  \
-        {                                                                                     \
-            buf_out[0] = 0x70U + (uf & 0x0FU);                                                \
-            buf_out[1] = ((data_len - 193) / 256) + 193;                                      \
-            buf_out[2] = data_len - (((buf_out[1] - 193) * 256) + 193);                       \
-            buf_out += 3;                                                                     \
-        }                                                                                     \
-        COPY_BUF_NON_CONST_LEN_GUARDM(buf_out, 0, ptr, 0, data_len, MAX_MEMO_DATA_LEN, n, m); \
-        buf_out += data_len;                                                                  \
+// Memo data is truncated at 32bytes, because maximum memo hook would send in a transaction id.
+#define ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m)     \
+    {                                                                         \
+        uint8_t *ptr = (uint8_t *)&data;                                      \
+        uint8_t uf = field;                                                   \
+        buf_out[0] = 0x70U + (uf & 0x0FU);                                    \
+        const int len = MIN(data_len, 32);                                    \
+        if (len <= 192) /*Data length is represented with 2 bytes if (>192)*/ \
+        {                                                                     \
+            buf_out[1] = len;                                                 \
+            buf_out += 2;                                                     \
+        }                                                                     \
+        else                                                                  \
+        {                                                                     \
+            buf_out[0] = 0x70U + (uf & 0x0FU);                                \
+            buf_out[1] = ((len - 193) / 256) + 193;                           \
+            buf_out[2] = len - (((buf_out[1] - 193) * 256) + 193);            \
+            buf_out += 3;                                                     \
+        }                                                                     \
+        int pos = 0;                                                          \
+        if (pos + 32 <= len)                                                  \
+        {                                                                     \
+            COPY_32BYTES(buf_out, (ptr + pos));                               \
+            pos += 32;                                                        \
+        }                                                                     \
+        if (pos + 16 <= len)                                                  \
+        {                                                                     \
+            COPY_16BYTES(buf_out, (ptr + pos));                               \
+            pos += 16;                                                        \
+        }                                                                     \
+        if (pos + 8 <= len)                                                   \
+        {                                                                     \
+            COPY_8BYTES(buf_out, (ptr + pos));                                \
+            pos += 8;                                                         \
+        }                                                                     \
+        if (pos + 4 <= len)                                                   \
+        {                                                                     \
+            COPY_4BYTES(buf_out, (ptr + pos));                                \
+            pos += 4;                                                         \
+        }                                                                     \
+        if (pos + 2 <= len)                                                   \
+        {                                                                     \
+            COPY_2BYTES(buf_out, (ptr + pos));                                \
+            pos += 2;                                                         \
+        }                                                                     \
+        if (pos + 1 <= len)                                                   \
+        {                                                                     \
+            COPY_BYTE(buf_out, (ptr + pos));                                  \
+            pos += 1;                                                         \
+        }                                                                     \
+        buf_out += pos;                                                       \
     }
 
 #define _07_XX_ENCODE_STI_VL_COMMON_GUARDM(buf_out, data, data_len, field, n, m) \
@@ -811,8 +867,9 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     {                                                       \
         uint8_t uat = amount_type;                          \
         buf_out[0] = 0x60U + (uat & 0x0FU);                 \
-        for (int i = 1; GUARDM(49 * n, m), i < 49; ++i)     \
-            buf_out[i] = tlamt[i - 1];                      \
+        COPY_40BYTES((buf_out + 1), tlamt);                 \
+        COPY_8BYTES((buf_out + 41), (tlamt + 40));          \
+        COPY_BYTE((buf_out + 49), (tlamt + 48));            \
         buf_out += ENCODE_TL_SIZE;                          \
     }
 
@@ -919,6 +976,40 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 /**************************************************************************/
 /***********************NFT related transactions***************************/
 /**************************************************************************/
+
+/////////// Macro to prepare a simple transaction. ///////////
+
+#ifdef HAS_CALLBACK
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE 309
+#else
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE 287
+#endif
+#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE(buf_out_master, tlamt, to_address, dest_tag_raw, src_tag_raw)   \
+    {                                                                                                    \
+        uint8_t *buf_out = buf_out_master;                                                               \
+        uint8_t acc[20];                                                                                 \
+        uint32_t dest_tag = (dest_tag_raw);                                                              \
+        uint32_t src_tag = (src_tag_raw);                                                                \
+        uint32_t cls = (uint32_t)ledger_seq();                                                           \
+        hook_account(SBUF(acc));                                                                         \
+        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                 /* uint16  | size   3 */                   \
+        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);            /* uint32  | size   5 */                   \
+        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);              /* uint32  | size   5 */                   \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                   /* uint32  | size   5 */                   \
+        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);             /* uint32  | size   5 */                   \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);                  /* uint32  | size   6 */                   \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);                  /* uint32  | size   6 */                   \
+        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, tlamt, 1, 1); /* amount  | size  48 */                   \
+        uint8_t *fee_ptr = buf_out;                                                                      \
+        _06_08_ENCODE_DROPS_FEE(buf_out, 0);                                    /* amount  | size   9 */ \
+        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                             /* pk      | size  35 */ \
+        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                /* account | size  22 */ \
+        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                         /* account | size  22 */ \
+        etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE); /* emitdet | size 1?? */ \
+        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);              \
+        \ 
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                           \
+    }
 
 /////////// Macro to prepare a nft mint. ///////////
 
@@ -1042,14 +1133,14 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         uint8_t acc[20];                                                                   \
         uint32_t cls = (uint32_t)ledger_seq();                                             \
         hook_account(SBUF(acc));                                                           \
-        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);           /* uint16  | size   3 */         \
-        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);         /* uint32  | size   5 */         \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);               /* uint32  | size   5 */         \
-        _02_10_ENCODE_EXPIRATION_MAX(buf_out);            /* uint32  | size   5 */         \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);              /* uint32  | size   6 */         \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);              /* uint32  | size   6 */         \
-        _06_01_ENCODE_TL_AMOUNT(buf_out, tlamt);          /* amount  | size  49 */         \
-        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid); /* tknid   | size  33 */         \
+        _01_02_ENCODE_TT(buf_out, ttNFT_OFFER);               /* uint16  | size   3 */     \
+        _02_02_ENCODE_FLAGS(buf_out, tfBuyToken);             /* uint32  | size   5 */     \
+        _02_04_ENCODE_SEQUENCE(buf_out, 0);                   /* uint32  | size   5 */     \
+        _02_10_ENCODE_EXPIRATION_MAX(buf_out);                /* uint32  | size   5 */     \
+        _02_26_ENCODE_FLS(buf_out, cls + 1);                  /* uint32  | size   6 */     \
+        _02_27_ENCODE_LLS(buf_out, cls + 5);                  /* uint32  | size   6 */     \
+        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, tlamt, 1, 1); /* amount  | size  49 */     \
+        _05_10_ENCODE_EMIT_PARENT_TXN_ID(buf_out, tknid);     /* tknid   | size  33 */     \
         uint8_t *fee_ptr = buf_out;                                                        \
         _06_08_ENCODE_DROPS_FEE(buf_out, 0);              /* amount  | size   9 */         \
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);       /* pk      | size  35 */         \
@@ -1076,6 +1167,25 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order) \
     (231 + GET_HOOKSET_OPERATION_SIZE(operation_order[0]) + GET_HOOKSET_OPERATION_SIZE(operation_order[1]) + GET_HOOKSET_OPERATION_SIZE(operation_order[2]) + GET_HOOKSET_OPERATION_SIZE(operation_order[3]))
 
+#define ENCODE_HOOK_OBJECT(buf_out, hash, namespace, operation)                       \
+    {                                                                                 \
+        ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */  \
+        if (operation == 1 || operation == 2)                                         \
+        {                                                                             \
+            _02_02_ENCODE_FLAGS(buf_out, tfHookOveride); /* uint32  | size   5 */     \
+            if (operation == 1)                                                       \
+            {                                                                         \
+                _05_31_ENCODE_HOOKHASH(buf_out, hash);       /* uint256 | size  34 */ \
+                _05_32_ENCODE_NAMESPACE(buf_out, namespace); /* uint256 | size  34 */ \
+            }                                                                         \
+            else                                                                      \
+            {                                                                         \
+                _07_11_ENCODE_DELETEHOOK(buf_out); /* blob    | size   2 */           \
+            }                                                                         \
+        }                                                                             \
+        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/ /* uint32  | size   1 */      \
+    }
+
 #define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr, namespace)                   \
     {                                                                                                                 \
         uint8_t *buf_out = buf_out_master;                                                                            \
@@ -1092,28 +1202,10 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);         /* pk      | size  35 */                                  \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);            /* account | size  22 */                                  \
         ENCODE_FIELDS(buf_out, ARRAY, HOOKS); /*Arr Start*/ /* uint32  | size   1 */                                  \
-        for (int i = 0; GUARD(4), i < 4; ++i)                                                                         \
-        {                                                                                                             \
-            switch (operation_order[i])                                                                               \
-            {                                                                                                         \
-            case 1:                                                                                                   \
-                ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/    /* uint32  | size   1 */                       \
-                _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);           /* uint32  | size   5 */                       \
-                _05_31_ENCODE_HOOKHASH(buf_out, hash_pointers_arr[i]); /* uint256 | size  34 */                       \
-                _05_32_ENCODE_NAMESPACE(buf_out, namespace);           /* uint256 | size  34 */                       \
-                ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/       /* uint32  | size   1 */                       \
-                break;                                                                                                \
-            case 2:                                                                                                   \
-                ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                          \
-                _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);        /* uint32  | size   5 */                          \
-                _07_11_ENCODE_DELETEHOOK(buf_out);                  /* blob    | size   2 */                          \
-                ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/    /* uint32  | size   1 */                          \
-                break;                                                                                                \
-            default:                                                                                                  \
-                ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                          \
-                ENCODE_FIELDS(buf_out, OBJECT, END); /*Obj End*/    /* uint32  | size   1 */                          \
-            }                                                                                                         \
-        }                                                                                                             \
+        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[0], namespace, operation_order[0]);                             \
+        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[1], namespace, operation_order[1]);                             \
+        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[2], namespace, operation_order[2]);                             \
+        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[3], namespace, operation_order[3]);                             \
         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                      /* uint32  | size   1 */ \
         etxn_details((uint32_t)buf_out, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)); /* emitdet | size 138 */ \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));              \
@@ -1123,13 +1215,6 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 /**************************************************************************/
 /******************Macros with evernode specific logic*********************/
 /**************************************************************************/
-
-#define PREPARE_PAYMENT_FOUNDATION_RETURN_SIZE \
-    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(19, 0, 0))
-#define PREPARE_PAYMENT_FOUNDATION_RETURN(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                               \
-    {                                                                                                                                                                     \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, FOUNDATION_REFUND_50, 19, empty_ptr, 0, empty_ptr, 0, 1); \
-    }
 
 #define PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE \
     (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))

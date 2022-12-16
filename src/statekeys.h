@@ -58,17 +58,17 @@ const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0
 const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11};
 
 #define HOST_ADDR_KEY(host_addr) \
-    COPY_20BYTES(STP_HOST_ADDR, 12, host_addr, 0)
+    COPY_20BYTES((STP_HOST_ADDR + 12), host_addr)
 
-#define TOKEN_ID_KEY(token_id)                         \
-    {                                                  \
-        COPY_8BYTES(STP_TOKEN_ID + 4, token_id + 4);   \
-        COPY_8BYTES(STP_TOKEN_ID + 12, token_id + 12); \
-        COPY_8BYTES(STP_TOKEN_ID + 20, token_id + 20); \
-        COPY_4BYTES(STP_TOKEN_ID + 28, token_id + 28); \
+#define TOKEN_ID_KEY(token_id)                             \
+    {                                                      \
+        COPY_8BYTES((STP_TOKEN_ID + 4), (token_id + 4));   \
+        COPY_8BYTES((STP_TOKEN_ID + 12), (token_id + 12)); \
+        COPY_8BYTES((STP_TOKEN_ID + 20), (token_id + 20)); \
+        COPY_4BYTES((STP_TOKEN_ID + 28), (token_id + 28)); \
     }
 
 #define TRANSFEREE_ADDR_KEY(transferee_addr) \
-    COPY_20BYTES(STP_TRANSFEREE_ADDR, 12, transferee_addr, 0)
+    COPY_20BYTES((STP_TRANSFEREE_ADDR + 12), transferee_addr)
 
 #endif

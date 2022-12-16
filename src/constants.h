@@ -6,7 +6,6 @@
 #define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
-#define FOUNDATION_REFUND_50 "evnFoundationRefund"
 #define HOST_POST_DEREG "evnHostPostDereg"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
 #define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
@@ -105,6 +104,7 @@ const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
+const uint32_t REG_NFT_URI_SIZE = 39;
 
 // State value offsets
 // REWARD_INFO
@@ -142,7 +142,7 @@ const uint32_t HOST_CPU_SPEED_OFFSET = 62;
 const uint32_t HOST_CPU_MICROSEC_OFFSET = 64;
 const uint32_t HOST_RAM_MB_OFFSET = 68;
 const uint32_t HOST_DISK_MB_OFFSET = 72;
-const uint32_t EMAIL_ADDRESS_OFFSET = 76;
+const uint32_t HOST_EMAIL_ADDRESS_OFFSET = 76;
 
 // TRANSFEREE_ADDR
 const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
@@ -165,14 +165,43 @@ const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
 
-#define COMMON_CHAIN_PARAMS "common_params"
-const uint32_t COMMON_CHAIN_PARAMS_SIZE = 58;
+// Memo Offsets
+// <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
+// HOST_REG
+const uint32_t HOST_COUNTRY_CODE_MEMO_OFFSET = 0;
+const uint32_t HOST_CPU_MICROSEC_MEMO_OFFSET = 2;
+const uint32_t HOST_RAM_MB_MEMO_OFFSET = 6;
+const uint32_t HOST_DISK_MB_MEMO_OFFSET = 10;
+const uint32_t HOST_TOT_INS_COUNT_MEMO_OFFSET = 14;
+const uint32_t HOST_CPU_MODEL_NAME_MEMO_OFFSET = 18;
+const uint32_t HOST_CPU_COUNT_MEMO_OFFSET = 58;
+const uint32_t HOST_CPU_SPEED_MEMO_OFFSET = 60;
+const uint32_t HOST_DESCRIPTION_MEMO_OFFSET = 62;
+const uint32_t HOST_EMAIL_ADDRESS_MEMO_OFFSET = 88;
+
+// <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
+// HOST_UPDATE_REG
+const uint32_t HOST_UPDATE_TOKEN_ID_MEMO_OFFSET = 0;
+const uint32_t HOST_UPDATE_COUNTRY_CODE_MEMO_OFFSET = 32;
+const uint32_t HOST_UPDATE_CPU_MICROSEC_MEMO_OFFSET = 34;
+const uint32_t HOST_UPDATE_RAM_MB_MEMO_OFFSET = 38;
+const uint32_t HOST_UPDATE_DISK_MB_MEMO_OFFSET = 42;
+const uint32_t HOST_UPDATE_TOT_INS_COUNT_MEMO_OFFSET = 46;
+const uint32_t HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET = 50;
+const uint32_t HOST_UPDATE_DESCRIPTION_MEMO_OFFSET = 54;
+const uint32_t HOST_UPDATE_VERSION_MEMO_OFFSET = 80;
+
+#define META_PARAMS "meta_params"
+const uint32_t META_PARAMS_SIZE = 58;
 const uint32_t CHAIN_IDX_PARAM_OFFSET = 0;
 const uint32_t OP_TYPE_PARAM_OFFSET = 1;
 const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 2;
 const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 10;
 const uint32_t HOOK_ACCID_PARAM_OFFSET = 18;
 const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
+
+#define MEMO_PARAMS "memo_params"
+const uint32_t MEMO_PARAM_SIZE = 128;
 
 #define CHAIN_ONE_PARAMS "chain_one_params"
 const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;
