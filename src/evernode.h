@@ -110,6 +110,13 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
     COPY_8BYTES((lhsbuf + 24), (rhsbuf + 24));
 
+#define COPY_34BYTES(lhsbuf, rhsbuf)           \
+    COPY_8BYTES(lhsbuf, rhsbuf);               \
+    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8));   \
+    COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
+    COPY_8BYTES((lhsbuf + 24), (rhsbuf + 24)); \
+    COPY_2BYTES((lhsbuf + 32), (rhsbuf + 32));
+
 #define COPY_40BYTES(lhsbuf, rhsbuf) \
     COPY_32BYTES(lhsbuf, rhsbuf);    \
     COPY_8BYTES((lhsbuf + 32), (rhsbuf + 32));
@@ -302,6 +309,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             EQUAL_4BYTES(output, (buf + 8), (HOOK_UPDATE + 8)); \
         if (output)                                             \
             EQUAL_BYTE(output, (buf + 12), (HOOK_UPDATE + 12)); \
+    }
+
+#define EQUAL_NFTPAGE_KEYLET_N_IDX(output, buf, len)                     \
+    {                                                                    \
+        output = sizeof(NFTPAGE_KEYLET_N_IDX) == (len + 1);              \
+        if (output)                                                      \
+            EQUAL_8BYTES(output, buf, NFTPAGE_KEYLET_N_IDX);             \
+        if (output)                                                      \
+            EQUAL_8BYTES(output, (buf + 8), (NFTPAGE_KEYLET_N_IDX + 8)); \
     }
 
 // Domain related copy macros.
@@ -520,84 +536,43 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                     \
     }
 
-enum LedgerEntryType
-{
-    ltNFTOKEN_PAGE = 0x0050
-};
-
-const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255};
-
-#define GET_NFT(account, nft_id, nft_exists, nft_issuer, nft_uri, nft_uri_len, nft_taxon, nft_flags, nft_tffee, nft_seq)     \
-    {                                                                                                                        \
-        nft_exists = 0;                                                                                                      \
-        uint8_t lo_keylet[34];                                                                                               \
-        uint8_t buf[32] = {0};                                                                                               \
-        COPY_20BYTES(buf, account);                                                                                          \
-        lo_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
-        lo_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        COPY_32BYTES((lo_keylet + 2), buf);                                                                                  \
-                                                                                                                             \
-        uint8_t id_keylet[34] = {0};                                                                                         \
-        id_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
-        id_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        for (int i = 0; GUARDM(32, 3), i < 32; ++i)                                                                          \
-            id_keylet[2 + i] = (lo_keylet[2 + i] & ~page_mask[i]) + (nft_id[i] & page_mask[i]);                              \
-                                                                                                                             \
-        uint8_t hi_keylet[34];                                                                                               \
-        uint8_t id[32];                                                                                                      \
-        COPY_20BYTES(id, account);                                                                                           \
-        COPY_8BYTES((id + ACCOUNT_ID_SIZE), (page_mask + ACCOUNT_ID_SIZE));                                                  \
-        COPY_4BYTES((id + ACCOUNT_ID_SIZE + 8), (page_mask + ACCOUNT_ID_SIZE + 8));                                          \
-        hi_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
-        hi_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        COPY_32BYTES((hi_keylet + 2), id);                                                                                   \
-                                                                                                                             \
-        uint8_t nft_keylet[34];                                                                                              \
-        if (ledger_keylet(SBUF(nft_keylet), SBUF(id_keylet), SBUF(hi_keylet)) != 34)                                         \
-            rollback(SBUF("Evernode: Could not generate the ledger nft keylet."), 10);                                       \
-                                                                                                                             \
-        int64_t nfts_slot = slot_set(SBUF(nft_keylet), 0);                                                                   \
-        if (nfts_slot < 0)                                                                                                   \
-            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                         \
-                                                                                                                             \
-        nfts_slot = slot_subfield(nfts_slot, sfNFTokens, 0);                                                                 \
-        if (nfts_slot < 0)                                                                                                   \
-            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                   \
-                                                                                                                             \
-        uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                             \
-        uint8_t uri_read_buf[258];                                                                                           \
-        int64_t uri_read_len;                                                                                                \
-        for (int i = 0; GUARDM(32, 7), i < 32; ++i)                                                                          \
-        {                                                                                                                    \
-            int64_t nft_slot = slot_subarray(nfts_slot, i, 0);                                                               \
-            if (nft_slot >= 0)                                                                                               \
-            {                                                                                                                \
-                int64_t id_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                   \
-                if (id_slot >= 0 && slot(SBUF(cur_id), id_slot) == NFT_TOKEN_ID_SIZE)                                        \
-                {                                                                                                            \
-                    int equal = 0;                                                                                           \
-                    EQUAL_32BYTES(equal, cur_id, nft_id);                                                                    \
-                    if (equal)                                                                                               \
-                    {                                                                                                        \
-                        int64_t uri_slot = slot_subfield(nft_slot, sfURI, 0);                                                \
-                        uri_read_len = slot(SBUF(uri_read_buf), uri_slot);                                                   \
-                        nft_exists = 1;                                                                                      \
-                        break;                                                                                               \
-                    }                                                                                                        \
-                }                                                                                                            \
-            }                                                                                                                \
-        }                                                                                                                    \
-        if (nft_exists)                                                                                                      \
-        {                                                                                                                    \
-            nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0]; \
-            COPY_REG_NFT_URI(nft_uri, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1)));                                       \
-            nft_flags = UINT16_FROM_BUF(cur_id);                                                                             \
-            nft_tffee = UINT16_FROM_BUF((cur_id + 2));                                                                       \
-            COPY_20BYTES(nft_issuer, (cur_id + 4));                                                                          \
-            uint32_t taxon = UINT32_FROM_BUF((cur_id + 24));                                                                 \
-            nft_seq = UINT32_FROM_BUF((cur_id + 28));                                                                        \
-            nft_taxon = taxon ^ ((NFT_TAXON_M * nft_seq) + NFT_TAXON_C);                                                     \
-        }                                                                                                                    \
+#define GET_NFT(nft_keylet, nft_loc_idx, nft_exists, nft_issuer, nft_uri, nft_uri_len, nft_taxon, nft_flags, nft_tffee, nft_seq) \
+    {                                                                                                                            \
+        nft_exists = 0;                                                                                                          \
+        int64_t nfts_slot = slot_set(SBUF(nft_keylet), 0);                                                                       \
+        if (nfts_slot < 0)                                                                                                       \
+            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                             \
+                                                                                                                                 \
+        nfts_slot = slot_subfield(nfts_slot, sfNFTokens, 0);                                                                     \
+        if (nfts_slot < 0)                                                                                                       \
+            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                       \
+                                                                                                                                 \
+        uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                 \
+        uint8_t uri_read_buf[258];                                                                                               \
+        int64_t uri_read_len;                                                                                                    \
+        int64_t nft_slot = slot_subarray(nfts_slot, nft_loc_idx, 0);                                                             \
+        if (nft_slot >= 0)                                                                                                       \
+        {                                                                                                                        \
+            int64_t id_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                           \
+            if (id_slot >= 0 && slot(SBUF(cur_id), id_slot) == NFT_TOKEN_ID_SIZE)                                                \
+            {                                                                                                                    \
+                                                                                                                                 \
+                int64_t uri_slot = slot_subfield(nft_slot, sfURI, 0);                                                            \
+                uri_read_len = slot(SBUF(uri_read_buf), uri_slot);                                                               \
+                nft_exists = 1;                                                                                                  \
+            }                                                                                                                    \
+        }                                                                                                                        \
+        if (nft_exists)                                                                                                          \
+        {                                                                                                                        \
+            nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0];     \
+            COPY_REG_NFT_URI(nft_uri, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1)));                                           \
+            nft_flags = UINT16_FROM_BUF(cur_id);                                                                                 \
+            nft_tffee = UINT16_FROM_BUF((cur_id + 2));                                                                           \
+            COPY_20BYTES(nft_issuer, (cur_id + 4));                                                                              \
+            uint32_t taxon = UINT32_FROM_BUF((cur_id + 24));                                                                     \
+            nft_seq = UINT32_FROM_BUF((cur_id + 28));                                                                            \
+            nft_taxon = taxon ^ ((NFT_TAXON_M * nft_seq) + NFT_TAXON_C);                                                         \
+        }                                                                                                                        \
     }
 
 #define POW_OF_TWO(exp, output)              \
