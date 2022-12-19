@@ -309,16 +309,16 @@ int64_t hook(uint32_t reserved)
         if (!is_initializer_account)
             rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
 
-        uint8_t *hash_ptrs[4] = {memo_params, memo_params + HASH_SIZE, memo_params + (HASH_SIZE * 2), memo_params + (HASH_SIZE * 3)};
+        // Operation --> 0: Installation , 1: Delete
         int operation_order[4] = {0, 0, 0, 0};
-        IS_32BYTES_EMPTY(operation_order[0], hash_ptrs[0]);
-        IS_32BYTES_EMPTY(operation_order[1], hash_ptrs[1]);
-        IS_32BYTES_EMPTY(operation_order[2], hash_ptrs[2]);
-        IS_32BYTES_EMPTY(operation_order[3], hash_ptrs[3]);
+        IS_32BYTES_EMPTY(operation_order[0], memo_params);
+        IS_32BYTES_EMPTY(operation_order[1], memo_params + HASH_SIZE);
+        IS_32BYTES_EMPTY(operation_order[2], memo_params + (HASH_SIZE * 2));
+        IS_32BYTES_EMPTY(operation_order[3], memo_params + (HASH_SIZE * 3));
 
         etxn_reserve(1);
         uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
-        PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, hash_ptrs, (memo_params + (HASH_SIZE * 4)));
+        PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, memo_params, (memo_params + (HASH_SIZE * 4)));
 
         uint8_t emithash[HASH_SIZE];
         if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
