@@ -670,6 +670,18 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             reward_amount_ref = float_divide(float_set(0, reward_quota), float_set(0, prev_moment_active_host_count));                                                                            \
     }
 
+#define CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee)                                                                 \
+    {                                                                                                                \
+        if (fee > 0)                                                                                                 \
+        {                                                                                                            \
+            uint64_t max_trx_fee;                                                                                    \
+            GET_CONF_VALUE(max_trx_fee, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not get the maximum trx emit fee."); \
+            if (fee >= max_trx_fee)                                                                                  \
+                rollback(SBUF("Evernode: Too large transaction fee."), 1);                                           \
+        }                                                                                                            \
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                       \
+    }
+
 /**************************************************************************/
 /***************************NFT related MACROS*****************************/
 /**************************************************************************/
@@ -902,7 +914,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE); /* emitdet | size 1?? */            \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);                         \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                      \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                               \
     }
 
 /**************************************************************************/
@@ -938,7 +950,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len)); /* emitdet | size 1?? */                                       \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len));                                                    \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                                                                              \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                                                                                                       \
     }
 
 /////////// Macros to prepare simple payment with memos. ///////////
@@ -970,7 +982,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len)); /* emitdet | size 1?? */                                   \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len));                                                \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                                                                                \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                                                                                         \
     }
 
 /**************************************************************************/
@@ -1091,7 +1103,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         etxn_details((uint32_t)buf_out, 138);           /* emitdet | size 138 */    \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_SELL_OFFER_SIZE);   \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                      \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                               \
     }
 
 /////////// Macro to prepare a nft buy offer. ///////////
@@ -1149,7 +1161,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         etxn_details((uint32_t)buf_out, 138);             /* emitdet | size 138 */         \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE); \
         \ 
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                             \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                      \
     }
 
 /**************************************************************************/

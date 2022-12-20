@@ -53,6 +53,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
+        { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
