@@ -1137,8 +1137,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 /**************************************************************************/
 /************** Set Hook Related Transactions *****************************/
 /**************************************************************************/
-#define OP_HOOK_INSTALLATION 1
-#define OP_HOOK_DELETION 2
+#define OP_HOOK_INSTALLATION 0
+#define OP_HOOK_DELETION 1
 #define ENCODE_HOOK_INSTALLATION_SIZE 75
 #define ENCODE_HOOK_DELETION_SIZE 9
 #define ENCODE_HOOK_NO_OPERATION_SIZE 2
@@ -1152,10 +1152,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define ENCODE_HOOK_OBJECT(buf_out, hash, namespace, operation)                       \
     {                                                                                 \
         ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */  \
-        if (operation == 1 || operation == 2)                                         \
+        if (operation == OP_HOOK_INSTALLATION || operation == OP_HOOK_DELETION)       \
         {                                                                             \
             _02_02_ENCODE_FLAGS(buf_out, tfHookOveride); /* uint32  | size   5 */     \
-            if (operation == 1)                                                       \
+            if (operation == OP_HOOK_INSTALLATION)                                    \
             {                                                                         \
                 _05_31_ENCODE_HOOKHASH(buf_out, hash);       /* uint256 | size  34 */ \
                 _05_32_ENCODE_NAMESPACE(buf_out, namespace); /* uint256 | size  34 */ \
@@ -1165,10 +1165,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                 _07_11_ENCODE_DELETEHOOK(buf_out); /* blob    | size   2 */           \
             }                                                                         \
         }                                                                             \
-        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/ /* uint32  | size   1 */      \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */     \
     }
 
-#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, hash_pointers_arr, namespace)                   \
+#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, first_hash_pointer, namespace)                  \
     {                                                                                                                 \
         uint8_t *buf_out = buf_out_master;                                                                            \
         uint32_t cls = (uint32_t)ledger_seq();                                                                        \
@@ -1184,10 +1184,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);         /* pk      | size  35 */                                  \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);            /* account | size  22 */                                  \
         ENCODE_FIELDS(buf_out, ARRAY, HOOKS); /*Arr Start*/ /* uint32  | size   1 */                                  \
-        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[0], namespace, operation_order[0]);                             \
-        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[1], namespace, operation_order[1]);                             \
-        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[2], namespace, operation_order[2]);                             \
-        ENCODE_HOOK_OBJECT(buf_out, hash_pointers_arr[3], namespace, operation_order[3]);                             \
+        ENCODE_HOOK_OBJECT(buf_out, first_hash_pointer, namespace, operation_order[0]);                               \
+        ENCODE_HOOK_OBJECT(buf_out, (first_hash_pointer + HASH_SIZE), namespace, operation_order[1]);                 \
+        ENCODE_HOOK_OBJECT(buf_out, (first_hash_pointer + (2 * HASH_SIZE)), namespace, operation_order[2]);           \
+        ENCODE_HOOK_OBJECT(buf_out, (first_hash_pointer + (3 * HASH_SIZE)), namespace, operation_order[3]);           \
         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                      /* uint32  | size   1 */ \
         etxn_details((uint32_t)buf_out, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)); /* emitdet | size 138 */ \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));              \

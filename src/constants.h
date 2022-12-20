@@ -81,6 +81,10 @@ const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
 const uint32_t DEF_REWARD_START_MOMENT = 0;
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
+const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0x54,
+                               0x38, 0x41, 0x21, 0xFF, 0x56, 0xFA, 0x8F, 0xEC,
+                               0xC2, 0x15, 0xFD, 0xDE, 0x2E, 0xC3, 0x5D, 0x9E,
+                               0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
 const int64_t DEF_EMIT_FEE_THRESHOLD = 1000; // In Drops.
 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
