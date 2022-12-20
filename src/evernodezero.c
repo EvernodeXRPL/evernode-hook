@@ -146,7 +146,7 @@ int64_t hook(uint32_t reserved)
                     GET_MEMO(memo_lookup, memos, memos_len, memo_ptr1, memo_len1, type_ptr1, type_len1, format_ptr1, format_len1, data_ptr1, data_len1);
 
                     int compare_status = 0;
-                    EQUAL_NFTPAGE_KEYLET_N_IDX(compare_status, type_ptr1, type_len1);
+                    EQUAL_HOST_REGISTRY_REF(compare_status, type_ptr1, type_len1);
                     if (!compare_status)
                         rollback(SBUF("Evernode: Memo type is invalid."), 1);
 

@@ -304,13 +304,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             EQUAL_BYTE(output, (buf + 12), (HOOK_UPDATE + 12)); \
     }
 
-#define EQUAL_NFTPAGE_KEYLET_N_IDX(output, buf, len)                     \
-    {                                                                    \
-        output = sizeof(NFTPAGE_KEYLET_N_IDX) == (len + 1);              \
-        if (output)                                                      \
-            EQUAL_8BYTES(output, buf, NFTPAGE_KEYLET_N_IDX);             \
-        if (output)                                                      \
-            EQUAL_8BYTES(output, (buf + 8), (NFTPAGE_KEYLET_N_IDX + 8)); \
+#define EQUAL_HOST_REGISTRY_REF(output, buf, len)                       \
+    {                                                                   \
+        output = sizeof(HOST_REGISTRY_REF) == (len + 1);                \
+        if (output)                                                     \
+            EQUAL_8BYTES(output, buf, HOST_REGISTRY_REF);               \
+        if (output)                                                     \
+            EQUAL_8BYTES(output, (buf + 8), (HOST_REGISTRY_REF + 8));   \
+        if (output)                                                     \
+            EQUAL_2BYTES(output, (buf + 16), (HOST_REGISTRY_REF + 16)); \
     }
 
 // Domain related copy macros.
@@ -382,30 +384,30 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, 1, 1)
 
 #define GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
-    {                                                                                                                         \
-        /* since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it            \
-        the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries */            \
-        memo_ptr = SUB_OFFSET(memo_lookup) + memos;                                                                           \
-        memo_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        /* memos are nested inside an actual memo object, so we need to subfield                                              \
-        / equivalently in JSON this would look like memo_array[i]["Memo"] */                                                  \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);                                                               \
-        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                        \
-        memo_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        if (memo_lookup < 0)                                                                                                  \
-            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);                                                   \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);                                                           \
-        type_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                        \
-        type_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        /* trace(SBUF("type in hex: "), type_ptr, type_len, 1); */                                                            \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);                                                         \
-        format_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                      \
-        format_len = SUB_LENGTH(memo_lookup);                                                                                 \
-        /* trace(SBUF("format in hex: "), format_ptr, format_len, 1); */                                                      \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);                                                           \
-        data_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                        \
-        data_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                             \
+    {                                                                                                                               \
+        /* since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it                  \
+        the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries */                  \
+        memo_ptr = SUB_OFFSET(memo_lookup) + memos;                                                                                 \
+        memo_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        /* memos are nested inside an actual memo object, so we need to subfield                                                    \
+        / equivalently in JSON this would look like memo_array[i]["Memo"] */                                                        \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);                                                                     \
+        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
+        memo_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        if (memo_lookup < 0)                                                                                                        \
+            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);                                                         \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);                                                                 \
+        type_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
+        type_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        /* trace(SBUF("type in hex: "), type_ptr, type_len, 1); */                                                                  \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);                                                               \
+        format_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                            \
+        format_len = SUB_LENGTH(memo_lookup);                                                                                       \
+        /* trace(SBUF("format in hex: "), format_ptr, format_len, 1); */                                                            \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);                                                                 \
+        data_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
+        data_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                                   \
     }
 
 #define SET_UINT_STATE_VALUE(value, key, error_buf)                  \

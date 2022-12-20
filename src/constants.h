@@ -13,7 +13,7 @@
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
-#define NFTPAGE_KEYLET_N_IDX "NFTPageKeyltNIdx"
+#define HOST_REGISTRY_REF "evnHostRegistryRef"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
