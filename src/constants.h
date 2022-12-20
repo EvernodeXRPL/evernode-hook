@@ -13,6 +13,7 @@
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
+#define HOST_REGISTRY_REF "evnHostRegistryRef"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -207,6 +208,9 @@ const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
 
 #define MEMO_PARAMS "memo_params"
 const uint32_t MEMO_PARAM_SIZE = 128;
+
+#define VERIFY_PARAMS "verify_params"
+const uint32_t VERIFY_PARAMS_SIZE = 36;
 
 #define CHAIN_ONE_PARAMS "chain_one_params"
 const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;

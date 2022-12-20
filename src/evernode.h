@@ -304,6 +304,17 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             EQUAL_BYTE(output, (buf + 12), (HOOK_UPDATE + 12)); \
     }
 
+#define EQUAL_HOST_REGISTRY_REF(output, buf, len)                       \
+    {                                                                   \
+        output = sizeof(HOST_REGISTRY_REF) == (len + 1);                \
+        if (output)                                                     \
+            EQUAL_8BYTES(output, buf, HOST_REGISTRY_REF);               \
+        if (output)                                                     \
+            EQUAL_8BYTES(output, (buf + 8), (HOST_REGISTRY_REF + 8));   \
+        if (output)                                                     \
+            EQUAL_2BYTES(output, (buf + 16), (HOST_REGISTRY_REF + 16)); \
+    }
+
 // Domain related copy macros.
 
 #define COPY_EVR_HOST_PREFIX(buf, spos)            \
@@ -372,32 +383,31 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define SET_AMOUNT_OUT(amt_out, token, issuer, amount) \
     SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, 1, 1)
 
-#define GET_MEMO(index, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
-    {                                                                                                                         \
-        /* since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it            \
-        the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries */            \
-        int64_t memo_lookup = sto_subarray(memos, memos_len, index);                                                          \
-        memo_ptr = SUB_OFFSET(memo_lookup) + memos;                                                                           \
-        memo_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        /* memos are nested inside an actual memo object, so we need to subfield                                              \
-        / equivalently in JSON this would look like memo_array[i]["Memo"] */                                                  \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);                                                               \
-        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                        \
-        memo_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        if (memo_lookup < 0)                                                                                                  \
-            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);                                                   \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);                                                           \
-        type_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                        \
-        type_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        /* trace(SBUF("type in hex: "), type_ptr, type_len, 1); */                                                            \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);                                                         \
-        format_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                      \
-        format_len = SUB_LENGTH(memo_lookup);                                                                                 \
-        /* trace(SBUF("format in hex: "), format_ptr, format_len, 1); */                                                      \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);                                                           \
-        data_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                        \
-        data_len = SUB_LENGTH(memo_lookup);                                                                                   \
-        /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                             \
+#define GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
+    {                                                                                                                               \
+        /* since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it                  \
+        the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries */                  \
+        memo_ptr = SUB_OFFSET(memo_lookup) + memos;                                                                                 \
+        memo_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        /* memos are nested inside an actual memo object, so we need to subfield                                                    \
+        / equivalently in JSON this would look like memo_array[i]["Memo"] */                                                        \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);                                                                     \
+        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
+        memo_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        if (memo_lookup < 0)                                                                                                        \
+            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);                                                         \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);                                                                 \
+        type_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
+        type_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        /* trace(SBUF("type in hex: "), type_ptr, type_len, 1); */                                                                  \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);                                                               \
+        format_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                            \
+        format_len = SUB_LENGTH(memo_lookup);                                                                                       \
+        /* trace(SBUF("format in hex: "), format_ptr, format_len, 1); */                                                            \
+        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);                                                                 \
+        data_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
+        data_len = SUB_LENGTH(memo_lookup);                                                                                         \
+        /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                                   \
     }
 
 #define SET_UINT_STATE_VALUE(value, key, error_buf)                  \
@@ -520,84 +530,42 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                     \
     }
 
-enum LedgerEntryType
-{
-    ltNFTOKEN_PAGE = 0x0050
-};
-
-const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255};
-
-#define GET_NFT(account, nft_id, nft_exists, nft_issuer, nft_uri, nft_uri_len, nft_taxon, nft_flags, nft_tffee, nft_seq)     \
-    {                                                                                                                        \
-        nft_exists = 0;                                                                                                      \
-        uint8_t lo_keylet[34];                                                                                               \
-        uint8_t buf[32] = {0};                                                                                               \
-        COPY_20BYTES(buf, account);                                                                                          \
-        lo_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
-        lo_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        COPY_32BYTES((lo_keylet + 2), buf);                                                                                  \
-                                                                                                                             \
-        uint8_t id_keylet[34] = {0};                                                                                         \
-        id_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
-        id_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        for (int i = 0; GUARDM(32, 3), i < 32; ++i)                                                                          \
-            id_keylet[2 + i] = (lo_keylet[2 + i] & ~page_mask[i]) + (nft_id[i] & page_mask[i]);                              \
-                                                                                                                             \
-        uint8_t hi_keylet[34];                                                                                               \
-        uint8_t id[32];                                                                                                      \
-        COPY_20BYTES(id, account);                                                                                           \
-        COPY_8BYTES((id + ACCOUNT_ID_SIZE), (page_mask + ACCOUNT_ID_SIZE));                                                  \
-        COPY_4BYTES((id + ACCOUNT_ID_SIZE + 8), (page_mask + ACCOUNT_ID_SIZE + 8));                                          \
-        hi_keylet[0] = (ltNFTOKEN_PAGE >> 8) & 0xFFU;                                                                        \
-        hi_keylet[1] = (ltNFTOKEN_PAGE >> 0) & 0xFFU;                                                                        \
-        COPY_32BYTES((hi_keylet + 2), id);                                                                                   \
-                                                                                                                             \
-        uint8_t nft_keylet[34];                                                                                              \
-        if (ledger_keylet(SBUF(nft_keylet), SBUF(id_keylet), SBUF(hi_keylet)) != 34)                                         \
-            rollback(SBUF("Evernode: Could not generate the ledger nft keylet."), 10);                                       \
-                                                                                                                             \
-        int64_t nfts_slot = slot_set(SBUF(nft_keylet), 0);                                                                   \
-        if (nfts_slot < 0)                                                                                                   \
-            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                         \
-                                                                                                                             \
-        nfts_slot = slot_subfield(nfts_slot, sfNFTokens, 0);                                                                 \
-        if (nfts_slot < 0)                                                                                                   \
-            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                   \
-                                                                                                                             \
-        uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                             \
-        uint8_t uri_read_buf[258];                                                                                           \
-        int64_t uri_read_len;                                                                                                \
-        for (int i = 0; GUARDM(32, 7), i < 32; ++i)                                                                          \
-        {                                                                                                                    \
-            int64_t nft_slot = slot_subarray(nfts_slot, i, 0);                                                               \
-            if (nft_slot >= 0)                                                                                               \
-            {                                                                                                                \
-                int64_t id_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                   \
-                if (id_slot >= 0 && slot(SBUF(cur_id), id_slot) == NFT_TOKEN_ID_SIZE)                                        \
-                {                                                                                                            \
-                    int equal = 0;                                                                                           \
-                    EQUAL_32BYTES(equal, cur_id, nft_id);                                                                    \
-                    if (equal)                                                                                               \
-                    {                                                                                                        \
-                        int64_t uri_slot = slot_subfield(nft_slot, sfURI, 0);                                                \
-                        uri_read_len = slot(SBUF(uri_read_buf), uri_slot);                                                   \
-                        nft_exists = 1;                                                                                      \
-                        break;                                                                                               \
-                    }                                                                                                        \
-                }                                                                                                            \
-            }                                                                                                                \
-        }                                                                                                                    \
-        if (nft_exists)                                                                                                      \
-        {                                                                                                                    \
-            nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0]; \
-            COPY_REG_NFT_URI(nft_uri, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1)));                                       \
-            nft_flags = UINT16_FROM_BUF(cur_id);                                                                             \
-            nft_tffee = UINT16_FROM_BUF((cur_id + 2));                                                                       \
-            COPY_20BYTES(nft_issuer, (cur_id + 4));                                                                          \
-            uint32_t taxon = UINT32_FROM_BUF((cur_id + 24));                                                                 \
-            nft_seq = UINT32_FROM_BUF((cur_id + 28));                                                                        \
-            nft_taxon = taxon ^ ((NFT_TAXON_M * nft_seq) + NFT_TAXON_C);                                                     \
-        }                                                                                                                    \
+#define IS_REG_NFT_EXIST(nft_keylet, nft_loc_idx, nft_exists)                                                                                      \
+    {                                                                                                                                              \
+        nft_exists = 0;                                                                                                                            \
+        int64_t nft_slot = slot_set(SBUF(nft_keylet), 0);                                                                                          \
+        if (nft_slot < 0)                                                                                                                          \
+            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                                               \
+                                                                                                                                                   \
+        nft_slot = slot_subfield(nft_slot, sfNFTokens, 0);                                                                                         \
+        if (nft_slot < 0)                                                                                                                          \
+            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                                         \
+                                                                                                                                                   \
+        nft_slot = slot_subarray(nft_slot, nft_loc_idx, 0);                                                                                        \
+        if (nft_slot >= 0)                                                                                                                         \
+        {                                                                                                                                          \
+            uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                               \
+            int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                            \
+            if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                                \
+            {                                                                                                                                      \
+                EQUAL_20BYTES(nft_exists, (cur_id + 4), hook_accid); /*Issuer of the NFT should be the registry contract.*/                        \
+                if (nft_exists)                                                                                                                    \
+                {                                                                                                                                  \
+                    uint8_t uri_read_buf[258];                                                                                                     \
+                    cur_slot = slot_subfield(nft_slot, sfURI, 0);                                                                                  \
+                    int64_t uri_read_len = slot(SBUF(uri_read_buf), cur_slot);                                                                     \
+                    int64_t nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0];       \
+                    if (nft_uri_len == REG_NFT_URI_SIZE)                                                                                           \
+                    {                                                                                                                              \
+                        EQUAL_EVR_HOST_PREFIX(nft_exists, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1))); /*NFT URI should start with 'evrhost'*/ \
+                    }                                                                                                                              \
+                    else                                                                                                                           \
+                    {                                                                                                                              \
+                        nft_exists = 0;                                                                                                            \
+                    }                                                                                                                              \
+                }                                                                                                                                  \
+            }                                                                                                                                      \
+        }                                                                                                                                          \
     }
 
 #define POW_OF_TWO(exp, output)              \

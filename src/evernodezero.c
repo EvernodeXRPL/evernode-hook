@@ -135,7 +135,29 @@ int64_t hook(uint32_t reserved)
             {
                 uint8_t *memo_ptr, *type_ptr, *format_ptr, *data_ptr;
                 uint32_t memo_len, type_len, format_len, data_len;
-                GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
+                int64_t memo_lookup = sto_subarray(memos, memos_len, 0);
+                GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
+
+                memo_lookup = sto_subarray(memos, memos_len, 1);
+                if (memo_lookup > 0)
+                {
+                    uint8_t *memo_ptr1, *type_ptr1, *format_ptr1, *data_ptr1;
+                    uint32_t memo_len1, type_len1, format_len1, data_len1;
+                    GET_MEMO(memo_lookup, memos, memos_len, memo_ptr1, memo_len1, type_ptr1, type_len1, format_ptr1, format_len1, data_ptr1, data_len1);
+
+                    int compare_status = 0;
+                    EQUAL_HOST_REGISTRY_REF(compare_status, type_ptr1, type_len1);
+                    if (!compare_status)
+                        rollback(SBUF("Evernode: Memo type is invalid."), 1);
+
+                    compare_status = 0;
+                    EQUAL_FORMAT_HEX(compare_status, format_ptr1, format_len1);
+                    if (!compare_status)
+                        rollback(SBUF("Evernode: Memo format should be hex for Hook set."), 1);
+
+                    if (hook_param_set(data_ptr1, memo_len1, SBUF(VERIFY_PARAMS), SBUF(chain_two_hash)) < 0)
+                        rollback(SBUF("Evernode: Could not set verify params for chain two."), 1);
+                }
 
                 // specifically we're interested in the amount sent
                 int64_t oslot = otxn_slot(0);
@@ -372,25 +394,6 @@ int64_t hook(uint32_t reserved)
                     }
                     else if (reserved == AGAIN_HOOK)
                     {
-                        // Check the ownership of the NFT to the hook before proceeding.
-                        int nft_exists;
-                        uint8_t issuer[ACCOUNT_ID_SIZE], uri[REG_NFT_URI_SIZE], uri_len;
-                        uint32_t taxon, nft_seq;
-                        uint16_t flags, tffee;
-                        GET_NFT(hook_accid, data_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-                        // Issuer of the NFT should be the registry contract.
-                        EQUAL_20BYTES(nft_exists, issuer, hook_accid);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
-
-                        // Check whether the NFT URI is starting with 'evrhost'.
-                        EQUAL_EVR_HOST_PREFIX(nft_exists, uri);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
-
                         // Burn the NFT.
                         etxn_reserve(1);
 
