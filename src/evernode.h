@@ -1183,7 +1183,7 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 _07_11_ENCODE_DELETEHOOK(buf_out); /* blob    | size   2 */           \
             }                                                                         \
         }                                                                             \
-        ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/ /* uint32  | size   1 */      \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */      \
     }
 
 #define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, first_hash_pointer, namespace)                   \
