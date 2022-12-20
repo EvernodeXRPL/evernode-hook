@@ -1170,10 +1170,10 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define ENCODE_HOOK_OBJECT(buf_out, hash, namespace, operation)                       \
     {                                                                                 \
         ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */  \
-        if (operation == OP_HOOK_INSTALLATION || operation == OP_HOOK_DELETION)                                         \
+        if (operation == OP_HOOK_INSTALLATION || operation == OP_HOOK_DELETION)       \
         {                                                                             \
             _02_02_ENCODE_FLAGS(buf_out, tfHookOveride); /* uint32  | size   5 */     \
-            if (operation == OP_HOOK_INSTALLATION)                                                       \
+            if (operation == OP_HOOK_INSTALLATION)                                    \
             {                                                                         \
                 _05_31_ENCODE_HOOKHASH(buf_out, hash);       /* uint256 | size  34 */ \
                 _05_32_ENCODE_NAMESPACE(buf_out, namespace); /* uint256 | size  34 */ \
@@ -1183,10 +1183,10 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 _07_11_ENCODE_DELETEHOOK(buf_out); /* blob    | size   2 */           \
             }                                                                         \
         }                                                                             \
-        ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */      \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */     \
     }
 
-#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, first_hash_pointer, namespace)                   \
+#define PREPARE_SET_HOOK_TRANSACTION(buf_out_master, operation_order, first_hash_pointer, namespace)                  \
     {                                                                                                                 \
         uint8_t *buf_out = buf_out_master;                                                                            \
         uint32_t cls = (uint32_t)ledger_seq();                                                                        \
@@ -1202,10 +1202,10 @@ const uint8_t page_mask[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);         /* pk      | size  35 */                                  \
         _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);            /* account | size  22 */                                  \
         ENCODE_FIELDS(buf_out, ARRAY, HOOKS); /*Arr Start*/ /* uint32  | size   1 */                                  \
-        ENCODE_HOOK_OBJECT(buf_out, first_hash_pointer, namespace, operation_order[0]);                             \
-        ENCODE_HOOK_OBJECT(buf_out, first_hash_pointer + HASH_SIZE, namespace, operation_order[1]);                             \
-        ENCODE_HOOK_OBJECT(buf_out, first_hash_pointer + (2 * HASH_SIZE), namespace, operation_order[2]);                             \
-        ENCODE_HOOK_OBJECT(buf_out, first_hash_pointer + (3 * HASH_SIZE), namespace, operation_order[3]);                             \
+        ENCODE_HOOK_OBJECT(buf_out, first_hash_pointer, namespace, operation_order[0]);                               \
+        ENCODE_HOOK_OBJECT(buf_out, (first_hash_pointer + HASH_SIZE), namespace, operation_order[1]);                 \
+        ENCODE_HOOK_OBJECT(buf_out, (first_hash_pointer + (2 * HASH_SIZE)), namespace, operation_order[2]);           \
+        ENCODE_HOOK_OBJECT(buf_out, (first_hash_pointer + (3 * HASH_SIZE)), namespace, operation_order[3]);           \
         ENCODE_FIELDS(buf_out, ARRAY, END); /*Arr End*/                                      /* uint32  | size   1 */ \
         etxn_details((uint32_t)buf_out, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)); /* emitdet | size 138 */ \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));              \

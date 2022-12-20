@@ -312,14 +312,13 @@ int64_t hook(uint32_t reserved)
         // Operation --> 0: Installation , 1: Delete
         int operation_order[4] = {0, 0, 0, 0};
         IS_32BYTES_EMPTY(operation_order[0], memo_params);
-        IS_32BYTES_EMPTY(operation_order[1], memo_params + HASH_SIZE);
-        IS_32BYTES_EMPTY(operation_order[2], memo_params + (HASH_SIZE * 2));
-        IS_32BYTES_EMPTY(operation_order[3], memo_params + (HASH_SIZE * 3));
+        IS_32BYTES_EMPTY(operation_order[1], (memo_params + HASH_SIZE));
+        IS_32BYTES_EMPTY(operation_order[2], (memo_params + (HASH_SIZE * 2)));
+        IS_32BYTES_EMPTY(operation_order[3], (memo_params + (HASH_SIZE * 3)));
 
         etxn_reserve(1);
         uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
         PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, memo_params, NAMESPACE);
-        TRACESTR("Sethook transacrtion prepared.");
 
         uint8_t emithash[HASH_SIZE];
         if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
