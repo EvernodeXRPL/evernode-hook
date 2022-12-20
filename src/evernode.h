@@ -530,44 +530,42 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                     \
     }
 
-#define IS_REG_NFT_EXIST(nft_keylet, nft_loc_idx, nft_exists)                                                                                \
-    {                                                                                                                                        \
-        nft_exists = 0;                                                                                                                      \
-        int64_t nft_slot = slot_set(SBUF(nft_keylet), 0);                                                                                    \
-        if (nft_slot < 0)                                                                                                                    \
-            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                                         \
-                                                                                                                                             \
-        nft_slot = slot_subfield(nft_slot, sfNFTokens, 0);                                                                                   \
-        if (nft_slot < 0)                                                                                                                    \
-            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                                   \
-                                                                                                                                             \
-        nft_slot = slot_subarray(nft_slot, nft_loc_idx, 0);                                                                                  \
-        if (nft_slot >= 0)                                                                                                                   \
-        {                                                                                                                                    \
-            uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                         \
-            nft_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                              \
-            if (nft_slot >= 0 && slot(SBUF(cur_id), nft_slot) == NFT_TOKEN_ID_SIZE)                                                          \
-            {                                                                                                                                \
-                uint8_t issuer = cur_id + 4;                                                                                                 \
-                EQUAL_20BYTES(nft_exists, issuer, hook_accid); /*Issuer of the NFT should be the registry contract.*/                        \
-                if (nft_exists)                                                                                                              \
-                {                                                                                                                            \
-                    uint8_t uri_read_buf[258];                                                                                               \
-                    nft_slot = slot_subfield(nft_slot, sfURI, 0);                                                                            \
-                    int64_t uri_read_len = slot(SBUF(uri_read_buf), nft_slot);                                                               \
-                    int64_t nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0]; \
-                    if (nft_uri_len == REG_NFT_URI_SIZE)                                                                                     \
-                    {                                                                                                                        \
-                        uint8_t uri = uri_read_buf + (uri_read_len >= 195 ? 2 : 1);                                                          \
-                        EQUAL_EVR_HOST_PREFIX(nft_exists, uri); /*NFT URI should start with 'evrhost'*/                                      \
-                    }                                                                                                                        \
-                    else                                                                                                                     \
-                    {                                                                                                                        \
-                        nft_exists = 0;                                                                                                      \
-                    }                                                                                                                        \
-                }                                                                                                                            \
-            }                                                                                                                                \
-        }                                                                                                                                    \
+#define IS_REG_NFT_EXIST(nft_keylet, nft_loc_idx, nft_exists)                                                                                      \
+    {                                                                                                                                              \
+        nft_exists = 0;                                                                                                                            \
+        int64_t nft_slot = slot_set(SBUF(nft_keylet), 0);                                                                                          \
+        if (nft_slot < 0)                                                                                                                          \
+            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                                               \
+                                                                                                                                                   \
+        nft_slot = slot_subfield(nft_slot, sfNFTokens, 0);                                                                                         \
+        if (nft_slot < 0)                                                                                                                          \
+            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                                         \
+                                                                                                                                                   \
+        nft_slot = slot_subarray(nft_slot, nft_loc_idx, 0);                                                                                        \
+        if (nft_slot >= 0)                                                                                                                         \
+        {                                                                                                                                          \
+            uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                               \
+            int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                            \
+            if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                                \
+            {                                                                                                                                      \
+                EQUAL_20BYTES(nft_exists, (cur_id + 4), hook_accid); /*Issuer of the NFT should be the registry contract.*/                        \
+                if (nft_exists)                                                                                                                    \
+                {                                                                                                                                  \
+                    uint8_t uri_read_buf[258];                                                                                                     \
+                    cur_slot = slot_subfield(nft_slot, sfURI, 0);                                                                                  \
+                    int64_t uri_read_len = slot(SBUF(uri_read_buf), cur_slot);                                                                     \
+                    int64_t nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0];       \
+                    if (nft_uri_len == REG_NFT_URI_SIZE)                                                                                           \
+                    {                                                                                                                              \
+                        EQUAL_EVR_HOST_PREFIX(nft_exists, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1))); /*NFT URI should start with 'evrhost'*/ \
+                    }                                                                                                                              \
+                    else                                                                                                                           \
+                    {                                                                                                                              \
+                        nft_exists = 0;                                                                                                            \
+                    }                                                                                                                              \
+                }                                                                                                                                  \
+            }                                                                                                                                      \
+        }                                                                                                                                          \
     }
 
 #define POW_OF_TWO(exp, output)              \

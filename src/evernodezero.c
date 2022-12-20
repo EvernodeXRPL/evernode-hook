@@ -394,23 +394,6 @@ int64_t hook(uint32_t reserved)
                     }
                     else if (reserved == AGAIN_HOOK)
                     {
-                        // Verification Memo should exists for these set of transactions.
-                        uint8_t verify_params[VERIFY_PARAMS_SIZE];
-                        if (hook_param(SBUF(verify_params), SBUF(VERIFY_PARAMS)) < 0)
-                            rollback(SBUF("Evernode: Could not get verify params."), 1);
-
-                        // Obtain NFT Page Keylet and the index of the NFT.
-                        uint8_t nft_page_keylet[34];
-                        COPY_32BYTES(nft_page_keylet, verify_params);
-                        COPY_2BYTES(nft_page_keylet + 32, verify_params + 32);
-                        uint16_t nft_idx = UINT16_FROM_BUF(verify_params + 34);
-
-                        // Check the ownership of the NFT to the hook before proceeding.
-                        int nft_exists;
-                        IS_REG_NFT_EXIST(nft_page_keylet, nft_idx, nft_exists);
-                        if (!nft_exists)
-                            rollback(SBUF("Evernode: Registration NFT does not exist."), 1);
-
                         // Burn the NFT.
                         etxn_reserve(1);
 
