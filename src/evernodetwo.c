@@ -61,10 +61,15 @@ int64_t hook(uint32_t reserved)
         if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) == DOESNT_EXIST)
             rollback(SBUF("Evernode: This host is not registered."), 1);
 
-        // Verify Memo should exists for these set of transactions.
+        // Verification Memo should exists for these set of transactions.
         uint8_t verify_params[VERIFY_PARAMS_SIZE];
         if (hook_param(SBUF(verify_params), SBUF(VERIFY_PARAMS)) < 0)
             rollback(SBUF("Evernode: Could not get verify params."), 1);
+
+        // Obtain NFT Page Keylet and the index of the NFT.
+        uint8_t nft_page_keylet[34];
+        COPY_32BYTES(nft_page_keylet, verify_params);
+        COPY_2BYTES(nft_page_keylet + 32, verify_params + 32);
 
         uint16_t nft_idx = UINT16_FROM_BUF(verify_params + 34);
 
@@ -74,7 +79,7 @@ int64_t hook(uint32_t reserved)
         uint32_t taxon, nft_seq;
         uint16_t flags, tffee;
         uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-        GET_NFT(verify_params, nft_idx, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+        GET_NFT(nft_page_keylet, nft_idx, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
         if (!nft_exists)
             rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
@@ -477,19 +482,6 @@ int64_t hook(uint32_t reserved)
         uint32_t taxon, nft_seq;
         uint16_t flags, tffee;
         uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
-        GET_NFT(memo_params, token_id_ptr, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
-        if (!nft_exists)
-            rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-        // Issuer of the NFT should be the registry contract.
-        EQUAL_20BYTES(nft_exists, issuer, hook_accid);
-        if (!nft_exists)
-            rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
-
-        // Check whether the NFT URI is starting with 'evrhost'.
-        EQUAL_EVR_HOST_PREFIX(nft_exists, uri);
-        if (!nft_exists)
-            rollback(SBUF("Evernode: NFT URI is mismatch with registration."), 1);
 
         uint8_t emithash[HASH_SIZE];
         uint8_t index_for_burnability = 0;
