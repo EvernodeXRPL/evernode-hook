@@ -56,6 +56,9 @@ const uint8_t CONF_REWARD_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 
 const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10};
 // Moment transition info <transition_index(uint64_t)><moment_size<uint16_t)><index_type(uint_8)>.
 const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11};
+// The maximum fee Hook can bear for a transaction emission.
+// To mitigate consuming XRPs unnecessarily due to the execution of Hooks that might be in destination accounts.
+const uint8_t CONF_MAX_EMIT_TRX_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12};
 
 #define HOST_ADDR_KEY(host_addr) \
     COPY_20BYTES((STP_HOST_ADDR + 12), host_addr)
