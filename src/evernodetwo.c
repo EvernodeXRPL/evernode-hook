@@ -83,22 +83,9 @@ int64_t hook(uint32_t reserved)
 
         // Check the ownership of the NFT to this user before proceeding.
         int nft_exists;
-        uint8_t issuer[ACCOUNT_ID_SIZE], uri[REG_NFT_URI_SIZE], uri_len;
-        uint32_t taxon, nft_seq;
-        uint16_t flags, tffee;
-        uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-        GET_NFT(nft_page_keylet, nft_idx, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+        IS_REG_NFT_EXIST(nft_page_keylet, nft_idx, nft_exists);
         if (!nft_exists)
-            rollback(SBUF("Evernode: Token mismatch with registration."), 1);
-
-        // Issuer of the NFT should be the registry contract.
-        EQUAL_20BYTES(nft_exists, issuer, hook_accid);
-        if (!nft_exists)
-            rollback(SBUF("Evernode: NFT Issuer mismatch with registration."), 1);
-
-        // Issuer address is needed for de registration and rebate.
-        if ((op_type == OP_HOST_DE_REG || op_type == OP_HOST_REBATE) && state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
+            rollback(SBUF("Evernode: Registration NFT does not exist."), 1);
     }
 
     if (op_type == OP_INITIALIZE)
