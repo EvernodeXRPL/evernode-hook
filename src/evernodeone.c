@@ -316,17 +316,9 @@ int64_t hook(uint32_t reserved)
         IS_32BYTES_EMPTY(operation_order[2], memo_params + (HASH_SIZE * 2));
         IS_32BYTES_EMPTY(operation_order[3], memo_params + (HASH_SIZE * 3));
 
-        // char namespace[65] = "01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0";  // sha256('evernode.org|registry')
-        // char hook_namespace[HASH_SIZE];
-        // const int hook_namespace_len = util_accid(SBUF(hook_namespace), &HOOK_NAMESPACE, 65);
-
-
-        // sha256('evernode.org|registry')
-        uint8_t NAMESPACE = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0x54, 0x38, 0x41, 0x21, 0xFF, 0x56, 0xFA, 0x8F, 0xEC, 0xC2, 0x15, 0xFD, 0xDE, 0x2E, 0xC3, 0x5D, 0x9E, 0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0};
-
         etxn_reserve(1);
         uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
-        PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, memo_params, &NAMESPACE);
+        PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, memo_params, NAMESPACE);
         TRACESTR("Sethook transacrtion prepared.");
 
         uint8_t emithash[HASH_SIZE];
