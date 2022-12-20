@@ -206,7 +206,7 @@ const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
 const uint32_t MEMO_PARAM_SIZE = 128;
 
 #define VERIFY_PARAMS "verify_params"
-const uint32_t VERIFY_PARAMS_SIZE = 128;
+const uint32_t VERIFY_PARAMS_SIZE = 36;
 
 #define CHAIN_ONE_PARAMS "chain_one_params"
 const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;
