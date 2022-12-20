@@ -49,9 +49,17 @@ int64_t hook(uint32_t reserved)
     uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
     // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
-    if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER)
+    if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER || op_type == OP_DEAD_HOST_PRUNE)
     {
-        HOST_ADDR_KEY(account_field); // Generate host account key.
+        // Generate host account key.
+        if (op_type != OP_DEAD_HOST_PRUNE)
+        {
+            HOST_ADDR_KEY(account_field)
+        }
+        else
+        {
+            HOST_ADDR_KEY(memo_params);
+        }
         // Check for registration entry.
         if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
             rollback(SBUF("Evernode: This host is not registered."), 1);
