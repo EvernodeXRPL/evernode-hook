@@ -110,13 +110,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
     COPY_8BYTES((lhsbuf + 24), (rhsbuf + 24));
 
-#define COPY_34BYTES(lhsbuf, rhsbuf)           \
-    COPY_8BYTES(lhsbuf, rhsbuf);               \
-    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8));   \
-    COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
-    COPY_8BYTES((lhsbuf + 24), (rhsbuf + 24)); \
-    COPY_2BYTES((lhsbuf + 32), (rhsbuf + 32));
-
 #define COPY_40BYTES(lhsbuf, rhsbuf) \
     COPY_32BYTES(lhsbuf, rhsbuf);    \
     COPY_8BYTES((lhsbuf + 32), (rhsbuf + 32));
@@ -388,11 +381,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define SET_AMOUNT_OUT(amt_out, token, issuer, amount) \
     SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, 1, 1)
 
-#define GET_MEMO(index, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
+#define GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
     {                                                                                                                         \
         /* since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it            \
         the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries */            \
-        int64_t memo_lookup = sto_subarray(memos, memos_len, index);                                                          \
         memo_ptr = SUB_OFFSET(memo_lookup) + memos;                                                                           \
         memo_len = SUB_LENGTH(memo_lookup);                                                                                   \
         /* memos are nested inside an actual memo object, so we need to subfield                                              \

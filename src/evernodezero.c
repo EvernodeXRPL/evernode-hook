@@ -135,13 +135,15 @@ int64_t hook(uint32_t reserved)
             {
                 uint8_t *memo_ptr, *type_ptr, *format_ptr, *data_ptr;
                 uint32_t memo_len, type_len, format_len, data_len;
-                GET_MEMO(0, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
-                int64_t second_memo = sto_subarray(memos, memos_len, 1);
-                if (second_memo)
+                int64_t memo_lookup = sto_subarray(memos, memos_len, 0);
+                GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
+
+                memo_lookup = sto_subarray(memos, memos_len, 1);
+                if (memo_lookup)
                 {
                     uint8_t *memo_ptr1, *type_ptr1, *format_ptr1, *data_ptr1;
                     uint32_t memo_len1, type_len1, format_len1, data_len1;
-                    GET_MEMO(1, memos, memos_len, memo_ptr1, memo_len1, type_ptr1, type_len1, format_ptr1, format_len1, data_ptr1, data_len1);
+                    GET_MEMO(memo_lookup, memos, memos_len, memo_ptr1, memo_len1, type_ptr1, type_len1, format_ptr1, format_len1, data_ptr1, data_len1);
 
                     int compare_status = 0;
                     EQUAL_NFTPAGE_KEYLET_N_IDX(compare_status, type_ptr1, type_len1);

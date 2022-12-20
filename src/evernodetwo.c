@@ -66,8 +66,6 @@ int64_t hook(uint32_t reserved)
         if (hook_param(SBUF(verify_params), SBUF(VERIFY_PARAMS)) < 0)
             rollback(SBUF("Evernode: Could not get verify params."), 1);
 
-        uint8_t nft_page_keylet[34];
-        COPY_34BYTES(nft_page_keylet, verify_params);
         uint16_t nft_idx = UINT16_FROM_BUF(verify_params + 34);
 
         // Check the ownership of the NFT to this user before proceeding.
@@ -76,7 +74,7 @@ int64_t hook(uint32_t reserved)
         uint32_t taxon, nft_seq;
         uint16_t flags, tffee;
         uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];
-        GET_NFT(nft_page_keylet, nft_idx, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
+        GET_NFT(verify_params, nft_idx, nft_exists, issuer, uri, uri_len, taxon, flags, tffee, nft_seq);
         if (!nft_exists)
             rollback(SBUF("Evernode: Token mismatch with registration."), 1);
 
