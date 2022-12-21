@@ -2,6 +2,7 @@
 // #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
+#include "transactions.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -129,13 +130,8 @@ int64_t hook(uint32_t reserved)
             else if (token_seq_slot != DOESNT_EXIST)
                 rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
 
-            // If there are multiple flags, we can perform "Bitwise OR" to apply them all to tflag.
-            uint16_t tflag = tfBurnable;
-            uint32_t taxon = 0;
-            uint16_t tffee = 0;
-
             uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
-            GENERATE_NFT_TOKEN_ID(nft_token_id, tflag, tffee, hook_accid, taxon, token_seq);
+            GENERATE_NFT_TOKEN_ID(nft_token_id, tfBurnable, 0, hook_accid, 0, token_seq);
             trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
             COPY_32BYTES(host_addr, nft_token_id);
@@ -192,15 +188,9 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Mint the nft token.
-            // Transaction URI would be the 'evrhost' + registration transaction hash.
-            uint8_t uri[REG_NFT_URI_SIZE];
-            COPY_EVR_HOST_PREFIX(uri, 0);
-            COPY_32BYTES((uri + 7), txid);
+            PREPARE_REG_NFT_MINT_TX(txid);
 
-            uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
-            PREPARE_NFT_MINT(nft_txn_out, tflag, tffee, taxon, uri, sizeof(uri));
-
-            if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(REG_NFT_MINT_TX)) < 0)
                 rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
