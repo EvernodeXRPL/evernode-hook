@@ -103,30 +103,35 @@ uint8_t _NFT_BUY_OFFER_TRUSTLINE[338] = {
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                      \
     }
 
-#define ENCODE_TL_GUARDM(buf_out, tlamt, amount_type) \
-    {                                                 \
-        uint8_t uat = amount_type;                    \
-        buf_out[0] = 0x60U + (uat & 0x0FU);           \
-        COPY_40BYTES((buf_out + 1), tlamt);           \
-        COPY_8BYTES((buf_out + 41), (tlamt + 40));    \
-        COPY_BYTE((buf_out + 49), (tlamt + 48));      \
-    }
+// #define ENCODE_TL_GUARDM(buf_out, tlamt, amount_type) \
+//     {                                                 \
+//         uint8_t uat = amount_type;                    \
+//         buf_out[0] = 0x60U + (uat & 0x0FU);           \
+//         COPY_40BYTES((buf_out + 1), tlamt);           \
+//         COPY_8BYTES((buf_out + 41), (tlamt + 40));    \
+//         COPY_BYTE((buf_out + 49), (tlamt + 48));      \
+//     }
 
-#define ENCODE_TL_AMOUNT_GUARDM(buf_out, drops) \
-    ENCODE_TL_GUARDM(buf_out, drops, amAMOUNT);
-#define _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, drops) \
-    ENCODE_TL_AMOUNT_GUARDM(buf_out, drops);
+// #define ENCODE_TL_AMOUNT_GUARDM(buf_out, drops) \
+//     ENCODE_TL_GUARDM(buf_out, drops, amAMOUNT);
+// #define _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, drops) \
+//     ENCODE_TL_AMOUNT_GUARDM(buf_out, drops);
 
 #define NFT_BUY_OFFER_TRUSTLINE_TX_SIZE \
     sizeof(_NFT_BUY_OFFER_TRUSTLINE)
-#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(buf_out_master, tlamt, to_address, tknid) \
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(tlamt, to_address, tknid) \
     {                                                                                \
         uint8_t *buf_out = _NFT_BUY_OFFER_TRUSTLINE;                                 \
         uint32_t cls = (uint32_t)ledger_seq();                                       \
         UINT32_TO_BUF((buf_out + 20), cls + 1);                                      \
         UINT32_TO_BUF((buf_out + 26), cls + 5);                                      \
-        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out + 31, tlamt);                         \
+        /*_06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out + 31, tlamt);      */               \
+        COPY_40BYTES((buf_out + 31), tlamt);                                         \
+        COPY_8BYTES((buf_out + 70), (tlamt + 40));                                   \
+        COPY_BYTE((buf_out + 78), (tlamt + 48));                                     \
+        trace(SBUF("BEFORE: "), SBUF(_NFT_BUY_OFFER_TRUSTLINE), 1); \
         COPY_32BYTES((buf_out + 80), tknid)                                          \
+        trace(SBUF("AFTER: "), SBUF(_NFT_BUY_OFFER_TRUSTLINE), 1); \
         COPY_20BYTES((buf_out + 158), to_address);                                   \
         COPY_20BYTES((buf_out + 180), hook_accid);                                   \
         int64_t fee = etxn_fee_base(buf_out, NFT_BUY_OFFER_TRUSTLINE_TX_SIZE);       \

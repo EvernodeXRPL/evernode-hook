@@ -2,6 +2,7 @@
 // #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
+#include "transactions.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -269,10 +270,11 @@ int64_t hook(uint32_t reserved)
         uint8_t amt_out[AMOUNT_BUF_SIZE];
         SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
         // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
-        uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE];
-        PREPARE_NFT_BUY_OFFER_TRUSTLINE(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        // uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE];
+        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        trace(SBUF("NFT PREPARE BUY OFFER: "), SBUF(_NFT_BUY_OFFER_TRUSTLINE), 1);
         uint8_t emithash[HASH_SIZE];
-        if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
+        if (emit(SBUF(emithash), SBUF(_NFT_BUY_OFFER_TRUSTLINE)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
 
         accept(SBUF("Evernode: Host de-registration successful."), 0);
