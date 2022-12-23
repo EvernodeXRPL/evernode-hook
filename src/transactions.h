@@ -120,8 +120,8 @@ uint8_t _NFT_OFFER[298] = {
         etxn_details((buf_out + 141), 138);                         \
         int64_t fee = etxn_fee_base(buf_out, REG_NFT_MINT_TX_SIZE); \
         uint8_t *fee_ptr = buf_out + 34;                            \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);
-}
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);               \
+    }
 
 #define NFT_BURN_TX_SIZE \
     sizeof(NFT_BURN_TX)
@@ -144,9 +144,8 @@ uint8_t _NFT_OFFER[298] = {
 #define PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(tlamt, to_address, tknid)           \
     {                                                                          \
         uint8_t *buf_out = _NFT_BUY_OFFER_TRUSTLINE;                           \
-        uint32_t cls = (uint32_t)ledger_seq();                                 \
-        UINT32_TO_BUF((buf_out + 20), cls + 1);                                \
-        UINT32_TO_BUF((buf_out + 26), cls + 5);                                \
+        UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);                     \
+        UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);                     \
         COPY_40BYTES((buf_out + 31), tlamt);                                   \
         COPY_8BYTES((buf_out + 71), (tlamt + 40));                             \
         COPY_32BYTES((buf_out + 80), tknid)                                    \
@@ -163,17 +162,13 @@ uint8_t _NFT_OFFER[298] = {
 #define PREPARE_NFT_BUY_OFFER_TX(drops_amount_raw, to_address, tknid) \
     {                                                                 \
         uint8_t *buf_out = _NFT_OFFER;                                \
-        uint8_t acc[20];                                              \
-        uint64_t drops_amount = (drops_amount_raw);                   \
-        uint32_t cls = (uint32_t)ledger_seq();                        \
-        hook_account(SBUF(acc));                                      \
         UINT32_TO_BUF((buf_out + 4), tfBuyToken);                     \
-        UINT32_TO_BUF((buf_out + 20), cls + 1);                       \
-        UINT32_TO_BUF((buf_out + 26), cls + 5);                       \
+        UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);            \
+        UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);            \
         uint8_t *buf_ptr = buf_out + 30;                              \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);            \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount_raw);        \
         COPY_32BYTES((buf_out + 40), tknid)                           \
-        COPY_20BYTES((buf_out + 118), acc);                           \
+        COPY_20BYTES((buf_out + 118), hook_accid);                    \
         *(buf_out + 138) = 0x82;                                      \
         COPY_20BYTES((buf_out + 140), to_address);                    \
         etxn_details((uint32_t)buf_out + 160, 138);                   \
@@ -185,17 +180,13 @@ uint8_t _NFT_OFFER[298] = {
 #define PREPARE_NFT_SELL_OFFER_TX(drops_amount_raw, to_address, tknid) \
     {                                                                  \
         uint8_t *buf_out = _NFT_OFFER;                                 \
-        uint8_t acc[20];                                               \
-        uint64_t drops_amount = (drops_amount_raw);                    \
-        uint32_t cls = (uint32_t)ledger_seq();                         \
-        hook_account(SBUF(acc));                                       \
         UINT32_TO_BUF((buf_out + 4), tfSellToken);                     \
-        UINT32_TO_BUF((buf_out + 20), cls + 1);                        \
-        UINT32_TO_BUF((buf_out + 26), cls + 5);                        \
+        UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);             \
+        UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);             \
         uint8_t *buf_ptr = buf_out + 30;                               \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);             \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount_raw);         \
         COPY_32BYTES((buf_out + 40), tknid)                            \
-        COPY_20BYTES((buf_out + 118), acc);                            \
+        COPY_20BYTES((buf_out + 118), hook_accid);                     \
         *(buf_out + 138) = 0x83;                                       \
         COPY_20BYTES((buf_out + 140), to_address);                     \
         etxn_details((uint32_t)buf_out + 160, 138);                    \
