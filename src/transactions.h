@@ -11,7 +11,7 @@ uint8_t REG_NFT_MINT_TX[279] = {
     0x20, 0x1A, 0x00, 0x00, 0x00, 0x00,                   // first_ledger_sequence(ledger_seq + 1) - Added on prepare to offset 18
     0x20, 0x1B, 0x00, 0x00, 0x00, 0x00,                   // last_ledger_sequence(ledger_seq + 5) - Added on prepare to offset 24
     0x20, 0x2A, 0x00, 0x00, 0x00, 0x00,                   // taxon(0)
-    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x25, // fee - Added on prepare to offset 34
+    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // fee - Added on prepare to offset 34
     0x73, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // signing pubkey(NULL)
     0x75, 0x27, 0x65, 0x76, 0x72, 0x68, 0x6F, 0x73, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -36,12 +36,12 @@ uint8_t _NFT_BUY_OFFER_TRUSTLINE[338] = {
     0x2A, 0xFF, 0xFF, 0xFF, 0xFF,                                                                                           // expiration_max
     0x20, 0x1A, 0x00, 0x00, 0x00, 0x00,                                                                                     // first_ledger_sequence(ledger_seq + 1) - Added on prepare to offset 20
     0x20, 0x1B, 0x00, 0x00, 0x00, 0x00,                                                                                     // last_ledger_sequence(ledger_seq + 5) - Added on prepare to offset 26
-    0x61, 0xD5, 0x49, 0x18, 0x4E, 0x72, 0xA0, 0x00, 0x00,                                                                   // First 12 bits for (Flags + exponent + first two bits of mantissa), Next 52 bits for Mantissa with above two bits - Added to prepare to offset 31
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x45, 0x56, 0x52, 0x00, 0x00, 0x00, 0x00, 0x00, // currency code (EVR) - offset 39/
-    0xDA, 0xD1, 0xA1, 0x58, 0x2D, 0x0C, 0xC4, 0x8B, 0xF7, 0x63, 0xA4, 0x85, 0xB8, 0x87, 0xDD, 0x76, 0xA4, 0x4D, 0x6C, 0xB8, // issuer - offset 59/
+    0x61, 0xD5, 0x49, 0x18, 0x4E, 0x72, 0xA0, 0x00, 0x00,                                                                   
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x45, 0x56, 0x52, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0xDA, 0xD1, 0xA1, 0x58, 0x2D, 0x0C, 0xC4, 0x8B, 0xF7, 0x63, 0xA4, 0x85, 0xB8, 0x87, 0xDD, 0x76, 0xA4, 0x4D, 0x6C, 0xB8, // amount(<type(1)><amount(8)><currency_code(20)><issuer(20)>) - Added on prepare to offset 31
     0x5A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // NFTokenID - Added on prepare to offset 80
-    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x25,                                           // fee - Added on prepare to offset 113
+    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                           // fee - Added on prepare to offset 112
     0x73, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // signing pubkey(NULL)
     0x81, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -103,40 +103,23 @@ uint8_t _NFT_BUY_OFFER_TRUSTLINE[338] = {
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                      \
     }
 
-// #define ENCODE_TL_GUARDM(buf_out, tlamt, amount_type) \
-//     {                                                 \
-//         uint8_t uat = amount_type;                    \
-//         buf_out[0] = 0x60U + (uat & 0x0FU);           \
-//         COPY_40BYTES((buf_out + 1), tlamt);           \
-//         COPY_8BYTES((buf_out + 41), (tlamt + 40));    \
-//         COPY_BYTE((buf_out + 49), (tlamt + 48));      \
-//     }
-
-// #define ENCODE_TL_AMOUNT_GUARDM(buf_out, drops) \
-//     ENCODE_TL_GUARDM(buf_out, drops, amAMOUNT);
-// #define _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, drops) \
-//     ENCODE_TL_AMOUNT_GUARDM(buf_out, drops);
-
 #define NFT_BUY_OFFER_TRUSTLINE_TX_SIZE \
     sizeof(_NFT_BUY_OFFER_TRUSTLINE)
-#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(tlamt, to_address, tknid) \
-    {                                                                                \
-        uint8_t *buf_out = _NFT_BUY_OFFER_TRUSTLINE;                                 \
-        uint32_t cls = (uint32_t)ledger_seq();                                       \
-        UINT32_TO_BUF((buf_out + 20), cls + 1);                                      \
-        UINT32_TO_BUF((buf_out + 26), cls + 5);                                      \
-        /*_06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out + 31, tlamt);      */               \
-        COPY_40BYTES((buf_out + 31), tlamt);                                         \
-        COPY_8BYTES((buf_out + 70), (tlamt + 40));                                   \
-        COPY_BYTE((buf_out + 78), (tlamt + 48));                                     \
-        trace(SBUF("BEFORE: "), SBUF(_NFT_BUY_OFFER_TRUSTLINE), 1); \
-        COPY_32BYTES((buf_out + 80), tknid)                                          \
-        trace(SBUF("AFTER: "), SBUF(_NFT_BUY_OFFER_TRUSTLINE), 1); \
-        COPY_20BYTES((buf_out + 158), to_address);                                   \
-        COPY_20BYTES((buf_out + 180), hook_accid);                                   \
-        int64_t fee = etxn_fee_base(buf_out, NFT_BUY_OFFER_TRUSTLINE_TX_SIZE);       \
-        uint8_t *fee_ptr = buf_out + 113;                                            \
-        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                       \
+#define PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(tlamt, to_address, tknid)           \
+    {                                                                          \
+        uint8_t *buf_out = _NFT_BUY_OFFER_TRUSTLINE;                           \
+        uint32_t cls = (uint32_t)ledger_seq();                                 \
+        UINT32_TO_BUF((buf_out + 20), cls + 1);                                \
+        UINT32_TO_BUF((buf_out + 26), cls + 5);                                \
+        COPY_40BYTES((buf_out + 31), tlamt);                                   \
+        COPY_8BYTES((buf_out + 71), (tlamt + 40));                             \
+        COPY_32BYTES((buf_out + 80), tknid)                                    \
+        COPY_20BYTES((buf_out + 158), to_address);                             \
+        COPY_20BYTES((buf_out + 180), hook_accid);                             \
+        etxn_details((uint32_t)buf_out + 200, 138);                            \
+        int64_t fee = etxn_fee_base(buf_out, NFT_BUY_OFFER_TRUSTLINE_TX_SIZE); \
+        uint8_t *fee_ptr = buf_out + 112;                                      \
+        _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                 \
     }
 
 #endif
