@@ -2,6 +2,7 @@
 // #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
+#include "transactions.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -86,6 +87,10 @@ int64_t hook(uint32_t reserved)
         IS_REG_NFT_EXIST(nft_page_keylet, nft_idx, nft_exists);
         if (!nft_exists)
             rollback(SBUF("Evernode: Registration NFT does not exist."), 1);
+
+        // Issuer address is needed for de registration and rebate.
+        if ((op_type == OP_HOST_DE_REG || op_type == OP_HOST_REBATE) && state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
+            rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
     }
 
     if (op_type == OP_INITIALIZE)
@@ -588,11 +593,9 @@ int64_t hook(uint32_t reserved)
             SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)));
 
             // Create the outgoing hosting token txn.
-            uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-            PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, account_field, 0, 0);
-
+            PREPARE_PAYMENT_SIMPLE_TRUSTLINE_TXN(amt_out, account_field);
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(PAYMENT_SIMPLE_TRUSTLINE_TXN)) < 0)
                 rollback(SBUF("Evernode: Emitting EVR rebate txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
