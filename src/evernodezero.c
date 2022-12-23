@@ -2,6 +2,7 @@
 // #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
+#include "transactions.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -397,11 +398,10 @@ int64_t hook(uint32_t reserved)
                         // Burn the NFT.
                         etxn_reserve(1);
 
-                        uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-                        PREPARE_NFT_BURN(txn_out, data_ptr, hook_accid);
+                        PREPARE_NFT_BURN_TX(data_ptr, hook_accid);
 
                         uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                        if (emit(SBUF(emithash), SBUF(NFT_BURN_TX)) < 0)
                             rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
