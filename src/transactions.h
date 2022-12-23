@@ -53,7 +53,7 @@ uint8_t NFT_BURN_TX[284] = {
 };
 
 // Offer Trustline
-uint8_t _NFT_BUY_OFFER_TRUSTLINE[338] = {
+uint8_t NFT_BUY_OFFER_TRUSTLINE[338] = {
     0x12, 0x00, 0x1B,                   // transaction_type(ttNFT_OFFER)
     0x22, 0x00, 0x00, 0x00, 0x00,       // Flags (tfBuyToken)
     0x24, 0x00, 0x00, 0x00, 0x00,       // sequence(0)
@@ -82,7 +82,7 @@ uint8_t _NFT_BUY_OFFER_TRUSTLINE[338] = {
 };
 
 // Offers (BUY/SELL)
-uint8_t _NFT_OFFER[298] = {
+uint8_t NFT_OFFER[298] = {
     0x12, 0x00, 0x1B,                                     // transaction_type(ttNFT_OFFER)
     0x22, 0x00, 0x00, 0x00, 0x00,                         // Flags (tfBuyToken/tfSellToken) - Added on prepare to offset 4
     0x24, 0x00, 0x00, 0x00, 0x00,                         // sequence(0)
@@ -140,10 +140,10 @@ uint8_t _NFT_OFFER[298] = {
     }
 
 #define NFT_BUY_OFFER_TRUSTLINE_TX_SIZE \
-    sizeof(_NFT_BUY_OFFER_TRUSTLINE)
+    sizeof(NFT_BUY_OFFER_TRUSTLINE)
 #define PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(tlamt, to_address, tknid)           \
     {                                                                          \
-        uint8_t *buf_out = _NFT_BUY_OFFER_TRUSTLINE;                           \
+        uint8_t *buf_out = NFT_BUY_OFFER_TRUSTLINE;                           \
         UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);                     \
         UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);                     \
         COPY_40BYTES((buf_out + 31), tlamt);                                   \
@@ -158,10 +158,10 @@ uint8_t _NFT_OFFER[298] = {
     }
 
 #define NFT_OFFER_TX_SIZE \
-    sizeof(_NFT_OFFER)
+    sizeof(NFT_OFFER)
 #define PREPARE_NFT_BUY_OFFER_TX(drops_amount_raw, to_address, tknid) \
     {                                                                 \
-        uint8_t *buf_out = _NFT_OFFER;                                \
+        uint8_t *buf_out = NFT_OFFER;                                \
         UINT32_TO_BUF((buf_out + 4), tfBuyToken);                     \
         UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);            \
         UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);            \
@@ -179,7 +179,7 @@ uint8_t _NFT_OFFER[298] = {
 
 #define PREPARE_NFT_SELL_OFFER_TX(drops_amount_raw, to_address, tknid) \
     {                                                                  \
-        uint8_t *buf_out = _NFT_OFFER;                                 \
+        uint8_t *buf_out = NFT_OFFER;                                 \
         UINT32_TO_BUF((buf_out + 4), tfSellToken);                     \
         UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);             \
         UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);             \

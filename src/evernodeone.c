@@ -198,7 +198,7 @@ int64_t hook(uint32_t reserved)
             PREPARE_NFT_SELL_OFFER_TX(0, account_field, nft_token_id);
             
 
-            if (emit(SBUF(emithash), SBUF(_NFT_OFFER)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -268,7 +268,7 @@ int64_t hook(uint32_t reserved)
             PREPARE_NFT_SELL_OFFER_TX(0, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
 
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(_NFT_OFFER)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
