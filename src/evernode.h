@@ -2,6 +2,7 @@
 #define EVERNODE_INCLUDED 1
 
 #include "constants.h"
+#include "transactions.h"
 
 /****** Field and Type codes ******/
 #define ARRAY 0xF0U
@@ -858,101 +859,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m) \
     ENCODE_TL_AMOUNT_GUARDM(buf_out, drops, n, m);
 
-#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_GUARDM(buf_out_master, tlamt, to_address, dest_tag_raw, src_tag_raw, n, m) \
-    {                                                                                                               \
-        uint8_t *buf_out = buf_out_master;                                                                          \
-        uint8_t acc[20];                                                                                            \
-        uint32_t dest_tag = (dest_tag_raw);                                                                         \
-        uint32_t src_tag = (src_tag_raw);                                                                           \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                      \
-        hook_account(SBUF(acc));                                                                                    \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                 /* uint16  | size   3 */                              \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);            /* uint32  | size   5 */                              \
-        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);              /* uint32  | size   5 */                              \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                   /* uint32  | size   5 */                              \
-        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);             /* uint32  | size   5 */                              \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);                  /* uint32  | size   6 */                              \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);                  /* uint32  | size   6 */                              \
-        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, tlamt, n, m); /* amount  | size  49 */                              \
-        uint8_t *fee_ptr = buf_out;                                                                                 \
-        _06_08_ENCODE_DROPS_FEE(buf_out, 0);                                    /* amount  | size   9 */            \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);                             /* pk      | size  35 */            \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);                                /* account | size  22 */            \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address);                         /* account | size  22 */            \
-        etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE); /* emitdet | size 1?? */            \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE);                         \
-        \ 
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                               \
-    }
-
-/**************************************************************************/
-/*****************Macros to prepare transactions with memos****************/
-/**************************************************************************/
-
-/////////// Macros to prepare trustline payment with memos. ///////////
-
-#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
-    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE + 4)
-#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, dest_tag_raw, src_tag_raw, type, type_len, format, format_len, data, data_len, m) \
-    {                                                                                                                                                                                       \
-        uint8_t *buf_out = buf_out_master;                                                                                                                                                  \
-        uint8_t acc[20];                                                                                                                                                                    \
-        uint32_t dest_tag = (dest_tag_raw);                                                                                                                                                 \
-        uint32_t src_tag = (src_tag_raw);                                                                                                                                                   \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                                                                                              \
-        hook_account(SBUF(acc));                                                                                                                                                            \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);                 /* uint16  | size   3 */                                                                                                      \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);            /* uint32  | size   5 */                                                                                                      \
-        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);              /* uint32  | size   5 */                                                                                                      \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                   /* uint32  | size   5 */                                                                                                      \
-        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);             /* uint32  | size   5 */                                                                                                      \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);                  /* uint32  | size   6 */                                                                                                      \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);                  /* uint32  | size   6 */                                                                                                      \
-        _06_01_ENCODE_TL_AMOUNT_GUARDM(buf_out, tlamt, 1, m); /* amount  | size  49 */                                                                                                      \
-        uint8_t *fee_ptr = buf_out;                                                                                                                                                         \
-        _06_08_ENCODE_DROPS_FEE(buf_out, 0);            /* amount  | size   9 */                                                                                                            \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */                                                                                                            \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */                                                                                                            \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */                                                                                                            \
-        _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                                               \
-        etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len)); /* emitdet | size 1?? */                                       \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len));                                                    \
-        \ 
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                                                                                                       \
-    }
-
-/////////// Macros to prepare simple payment with memos. ///////////
-#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len) \
-    ((type_len + (type_len <= 192 ? 2 : 3) + format_len + (format_len <= 192 ? 2 : 3) + data_len + (data_len <= 192 ? 2 : 3)) + PREPARE_PAYMENT_SIMPLE_SIZE + 4)
-#define PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_amount_raw, to_address, dest_tag_raw, src_tag_raw, type, type_len, format, format_len, data, data_len, m) \
-    {                                                                                                                                                                         \
-        uint8_t *buf_out = buf_out_master;                                                                                                                                    \
-        uint8_t acc[20];                                                                                                                                                      \
-        uint64_t drops_amount = (drops_amount_raw);                                                                                                                           \
-        uint32_t dest_tag = (dest_tag_raw);                                                                                                                                   \
-        uint32_t src_tag = (src_tag_raw);                                                                                                                                     \
-        uint32_t cls = (uint32_t)ledger_seq();                                                                                                                                \
-        hook_account(SBUF(acc));                                                                                                                                              \
-        _01_02_ENCODE_TT(buf_out, ttPAYMENT);              /* uint16  | size   3 */                                                                                           \
-        _02_02_ENCODE_FLAGS(buf_out, tfCANONICAL);         /* uint32  | size   5 */                                                                                           \
-        _02_03_ENCODE_TAG_SRC(buf_out, src_tag);           /* uint32  | size   5 */                                                                                           \
-        _02_04_ENCODE_SEQUENCE(buf_out, 0);                /* uint32  | size   5 */                                                                                           \
-        _02_14_ENCODE_TAG_DST(buf_out, dest_tag);          /* uint32  | size   5 */                                                                                           \
-        _02_26_ENCODE_FLS(buf_out, cls + 1);               /* uint32  | size   6 */                                                                                           \
-        _02_27_ENCODE_LLS(buf_out, cls + 5);               /* uint32  | size   6 */                                                                                           \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_out, drops_amount); /* amount  | size   9 */                                                                                           \
-        uint8_t *fee_ptr = buf_out;                                                                                                                                           \
-        _06_08_ENCODE_DROPS_FEE(buf_out, 0);            /* amount  | size   9 */                                                                                              \
-        _07_03_ENCODE_SIGNING_PUBKEY_NULL(buf_out);     /* pk      | size  35 */                                                                                              \
-        _08_01_ENCODE_ACCOUNT_SRC(buf_out, acc);        /* account | size  22 */                                                                                              \
-        _08_03_ENCODE_ACCOUNT_DST(buf_out, to_address); /* account | size  22 */                                                                                              \
-        _0F_09_ENCODE_MEMOS_SINGLE_GUARDM(buf_out, type, type_len, format, format_len, data, data_len, 1, m);                                                                 \
-        etxn_details((uint32_t)buf_out, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len)); /* emitdet | size 1?? */                                   \
-        int64_t fee = etxn_fee_base(buf_out_master, PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(type_len, format_len, data_len));                                                \
-        \ 
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                                                                                         \
-    }
-
 /**************************************************************************/
 /***********************NFT related transactions***************************/
 /**************************************************************************/
@@ -1162,25 +1068,19 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 /******************Macros with evernode specific logic*********************/
 /**************************************************************************/
 
-#define PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE \
-    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
-#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                                                                                                  \
-    {                                                                                                                                                                                                                                         \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
+#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(tlamt, to_address)                                                                       \
+    {                                                                                                                               \
+        PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN(tlamt, to_address, DEAD_HOST_PRUNE_REF, FORMAT_TEXT, PRUNE_MESSAGE); \
     }
 
-#define PREPARE_MIN_PAYMENT_PRUNED_HOST_SIZE \
-    (PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_SIZE(strlen(DEAD_HOST_PRUNE_REF), strlen(FORMAT_TEXT), strlen(PRUNE_MESSAGE)))
-#define PREPARE_MIN_PAYMENT_PRUNED_HOST(buf_out_master, drops_fee_raw, to_address)                                                                                                                                           \
-    {                                                                                                                                                                                                                        \
-        PREPARE_PAYMENT_SIMPLE_MEMOS_SINGLE_M(buf_out_master, drops_fee_raw, to_address, 0, 0, DEAD_HOST_PRUNE_REF, strlen(DEAD_HOST_PRUNE_REF), FORMAT_TEXT, strlen(FORMAT_TEXT), PRUNE_MESSAGE, strlen(PRUNE_MESSAGE), 1); \
+#define PREPARE_MIN_PAYMENT_PRUNED_HOST(drops_amount, to_address)                                                                    \
+    {                                                                                                                                \
+        PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN(drops_amount, to_address, DEAD_HOST_PRUNE_REF, FORMAT_TEXT, PRUNE_MESSAGE); \
     }
 
-#define PREPARE_PAYMENT_HOST_REWARD_SIZE \
-    (PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_SIZE(13, 0, 0))
-#define PREPARE_PAYMENT_HOST_REWARD(buf_out_master, tlamt, drops_fee_raw, to_address)                                                                            \
-    {                                                                                                                                                            \
-        PREPARE_PAYMENT_SIMPLE_TRUSTLINE_MEMOS_SINGLE_M(buf_out_master, tlamt, drops_fee_raw, to_address, 0, 0, HOST_REWARD, 13, empty_ptr, 0, empty_ptr, 0, 1); \
+#define PREPARE_PAYMENT_HOST_REWARD(tlamt, drops_fee_raw, to_address)                                           \
+    {                                                                                                           \
+        PREPARE_PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN(tlamt, drops_fee_raw, to_address, HOST_REWARD); \
     }
 
 #endif

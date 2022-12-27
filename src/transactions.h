@@ -4,8 +4,8 @@
 /**************************************************************************/
 /*************Pre-populated templates of Payment Transactions**************/
 /**************************************************************************/
-// Simple IOU transaction.
-uint8_t PAYMENT_SIMPLE_TRUSTLINE_TXN[310] = {
+// Simple IOU Payment.
+uint8_t PAYMENT_TRUSTLINE_TXN[310] = {
     0x12, 0x00, 0x00,                                                                                                       // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                                                                                           // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG_SOURCE
@@ -35,11 +35,124 @@ uint8_t PAYMENT_SIMPLE_TRUSTLINE_TXN[310] = {
     // >> emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
 };
 
-#define PAYMENT_SIMPLE_TRUSTLINE_TXN_SIZE \
-    sizeof(PAYMENT_SIMPLE_TRUSTLINE_TXN)
-#define PREPARE_PAYMENT_SIMPLE_TRUSTLINE_TXN(tlamt, to_address)                  \
+// IOU Payment with single memo (Reward).
+uint8_t PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN[333] = {
+    0x12, 0x00, 0x00,                                                                                                       // transaction_type(ttPAYMENT)
+    0x22, 0x80, 0x00, 0x00, 0x00,                                                                                           // flags(tfCANONICAL)
+    0x23, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG_SOURCE
+    0x24, 0x00, 0x00, 0x00, 0x00,                                                                                           // sequence(0)
+    0x2E, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG DESTINATION
+    0x20, 0x1A, 0x00, 0x00, 0x00, 0x00,                                                                                     // first_ledger_sequence(ledger_seq + 1) - Added on prepare to offset 25
+    0x20, 0x1B, 0x00, 0x00, 0x00, 0x00,                                                                                     // last_ledger_sequence(ledger_seq + 5) - Added on prepare to offset 31
+    0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                                                   // amount_details (amount offset 36)
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    currency_code
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    issuer
+    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                                                   // fee (offset 84)
+    0x73, 0x21,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Signing Public Key (NULL offset 95)
+    0x81, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >> account_source(20) - Added on prepare to offset 130
+    0x83, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >> account_destination(20) - Added on prepare to offset 152
+    0xF9, 0xEA,                                                                                                             // >> Memo array and object start markers
+    0x7C, 0x0D,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >>  MemoType (13 bytes) offset 176
+    0x7D, 0x00,
+    0x7E, 0x00,
+    0xE1, 0xF1, // >> Memo array and object end markers
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    // >> emit_details(137) - Added on prepare to offset 191
+    // >> emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+};
+
+// Simple XRP Payment with single memo (Prune).
+uint8_t PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN[329] = {
+    0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
+    0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
+    0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
+    0x24, 0x00, 0x00, 0x00, 0x00,                         // sequence(0)
+    0x2E, 0x00, 0x00, 0x00, 0x00,                         // TAG DESTINATION
+    0x20, 0x1A, 0x00, 0x00, 0x00, 0x00,                   // first_ledger_sequence(ledger_seq + 1) - Added on prepare to offset 25
+    0x20, 0x1B, 0x00, 0x00, 0x00, 0x00,                   // last_ledger_sequence(ledger_seq + 5) - Added on prepare to offset 31
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // amount_details (amount offset 35)
+    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // fee (offset 44)
+    0x73, 0x21,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Signing Public Key (NULL offset 55)
+    0x81, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >> account_source(20) - Added on prepare to offset 90
+    0x83, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >> account_destination(20) - Added on prepare to offset 112
+    0xF9, 0xEA,                                                                                                             // >> Memo array and object start markers
+    0x7C, 0x13,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >>  MemoType (19 bytes) offset 136
+    0x7D, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (20 bytes) offset 157
+    0x7E, 0x0A,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoFormat (10 bytes) offset 179
+    0xE1, 0xF1,                                                 // >> Memo array and object end markers
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    // >> emit_details(137) - Added on prepare to offset 191
+    // >> emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+};
+
+// IOU Payment with single memo (Prune).
+uint8_t PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN[369] = {
+    0x12, 0x00, 0x00,                                                                                                       // transaction_type(ttPAYMENT)
+    0x22, 0x80, 0x00, 0x00, 0x00,                                                                                           // flags(tfCANONICAL)
+    0x23, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG_SOURCE
+    0x24, 0x00, 0x00, 0x00, 0x00,                                                                                           // sequence(0)
+    0x2E, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG DESTINATION
+    0x20, 0x1A, 0x00, 0x00, 0x00, 0x00,                                                                                     // first_ledger_sequence(ledger_seq + 1) - Added on prepare to offset 25
+    0x20, 0x1B, 0x00, 0x00, 0x00, 0x00,                                                                                     // last_ledger_sequence(ledger_seq + 5) - Added on prepare to offset 31
+    0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                                                   // amount_details (amount offset 36)
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    currency_code
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    issuer
+    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                                                                   // fee (offset 84)
+    0x73, 0x21,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Signing Public Key (NULL offset 95)
+    0x81, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >> account_source(20) - Added on prepare to offset 130
+    0x83, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >> account_destination(20) - Added on prepare to offset 152
+    0xF9, 0xEA,                                                                                                             // >> Memo array and object start markers
+    0x7C, 0x13,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // >>  MemoType (19 bytes) offset 176
+    0x7D, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (20 bytes) offset 197
+    0x7E, 0x0A,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoFormat (10 bytes) offset 219
+    0xE1, 0xF1,                                                 // >> Memo array and object end markers
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    // >> emit_details(137) - Added on prepare to offset 231
+    // >> emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+};
+
+#define PAYMENT_TRUSTLINE_TXN_SIZE \
+    sizeof(PAYMENT_TRUSTLINE_TXN)
+#define PREPARE_PAYMENT_TRUSTLINE_TXN(tlamt, to_address)                  \
     {                                                                            \
-        uint8_t *buf_out = PAYMENT_SIMPLE_TRUSTLINE_TXN;                         \
+        uint8_t *buf_out = PAYMENT_TRUSTLINE_TXN;                         \
         uint32_t cls = (uint32_t)ledger_seq();                                   \
         UINT32_TO_BUF((buf_out + 25), cls + 1);                                  \
         UINT32_TO_BUF((buf_out + 31), cls + 5);                                  \
@@ -47,10 +160,79 @@ uint8_t PAYMENT_SIMPLE_TRUSTLINE_TXN[310] = {
         COPY_8BYTES((buf_out + 36 + 40), (tlamt + 40));                          \
         COPY_20BYTES((buf_out + 130), hook_accid);                               \
         COPY_20BYTES((buf_out + 152), to_address);                               \
-        etxn_details((buf_out + 172), PAYMENT_SIMPLE_TRUSTLINE_TXN_SIZE);        \
-        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SIMPLE_TRUSTLINE_TXN_SIZE); \
+        etxn_details((buf_out + 172), PAYMENT_TRUSTLINE_TXN_SIZE);        \
+        int64_t fee = etxn_fee_base(buf_out, PAYMENT_TRUSTLINE_TXN_SIZE); \
         uint8_t *fee_ptr = buf_out + 84;                                         \
         CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                            \
+    }
+
+#define PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN_SIZE \
+    sizeof(PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN)
+#define PREPARE_PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN(tlamt, drops_fee_raw, to_address, type_ptr) \
+    {                                                                                                       \
+        uint8_t *buf_out = PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN;                                 \
+        uint32_t cls = (uint32_t)ledger_seq();                                                              \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                                                             \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                                                             \
+        COPY_40BYTES((buf_out + 36), tlamt);                                                                \
+        COPY_8BYTES((buf_out + 36 + 40), (tlamt + 40));                                                     \
+        COPY_20BYTES((buf_out + 130), hook_accid);                                                          \
+        COPY_20BYTES((buf_out + 152), to_address);                                                          \
+        COPY_8BYTES((buf_out + 176), type_ptr);                                                             \
+        COPY_4BYTES((buf_out + 176 + 8), (type_ptr + 8));                                                   \
+        COPY_BYTE((buf_out + 176 + 12), (type_ptr + 12));                                                   \
+        etxn_details((buf_out + 195), PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN_SIZE);                \
+        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN_SIZE);         \
+        uint8_t *fee_ptr = buf_out + 84;                                                                    \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                       \
+    }
+
+#define PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN_SIZE \
+    sizeof(PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN)
+#define PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN(drops_amount, to_address, type_ptr, format_ptr, data_ptr) \
+    {                                                                                                              \
+        uint8_t *buf_out = PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN;                                               \
+        uint32_t cls = (uint32_t)ledger_seq();                                                                     \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                                                                    \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                                                                    \
+        uint8_t *buf_ptr = (buf_out + 35);                                                                         \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                         \
+        COPY_20BYTES((buf_out + 90), hook_accid);                                                                  \
+        COPY_20BYTES((buf_out + 112), to_address);                                                                 \
+        COPY_16BYTES((buf_out + 136), type_ptr);                                                                   \
+        COPY_2BYTES((buf_out + 136 + 16), (type_ptr + 16));                                                        \
+        COPY_BYTE((buf_out + 136 + 18), (type_ptr + 18));                                                          \
+        COPY_20BYTES((buf_out + 157), data_ptr);                                                                   \
+        COPY_8BYTES((buf_out + 179), format_ptr);                                                                  \
+        COPY_2BYTES((buf_out + 179 + 8), (format_ptr + 8));                                                        \
+        etxn_details((buf_out + 191), PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN_SIZE);                              \
+        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN_SIZE);                       \
+        buf_ptr = buf_out + 44;                                                                                    \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                                              \
+    }
+
+#define PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN_SIZE \
+    sizeof(PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN)
+#define PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN(tlamt, to_address, type_ptr, format_ptr, data_ptr) \
+    {                                                                                                             \
+        uint8_t *buf_out = PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN;                                        \
+        uint32_t cls = (uint32_t)ledger_seq();                                                                    \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                                                                   \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                                                                   \
+        COPY_40BYTES((buf_out + 36), tlamt);                                                                      \
+        COPY_8BYTES((buf_out + 36 + 40), (tlamt + 40));                                                           \
+        COPY_20BYTES((buf_out + 130), hook_accid);                                                                \
+        COPY_20BYTES((buf_out + 152), to_address);                                                                \
+        COPY_16BYTES((buf_out + 176), type_ptr);                                                                  \
+        COPY_2BYTES((buf_out + 176 + 16), (type_ptr + 16));                                                       \
+        COPY_BYTE((buf_out + 176 + 18), (type_ptr + 18));                                                         \
+        COPY_20BYTES((buf_out + 197), data_ptr);                                                                  \
+        COPY_8BYTES((buf_out + 219), format_ptr);                                                                 \
+        COPY_2BYTES((buf_out + 219 + 8), (format_ptr + 8));                                                       \
+        etxn_details((buf_out + 231), PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN_SIZE);                       \
+        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN_SIZE);                \
+        uint8_t *fee_ptr = buf_out + 84;                                                                                   \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                             \
     }
 
 #endif

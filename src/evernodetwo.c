@@ -357,11 +357,9 @@ int64_t hook(uint32_t reserved)
                 SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, reward_amount);
 
                 etxn_reserve(1);
-                uint8_t txn_out[PREPARE_PAYMENT_HOST_REWARD_SIZE];
-                PREPARE_PAYMENT_HOST_REWARD(txn_out, amt_out, 0, account_field);
-
+                PREPARE_PAYMENT_HOST_REWARD(amt_out, 0, account_field);
                 uint8_t emithash[HASH_SIZE];
-                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                if (emit(SBUF(emithash), SBUF(PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN)) < 0)
                     rollback(SBUF("Evernode: Emitting txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -524,8 +522,6 @@ int64_t hook(uint32_t reserved)
 
         if (reg_fee > fixed_reg_fee)
         {
-            uint8_t tx_buf[PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE];
-
             // Sending 50% reg fee to Host account and to the epoch Reward pool.
             uint8_t amt_out_return[AMOUNT_BUF_SIZE];
             const int64_t amount_half = reg_fee / 2;
@@ -533,8 +529,8 @@ int64_t hook(uint32_t reserved)
             SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
 
             // Prepare transaction to send 50% of reg fee to host account.
-            PREPARE_PAYMENT_PRUNED_HOST_REBATE(tx_buf, amt_out_return, 0, memo_params);
-            if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
+            PREPARE_PAYMENT_PRUNED_HOST_REBATE(amt_out_return, memo_params);
+            if (emit(SBUF(emithash), SBUF(PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN)) < 0)
                 rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -566,11 +562,9 @@ int64_t hook(uint32_t reserved)
         }
         else
         {
-            uint8_t tx_buf[PREPARE_MIN_PAYMENT_PRUNED_HOST_SIZE];
             // Prepare MIN XRP transaction to host about pruning.
-            PREPARE_MIN_PAYMENT_PRUNED_HOST(tx_buf, 1, memo_params);
-
-            if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
+            PREPARE_MIN_PAYMENT_PRUNED_HOST(1, memo_params);
+            if (emit(SBUF(emithash), SBUF(PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN)) < 0)
                 rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
         }
@@ -593,9 +587,9 @@ int64_t hook(uint32_t reserved)
             SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)));
 
             // Create the outgoing hosting token txn.
-            PREPARE_PAYMENT_SIMPLE_TRUSTLINE_TXN(amt_out, account_field);
+            PREPARE_PAYMENT_TRUSTLINE_TXN(amt_out, account_field);
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(PAYMENT_SIMPLE_TRUSTLINE_TXN)) < 0)
+            if (emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE_TXN)) < 0)
                 rollback(SBUF("Evernode: Emitting EVR rebate txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
