@@ -186,7 +186,6 @@ int64_t hook(uint32_t reserved)
 
             // Amount will be 0.
             PREPARE_NFT_SELL_OFFER_TX(0, account_field, nft_token_id);
-            
 
             if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
@@ -288,23 +287,16 @@ int64_t hook(uint32_t reserved)
         if (!is_initializer_account)
             rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
 
-        // Operation --> 0: Installation , 1: Delete
-        int operation_order[4] = {0, 0, 0, 0};
-        IS_32BYTES_EMPTY(operation_order[0], memo_params);
-        IS_32BYTES_EMPTY(operation_order[1], (memo_params + HASH_SIZE));
-        IS_32BYTES_EMPTY(operation_order[2], (memo_params + (HASH_SIZE * 2)));
-        IS_32BYTES_EMPTY(operation_order[3], (memo_params + (HASH_SIZE * 3)));
-
         etxn_reserve(1);
-        uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
-        PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, memo_params, NAMESPACE);
+        uint32_t txn_size;
+        PREPARE_SET_HOOK_TX(memo_params, NAMESPACE, txn_size);
 
         uint8_t emithash[HASH_SIZE];
-        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+        if (emit(SBUF(emithash), SET_HOOK, txn_size) < 0)
             rollback(SBUF("Evernode: Hook set transaction failed."), 1);
         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-        accept(SBUF("Evernode: Successfully emiited SetHook transaction."), 0);
+        accept(SBUF("Evernode: Successfully emitted SetHook transaction."), 0);
     }
 
     accept(SBUF("Evernode: Transaction is not handled in Hook Position 1."), 0);
