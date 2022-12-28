@@ -266,10 +266,9 @@ int64_t hook(uint32_t reserved)
         uint8_t amt_out[AMOUNT_BUF_SIZE];
         SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
         // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
-        uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE];
-        PREPARE_NFT_BUY_OFFER_TRUSTLINE(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
         uint8_t emithash[HASH_SIZE];
-        if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
+        if (emit(SBUF(emithash), SBUF(NFT_BUY_OFFER_TRUSTLINE)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
 
         accept(SBUF("Evernode: Host de-registration successful."), 0);
@@ -643,11 +642,10 @@ int64_t hook(uint32_t reserved)
         etxn_reserve(1);
 
         // Creating the NFT buy offer for 1 XRP drop.
-        uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-        PREPARE_NFT_BUY_OFFER(buy_tx_buf, 1, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        PREPARE_NFT_BUY_OFFER_TX(1, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        
         uint8_t emithash[HASH_SIZE];
-
-        if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
+        if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 

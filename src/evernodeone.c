@@ -195,10 +195,10 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Amount will be 0.
-            uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
-            PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, account_field, nft_token_id);
+            PREPARE_NFT_SELL_OFFER_TX(0, account_field, nft_token_id);
+            
 
-            if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -264,12 +264,11 @@ int64_t hook(uint32_t reserved)
 
             etxn_reserve(1);
             // Amount will be 0.
-            uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
             // Create a sell offer for the transferring NFT.
-            PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
+            PREPARE_NFT_SELL_OFFER_TX(0, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
 
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
