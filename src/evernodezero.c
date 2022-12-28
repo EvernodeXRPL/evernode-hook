@@ -289,12 +289,19 @@ int64_t hook(uint32_t reserved)
 
                 if (op_type != OP_NONE && op_type != OP_HOST_POST_DEREG)
                 {
+                    uint8_t issuer_accid[ACCOUNT_ID_SIZE];
+                    uint8_t foundation_accid[ACCOUNT_ID_SIZE];
+                    if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0 || state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                        rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
+
                     uint8_t meta_params[META_PARAMS_SIZE];
                     meta_params[OP_TYPE_PARAM_OFFSET] = op_type;
                     INT64_TO_BUF(&meta_params[CUR_LEDGER_SEQ_PARAM_OFFSET], cur_ledger_seq);
                     INT64_TO_BUF(&meta_params[CUR_LEDGER_TIMESTAMP_PARAM_OFFSET], cur_ledger_timestamp);
                     COPY_20BYTES((meta_params + HOOK_ACCID_PARAM_OFFSET), hook_accid);
                     COPY_20BYTES((meta_params + ACCOUNT_FIELD_PARAM_OFFSET), account_field);
+                    COPY_20BYTES((meta_params + ISSUER_PARAM_OFFSET), issuer_accid);
+                    COPY_20BYTES((meta_params + FOUNDATION_PARAM_OFFSET), foundation_accid);
 
                     if (data_len > MEMO_PARAM_SIZE)
                         rollback(SBUF("Evernode: No enough space to populate memo data inside a chain param."), 1);

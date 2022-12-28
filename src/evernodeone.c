@@ -26,6 +26,8 @@ int64_t hook(uint32_t reserved)
     COPY_20BYTES(hook_accid, (meta_params + HOOK_ACCID_PARAM_OFFSET));
     uint8_t account_field[ACCOUNT_ID_SIZE];
     COPY_20BYTES(account_field, (meta_params + ACCOUNT_FIELD_PARAM_OFFSET));
+    uint8_t *issuer_accid = &meta_params[ISSUER_PARAM_OFFSET];
+    uint8_t *foundation_accid = &meta_params[FOUNDATION_PARAM_OFFSET];
 
     // Memos can be empty for some transactions.
     uint8_t memo_params[MEMO_PARAM_SIZE];
@@ -47,10 +49,6 @@ int64_t hook(uint32_t reserved)
         if (amt_drops < 0)
             rollback(SBUF("Evernode: Could not parse amount."), 1);
         int64_t amt_int = amt_drops / 1000000;
-
-        uint8_t issuer_accid[20];
-        if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not get issuer address state."), 1);
 
         int is_evr;
         IS_EVR(is_evr, amount_buffer, issuer_accid);
@@ -175,19 +173,11 @@ int64_t hook(uint32_t reserved)
             etxn_reserve(3);
 
             // Froward 5 EVRs to foundation.
-            uint8_t foundation_accid[20];
-            if (state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
-                rollback(SBUF("Evernode: Could not get foundation account address state."), 1);
-
-            uint8_t amt_out[AMOUNT_BUF_SIZE];
-            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee));
-
             // Create the outgoing hosting token txn.
-            uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-            PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, foundation_accid, 0, 0);
+            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee), foundation_accid);
 
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) < 0)
                 rollback(SBUF("Evernode: Emitting EVR forward txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
