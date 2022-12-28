@@ -5,7 +5,7 @@
 /*************Pre-populated templates of Payment Transactions**************/
 /**************************************************************************/
 // Simple IOU Payment.
-uint8_t PAYMENT_TRUSTLINE_TXN[310] = {
+uint8_t PAYMENT_TRUSTLINE[310] = {
     0x12, 0x00, 0x00,                                                                                                       // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                                                                                           // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG_SOURCE
@@ -36,7 +36,7 @@ uint8_t PAYMENT_TRUSTLINE_TXN[310] = {
 };
 
 // IOU Payment with single memo (Reward).
-uint8_t PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN[333] = {
+uint8_t REWARD_PAYMENT[333] = {
     0x12, 0x00, 0x00,                                                                                                       // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                                                                                           // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG_SOURCE
@@ -73,7 +73,7 @@ uint8_t PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN[333] = {
 };
 
 // Simple XRP Payment with single memo (Prune).
-uint8_t PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN[329] = {
+uint8_t PRUNED_HOST_REBATE_MIN_PAYMENT[329] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -110,7 +110,7 @@ uint8_t PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN[329] = {
 };
 
 // IOU Payment with single memo (Prune).
-uint8_t PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN[369] = {
+uint8_t PRUNED_HOST_REBATE_PAYMENT[369] = {
     0x12, 0x00, 0x00,                                                                                                       // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                                                                                           // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                                                                                           // TAG_SOURCE
@@ -148,91 +148,86 @@ uint8_t PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN[369] = {
     // >> emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
 };
 
-#define PAYMENT_TRUSTLINE_TXN_SIZE \
-    sizeof(PAYMENT_TRUSTLINE_TXN)
-#define PREPARE_PAYMENT_TRUSTLINE_TXN(tlamt, to_address)                  \
-    {                                                                     \
-        uint8_t *buf_out = PAYMENT_TRUSTLINE_TXN;                         \
-        uint32_t cls = (uint32_t)ledger_seq();                            \
-        UINT32_TO_BUF((buf_out + 25), cls + 1);                           \
-        UINT32_TO_BUF((buf_out + 31), cls + 5);                           \
-        COPY_40BYTES((buf_out + 36), tlamt);                              \
-        COPY_8BYTES((buf_out + 36 + 40), (tlamt + 40));                   \
-        COPY_20BYTES((buf_out + 130), hook_accid);                        \
-        COPY_20BYTES((buf_out + 152), to_address);                        \
-        etxn_details((buf_out + 172), PAYMENT_TRUSTLINE_TXN_SIZE);        \
-        int64_t fee = etxn_fee_base(buf_out, PAYMENT_TRUSTLINE_TXN_SIZE); \
-        uint8_t *fee_ptr = buf_out + 84;                                  \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                     \
+#define PAYMENT_TRUSTLINE_TX_SIZE \
+    sizeof(PAYMENT_TRUSTLINE)
+#define PREPARE_PAYMENT_TRUSTLINE_TX(token, issuer, amount, to_address)  \
+    {                                                                    \
+        uint8_t *buf_out = PAYMENT_TRUSTLINE;                            \
+        uint32_t cls = (uint32_t)ledger_seq();                           \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                          \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                          \
+        SET_AMOUNT_OUT((buf_out + 36), token, issuer, amount);           \
+        COPY_20BYTES((buf_out + 130), hook_accid);                       \
+        COPY_20BYTES((buf_out + 152), to_address);                       \
+        etxn_details((buf_out + 172), PAYMENT_TRUSTLINE_TX_SIZE);        \
+        int64_t fee = etxn_fee_base(buf_out, PAYMENT_TRUSTLINE_TX_SIZE); \
+        uint8_t *fee_ptr = buf_out + 84;                                 \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                    \
     }
 
-#define PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN_SIZE \
-    sizeof(PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN)
-#define PREPARE_PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN(tlamt, drops_fee_raw, to_address, type_ptr) \
-    {                                                                                                \
-        uint8_t *buf_out = PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN;                                 \
-        uint32_t cls = (uint32_t)ledger_seq();                                                       \
-        UINT32_TO_BUF((buf_out + 25), cls + 1);                                                      \
-        UINT32_TO_BUF((buf_out + 31), cls + 5);                                                      \
-        COPY_40BYTES((buf_out + 36), tlamt);                                                         \
-        COPY_8BYTES((buf_out + 36 + 40), (tlamt + 40));                                              \
-        COPY_20BYTES((buf_out + 130), hook_accid);                                                   \
-        COPY_20BYTES((buf_out + 152), to_address);                                                   \
-        COPY_8BYTES((buf_out + 176), type_ptr);                                                      \
-        COPY_4BYTES((buf_out + 176 + 8), (type_ptr + 8));                                            \
-        COPY_BYTE((buf_out + 176 + 12), (type_ptr + 12));                                            \
-        etxn_details((buf_out + 195), PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN_SIZE);                \
-        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN_SIZE);         \
-        uint8_t *fee_ptr = buf_out + 84;                                                             \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                \
+#define REWARD_PAYMENT_TX_SIZE \
+    sizeof(REWARD_PAYMENT)
+#define PREPARE_REWARD_PAYMENT_TX(evr_amount, to_address)                    \
+    {                                                                        \
+        uint8_t *buf_out = REWARD_PAYMENT;                                   \
+        uint32_t cls = (uint32_t)ledger_seq();                               \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                              \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                              \
+        SET_AMOUNT_OUT((buf_out + 36), EVR_TOKEN, issuer_accid, evr_amount); \
+        COPY_20BYTES((buf_out + 130), hook_accid);                           \
+        COPY_20BYTES((buf_out + 152), to_address);                           \
+        COPY_8BYTES((buf_out + 176), HOST_REWARD);                           \
+        COPY_4BYTES((buf_out + 176 + 8), (HOST_REWARD + 8));                 \
+        COPY_BYTE((buf_out + 176 + 12), (HOST_REWARD + 12));                 \
+        etxn_details((buf_out + 195), REWARD_PAYMENT_TX_SIZE);               \
+        int64_t fee = etxn_fee_base(buf_out, REWARD_PAYMENT_TX_SIZE);        \
+        uint8_t *fee_ptr = buf_out + 84;                                     \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                        \
     }
 
-#define PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN_SIZE \
-    sizeof(PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN)
-#define PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN(drops_amount, to_address, type_ptr, format_ptr, data_ptr) \
-    {                                                                                                       \
-        uint8_t *buf_out = PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN;                                               \
-        uint32_t cls = (uint32_t)ledger_seq();                                                              \
-        UINT32_TO_BUF((buf_out + 25), cls + 1);                                                             \
-        UINT32_TO_BUF((buf_out + 31), cls + 5);                                                             \
-        uint8_t *buf_ptr = (buf_out + 35);                                                                  \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                  \
-        COPY_20BYTES((buf_out + 90), hook_accid);                                                           \
-        COPY_20BYTES((buf_out + 112), to_address);                                                          \
-        COPY_16BYTES((buf_out + 136), type_ptr);                                                            \
-        COPY_2BYTES((buf_out + 136 + 16), (type_ptr + 16));                                                 \
-        COPY_BYTE((buf_out + 136 + 18), (type_ptr + 18));                                                   \
-        COPY_20BYTES((buf_out + 157), data_ptr);                                                            \
-        COPY_8BYTES((buf_out + 179), format_ptr);                                                           \
-        COPY_2BYTES((buf_out + 179 + 8), (format_ptr + 8));                                                 \
-        etxn_details((buf_out + 191), PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN_SIZE);                              \
-        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN_SIZE);                       \
-        buf_ptr = buf_out + 44;                                                                             \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                                       \
+#define PRUNED_HOST_REBATE_COMMON(buf_out, to_address)                \
+    {                                                                 \
+        COPY_20BYTES((buf_out), hook_accid);                          \
+        COPY_20BYTES((buf_out + 22), to_address);                     \
+        COPY_16BYTES((buf_out + 46), DEAD_HOST_PRUNE_REF);            \
+        COPY_2BYTES((buf_out + 46 + 16), (DEAD_HOST_PRUNE_REF + 16)); \
+        COPY_BYTE((buf_out + 46 + 18), (DEAD_HOST_PRUNE_REF + 18));   \
+        COPY_20BYTES((buf_out + 67), PRUNE_MESSAGE);                  \
+        COPY_8BYTES((buf_out + 89), DEAD_HOST_PRUNE_REF);             \
+        COPY_2BYTES((buf_out + 89 + 8), (DEAD_HOST_PRUNE_REF + 8));   \
     }
 
-#define PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN_SIZE \
-    sizeof(PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN)
-#define PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN(tlamt, to_address, type_ptr, format_ptr, data_ptr) \
-    {                                                                                                      \
-        uint8_t *buf_out = PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN;                                        \
-        uint32_t cls = (uint32_t)ledger_seq();                                                             \
-        UINT32_TO_BUF((buf_out + 25), cls + 1);                                                            \
-        UINT32_TO_BUF((buf_out + 31), cls + 5);                                                            \
-        COPY_40BYTES((buf_out + 36), tlamt);                                                               \
-        COPY_8BYTES((buf_out + 36 + 40), (tlamt + 40));                                                    \
-        COPY_20BYTES((buf_out + 130), hook_accid);                                                         \
-        COPY_20BYTES((buf_out + 152), to_address);                                                         \
-        COPY_16BYTES((buf_out + 176), type_ptr);                                                           \
-        COPY_2BYTES((buf_out + 176 + 16), (type_ptr + 16));                                                \
-        COPY_BYTE((buf_out + 176 + 18), (type_ptr + 18));                                                  \
-        COPY_20BYTES((buf_out + 197), data_ptr);                                                           \
-        COPY_8BYTES((buf_out + 219), format_ptr);                                                          \
-        COPY_2BYTES((buf_out + 219 + 8), (format_ptr + 8));                                                \
-        etxn_details((buf_out + 231), PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN_SIZE);                       \
-        int64_t fee = etxn_fee_base(buf_out, PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN_SIZE);                \
-        uint8_t *fee_ptr = buf_out + 84;                                                                   \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                      \
+#define PRUNED_HOST_REBATE_MIN_PAYMENT_TX_SIZE \
+    sizeof(PRUNED_HOST_REBATE_MIN_PAYMENT)
+#define PREPARE_PRUNED_HOST_REBATE_MIN_PAYMENT_TX(drops_amount, to_address)           \
+    {                                                                                 \
+        uint8_t *buf_out = PRUNED_HOST_REBATE_MIN_PAYMENT;                            \
+        uint32_t cls = (uint32_t)ledger_seq();                                        \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                                       \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                                       \
+        uint8_t *buf_ptr = (buf_out + 35);                                            \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                            \
+        PRUNED_HOST_REBATE_COMMON((buf_out + 90), to_address);                        \
+        etxn_details((buf_out + 191), PRUNED_HOST_REBATE_MIN_PAYMENT_TX_SIZE);        \
+        int64_t fee = etxn_fee_base(buf_out, PRUNED_HOST_REBATE_MIN_PAYMENT_TX_SIZE); \
+        buf_ptr = buf_out + 44;                                                       \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                 \
+    }
+
+#define PRUNED_HOST_REBATE_PAYMENT_TX_SIZE \
+    sizeof(PRUNED_HOST_REBATE_PAYMENT)
+#define PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(evr_amount, to_address)             \
+    {                                                                             \
+        uint8_t *buf_out = PRUNED_HOST_REBATE_PAYMENT;                            \
+        uint32_t cls = (uint32_t)ledger_seq();                                    \
+        UINT32_TO_BUF((buf_out + 25), cls + 1);                                   \
+        UINT32_TO_BUF((buf_out + 31), cls + 5);                                   \
+        SET_AMOUNT_OUT((buf_out + 36), EVR_TOKEN, issuer_accid, evr_amount);      \
+        PRUNED_HOST_REBATE_COMMON((buf_out + 130), to_address);                   \
+        etxn_details((buf_out + 231), PRUNED_HOST_REBATE_PAYMENT_TX_SIZE);        \
+        int64_t fee = etxn_fee_base(buf_out, PRUNED_HOST_REBATE_PAYMENT_TX_SIZE); \
+        uint8_t *fee_ptr = buf_out + 84;                                          \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                             \
     }
 
 #endif

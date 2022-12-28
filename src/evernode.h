@@ -367,15 +367,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 // If it is used 3 times inside a macro use m = 1,2,3
 // We need to dump the iou amount into a buffer.
 // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
-#define SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, n, m)               \
-    {                                                                             \
-        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                         \
-        if (float_sto(SBUF(amt_out), SBUF(currency), issuer, 20, amount, -1) < 0) \
-            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1);  \
-        COPY_20BYTES((amt_out + 8), currency);                                    \
-        COPY_20BYTES((amt_out + 28), issuer);                                     \
-        if (amount == 0)                                                          \
-            amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/     \
+#define SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, n, m)              \
+    {                                                                            \
+        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                        \
+        if (float_sto(amt_out, 48, currency, 20, issuer, 20, amount, -1) < 0)    \
+            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1); \
+        COPY_20BYTES((amt_out + 8), currency);                                   \
+        COPY_20BYTES((amt_out + 28), issuer);                                    \
+        if (amount == 0)                                                         \
+            amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/    \
     }
 
 #define SET_AMOUNT_OUT_GUARD(amt_out, token, issuer, amount, n) \
@@ -1062,25 +1062,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         etxn_details((uint32_t)buf_out, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)); /* emitdet | size 138 */ \
         int64_t fee = etxn_fee_base(buf_out_master, PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order));              \
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                        \
-    }
-
-/**************************************************************************/
-/******************Macros with evernode specific logic*********************/
-/**************************************************************************/
-
-#define PREPARE_PAYMENT_PRUNED_HOST_REBATE(tlamt, to_address)                                                                       \
-    {                                                                                                                               \
-        PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_TRUSTLINE_TXN(tlamt, to_address, DEAD_HOST_PRUNE_REF, FORMAT_TEXT, PRUNE_MESSAGE); \
-    }
-
-#define PREPARE_MIN_PAYMENT_PRUNED_HOST(drops_amount, to_address)                                                                    \
-    {                                                                                                                                \
-        PREPARE_PAYMENT_SINGLE_MEMO_PRUNE_XRP_TXN(drops_amount, to_address, DEAD_HOST_PRUNE_REF, FORMAT_TEXT, PRUNE_MESSAGE); \
-    }
-
-#define PREPARE_PAYMENT_HOST_REWARD(tlamt, drops_fee_raw, to_address)                                           \
-    {                                                                                                           \
-        PREPARE_PAYMENT_SINGLE_MEMO_REWARD_TRUSTLINE_TXN(tlamt, drops_fee_raw, to_address, HOST_REWARD); \
     }
 
 #endif
