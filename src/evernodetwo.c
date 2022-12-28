@@ -27,6 +27,8 @@ int64_t hook(uint32_t reserved)
     COPY_20BYTES(hook_accid, (meta_params + HOOK_ACCID_PARAM_OFFSET));
     uint8_t account_field[ACCOUNT_ID_SIZE];
     COPY_20BYTES(account_field, (meta_params + ACCOUNT_FIELD_PARAM_OFFSET));
+    uint8_t *issuer_accid = &meta_params[ISSUER_PARAM_OFFSET];
+    uint8_t *foundation_accid = &meta_params[FOUNDATION_PARAM_OFFSET];
 
     // Memos can be empty for some transactions.
     uint8_t memo_params[MEMO_PARAM_SIZE];
@@ -47,7 +49,6 @@ int64_t hook(uint32_t reserved)
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
     uint8_t token_id[TOKEN_ID_VAL_SIZE];
-    uint8_t issuer_accid[ACCOUNT_ID_SIZE];
 
     // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
     if (op_type == OP_HOST_DE_REG || op_type == OP_HEARTBEAT || op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER || op_type == OP_DEAD_HOST_PRUNE)
@@ -222,11 +223,6 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
-        uint8_t issuer_accid[ACCOUNT_ID_SIZE];
-        uint8_t foundation_accid[ACCOUNT_ID_SIZE];
-        if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0 || state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
-
         int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
 
         if (reg_fee > fixed_reg_fee)
@@ -340,19 +336,10 @@ int64_t hook(uint32_t reserved)
                 last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
             {
-                uint8_t issuer_accid[20];
-                if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-                    rollback(SBUF("Evernode: Could not get issuer address state."), 1);
-
-                uint8_t amt_out[AMOUNT_BUF_SIZE];
-                SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, reward_amount);
-
                 etxn_reserve(1);
-                uint8_t txn_out[PREPARE_PAYMENT_HOST_REWARD_SIZE];
-                PREPARE_PAYMENT_HOST_REWARD(txn_out, amt_out, 0, account_field);
-
+                PREPARE_REWARD_PAYMENT_TX(reward_amount, account_field);
                 uint8_t emithash[HASH_SIZE];
-                if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+                if (emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) < 0)
                     rollback(SBUF("Evernode: Emitting txn failed"), 1);
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -504,23 +491,13 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
-        uint8_t issuer_accid[20];
-        if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0)
-            rollback(SBUF("Evernode: Could not get issuer account id."), 1);
-
         if (reg_fee > fixed_reg_fee)
         {
-            uint8_t tx_buf[PREPARE_PAYMENT_PRUNED_HOST_REBATE_SIZE];
-
             // Sending 50% reg fee to Host account and to the epoch Reward pool.
-            uint8_t amt_out_return[AMOUNT_BUF_SIZE];
             const int64_t amount_half = reg_fee / 2;
-
-            SET_AMOUNT_OUT(amt_out_return, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
-
             // Prepare transaction to send 50% of reg fee to host account.
-            PREPARE_PAYMENT_PRUNED_HOST_REBATE(tx_buf, amt_out_return, 0, memo_params);
-            if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
+            PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half), memo_params);
+            if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_PAYMENT)) < 0)
                 rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -552,11 +529,9 @@ int64_t hook(uint32_t reserved)
         }
         else
         {
-            uint8_t tx_buf[PREPARE_MIN_PAYMENT_PRUNED_HOST_SIZE];
             // Prepare MIN XRP transaction to host about pruning.
-            PREPARE_MIN_PAYMENT_PRUNED_HOST(tx_buf, 1, memo_params);
-
-            if (emit(SBUF(emithash), SBUF(tx_buf)) < 0)
+            PREPARE_PRUNED_HOST_REBATE_MIN_PAYMENT_TX(1, memo_params);
+            if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_MIN_PAYMENT)) < 0)
                 rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
         }
@@ -575,15 +550,10 @@ int64_t hook(uint32_t reserved)
             // Reserve for a transaction emission.
             etxn_reserve(1);
 
-            uint8_t amt_out[AMOUNT_BUF_SIZE];
-            SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)));
-
             // Create the outgoing hosting token txn.
-            uint8_t txn_out[PREPARE_PAYMENT_SIMPLE_TRUSTLINE_SIZE];
-            PREPARE_PAYMENT_SIMPLE_TRUSTLINE(txn_out, amt_out, account_field, 0, 0);
-
+            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)), account_field);
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) < 0)
                 rollback(SBUF("Evernode: Emitting EVR rebate txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 

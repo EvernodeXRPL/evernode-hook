@@ -85,7 +85,7 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x38, 0x41, 0x21, 0xFF, 0x56, 0xFA, 0x8F, 0xEC,
                                0xC2, 0x15, 0xFD, 0xDE, 0x2E, 0xC3, 0x5D, 0x9E,
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
-const int64_t DEF_EMIT_FEE_THRESHOLD = 1000; // In Drops.
+const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                              // In Drops.
 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
 const uint16_t NEW_MOMENT_SIZE = 3600;
@@ -198,13 +198,15 @@ const uint32_t HOST_UPDATE_DESCRIPTION_MEMO_OFFSET = 54;
 const uint32_t HOST_UPDATE_VERSION_MEMO_OFFSET = 80;
 
 #define META_PARAMS "meta_params"
-const uint32_t META_PARAMS_SIZE = 58;
+const uint32_t META_PARAMS_SIZE = 98;
 const uint32_t CHAIN_IDX_PARAM_OFFSET = 0;
 const uint32_t OP_TYPE_PARAM_OFFSET = 1;
 const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 2;
 const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 10;
 const uint32_t HOOK_ACCID_PARAM_OFFSET = 18;
 const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
+const uint32_t ISSUER_PARAM_OFFSET = 58;
+const uint32_t FOUNDATION_PARAM_OFFSET = 78;
 
 #define MEMO_PARAMS "memo_params"
 const uint32_t MEMO_PARAM_SIZE = 128;
