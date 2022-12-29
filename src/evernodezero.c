@@ -290,9 +290,11 @@ int64_t hook(uint32_t reserved)
 
                 if (op_type != OP_NONE && op_type != OP_HOST_POST_DEREG)
                 {
-                    uint8_t issuer_accid[ACCOUNT_ID_SIZE];
-                    uint8_t foundation_accid[ACCOUNT_ID_SIZE];
-                    if (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0 || state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0)
+                    uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
+                    uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
+                    // States does not exists in initialize transaction.
+                    if (op_type != OP_INITIALIZE &&
+                        (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0 || state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0))
                         rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
 
                     uint8_t meta_params[META_PARAMS_SIZE];
