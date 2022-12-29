@@ -76,16 +76,12 @@ int64_t hook(uint32_t reserved)
         if (hook_param(SBUF(verify_params), SBUF(VERIFY_PARAMS)) < 0)
             rollback(SBUF("Evernode: Could not get verify params."), 1);
 
-        // Obtain NFT Page Keylet and the index of the NFT.
-        uint8_t nft_page_keylet[34];
-        COPY_32BYTES(nft_page_keylet, verify_params);
-        COPY_2BYTES(nft_page_keylet + 32, verify_params + 32);
-
         uint16_t nft_idx = UINT16_FROM_BUF(verify_params + 34);
 
         // Check the ownership of the NFT to this user before proceeding.
         int nft_exists;
-        IS_REG_NFT_EXIST(nft_page_keylet, nft_idx, nft_exists);
+        uint16_t nft_flags;
+        IS_REG_NFT_EXIST((op_type != OP_DEAD_HOST_PRUNE ? account_field : memo_params), (host_addr + HOST_TOKEN_ID_OFFSET), verify_params, nft_idx, nft_exists);
         if (!nft_exists)
             rollback(SBUF("Evernode: Registration NFT does not exist."), 1);
     }
@@ -263,13 +259,10 @@ int64_t hook(uint32_t reserved)
         // Sending nft buy offer to the host.
         etxn_reserve(1);
 
-        uint8_t amt_out[AMOUNT_BUF_SIZE];
-        SET_AMOUNT_OUT(amt_out, EVR_TOKEN, issuer_accid, float_set(0, amount_half));
         // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
-        uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_TRUSTLINE_SIZE];
-        PREPARE_NFT_BUY_OFFER_TRUSTLINE(buy_tx_buf, amt_out, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, amount_half), account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
         uint8_t emithash[HASH_SIZE];
-        if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
+        if (emit(SBUF(emithash), SBUF(NFT_BUY_OFFER_TRUSTLINE)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
 
         accept(SBUF("Evernode: Host de-registration successful."), 0);
@@ -459,25 +452,20 @@ int64_t hook(uint32_t reserved)
 
         TOKEN_ID_KEY((uint8_t *)(reg_entry_buf + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
 
-        // Check the ownership of the NFT to this user before proceeding.
-        int nft_exists;
-        uint8_t issuer[ACCOUNT_ID_SIZE], uri[REG_NFT_URI_SIZE], uri_len;
-        uint32_t taxon, nft_seq;
-        uint16_t flags, tffee;
+        uint8_t index_for_burnability = 0;
         uint8_t *token_id_ptr = &reg_entry_buf[HOST_TOKEN_ID_OFFSET];
+        uint16_t flags = UINT16_FROM_BUF(token_id_ptr);
 
         uint8_t emithash[HASH_SIZE];
-        uint8_t index_for_burnability = 0;
         if ((flags & (1 << index_for_burnability)) != 0)
         {
             // Reserve for two transaction emissions.
             etxn_reserve(2);
 
             // Burn Registration NFT.
-            uint8_t txn_out[PREPARE_NFT_BURN_SIZE];
-            PREPARE_NFT_BURN(txn_out, token_id_ptr, memo_params);
+            PREPARE_NFT_BURN_TX(token_id_ptr, memo_params);
 
-            if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_BURN_TX)) < 0)
                 rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
         }
@@ -622,11 +610,10 @@ int64_t hook(uint32_t reserved)
         etxn_reserve(1);
 
         // Creating the NFT buy offer for 1 XRP drop.
-        uint8_t buy_tx_buf[PREPARE_NFT_BUY_OFFER_SIZE];
-        PREPARE_NFT_BUY_OFFER(buy_tx_buf, 1, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
-        uint8_t emithash[HASH_SIZE];
+        PREPARE_NFT_BUY_OFFER_TX(1, account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
 
-        if (emit(SBUF(emithash), SBUF(buy_tx_buf)) < 0)
+        uint8_t emithash[HASH_SIZE];
+        if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 

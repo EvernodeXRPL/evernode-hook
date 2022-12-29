@@ -2,6 +2,7 @@
 // #include "../lib/emulatorapi.h"
 #include "evernode.h"
 #include "statekeys.h"
+#include "transactions.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -127,13 +128,8 @@ int64_t hook(uint32_t reserved)
             else if (token_seq_slot != DOESNT_EXIST)
                 rollback(SBUF("Evernode: Could not find sfMintedTokens on hook account"), 20);
 
-            // If there are multiple flags, we can perform "Bitwise OR" to apply them all to tflag.
-            uint16_t tflag = tfBurnable;
-            uint32_t taxon = 0;
-            uint16_t tffee = 0;
-
             uint8_t nft_token_id[NFT_TOKEN_ID_SIZE];
-            GENERATE_NFT_TOKEN_ID(nft_token_id, tflag, tffee, hook_accid, taxon, token_seq);
+            GENERATE_NFT_TOKEN_ID(nft_token_id, tfBurnable, 0, hook_accid, 0, token_seq);
             trace("NFT token id:", 13, SBUF(nft_token_id), 1);
 
             COPY_32BYTES(host_addr, nft_token_id);
@@ -182,23 +178,16 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Mint the nft token.
-            // Transaction URI would be the 'evrhost' + registration transaction hash.
-            uint8_t uri[REG_NFT_URI_SIZE];
-            COPY_EVR_HOST_PREFIX(uri, 0);
-            COPY_32BYTES((uri + 7), txid);
+            PREPARE_REG_NFT_MINT_TX(txid);
 
-            uint8_t nft_txn_out[PREPARE_NFT_MINT_SIZE(sizeof(uri))];
-            PREPARE_NFT_MINT(nft_txn_out, tflag, tffee, taxon, uri, sizeof(uri));
-
-            if (emit(SBUF(emithash), SBUF(nft_txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(REG_NFT_MINT_TX)) < 0)
                 rollback(SBUF("Evernode: Emitting NFT mint txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Amount will be 0.
-            uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
-            PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, account_field, nft_token_id);
+            PREPARE_NFT_SELL_OFFER_TX(0, account_field, nft_token_id);
 
-            if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -264,12 +253,11 @@ int64_t hook(uint32_t reserved)
 
             etxn_reserve(1);
             // Amount will be 0.
-            uint8_t offer_txn_out[PREPARE_NFT_SELL_OFFER_SIZE];
             // Create a sell offer for the transferring NFT.
-            PREPARE_NFT_SELL_OFFER(offer_txn_out, 0, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
+            PREPARE_NFT_SELL_OFFER_TX(0, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
 
             uint8_t emithash[32];
-            if (emit(SBUF(emithash), SBUF(offer_txn_out)) < 0)
+            if (emit(SBUF(emithash), SBUF(NFT_OFFER)) < 0)
                 rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
@@ -299,23 +287,16 @@ int64_t hook(uint32_t reserved)
         if (!is_initializer_account)
             rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
 
-        // Operation --> 0: Installation , 1: Delete
-        int operation_order[4] = {0, 0, 0, 0};
-        IS_32BYTES_EMPTY(operation_order[0], memo_params);
-        IS_32BYTES_EMPTY(operation_order[1], (memo_params + HASH_SIZE));
-        IS_32BYTES_EMPTY(operation_order[2], (memo_params + (HASH_SIZE * 2)));
-        IS_32BYTES_EMPTY(operation_order[3], (memo_params + (HASH_SIZE * 3)));
-
         etxn_reserve(1);
-        uint8_t txn_out[PREPARE_SET_HOOK_TRANSACTION_SIZE(operation_order)];
-        PREPARE_SET_HOOK_TRANSACTION(txn_out, operation_order, memo_params, NAMESPACE);
+        uint32_t txn_size;
+        PREPARE_SET_HOOK_TX(memo_params, NAMESPACE, txn_size);
 
         uint8_t emithash[HASH_SIZE];
-        if (emit(SBUF(emithash), SBUF(txn_out)) < 0)
+        if (emit(SBUF(emithash), SET_HOOK, txn_size) < 0)
             rollback(SBUF("Evernode: Hook set transaction failed."), 1);
         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-        accept(SBUF("Evernode: Successfully emiited SetHook transaction."), 0);
+        accept(SBUF("Evernode: Successfully emitted SetHook transaction."), 0);
     }
 
     accept(SBUF("Evernode: Transaction is not handled in Hook Position 1."), 0);
