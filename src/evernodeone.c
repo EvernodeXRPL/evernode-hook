@@ -51,26 +51,17 @@ int64_t hook(uint32_t reserved)
             rollback(SBUF("Evernode: Could not parse amount."), 1);
         int64_t amt_int = amt_drops / 1000000;
 
-        int is_evr;
-        IS_EVR(is_evr, amount_buffer, issuer_accid);
-
         // Currency should be EVR.
-        if (!is_evr)
+        if (!IS_EVR(amount_buffer, issuer_accid))
             rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
 
         // Checking whether this host has an initiated transfer to continue.
-        int has_initiated_transfer = 0;
-        int parties_are_similar = 0;
-
         TRANSFEREE_ADDR_KEY(account_field);
-
         uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
-        if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
-        {
-            // Check whether host was a transferer of the transfer. (same account continuation).
-            has_initiated_transfer = 1;
-            EQUAL_20BYTES(parties_are_similar, (uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field);
-        }
+        int has_initiated_transfer = (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) > 0);
+        // Check whether host was a transferer of the transfer. (same account continuation).
+        int parties_are_similar = (has_initiated_transfer && BUFFER_EQUAL_20((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field));
+
 
         // Take the host reg fee from config.
         int64_t host_reg_fee;
@@ -282,9 +273,7 @@ int64_t hook(uint32_t reserved)
         if (initializer_accid_len < ACCOUNT_ID_SIZE)
             rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
 
-        int is_initializer_account = 0;
-        EQUAL_20BYTES(is_initializer_account, initializer_accid, account_field);
-        if (!is_initializer_account)
+        if (!BUFFER_EQUAL_20(initializer_accid, account_field))
             rollback(SBUF("Evernode: Only initializer is allowed to trigger a hook set."), 1);
 
         etxn_reserve(1);
