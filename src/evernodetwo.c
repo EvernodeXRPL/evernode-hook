@@ -97,9 +97,7 @@ int64_t hook(uint32_t reserved)
             rollback(SBUF("Evernode: Could not convert initializer account id."), 1);
 
         // We accept only the init transaction from hook intializer account
-        int is_valid = 0;
-        EQUAL_20BYTES(is_valid, initializer_accid, account_field);
-        if (!is_valid)
+        if (!BUFFER_EQUAL_20(initializer_accid, account_field))
             rollback(SBUF("Evernode: Only initializer is allowed to initialize state."), 1);
 
         // First check if the states are already initialized by checking one state key for existence.
@@ -181,9 +179,7 @@ int64_t hook(uint32_t reserved)
         // Set Moment transition info with the configured value;
         if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
         {
-            int is_empty = 0;
-            IS_MOMENT_TRANSIT_INFO_EMPTY(is_empty, moment_transition_info);
-            if (!is_empty)
+            if (!IS_MOMENT_TRANSIT_INFO_EMPTY(moment_transition_info))
                 rollback(SBUF("Evernode: There is an already scheduled moment size transition."), 1);
 
             uint64_t moment_end_idx;
@@ -203,10 +199,7 @@ int64_t hook(uint32_t reserved)
     }
     else if (op_type == OP_HOST_DE_REG)
     {
-        int is_token_match = 0;
-        EQUAL_32BYTES(is_token_match, memo_params, (host_addr + HOST_TOKEN_ID_OFFSET));
-
-        if (!is_token_match)
+        if (!BUFFER_EQUAL_32(memo_params, (host_addr + HOST_TOKEN_ID_OFFSET)))
             rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
 
         // Delete registration entries.
@@ -355,46 +348,39 @@ int64_t hook(uint32_t reserved)
         // Msg format.
         // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
         // All data fields are optional in update info transaction. Update state only if an information update is detected.
-        int is_empty = 0;
         int is_updated = 0;
 
-        IS_4BYTES_EMPTY(is_empty, (memo_params + HOST_UPDATE_CPU_MICROSEC_MEMO_OFFSET));
-        if (!is_empty)
+        if (!IS_BUFFER_EMPTY_4((memo_params + HOST_UPDATE_CPU_MICROSEC_MEMO_OFFSET)))
         {
             COPY_4BYTES((token_id + HOST_CPU_MICROSEC_OFFSET), (memo_params + HOST_UPDATE_CPU_MICROSEC_MEMO_OFFSET));
             is_updated = 1;
         }
 
-        IS_4BYTES_EMPTY(is_empty, (memo_params + HOST_UPDATE_RAM_MB_MEMO_OFFSET));
-        if (!is_empty)
+        if (!IS_BUFFER_EMPTY_4((memo_params + HOST_UPDATE_RAM_MB_MEMO_OFFSET)))
         {
             COPY_4BYTES((token_id + HOST_RAM_MB_OFFSET), (memo_params + HOST_UPDATE_RAM_MB_MEMO_OFFSET));
             is_updated = 1;
         }
 
-        IS_4BYTES_EMPTY(is_empty, (memo_params + HOST_UPDATE_DISK_MB_MEMO_OFFSET));
-        if (!is_empty)
+        if (!IS_BUFFER_EMPTY_4((memo_params + HOST_UPDATE_DISK_MB_MEMO_OFFSET)))
         {
             COPY_4BYTES((token_id + HOST_DISK_MB_OFFSET), (memo_params + HOST_UPDATE_DISK_MB_MEMO_OFFSET));
             is_updated = 1;
         }
 
-        IS_4BYTES_EMPTY(is_empty, (memo_params + HOST_UPDATE_TOT_INS_COUNT_MEMO_OFFSET));
-        if (!is_empty)
+        if (!IS_BUFFER_EMPTY_4((memo_params + HOST_UPDATE_TOT_INS_COUNT_MEMO_OFFSET)))
         {
             COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (memo_params + HOST_UPDATE_TOT_INS_COUNT_MEMO_OFFSET));
             is_updated = 1;
         }
 
-        IS_4BYTES_EMPTY(is_empty, (memo_params + HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET));
-        if (!is_empty)
+        if (!IS_BUFFER_EMPTY_4((memo_params + HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET)))
         {
             COPY_4BYTES((host_addr + HOST_ACT_INS_COUNT_OFFSET), (memo_params + HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET));
             is_updated = 1;
         }
 
-        IS_VERSION_EMPTY(is_empty, (memo_params + HOST_UPDATE_VERSION_MEMO_OFFSET));
-        if (!is_empty)
+        if (!IS_VERSION_EMPTY((memo_params + HOST_UPDATE_VERSION_MEMO_OFFSET)))
         {
             COPY_BYTE((host_addr + HOST_VERSION_OFFSET), (memo_params + HOST_UPDATE_VERSION_MEMO_OFFSET));
             COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 1), (memo_params + HOST_UPDATE_VERSION_MEMO_OFFSET + 1));
@@ -568,9 +554,7 @@ int64_t hook(uint32_t reserved)
     else if (op_type == OP_HOST_TRANSFER)
     {
         // Check for registration entry, if transferee is different from transfer (transferring to a new account).
-        int is_host_as_transferee = 0;
-        EQUAL_20BYTES(is_host_as_transferee, memo_params, account_field);
-        if (is_host_as_transferee == 0)
+        if (BUFFER_EQUAL_20(memo_params, account_field))
         {
             HOST_ADDR_KEY(memo_params); // Generate account key for transferee.
             uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
@@ -618,9 +602,6 @@ int64_t hook(uint32_t reserved)
         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
         accept(SBUF("Evernode: Host transfer initiated successfully."), 0);
-    }
-    else if (op_type == OP_NONE)
-    {
     }
 
     accept(SBUF("Evernode: Transaction is not handled in Hook Position 2."), 0);

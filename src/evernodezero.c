@@ -88,7 +88,7 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
 
             // Assign the transition state values with zeros.
-            CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info, 0);
+            CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info);
             if (state_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
 
@@ -124,9 +124,7 @@ int64_t hook(uint32_t reserved)
             rollback(SBUF("Evernode: sfAccount field is missing."), 1);
 
         // Accept any outgoing transactions without further processing.
-        int is_outgoing = 0;
-        EQUAL_20BYTES(is_outgoing, hook_accid, account_field);
-        if (!is_outgoing)
+        if (!BUFFER_EQUAL_20(hook_accid, account_field))
         {
             // Memos
             uint8_t memos[MAX_MEMO_SIZE];
@@ -146,14 +144,10 @@ int64_t hook(uint32_t reserved)
                     uint32_t memo_len1, type_len1, format_len1, data_len1;
                     GET_MEMO(memo_lookup, memos, memos_len, memo_ptr1, memo_len1, type_ptr1, type_len1, format_ptr1, format_len1, data_ptr1, data_len1);
 
-                    int compare_status = 0;
-                    EQUAL_HOST_REGISTRY_REF(compare_status, type_ptr1, type_len1);
-                    if (!compare_status)
+                    if (!EQUAL_HOST_REGISTRY_REF(type_ptr1, type_len1))
                         rollback(SBUF("Evernode: Memo type is invalid."), 1);
 
-                    compare_status = 0;
-                    EQUAL_FORMAT_HEX(compare_status, format_ptr1, format_len1);
-                    if (!compare_status)
+                    if (!EQUAL_FORMAT_HEX(format_ptr1, format_len1))
                         rollback(SBUF("Evernode: Memo format should be hex for Hook set."), 1);
 
                     if (hook_param_set(data_ptr1, memo_len1, SBUF(VERIFY_PARAMS), SBUF(chain_two_hash)) < 0)
@@ -167,12 +161,10 @@ int64_t hook(uint32_t reserved)
 
                 int64_t amt_slot = slot_subfield(oslot, sfAmount, 0);
 
-                int compare_res = 0;
                 if (txn_type == ttNFT_ACCEPT_OFFER)
                 {
                     // Host deregistration nft accept.
-                    EQUAL_HOST_POST_DEREG(compare_res, type_ptr, type_len);
-                    if (compare_res)
+                    if (EQUAL_HOST_POST_DEREG(type_ptr, type_len))
                         op_type = OP_HOST_POST_DEREG;
                 }
                 else if (reserved == STRONG_HOOK && txn_type == ttPAYMENT)
@@ -187,89 +179,54 @@ int64_t hook(uint32_t reserved)
                     if (is_xrp)
                     {
                         // Host initialization.
-                        EQUAL_INITIALIZE(compare_res, type_ptr, type_len);
-                        if (compare_res)
+                        if (EQUAL_INITIALIZE(type_ptr, type_len))
                         {
-                            EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                            if (!compare_res)
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
                                 rollback(SBUF("Evernode: Memo format should be hex for initialize."), 1);
                             if (data_len != (2 * ACCOUNT_ID_SIZE))
                                 rollback(SBUF("Evernode: Memo data should contain foundation cold wallet and issuer addresses."), 1);
                             op_type = OP_INITIALIZE;
                         }
-                        if (op_type == OP_NONE)
+                        // Host deregistration.
+                        else if (EQUAL_HOST_DE_REG(type_ptr, type_len))
                         {
-                            // Host deregistration.
-                            EQUAL_HOST_DE_REG(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                            {
-                                EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                                if (!compare_res)
-                                    rollback(SBUF("Evernode: Memo format should be hex for host deregistration."), 1);
-                                op_type = OP_HOST_DE_REG;
-                            }
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
+                                rollback(SBUF("Evernode: Memo format should be hex for host deregistration."), 1);
+                            op_type = OP_HOST_DE_REG;
                         }
-                        if (op_type == OP_NONE)
+                        // Host heartbeat.
+                        else if (EQUAL_HEARTBEAT(type_ptr, type_len))
+                            op_type = OP_HEARTBEAT;
+                        // Host update registration.
+                        else if (EQUAL_HOST_UPDATE_REG(type_ptr, type_len))
                         {
-                            // Host heartbeat.
-                            EQUAL_HEARTBEAT(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                                op_type = OP_HEARTBEAT;
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
+                                rollback(SBUF("Evernode: Memo format should be hex for host update."), 1);
+                            op_type = OP_HOST_UPDATE_REG;
                         }
-                        if (op_type == OP_NONE)
+                        // Dead Host Prune.
+                        else if (EQUAL_DEAD_HOST_PRUNE(type_ptr, type_len))
                         {
-                            // Host update registration.
-                            EQUAL_HOST_UPDATE_REG(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                            {
-                                EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                                if (!compare_res)
-                                    rollback(SBUF("Evernode: Memo format should be hex for host update."), 1);
-                                op_type = OP_HOST_UPDATE_REG;
-                            }
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
+                                rollback(SBUF("Evernode: Memo format should be in hex to prune the host."), 1);
+                            op_type = OP_DEAD_HOST_PRUNE;
                         }
-                        if (op_type == OP_NONE)
+                        // Host rebate.
+                        else if (EQUAL_HOST_REBATE(type_ptr, type_len))
+                            op_type = OP_HOST_REBATE;
+                        // Set hook with HookHashes
+                        else if (EQUAL_HOOK_UPDATE(type_ptr, type_len))
                         {
-                            // Dead Host Prune.
-                            EQUAL_DEAD_HOST_PRUNE(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                            {
-                                EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                                if (!compare_res)
-                                    rollback(SBUF("Evernode: Memo format should be in hex to prune the host."), 1);
-                                op_type = OP_DEAD_HOST_PRUNE;
-                            }
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
+                                rollback(SBUF("Evernode: Memo format should be hex for Hook set."), 1);
+                            op_type = OP_SET_HOOK;
                         }
-                        if (op_type == OP_NONE)
+                        // Host transfer.
+                        else if (EQUAL_HOST_TRANSFER(type_ptr, type_len))
                         {
-                            // Host rebate.
-                            EQUAL_HOST_REBATE(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                                op_type = OP_HOST_REBATE;
-                        }
-                        if (op_type == OP_NONE)
-                        {
-                            // Set hook with HookHashes
-                            EQUAL_HOOK_UPDATE(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                            {
-                                EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                                if (!compare_res)
-                                    rollback(SBUF("Evernode: Memo format should be hex for Hook set."), 1);
-                                op_type = OP_SET_HOOK;
-                            }
-                        }
-                        if (op_type == OP_NONE)
-                        {
-                            // Host transfer.
-                            EQUAL_HOST_TRANSFER(compare_res, type_ptr, type_len);
-                            if (compare_res)
-                            {
-                                EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                                if (!compare_res)
-                                    rollback(SBUF("Evernode: Memo format should be hex for host transfer."), 1);
-                                op_type = OP_HOST_TRANSFER;
-                            }
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
+                                rollback(SBUF("Evernode: Memo format should be hex for host transfer."), 1);
+                            op_type = OP_HOST_TRANSFER;
                         }
                     }
                     else
@@ -277,11 +234,9 @@ int64_t hook(uint32_t reserved)
                         // IOU payment.
 
                         // Host registration.
-                        EQUAL_HOST_REG(compare_res, type_ptr, type_len);
-                        if (compare_res)
+                        if (EQUAL_HOST_REG(type_ptr, type_len))
                         {
-                            EQUAL_FORMAT_HEX(compare_res, format_ptr, format_len);
-                            if (!compare_res)
+                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
                                 rollback(SBUF("Evernode: Memo format should be hex for host registration."), 1);
                             op_type = OP_HOST_REG;
                         }
@@ -378,9 +333,7 @@ int64_t hook(uint32_t reserved)
                     hook_skip(SBUF(chain_one_hash), 0);
                     hook_skip(SBUF(chain_two_hash), 0);
 
-                    int is_valid_format = 0;
-                    EQUAL_FORMAT_HEX(is_valid_format, format_ptr, format_len);
-                    if (!is_valid_format)
+                    if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
                         rollback(SBUF("Evernode: Memo format should be hex."), 1);
 
                     // Check whether the host address state is deleted.

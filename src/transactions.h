@@ -501,10 +501,8 @@ uint8_t SET_HOOK[465] = {
 #define ENCODE_HOOK_OBJECT(buf_out, hash, namespace)                                   \
     {                                                                                  \
         ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */   \
-        int is_empty_hash = 0;                                                         \
-        IS_32BYTES_EMPTY(is_empty_hash, hash);                                         \
-        _02_02_ENCODE_FLAGS(buf_out, tfHookOveride); /* uint32  | size   5 */          \
-        if (!is_empty_hash)                                                            \
+        _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);        /* uint32  | size   5 */   \
+        if (!IS_BUFFER_EMPTY_32(hash))                                                 \
         {                                                                              \
             _05_31_ENCODE_HOOK_HASH(buf_out, hash);           /* uint256 | size  34 */ \
             _05_32_ENCODE_HOOK_NAMESPACE(buf_out, namespace); /* uint256 | size  34 */ \

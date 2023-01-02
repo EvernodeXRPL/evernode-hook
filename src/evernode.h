@@ -28,12 +28,9 @@
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 // Checks for EVR currency issued by issuer account.
-#define IS_EVR(is_evr, amount_buffer, issuer_accid)                    \
-    {                                                                  \
-        EQUAL_20BYTES(is_evr, (amount_buffer + 8), evr_currency);      \
-        if (is_evr)                                                    \
-            EQUAL_20BYTES(is_evr, (amount_buffer + 28), issuer_accid); \
-    }
+#define IS_EVR(amount_buffer, issuer_accid)                \
+    (BUFFER_EQUAL_20((amount_buffer + 8), evr_currency) && \
+     BUFFER_EQUAL_20((amount_buffer + 28), issuer_accid))
 
 #define MAX(num1, num2) \
     ((num1 > num2) ? num1 : num2)
@@ -48,37 +45,28 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define IS_FLOAT_ZERO(float) \
     (float == 0 || float == -29)
 
-#define EQUAL_BYTE(output, buf1, buf2) \
-    output = *(uint8_t *)(buf1) == *(uint8_t *)(buf2);
+#define BUFFER_EQUAL_1(buf1, buf2) \
+    (*(uint8_t *)(buf1) == *(uint8_t *)(buf2))
 
-#define EQUAL_2BYTES(output, buf1, buf2) \
-    output = *(uint16_t *)(buf1) == *(uint16_t *)(buf2);
+#define BUFFER_EQUAL_2(buf1, buf2) \
+    (*(uint16_t *)(buf1) == *(uint16_t *)(buf2))
 
-#define EQUAL_4BYTES(output, buf1, buf2) \
-    output = *(uint32_t *)(buf1) == *(uint32_t *)(buf2);
+#define BUFFER_EQUAL_4(buf1, buf2) \
+    (*(uint32_t *)(buf1) == *(uint32_t *)(buf2))
 
-#define EQUAL_8BYTES(output, buf1, buf2) \
-    output = *(uint64_t *)(buf1) == *(uint64_t *)(buf2);
+#define BUFFER_EQUAL_8(buf1, buf2) \
+    (*(uint64_t *)(buf1) == *(uint64_t *)(buf2))
 
-#define EQUAL_20BYTES(output, buf1, buf2)                   \
-    {                                                       \
-        EQUAL_8BYTES(output, buf1, buf2);                   \
-        if (output)                                         \
-            EQUAL_8BYTES(output, (buf1 + 8), (buf2 + 8));   \
-        if (output)                                         \
-            EQUAL_4BYTES(output, (buf1 + 16), (buf2 + 16)); \
-    }
+#define BUFFER_EQUAL_20(buf1, buf2)            \
+    (BUFFER_EQUAL_8(buf1, buf2) &&             \
+     BUFFER_EQUAL_8((buf1 + 8), (buf2 + 8)) && \
+     BUFFER_EQUAL_4((buf1 + 16), (buf2 + 16)))
 
-#define EQUAL_32BYTES(output, buf1, buf2)                   \
-    {                                                       \
-        EQUAL_8BYTES(output, buf1, buf2);                   \
-        if (output)                                         \
-            EQUAL_8BYTES(output, (buf1 + 8), (buf2 + 8));   \
-        if (output)                                         \
-            EQUAL_8BYTES(output, (buf1 + 16), (buf2 + 16)); \
-        if (output)                                         \
-            EQUAL_8BYTES(output, (buf1 + 24), (buf2 + 24)); \
-    }
+#define BUFFER_EQUAL_32(buf1, buf2)              \
+    (BUFFER_EQUAL_8(buf1, buf2) &&               \
+     BUFFER_EQUAL_8((buf1 + 8), (buf2 + 8)) &&   \
+     BUFFER_EQUAL_8((buf1 + 16), (buf2 + 16)) && \
+     BUFFER_EQUAL_8((buf1 + 24), (buf2 + 24)))
 
 #define COPY_BYTE(lhsbuf, rhsbuf) \
     *(uint8_t *)(lhsbuf) = *(uint8_t *)(rhsbuf);
@@ -132,189 +120,115 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     CLEAR_8BYTES((buf + 8)); \
     CLEAR_4BYTES((buf + 16));
 
-#define IS_BYTE_EMPTY(output, buf) \
-    output = *(uint8_t *)(buf) == 0;
+#define IS_BUFFER_EMPTY_1(buf) \
+    (*(uint8_t *)(buf) == 0)
 
-#define IS_2BYTES_EMPTY(output, buf) \
-    output = *(uint16_t *)(buf) == 0;
+#define IS_BUFFER_EMPTY_2(buf) \
+    (*(uint16_t *)(buf) == 0)
 
-#define IS_4BYTES_EMPTY(output, buf) \
-    output = *(uint32_t *)(buf) == 0;
+#define IS_BUFFER_EMPTY_4(buf) \
+    (*(uint32_t *)(buf) == 0)
 
-#define IS_8BYTES_EMPTY(output, buf) \
-    output = *(uint64_t *)(buf) == 0;
+#define IS_BUFFER_EMPTY_8(buf) \
+    (*(uint64_t *)(buf) == 0)
 
-#define IS_20BYTES_EMPTY(output, buf)       \
-    IS_8BYTES_EMPTY(output, buf);           \
-    if (output)                             \
-        IS_8BYTES_EMPTY(output, (buf + 8)); \
-    if (output)                             \
-        IS_4BYTES_EMPTY(output, (buf + 16));
+#define IS_BUFFER_EMPTY_20(buf)      \
+    (IS_BUFFER_EMPTY_8(buf) &&       \
+     IS_BUFFER_EMPTY_8((buf + 8)) && \
+     IS_BUFFER_EMPTY_4((buf + 16)))
 
-#define IS_32BYTES_EMPTY(output, buf)        \
-    IS_8BYTES_EMPTY(output, buf);            \
-    if (output)                              \
-        IS_8BYTES_EMPTY(output, (buf + 8));  \
-    if (output)                              \
-        IS_8BYTES_EMPTY(output, (buf + 16)); \
-    if (output)                              \
-        IS_8BYTES_EMPTY(output, (buf + 24));
+#define IS_BUFFER_EMPTY_32(buf)       \
+    (IS_BUFFER_EMPTY_8(buf) &&        \
+     IS_BUFFER_EMPTY_8((buf + 8)) &&  \
+     IS_BUFFER_EMPTY_8((buf + 16)) && \
+     IS_BUFFER_EMPTY_8((buf + 24)))
 
 // Domain related comparer macros.
 
-#define EQUAL_FORMAT_HEX(output, buf, len)                   \
-    {                                                        \
-        output = sizeof(FORMAT_HEX) == (len + 1);            \
-        if (output)                                          \
-            EQUAL_2BYTES(output, buf, FORMAT_HEX);           \
-        if (output)                                          \
-            EQUAL_BYTE(output, (buf + 2), (FORMAT_HEX + 2)); \
-    }
+#define EQUAL_FORMAT_HEX(buf, len)      \
+    (sizeof(FORMAT_HEX) == (len + 1) && \
+     BUFFER_EQUAL_2(buf, FORMAT_HEX) && \
+     BUFFER_EQUAL_1((buf + 2), (FORMAT_HEX + 2)))
 
-#define EQUAL_FORMAT_TEXT(output, buf, len)                     \
-    {                                                           \
-        output = sizeof(FORMAT_TEXT) == (len + 1);              \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf, FORMAT_TEXT);             \
-        if (output)                                             \
-            EQUAL_2BYTES(output, (buf + 8), (FORMAT_TEXT + 8)); \
-    }
+#define EQUAL_FORMAT_TEXT(buf, len)      \
+    (sizeof(FORMAT_TEXT) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, FORMAT_TEXT) && \
+     BUFFER_EQUAL_2((buf + 8), (FORMAT_TEXT + 8)))
 
-#define EQUAL_FORMAT_BASE64(output, buf, len)                     \
-    {                                                             \
-        output = sizeof(FORMAT_BASE64) == (len + 1);              \
-        if (output)                                               \
-            EQUAL_4BYTES(output, buf, FORMAT_BASE64);             \
-        if (output)                                               \
-            EQUAL_2BYTES(output, (buf + 4), (FORMAT_BASE64 + 4)); \
-    }
+#define EQUAL_FORMAT_BASE64(buf, len)      \
+    (sizeof(FORMAT_BASE64) == (len + 1) && \
+     BUFFER_EQUAL_4(buf, FORMAT_BASE64) && \
+     BUFFER_EQUAL_2((buf + 4), (FORMAT_BASE64 + 4)))
 
-#define EQUAL_FORMAT_JSON(output, buf, len)                   \
-    {                                                         \
-        output = sizeof(FORMAT_JSON) == (len + 1);            \
-        if (output)                                           \
-            EQUAL_8BYTES(output, buf, FORMAT_JSON);           \
-        if (output)                                           \
-            EQUAL_BYTE(output, (buf + 8), (FORMAT_JSON + 8)); \
-    }
+#define EQUAL_FORMAT_JSON(buf, len)      \
+    (sizeof(FORMAT_JSON) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, FORMAT_JSON) && \
+     BUFFER_EQUAL_1((buf + 8), (FORMAT_JSON + 8)))
 
-#define EQUAL_EVR_HOST_PREFIX(output, buf)                   \
-    {                                                        \
-        EQUAL_4BYTES(output, buf, EVR_HOST);                 \
-        if (output)                                          \
-            EQUAL_2BYTES(output, (buf + 4), (EVR_HOST + 4)); \
-        if (output)                                          \
-            EQUAL_BYTE(output, (buf + 6), (EVR_HOST + 6));   \
-    }
+#define EQUAL_EVR_HOST_PREFIX(buf)                \
+    (BUFFER_EQUAL_4(buf, EVR_HOST) &&             \
+     BUFFER_EQUAL_2((buf + 4), (EVR_HOST + 4)) && \
+     BUFFER_EQUAL_1((buf + 6), (EVR_HOST + 6)))
 
-#define EQUAL_HOST_REG(output, buf, len)                     \
-    {                                                        \
-        output = sizeof(HOST_REG) == (len + 1);              \
-        if (output)                                          \
-            EQUAL_8BYTES(output, buf, HOST_REG);             \
-        if (output)                                          \
-            EQUAL_2BYTES(output, (buf + 8), (HOST_REG + 8)); \
-    }
+#define EQUAL_HOST_REG(buf, len)      \
+    (sizeof(HOST_REG) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, HOST_REG) && \
+     BUFFER_EQUAL_2((buf + 8), (HOST_REG + 8)))
 
-#define EQUAL_HOST_DE_REG(output, buf, len)                     \
-    {                                                           \
-        output = sizeof(HOST_DE_REG) == (len + 1);              \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf, HOST_DE_REG);             \
-        if (output)                                             \
-            EQUAL_4BYTES(output, (buf + 8), (HOST_DE_REG + 8)); \
-    }
+#define EQUAL_HOST_DE_REG(buf, len)      \
+    (sizeof(HOST_DE_REG) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, HOST_DE_REG) && \
+     BUFFER_EQUAL_4((buf + 8), (HOST_DE_REG + 8)))
 
-#define EQUAL_HOST_UPDATE_REG(output, buf, len)                     \
-    {                                                               \
-        output = sizeof(HOST_UPDATE_REG) == (len + 1);              \
-        if (output)                                                 \
-            EQUAL_8BYTES(output, buf, HOST_UPDATE_REG);             \
-        if (output)                                                 \
-            EQUAL_8BYTES(output, (buf + 8), (HOST_UPDATE_REG + 8)); \
-    }
+#define EQUAL_HOST_UPDATE_REG(buf, len)      \
+    (sizeof(HOST_UPDATE_REG) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, HOST_UPDATE_REG) && \
+     BUFFER_EQUAL_8((buf + 8), (HOST_UPDATE_REG + 8)))
 
-#define EQUAL_HEARTBEAT(output, buf, len)                     \
-    {                                                         \
-        output = sizeof(HEARTBEAT) == (len + 1);              \
-        if (output)                                           \
-            EQUAL_8BYTES(output, buf, HEARTBEAT);             \
-        if (output)                                           \
-            EQUAL_4BYTES(output, (buf + 8), (HEARTBEAT + 8)); \
-    }
+#define EQUAL_HEARTBEAT(buf, len)      \
+    (sizeof(HEARTBEAT) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, HEARTBEAT) && \
+     BUFFER_EQUAL_4((buf + 8), (HEARTBEAT + 8)))
 
-#define EQUAL_INITIALIZE(output, buf, len)                     \
-    {                                                          \
-        output = sizeof(INITIALIZE) == (len + 1);              \
-        if (output)                                            \
-            EQUAL_8BYTES(output, buf, INITIALIZE);             \
-        if (output)                                            \
-            EQUAL_4BYTES(output, (buf + 8), (INITIALIZE + 8)); \
-        if (output)                                            \
-            EQUAL_BYTE(output, (buf + 12), (INITIALIZE + 12)); \
-    }
+#define EQUAL_INITIALIZE(buf, len)                  \
+    (sizeof(INITIALIZE) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, INITIALIZE) &&             \
+     BUFFER_EQUAL_4((buf + 8), (INITIALIZE + 8)) && \
+     BUFFER_EQUAL_1((buf + 12), (INITIALIZE + 12)))
 
-#define EQUAL_HOST_POST_DEREG(output, buf, len)                     \
-    {                                                               \
-        output = sizeof(HOST_POST_DEREG) == (len + 1);              \
-        if (output)                                                 \
-            EQUAL_8BYTES(output, buf, HOST_POST_DEREG);             \
-        if (output)                                                 \
-            EQUAL_8BYTES(output, (buf + 8), (HOST_POST_DEREG + 8)); \
-    }
+#define EQUAL_HOST_POST_DEREG(buf, len)      \
+    (sizeof(HOST_POST_DEREG) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, HOST_POST_DEREG) && \
+     BUFFER_EQUAL_8((buf + 8), (HOST_POST_DEREG + 8)))
 
-#define EQUAL_DEAD_HOST_PRUNE(output, buf, len)                     \
-    {                                                               \
-        output = sizeof(DEAD_HOST_PRUNE) == (len + 1);              \
-        if (output)                                                 \
-            EQUAL_8BYTES(output, buf, DEAD_HOST_PRUNE);             \
-        if (output)                                                 \
-            EQUAL_8BYTES(output, (buf + 8), (DEAD_HOST_PRUNE + 8)); \
-    }
+#define EQUAL_DEAD_HOST_PRUNE(buf, len)      \
+    (sizeof(DEAD_HOST_PRUNE) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, DEAD_HOST_PRUNE) && \
+     BUFFER_EQUAL_8((buf + 8), (DEAD_HOST_PRUNE + 8)))
 
-#define EQUAL_HOST_TRANSFER(output, buf, len)                     \
-    {                                                             \
-        output = sizeof(HOST_TRANSFER) == (len + 1);              \
-        if (output)                                               \
-            EQUAL_8BYTES(output, buf, HOST_TRANSFER);             \
-        if (output)                                               \
-            EQUAL_2BYTES(output, (buf + 8), (HOST_TRANSFER + 8)); \
-        if (output)                                               \
-            EQUAL_BYTE(output, (buf + 10), (HOST_TRANSFER + 10)); \
-    }
+#define EQUAL_HOST_TRANSFER(buf, len)                  \
+    (sizeof(HOST_TRANSFER) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, HOST_TRANSFER) &&             \
+     BUFFER_EQUAL_2((buf + 8), (HOST_TRANSFER + 8)) && \
+     BUFFER_EQUAL_1((buf + 10), (HOST_TRANSFER + 10)))
 
-#define EQUAL_HOST_REBATE(output, buf, len)                     \
-    {                                                           \
-        output = sizeof(HOST_REBATE) == (len + 1);              \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf, HOST_REBATE);             \
-        if (output)                                             \
-            EQUAL_4BYTES(output, (buf + 8), (HOST_REBATE + 8)); \
-        if (output)                                             \
-            EQUAL_BYTE(output, (buf + 12), (HOST_REBATE + 12)); \
-    }
+#define EQUAL_HOST_REBATE(buf, len)                  \
+    (sizeof(HOST_REBATE) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, HOST_REBATE) &&             \
+     BUFFER_EQUAL_4((buf + 8), (HOST_REBATE + 8)) && \
+     BUFFER_EQUAL_1((buf + 12), (HOST_REBATE + 12)))
 
-#define EQUAL_HOOK_UPDATE(output, buf, len)                     \
-    {                                                           \
-        output = sizeof(HOOK_UPDATE) == (len + 1);              \
-        if (output)                                             \
-            EQUAL_8BYTES(output, buf, HOOK_UPDATE);             \
-        if (output)                                             \
-            EQUAL_4BYTES(output, (buf + 8), (HOOK_UPDATE + 8)); \
-        if (output)                                             \
-            EQUAL_BYTE(output, (buf + 12), (HOOK_UPDATE + 12)); \
-    }
+#define EQUAL_HOOK_UPDATE(buf, len)                  \
+    (sizeof(HOOK_UPDATE) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, HOOK_UPDATE) &&             \
+     BUFFER_EQUAL_4((buf + 8), (HOOK_UPDATE + 8)) && \
+     BUFFER_EQUAL_1((buf + 12), (HOOK_UPDATE + 12)))
 
-#define EQUAL_HOST_REGISTRY_REF(output, buf, len)                       \
-    {                                                                   \
-        output = sizeof(HOST_REGISTRY_REF) == (len + 1);                \
-        if (output)                                                     \
-            EQUAL_8BYTES(output, buf, HOST_REGISTRY_REF);               \
-        if (output)                                                     \
-            EQUAL_8BYTES(output, (buf + 8), (HOST_REGISTRY_REF + 8));   \
-        if (output)                                                     \
-            EQUAL_2BYTES(output, (buf + 16), (HOST_REGISTRY_REF + 16)); \
-    }
+#define EQUAL_HOST_REGISTRY_REF(buf, len)                  \
+    (sizeof(HOST_REGISTRY_REF) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, HOST_REGISTRY_REF) &&             \
+     BUFFER_EQUAL_8((buf + 8), (HOST_REGISTRY_REF + 8)) && \
+     BUFFER_EQUAL_2((buf + 16), (HOST_REGISTRY_REF + 16)))
 
 // Domain related copy macros.
 
@@ -342,24 +256,21 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 // Domain related clear macros.
 
-#define CLEAR_MOMENT_TRANSIT_INFO(buf, spos) \
-    CLEAR_8BYTES(buf);                       \
-    CLEAR_2BYTES((buf + 8));                 \
-    CLEAR_BYTE((buf + 2))
+#define CLEAR_MOMENT_TRANSIT_INFO(buf) \
+    CLEAR_8BYTES(buf);                 \
+    CLEAR_2BYTES((buf + 8));           \
+    CLEAR_BYTE((buf + 10))
 
 // Domain related empty check macros.
 
-#define IS_MOMENT_TRANSIT_INFO_EMPTY(output, buf) \
-    IS_8BYTES_EMPTY(output, buf);                 \
-    if (output)                                   \
-        IS_2BYTES_EMPTY(output, (buf + 8));       \
-    if (output)                                   \
-        IS_BYTE_EMPTY(output, (buf + 10));
+#define IS_MOMENT_TRANSIT_INFO_EMPTY(buf) \
+    (IS_BUFFER_EMPTY_8(buf) &&            \
+     IS_BUFFER_EMPTY_2((buf + 8)) &&      \
+     IS_BUFFER_EMPTY_1((buf + 10)))
 
-#define IS_VERSION_EMPTY(output, buf) \
-    IS_2BYTES_EMPTY(output, buf);     \
-    if (output)                       \
-        IS_BYTE_EMPTY(output, (buf + 2));
+#define IS_VERSION_EMPTY(buf)  \
+    (IS_BUFFER_EMPTY_2(buf) && \
+     IS_BUFFER_EMPTY_1((buf + 2)))
 
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
@@ -531,44 +442,37 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                     \
     }
 
-#define IS_REG_NFT_EXIST(account, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                                     \
-    {                                                                                                                                              \
-        nft_exists = 0;                                                                                                                            \
-        COPY_20BYTES((nft_keylet + 2), account);                                                                                                   \
-        int64_t nft_slot = slot_set(nft_keylet, 34, 0);                                                                                            \
-        if (nft_slot < 0)                                                                                                                          \
-            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                                               \
-                                                                                                                                                   \
-        nft_slot = slot_subfield(nft_slot, sfNFTokens, 0);                                                                                         \
-        if (nft_slot < 0)                                                                                                                          \
-            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                                         \
-                                                                                                                                                   \
-        nft_slot = slot_subarray(nft_slot, nft_loc_idx, 0);                                                                                        \
-        if (nft_slot >= 0)                                                                                                                         \
-        {                                                                                                                                          \
-            uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                               \
-            int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                            \
-            if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                                \
-            {                                                                                                                                      \
-                COPY_20BYTES((nft_id + 4), hook_accid); /*Issuer of the NFT should be the registry contract.*/                                     \
-                EQUAL_32BYTES(nft_exists, cur_id, nft_id);                                                                                         \
-                if (nft_exists)                                                                                                                    \
-                {                                                                                                                                  \
-                    uint8_t uri_read_buf[258];                                                                                                     \
-                    cur_slot = slot_subfield(nft_slot, sfURI, 0);                                                                                  \
-                    int64_t uri_read_len = slot(SBUF(uri_read_buf), cur_slot);                                                                     \
-                    int64_t nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0];       \
-                    if (nft_uri_len == REG_NFT_URI_SIZE)                                                                                           \
-                    {                                                                                                                              \
-                        EQUAL_EVR_HOST_PREFIX(nft_exists, (uri_read_buf + (uri_read_len >= 195 ? 2 : 1))); /*NFT URI should start with 'evrhost'*/ \
-                    }                                                                                                                              \
-                    else                                                                                                                           \
-                    {                                                                                                                              \
-                        nft_exists = 0;                                                                                                            \
-                    }                                                                                                                              \
-                }                                                                                                                                  \
-            }                                                                                                                                      \
-        }                                                                                                                                          \
+#define IS_REG_NFT_EXIST(account, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                               \
+    {                                                                                                                                        \
+        nft_exists = 0;                                                                                                                      \
+        COPY_20BYTES((nft_keylet + 2), account);                                                                                             \
+        int64_t nft_slot = slot_set(nft_keylet, 34, 0);                                                                                      \
+        if (nft_slot < 0)                                                                                                                    \
+            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                                         \
+                                                                                                                                             \
+        nft_slot = slot_subfield(nft_slot, sfNFTokens, 0);                                                                                   \
+        if (nft_slot < 0)                                                                                                                    \
+            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                                   \
+                                                                                                                                             \
+        nft_slot = slot_subarray(nft_slot, nft_loc_idx, 0);                                                                                  \
+        if (nft_slot >= 0)                                                                                                                   \
+        {                                                                                                                                    \
+            uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                         \
+            int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                      \
+            if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                          \
+            {                                                                                                                                \
+                COPY_20BYTES((nft_id + 4), hook_accid); /*Issuer of the NFT should be the registry contract.*/                               \
+                if (BUFFER_EQUAL_32(cur_id, nft_id))                                                                                         \
+                {                                                                                                                            \
+                    uint8_t uri_read_buf[258];                                                                                               \
+                    cur_slot = slot_subfield(nft_slot, sfURI, 0);                                                                            \
+                    int64_t uri_read_len = slot(SBUF(uri_read_buf), cur_slot);                                                               \
+                    int64_t nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0]; \
+                    /*NFT URI should start with 'evrhost'*/                                                                                  \
+                    nft_exists = (nft_uri_len == REG_NFT_URI_SIZE && EQUAL_EVR_HOST_PREFIX((uri_read_buf + (uri_read_len >= 195 ? 2 : 1)))); \
+                }                                                                                                                            \
+            }                                                                                                                                \
+        }                                                                                                                                    \
     }
 
 #define POW_OF_TWO(exp, output)              \
