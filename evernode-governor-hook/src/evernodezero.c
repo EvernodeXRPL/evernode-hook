@@ -1,8 +1,4 @@
-#include "../lib/hookapi.h"
-// #include "../lib/emulatorapi.h"
-#include "evernode.h"
-#include "statekeys.h"
-#include "transactions.h"
+#include "governor.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -14,6 +10,10 @@ int64_t cbak(uint32_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
+    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    if (hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK)) < 0)
+        rollback(SBUF("Evernode: Error getting the governor address from params."), 1);
+
     int64_t cur_ledger_seq = ledger_seq();
     /**
      * Calculate corresponding XRPL timestamp.
@@ -24,7 +24,7 @@ int64_t hook(uint32_t reserved)
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
-    int moment_base_info_state_res = state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO));
+    int moment_base_info_state_res = state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF);
     if (moment_base_info_state_res < 0 && moment_base_info_state_res != DOESNT_EXIST)
         rollback(SBUF("Evernode: Could not get moment base info state."), 1);
     uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
@@ -38,7 +38,7 @@ int64_t hook(uint32_t reserved)
 
     // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
     uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
-    int transition_state_res = state(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO));
+    int transition_state_res = state_foreign(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
     if (transition_state_res < 0 && transition_state_res != DOESNT_EXIST)
         rollback(SBUF("Evernode: Error getting moment size transaction info state."), 1);
 
@@ -77,19 +77,19 @@ int64_t hook(uint32_t reserved)
 
             // Add new moment size to the state.
             const uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
-            if (state_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE)) < 0)
+            if (state_foreign_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not update the state for moment size."), 1);
 
             // Update the moment base info.
             UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], converted_transition_idx);
             UINT32_TO_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
             moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
-            if (state_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO)) < 0)
+            if (state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
 
             // Assign the transition state values with zeros.
             CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info);
-            if (state_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
+            if (state_foreign_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
 
             moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
@@ -249,7 +249,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
                     // States does not exists in initialize transaction.
                     if (op_type != OP_INITIALIZE &&
-                        (state(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR)) < 0 || state(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR)) < 0))
+                        (state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0))
                         rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
 
                     uint8_t meta_params[META_PARAMS_SIZE];
@@ -339,13 +339,13 @@ int64_t hook(uint32_t reserved)
                     // Check whether the host address state is deleted.
                     HOST_ADDR_KEY(account_field);
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+                    if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
                         rollback(SBUF("Evernode: The host address state exists."), 1);
 
                     // Check whether the host token id state is deleted.
                     TOKEN_ID_KEY(data_ptr);
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
-                    if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) != DOESNT_EXIST)
+                    if (state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST)
                         rollback(SBUF("Evernode: The host token id state exists."), 1);
 
                     if (reserved == STRONG_HOOK)

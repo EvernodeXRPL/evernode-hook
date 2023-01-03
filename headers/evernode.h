@@ -322,87 +322,87 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                                   \
     }
 
-#define SET_UINT_STATE_VALUE(value, key, error_buf)                  \
-    {                                                                \
-        uint8_t size = sizeof(value);                                \
-        uint8_t value_buf[size];                                     \
-        switch (size)                                                \
-        {                                                            \
-        case 2:                                                      \
-            UINT16_TO_BUF(value_buf, value);                         \
-            break;                                                   \
-        case 4:                                                      \
-            UINT32_TO_BUF(value_buf, value);                         \
-            break;                                                   \
-        case 8:                                                      \
-            UINT64_TO_BUF(value_buf, value);                         \
-            break;                                                   \
-        default:                                                     \
-            rollback(SBUF("Evernode: Invalid state value set."), 1); \
-            break;                                                   \
-        }                                                            \
-        if (state_set(SBUF(value_buf), SBUF(key)) < 0)               \
-            rollback(SBUF(error_buf), 1);                            \
+#define SET_UINT_STATE_VALUE(value, key, error_buf)                         \
+    {                                                                       \
+        uint8_t size = sizeof(value);                                       \
+        uint8_t value_buf[size];                                            \
+        switch (size)                                                       \
+        {                                                                   \
+        case 2:                                                             \
+            UINT16_TO_BUF(value_buf, value);                                \
+            break;                                                          \
+        case 4:                                                             \
+            UINT32_TO_BUF(value_buf, value);                                \
+            break;                                                          \
+        case 8:                                                             \
+            UINT64_TO_BUF(value_buf, value);                                \
+            break;                                                          \
+        default:                                                            \
+            rollback(SBUF("Evernode: Invalid state value set."), 1);        \
+            break;                                                          \
+        }                                                                   \
+        if (state_foreign_set(SBUF(value_buf), SBUF(key), FOREIGN_REF) < 0) \
+            rollback(SBUF(error_buf), 1);                                   \
     }
 
-#define GET_CONF_VALUE(value, key, error_buf)                    \
-    {                                                            \
-        uint8_t size = sizeof(value);                            \
-        uint8_t value_buf[size];                                 \
-        int64_t state_res = state(SBUF(value_buf), SBUF(key));   \
-        if (state_res < 0)                                       \
-            rollback(SBUF(error_buf), 1);                        \
-        switch (size)                                            \
-        {                                                        \
-        case 2:                                                  \
-            value = UINT16_FROM_BUF(value_buf);                  \
-            break;                                               \
-        case 4:                                                  \
-            value = UINT32_FROM_BUF(value_buf);                  \
-            break;                                               \
-        case 8:                                                  \
-            value = UINT64_FROM_BUF(value_buf);                  \
-            break;                                               \
-        default:                                                 \
-            rollback(SBUF("Evernode: Invalid state value."), 1); \
-            break;                                               \
-        }                                                        \
+#define GET_CONF_VALUE(value, key, error_buf)                                       \
+    {                                                                               \
+        uint8_t size = sizeof(value);                                               \
+        uint8_t value_buf[size];                                                    \
+        int64_t state_res = state_foreign(SBUF(value_buf), SBUF(key), FOREIGN_REF); \
+        if (state_res < 0)                                                          \
+            rollback(SBUF(error_buf), 1);                                           \
+        switch (size)                                                               \
+        {                                                                           \
+        case 2:                                                                     \
+            value = UINT16_FROM_BUF(value_buf);                                     \
+            break;                                                                  \
+        case 4:                                                                     \
+            value = UINT32_FROM_BUF(value_buf);                                     \
+            break;                                                                  \
+        case 8:                                                                     \
+            value = UINT64_FROM_BUF(value_buf);                                     \
+            break;                                                                  \
+        default:                                                                    \
+            rollback(SBUF("Evernode: Invalid state value."), 1);                    \
+            break;                                                                  \
+        }                                                                           \
     }
 
-#define GET_FLOAT_CONF_VALUE(value, def_mentissa, def_exponent, key, error_buf) \
-    {                                                                           \
-        uint8_t value_buf[8];                                                   \
-        int64_t state_res = state(SBUF(value_buf), SBUF(key));                  \
-        if (state_res == DOESNT_EXIST)                                          \
-        {                                                                       \
-            value = float_set(def_exponent, def_mentissa);                      \
-            INT64_TO_BUF(value_buf, value);                                     \
-        }                                                                       \
-        else                                                                    \
-            value = INT64_FROM_BUF(value_buf);                                  \
-                                                                                \
-        if (state_res == DOESNT_EXIST)                                          \
-        {                                                                       \
-            if (state_set(SBUF(value_buf), SBUF(key)) < 0)                      \
-                rollback(SBUF(error_buf), 1);                                   \
-        }                                                                       \
+#define GET_FLOAT_CONF_VALUE(value, def_mentissa, def_exponent, key, error_buf)     \
+    {                                                                               \
+        uint8_t value_buf[8];                                                       \
+        int64_t state_res = state_foreign(SBUF(value_buf), SBUF(key), FOREIGN_REF); \
+        if (state_res == DOESNT_EXIST)                                              \
+        {                                                                           \
+            value = float_set(def_exponent, def_mentissa);                          \
+            INT64_TO_BUF(value_buf, value);                                         \
+        }                                                                           \
+        else                                                                        \
+            value = INT64_FROM_BUF(value_buf);                                      \
+                                                                                    \
+        if (state_res == DOESNT_EXIST)                                              \
+        {                                                                           \
+            if (state_foreign_set(SBUF(value_buf), SBUF(key), FOREIGN_REF) < 0)     \
+                rollback(SBUF(error_buf), 1);                                       \
+        }                                                                           \
     }
 
 // If host count state does not exist, set host count to 0.
-#define GET_HOST_COUNT(host_count)                                             \
-    {                                                                          \
-        uint8_t host_count_buf[4] = {0};                                       \
-        host_count = 0;                                                        \
-        if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST) \
-            host_count = UINT32_FROM_BUF(host_count_buf);                      \
+#define GET_HOST_COUNT(host_count)                                                                  \
+    {                                                                                               \
+        uint8_t host_count_buf[4] = {0};                                                            \
+        host_count = 0;                                                                             \
+        if (state_foreign(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) != DOESNT_EXIST) \
+            host_count = UINT32_FROM_BUF(host_count_buf);                                           \
     }
 
-#define SET_HOST_COUNT(host_count)                                                      \
-    {                                                                                   \
-        uint8_t host_count_buf[4] = {0};                                                \
-        UINT32_TO_BUF(host_count_buf, host_count);                                      \
-        if (state_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) < 0)                  \
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1); \
+#define SET_HOST_COUNT(host_count)                                                          \
+    {                                                                                       \
+        uint8_t host_count_buf[4] = {0};                                                    \
+        UINT32_TO_BUF(host_count_buf, host_count);                                          \
+        if (state_foreign_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) < 0) \
+            rollback(SBUF("Evernode: Could not set default state for host count."), 1);     \
     }
 
 #define GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, n) \
@@ -417,32 +417,32 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define GENERATE_NFT_TOKEN_ID(token_id, tflag, transaction_fee, accid, taxon, token_seq) \
     GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, 1)
 
-#define GET_MOMENT(moment, idx)                                                                            \
-    {                                                                                                      \
-        uint16_t moment_size;                                                                              \
-        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");             \
-        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                               \
-        if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)            \
-            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                          \
-        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);           \
-        uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]); \
-        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                       \
-        moment = prev_transition_moment + relative_n;                                                      \
+#define GET_MOMENT(moment, idx)                                                                                      \
+    {                                                                                                                \
+        uint16_t moment_size;                                                                                        \
+        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                       \
+        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                                         \
+        if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0) \
+            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                                    \
+        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);                     \
+        uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);           \
+        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                                 \
+        moment = prev_transition_moment + relative_n;                                                                \
     }
 
-#define GET_MOMENT_END_INDEX(moment_end_idx, idx)                                                \
-    {                                                                                            \
-        uint16_t moment_size;                                                                    \
-        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");   \
-        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                     \
-        if (state(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO)) < 0)  \
-            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                \
-        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]); \
-        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                             \
-        moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                     \
+#define GET_MOMENT_END_INDEX(moment_end_idx, idx)                                                                    \
+    {                                                                                                                \
+        uint16_t moment_size;                                                                                        \
+        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                       \
+        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                                         \
+        if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0) \
+            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                                    \
+        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);                     \
+        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                                 \
+        moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
     }
 
-#define IS_REG_NFT_EXIST(account, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                               \
+#define IS_REG_NFT_EXIST(account, issuer, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                       \
     {                                                                                                                                        \
         nft_exists = 0;                                                                                                                      \
         COPY_20BYTES((nft_keylet + 2), account);                                                                                             \
@@ -461,7 +461,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                      \
             if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                          \
             {                                                                                                                                \
-                COPY_20BYTES((nft_id + 4), hook_accid); /*Issuer of the NFT should be the registry contract.*/                               \
+                COPY_20BYTES((nft_id + 4), issuer); /*Issuer of the NFT should be the registry contract.*/                                   \
                 if (BUFFER_EQUAL_32(cur_id, nft_id))                                                                                         \
                 {                                                                                                                            \
                     uint8_t uri_read_buf[258];                                                                                               \

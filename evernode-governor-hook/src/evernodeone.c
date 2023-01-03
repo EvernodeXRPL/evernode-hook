@@ -1,8 +1,4 @@
-#include "../lib/hookapi.h"
-// #include "../lib/emulatorapi.h"
-#include "evernode.h"
-#include "statekeys.h"
-#include "transactions.h"
+#include "governor.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -14,6 +10,10 @@ int64_t cbak(uint32_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
+    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    if (hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK)) < 0)
+        rollback(SBUF("Evernode: Error getting the governor address from params."), 1);
+
     uint8_t meta_params[META_PARAMS_SIZE];
     if (hook_param(SBUF(meta_params), SBUF(META_PARAMS)) < 0 || meta_params[CHAIN_IDX_PARAM_OFFSET] != 1)
         rollback(SBUF("Evernode: Invalid meta params for chain one."), 1);
@@ -58,10 +58,9 @@ int64_t hook(uint32_t reserved)
         // Checking whether this host has an initiated transfer to continue.
         TRANSFEREE_ADDR_KEY(account_field);
         uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
-        int has_initiated_transfer = (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) > 0);
+        int has_initiated_transfer = (state_foreign(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) > 0);
         // Check whether host was a transferer of the transfer. (same account continuation).
         int parties_are_similar = (has_initiated_transfer && BUFFER_EQUAL_20((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field));
-
 
         // Take the host reg fee from config.
         int64_t host_reg_fee;
@@ -79,7 +78,7 @@ int64_t hook(uint32_t reserved)
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
-        if ((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+        if ((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
             rollback(SBUF("Evernode: Host already registered."), 1);
 
         // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
@@ -125,7 +124,7 @@ int64_t hook(uint32_t reserved)
 
             COPY_32BYTES(host_addr, nft_token_id);
 
-            if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+            if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
             // Populate the values to the token id buffer and set state.
@@ -141,7 +140,7 @@ int64_t hook(uint32_t reserved)
             COPY_40BYTES((token_id + HOST_EMAIL_ADDRESS_OFFSET), (memo_params + HOST_EMAIL_ADDRESS_MEMO_OFFSET));
             TOKEN_ID_KEY(nft_token_id);
 
-            if (state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
+            if (state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
             uint32_t host_count;
@@ -189,12 +188,12 @@ int64_t hook(uint32_t reserved)
 
                 host_reg_fee /= 2;
                 UINT64_TO_BUF(state_buf, host_reg_fee);
-                if (state_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE)) < 0)
+                if (state_foreign_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE), FOREIGN_REF) < 0)
                     rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
 
                 conf_max_reg *= 2;
                 UINT64_TO_BUF(state_buf, conf_max_reg);
-                if (state_set(SBUF(state_buf), SBUF(STK_MAX_REG)) < 0)
+                if (state_foreign_set(SBUF(state_buf), SBUF(STK_MAX_REG), FOREIGN_REF) < 0)
                     rollback(SBUF("Evernode: Could not update state for max theoretical registrants."), 1);
             }
 
@@ -206,12 +205,12 @@ int64_t hook(uint32_t reserved)
 
             uint8_t prev_host_addr[HOST_ADDR_VAL_SIZE];
             HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
-            if (state(SBUF(prev_host_addr), SBUF(STP_HOST_ADDR)) < 0)
+            if (state_foreign(SBUF(prev_host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Previous host address state not found."), 1);
 
             uint8_t prev_token_id[TOKEN_ID_VAL_SIZE];
             TOKEN_ID_KEY((uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
-            if (state(SBUF(prev_token_id), SBUF(STP_TOKEN_ID)) < 0)
+            if (state_foreign(SBUF(prev_token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Previous host token id state not found."), 1);
 
             // Use the previous NFToken id for this re-reg flow.
@@ -226,7 +225,7 @@ int64_t hook(uint32_t reserved)
             // Set the STP_HOST_ADDR with corresponding new state's key.
             HOST_ADDR_KEY(account_field);
 
-            if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+            if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
             // Update previous TOKEN_ID state entry with the new attributes.
@@ -239,7 +238,7 @@ int64_t hook(uint32_t reserved)
             COPY_4BYTES((prev_token_id + HOST_DISK_MB_OFFSET), (memo_params + HOST_DISK_MB_MEMO_OFFSET));
             COPY_40BYTES((prev_token_id + HOST_EMAIL_ADDRESS_OFFSET), (memo_params + HOST_EMAIL_ADDRESS_MEMO_OFFSET));
 
-            if (state_set(SBUF(prev_token_id), SBUF(STP_TOKEN_ID)) < 0)
+            if (state_foreign_set(SBUF(prev_token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for token_id."), 1);
 
             etxn_reserve(1);
@@ -257,10 +256,10 @@ int64_t hook(uint32_t reserved)
 
             // Delete previous HOST_ADDR state and the relevant TRANSFEREE_ADDR state entries accordingly.
 
-            if (!parties_are_similar && (state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0))
+            if (!parties_are_similar && (state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0))
                 rollback(SBUF("Evernode: Could not delete the previous host state entry."), 1);
 
-            if (state_set(0, 0, SBUF(STP_TRANSFEREE_ADDR)) < 0)
+            if (state_foreign_set(0, 0, SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not delete state related to transfer."), 1);
 
             accept(SBUF("Host re-registration successful."), 0);

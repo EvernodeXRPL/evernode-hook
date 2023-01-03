@@ -1,8 +1,4 @@
-#include "../lib/hookapi.h"
-// #include "../lib/emulatorapi.h"
-#include "evernode.h"
-#include "statekeys.h"
-#include "transactions.h"
+#include "governor.h"
 
 // Executed when an emitted transaction is successfully accepted into a ledger
 // or when an emitted transaction cannot be accepted into any ledger (with what = 1),
@@ -14,6 +10,10 @@ int64_t cbak(uint32_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
+    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    if (hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK)) < 0)
+        rollback(SBUF("Evernode: Error getting the governor address from params."), 1);
+
     uint8_t meta_params[META_PARAMS_SIZE];
     if (hook_param(SBUF(meta_params), SBUF(META_PARAMS)) < 0 || meta_params[CHAIN_IDX_PARAM_OFFSET] != 2)
         rollback(SBUF("Evernode: Invalid meta params for chain two."), 1);
@@ -63,12 +63,12 @@ int64_t hook(uint32_t reserved)
             HOST_ADDR_KEY(memo_params);
         }
         // Check for registration entry.
-        if (state(SBUF(host_addr), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+        if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST)
             rollback(SBUF("Evernode: This host is not registered."), 1);
 
         TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
         // Check for token id entry.
-        if (state(SBUF(token_id), SBUF(STP_TOKEN_ID)) == DOESNT_EXIST)
+        if (state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) == DOESNT_EXIST)
             rollback(SBUF("Evernode: This host is not registered."), 1);
 
         // Verification Memo should exists for these set of transactions.
@@ -81,7 +81,7 @@ int64_t hook(uint32_t reserved)
         // Check the ownership of the NFT to this user before proceeding.
         int nft_exists;
         uint16_t nft_flags;
-        IS_REG_NFT_EXIST((op_type != OP_DEAD_HOST_PRUNE ? account_field : memo_params), (host_addr + HOST_TOKEN_ID_OFFSET), verify_params, nft_idx, nft_exists);
+        IS_REG_NFT_EXIST((op_type != OP_DEAD_HOST_PRUNE ? account_field : memo_params), hook_accid, (host_addr + HOST_TOKEN_ID_OFFSET), verify_params, nft_idx, nft_exists);
         if (!nft_exists)
             rollback(SBUF("Evernode: Registration NFT does not exist."), 1);
     }
@@ -103,7 +103,7 @@ int64_t hook(uint32_t reserved)
         // First check if the states are already initialized by checking one state key for existence.
         int already_initalized = 0; // For Beta test purposes
         uint8_t host_count_buf[8];
-        if (state(SBUF(host_count_buf), SBUF(STK_HOST_COUNT)) != DOESNT_EXIST)
+        if (state_foreign(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) != DOESNT_EXIST)
         {
             already_initalized = 1;
             // rollback(SBUF("Evernode: State is already initialized."), 1);
@@ -117,23 +117,23 @@ int64_t hook(uint32_t reserved)
 
             uint8_t moment_base_info_buf[MOMENT_BASE_INFO_VAL_SIZE] = {0};
             moment_base_info_buf[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
-            if (state_set(SBUF(moment_base_info_buf), SBUF(STK_MOMENT_BASE_INFO)) < 0)
+            if (state_foreign_set(SBUF(moment_base_info_buf), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not initialize state for moment base info."), 1);
 
             SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
             SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
             SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
-            if (state_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR)) < 0)
+            if (state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
 
-            if (state_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR)) < 0)
+            if (state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for foundation account."), 1);
         }
 
         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-        if (state(SBUF(reward_info), SBUF(STK_REWARD_INFO)) == DOESNT_EXIST)
+        if (state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) == DOESNT_EXIST)
         {
             uint32_t cur_moment;
             GET_MOMENT(cur_moment, cur_idx);
@@ -142,7 +142,7 @@ int64_t hook(uint32_t reserved)
             UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
             UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
             INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, DEF_EPOCH_REWARD_AMOUNT));
-            if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
         }
 
@@ -159,13 +159,13 @@ int64_t hook(uint32_t reserved)
         UINT32_TO_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
         UINT32_TO_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
         UINT32_TO_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
-        if (state_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+        if (state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not set state for reward configuration."), 1);
 
         int64_t purchaser_target_price = float_set(DEF_TARGET_PRICE_E, DEF_TARGET_PRICE_M);
         uint8_t purchaser_target_price_buf[8];
         INT64_TO_BUF(purchaser_target_price_buf, purchaser_target_price);
-        if (state_set(SBUF(purchaser_target_price_buf), SBUF(CONF_PURCHASER_TARGET_PRICE)) < 0)
+        if (state_foreign_set(SBUF(purchaser_target_price_buf), SBUF(CONF_PURCHASER_TARGET_PRICE), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not set state for moment community target price."), 1);
 
         ///////////////////////////////////////////////////////////////
@@ -189,7 +189,7 @@ int64_t hook(uint32_t reserved)
             UINT16_TO_BUF(moment_transition_info + TRANSIT_MOMENT_SIZE_OFFSET, NEW_MOMENT_SIZE);
             moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
 
-            if (state_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO)) < 0)
+            if (state_foreign_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
         }
         // End : Moment size transition implementation.
@@ -203,7 +203,7 @@ int64_t hook(uint32_t reserved)
             rollback(SBUF("Evernode: Token id sent doesn't match with the registered NFT."), 1);
 
         // Delete registration entries.
-        if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
+        if (state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not delete host registration entry."), 1);
 
         // Reduce host count by 1.
@@ -226,12 +226,12 @@ int64_t hook(uint32_t reserved)
 
             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-            if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+            if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
 
             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-            if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
@@ -245,7 +245,7 @@ int64_t hook(uint32_t reserved)
             int64_t reward_pool_amount, reward_amount;
             PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
 
-            if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
         }
 
@@ -267,7 +267,7 @@ int64_t hook(uint32_t reserved)
 
         INT64_TO_BUF(heartbeat_ptr, cur_idx);
 
-        if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
 
         // Take the moment size from config.
@@ -305,12 +305,12 @@ int64_t hook(uint32_t reserved)
         {
             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-            if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+            if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
 
             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-            if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
@@ -337,7 +337,7 @@ int64_t hook(uint32_t reserved)
                 INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_negate(reward_amount)));
             }
 
-            if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
         }
 
@@ -390,7 +390,7 @@ int64_t hook(uint32_t reserved)
 
         if (is_updated)
         {
-            if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0 || state_set(SBUF(token_id), SBUF(STP_TOKEN_ID)) < 0)
+            if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0 || state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for info update."), 1);
         }
 
@@ -401,7 +401,7 @@ int64_t hook(uint32_t reserved)
         HOST_ADDR_KEY(memo_params); // Generate host account key.
         // Check for registration entry.
         uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
-        if (state(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR)) == DOESNT_EXIST)
+        if (state_foreign(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST)
             rollback(SBUF("Evernode: This host is not registered."), 1);
 
         // Take the moment size from config.
@@ -462,7 +462,7 @@ int64_t hook(uint32_t reserved)
         }
 
         // Delete registration entries.
-        if (state_set(0, 0, SBUF(STP_TOKEN_ID)) < 0 || state_set(0, 0, SBUF(STP_HOST_ADDR)) < 0)
+        if (state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not delete host registration entry."), 1);
 
         // Reduce host count by 1.
@@ -489,12 +489,12 @@ int64_t hook(uint32_t reserved)
 
             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-            if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+            if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
 
             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-            if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
@@ -508,7 +508,7 @@ int64_t hook(uint32_t reserved)
             int64_t reward_pool_amount, reward_amount;
             PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
 
-            if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+            if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
         }
         else
@@ -543,7 +543,7 @@ int64_t hook(uint32_t reserved)
 
             // Updating the current reg fee in the host state.
             UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
-            if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+            if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not update host address state."), 1);
         }
         else
@@ -558,7 +558,7 @@ int64_t hook(uint32_t reserved)
         {
             HOST_ADDR_KEY(memo_params); // Generate account key for transferee.
             uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
-            if (state(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR)) != DOESNT_EXIST)
+            if (state_foreign(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
                 rollback(SBUF("Evernode: New transferee also a registered host."), 1);
         }
 
@@ -572,7 +572,7 @@ int64_t hook(uint32_t reserved)
         // <transferring_host_address(20)><registration_ledger(8)><token_id(32)>
         uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
 
-        if (state(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) != DOESNT_EXIST)
+        if (state_foreign(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) != DOESNT_EXIST)
             rollback(SBUF("Evernode: There is a previously initiated transfer for this transferee."), 1);
 
         // Saving the Pending transfer in Hook States.
@@ -580,14 +580,14 @@ int64_t hook(uint32_t reserved)
         INT64_TO_BUF(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
         COPY_32BYTES((transferee_addr + TRANSFER_HOST_TOKEN_ID_OFFSET), (host_addr + HOST_TOKEN_ID_OFFSET));
 
-        if (state_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR)) < 0)
+        if (state_foreign_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not set state for transferee_addr."), 1);
 
         // Add transfer in progress flag to existing registration record.
         HOST_ADDR_KEY(account_field);
         host_addr[HOST_TRANSFER_FLAG_OFFSET] = TRANSFER_FLAG;
 
-        if (state_set(SBUF(host_addr), SBUF(STP_HOST_ADDR)) < 0)
+        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
             rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
 
         // Sending nft buy offer to the host.

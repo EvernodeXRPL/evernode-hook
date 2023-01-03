@@ -29,7 +29,7 @@ const ACCOUNT_DATA_DIR = process.env.ACCOUNT_DATA_DIR || __dirname;
 const HOOK_DATA_DIR = ACCOUNT_DATA_DIR + '/data'
 
 // Account names
-const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "REGISTRY"];
+const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "GOVERNOR", "REGISTRY"];
 
 // XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
