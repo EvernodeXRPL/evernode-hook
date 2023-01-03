@@ -14,6 +14,8 @@
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
+#define HOST_PROPOSE_CANDIDATE "evnProposeCandidate"
+#define HOST_VOTE_CANDIDATE "evnVoteCandidate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -61,9 +63,11 @@
 #define OP_HOST_REBATE 8
 #define OP_HOST_TRANSFER 9
 #define OP_SET_HOOK 10
+#define OP_HOST_PROPOSE_CANDIDATE 11
+#define OP_HOST_VOTE_CANDIDATE 12
 
 // Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rfEXMLwhBhULqreMkCSaeP3hXeUHUJWjSr";
 const uint16_t DEF_MOMENT_SIZE = 1190;
 const uint16_t DEF_MOMENT_TYPE = LEDGER_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;

@@ -9,11 +9,9 @@ const NAMESPACE = appenv.NAMESPACE;
 
 const CONFIG_PATH = appenv.CONFIG_PATH;
 
-const WASM_PATH_ZERO = `${appenv.WASM_DIR_PATH}/evernodezero.wasm`;
-const WASM_PATH_ONE = `${appenv.WASM_DIR_PATH}/evernodeone.wasm`;
-const WASM_PATH_TWO = `${appenv.WASM_DIR_PATH}/evernodetwo.wasm`;
+const WASM_PATH_GOVERNOR = `${appenv.WASM_DIR_PATH}/governor.wasm`;
 
-console.log(WASM_PATH_ZERO, WASM_PATH_ONE, WASM_PATH_TWO);
+console.log(WASM_PATH_GOVERNOR);
 
 let cfg;
 
@@ -38,43 +36,21 @@ if (!governorSecret) {
 }
 else {
     const account = xrpljs.Wallet.fromSeed(governorSecret)
-    const binaryZero = fs.readFileSync(WASM_PATH_ZERO).toString('hex').toUpperCase();
-    const binaryOne = fs.readFileSync(WASM_PATH_ONE).toString('hex').toUpperCase();
-    const binaryTwo = fs.readFileSync(WASM_PATH_TWO).toString('hex').toUpperCase();
+    const binaryZero = fs.readFileSync(WASM_PATH_GOVERNOR).toString('hex').toUpperCase();
 
     let hookTx = {
         Account: account.classicAddress,
         TransactionType: "SetHook",
         Hooks:
-            [
-                {
-                    Hook: {
-                        CreateCode: binaryZero.slice(0, 194252),
-                        HookOn: '0000000000000000',
-                        HookNamespace: NAMESPACE,
-                        HookApiVersion: 0,
-                        Flags: hsfOVERRIDE
-                    }
-                },
-                {
-                    Hook: {
-                        CreateCode: binaryOne.slice(0, 194252),
-                        HookOn: '0000000000000000',
-                        HookNamespace: NAMESPACE,
-                        HookApiVersion: 0,
-                        Flags: hsfOVERRIDE
-                    }
-                },
-                {
-                    Hook: {
-                        CreateCode: binaryTwo.slice(0, 194252),
-                        HookOn: '0000000000000000',
-                        HookNamespace: NAMESPACE,
-                        HookApiVersion: 0,
-                        Flags: hsfOVERRIDE
-                    }
+            [{
+                Hook: {
+                    CreateCode: binaryZero.slice(0, 194252),
+                    HookOn: '0000000000000000',
+                    HookNamespace: NAMESPACE,
+                    HookApiVersion: 0,
+                    Flags: hsfOVERRIDE
                 }
-            ]
+            }]
     };
 
     submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
