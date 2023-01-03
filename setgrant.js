@@ -24,38 +24,41 @@ else {
     cfg = JSON.parse(fs.readFileSync(CONFIG_PATH));
 }
 
-const registrySecret = cfg.registry.secret;
-const governorAddress = cfg.governor.address;
+const governorSecret = cfg.governor.secret;
+const registryAddress = cfg.registry.address;
 
-if (!registrySecret || !governorAddress) {
-    console.error("SETHOOK FAILED: Please specify registry secret and governor address in hook.json");
+if (!registryAddress || !governorSecret) {
+    console.error("SETHOOK FAILED: Please specify governor secret and registry address in hook.json");
     process.exit(1);
 }
 else {
-    getHookHashes(governorAddress).then(hashes => {
-        if (hashes && hashes.length) {
-            const account = xrpljs.Wallet.fromSeed(registrySecret)
-            const hookTx = {
-                Account: account.classicAddress,
-                TransactionType: "SetHook",
-                Hooks:
-                    [
-                        {
+    const account = xrpljs.Wallet.fromSeed(governorSecret);
+    getHookHashes(account.classicAddress).then(hookHashes => {
+        hookHashes = hookHashes.filter(h => h);
+        getHookHashes(registryAddress).then(hook2Hashes => {
+            hook2Hashes = hook2Hashes.filter(h => h);
+            if (hookHashes && hookHashes.length && hook2Hashes && hook2Hashes.length) {
+                const hookTx = {
+                    Account: account.classicAddress,
+                    TransactionType: "SetHook",
+                    Hooks: hookHashes.map(() => {
+                        return {
                             Hook: {
-                                HookGrants: hashes.filter(h => h).map(h => {
+                                HookGrants: hook2Hashes.map(h2 => {
                                     return {
                                         HookGrant:
                                         {
-                                            Authorize: governorAddress,
-                                            HookHash: h
+                                            Authorize: registryAddress,
+                                            HookHash: h2
                                         }
                                     }
                                 })
                             }
                         }
-                    ]
-            };
-            submitTxn(registrySecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
-        }
+                    })
+                };
+                submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+            }
+        });
     });
 }

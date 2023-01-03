@@ -625,7 +625,7 @@ async function main() {
         console.error('Hook initializer account info not found.');
         return;
     }
-    else if (!accountConfig.registry || !accountConfig.registry.address || !accountConfig.registry.secret) {
+    else if (!accountConfig.governor || !accountConfig.governor.address || !accountConfig.governor.secret) {
         console.error('Registry account info not found, run the account setup tool and generate the accounts.');
         return;
     }
@@ -647,7 +647,7 @@ async function main() {
     }
 
     // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.registry.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.governor.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await indexManager.init(FIREBASE_SEC_KEY_PATH);
 }
 

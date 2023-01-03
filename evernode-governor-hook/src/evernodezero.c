@@ -10,10 +10,6 @@ int64_t cbak(uint32_t reserved)
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
-    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
-    if (hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK)) < 0)
-        rollback(SBUF("Evernode: Error getting the governor address from params."), 1);
-
     int64_t cur_ledger_seq = ledger_seq();
     /**
      * Calculate corresponding XRPL timestamp.

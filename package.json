@@ -7,9 +7,9 @@
         "lint": "./node_modules/.bin/eslint ./setgrant.js && ./node_modules/.bin/eslint ./evernode-registry-hook/sethook.js && ./node_modules/.bin/eslint ./evernode-governor-hook/sethook.js",
         "build:hook": "make build",
         "build:self": "npm i && npm run lint && ncc build setgrant.js --minify -o dist/grant-setup",
-        "build:registry": "ncc build ./evernode-registry-hook/sethook.js --minify -o dist/hook-setup",
-        "build:governor": "ncc build ./evernode-governor-hook/sethook.js --minify -o dist/hook2-setup",
-        "build": "rm -rf dist && npm run build:hook && npm run build:self && npm run build:registry && npm run build:governor && cp ./evernode-registry-hook/build/* ./dist/hook-setup/ && cp ./evernode-governor-hook/build/* dist/hook2-setup/"
+        "build:governor": "ncc build ./evernode-governor-hook/sethook.js --minify -o dist/hook-setup",
+        "build:registry": "ncc build ./evernode-registry-hook/sethook.js --minify -o dist/hook2-setup",
+        "build": "rm -rf dist && npm run build:hook && npm run build:self && npm run build:governor && npm run build:registry && cp ./evernode-governor-hook/build/* dist/hook-setup/ && cp ./evernode-registry-hook/build/* dist/hook2-setup/"
     },
     "dependencies": {
         "xrpl-hooks": "2.1.1"

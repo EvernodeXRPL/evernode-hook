@@ -152,7 +152,7 @@ async function main() {
         // END - Log Account Details
 
         // Save the generated account data in the config.
-        const configDir = path.resolve(HOOK_DATA_DIR, config.registry.address);
+        const configDir = path.resolve(HOOK_DATA_DIR, config.governor.address);
         fs.mkdirSync(configDir, { recursive: true });
         const configPath = `${configDir}/${CONFIG_FILE}`;
         console.log(`Recording account data in ${configPath}`);
