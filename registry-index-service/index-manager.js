@@ -583,7 +583,7 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
     const initAccount = new XrplAccount(initializerInfo.address, initializerInfo.secret, { xrplApi: xrplApi });
-    const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+    const res = await initAccount.makePayment(config.governor.address, MIN_XRP, 'XRP', null,
         [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
     if (res.code === 'tesSUCCESS') {
