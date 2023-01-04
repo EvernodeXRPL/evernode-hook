@@ -157,13 +157,7 @@ int64_t hook(uint32_t reserved)
 
                 int64_t amt_slot = slot_subfield(oslot, sfAmount, 0);
 
-                if (txn_type == ttNFT_ACCEPT_OFFER)
-                {
-                    // Host deregistration nft accept.
-                    if (EQUAL_HOST_POST_DEREG(type_ptr, type_len))
-                        op_type = OP_HOST_POST_DEREG;
-                }
-                else if (reserved == STRONG_HOOK && txn_type == ttPAYMENT)
+                if (reserved == STRONG_HOOK && txn_type == ttPAYMENT)
                 {
                     if (amt_slot < 0)
                         rollback(SBUF("Evernode: Could not slot otxn.sfAmount"), 1);
@@ -183,33 +177,9 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Memo data should contain foundation cold wallet and issuer addresses."), 1);
                             op_type = OP_INITIALIZE;
                         }
-                        // Host deregistration.
-                        else if (EQUAL_HOST_DE_REG(type_ptr, type_len))
-                        {
-                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                                rollback(SBUF("Evernode: Memo format should be hex for host deregistration."), 1);
-                            op_type = OP_HOST_DE_REG;
-                        }
                         // Host heartbeat.
                         else if (EQUAL_HEARTBEAT(type_ptr, type_len))
                             op_type = OP_HEARTBEAT;
-                        // Host update registration.
-                        else if (EQUAL_HOST_UPDATE_REG(type_ptr, type_len))
-                        {
-                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                                rollback(SBUF("Evernode: Memo format should be hex for host update."), 1);
-                            op_type = OP_HOST_UPDATE_REG;
-                        }
-                        // Dead Host Prune.
-                        else if (EQUAL_DEAD_HOST_PRUNE(type_ptr, type_len))
-                        {
-                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                                rollback(SBUF("Evernode: Memo format should be in hex to prune the host."), 1);
-                            op_type = OP_DEAD_HOST_PRUNE;
-                        }
-                        // Host rebate.
-                        else if (EQUAL_HOST_REBATE(type_ptr, type_len))
-                            op_type = OP_HOST_REBATE;
                         // Set hook with HookHashes
                         else if (EQUAL_HOOK_UPDATE(type_ptr, type_len))
                         {
@@ -217,29 +187,10 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Memo format should be hex for Hook set."), 1);
                             op_type = OP_SET_HOOK;
                         }
-                        // Host transfer.
-                        else if (EQUAL_HOST_TRANSFER(type_ptr, type_len))
-                        {
-                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                                rollback(SBUF("Evernode: Memo format should be hex for host transfer."), 1);
-                            op_type = OP_HOST_TRANSFER;
-                        }
-                    }
-                    else
-                    {
-                        // IOU payment.
-
-                        // Host registration.
-                        if (EQUAL_HOST_REG(type_ptr, type_len))
-                        {
-                            if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                                rollback(SBUF("Evernode: Memo format should be hex for host registration."), 1);
-                            op_type = OP_HOST_REG;
-                        }
                     }
                 }
 
-                if (op_type != OP_NONE && op_type != OP_HOST_POST_DEREG)
+                if (op_type != OP_NONE)
                 {
                     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
                     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
@@ -263,12 +214,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t memo_len = MIN(data_len, MEMO_PARAM_SIZE);
 
                     if (op_type == OP_INITIALIZE ||
-                        op_type == OP_HEARTBEAT ||
-                        op_type == OP_HOST_UPDATE_REG ||
-                        op_type == OP_HOST_DE_REG ||
-                        op_type == OP_DEAD_HOST_PRUNE ||
-                        op_type == OP_HOST_REBATE ||
-                        op_type == OP_HOST_TRANSFER)
+                        op_type == OP_HEARTBEAT)
                     {
                         hook_skip(SBUF(chain_one_hash), 0);
                         meta_params[CHAIN_IDX_PARAM_OFFSET] = 2;
@@ -288,7 +234,7 @@ int64_t hook(uint32_t reserved)
 
                         accept(0, 0, 0);
                     }
-                    else if (op_type == OP_HOST_REG || op_type == OP_SET_HOOK)
+                    else if (op_type == OP_SET_HOOK)
                     {
                         hook_skip(SBUF(chain_two_hash), 0);
                         meta_params[CHAIN_IDX_PARAM_OFFSET] = 1;
@@ -301,17 +247,6 @@ int64_t hook(uint32_t reserved)
 
                         uint8_t chain_one_params[CHAIN_ONE_PARAMS_SIZE];
 
-                        if (op_type == OP_HOST_REG)
-                        {
-                            int64_t result = slot(&chain_one_params[AMOUNT_BUF_PARAM_OFFSET], AMOUNT_BUF_SIZE, amt_slot);
-                            if (result != AMOUNT_BUF_SIZE)
-                                rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
-                            int64_t float_amt = slot_float(amt_slot);
-                            if (float_amt < 0)
-                                rollback(SBUF("Evernode: Could not parse amount."), 1);
-                            INT64_TO_BUF(&chain_one_params[FLOAT_AMT_PARAM_OFFSET], float_amt);
-                        }
-
                         COPY_32BYTES((chain_one_params + TXID_PARAM_OFFSET), txid);
 
                         if (hook_param_set(SBUF(meta_params), SBUF(META_PARAMS), SBUF(chain_one_hash)) < 0)
@@ -322,48 +257,6 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not set params for chain one."), 1);
 
                         accept(0, 0, 0);
-                    }
-                }
-                else if (op_type == OP_HOST_POST_DEREG)
-                {
-                    hook_skip(SBUF(chain_one_hash), 0);
-                    hook_skip(SBUF(chain_two_hash), 0);
-
-                    if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                        rollback(SBUF("Evernode: Memo format should be hex."), 1);
-
-                    // Check whether the host address state is deleted.
-                    HOST_ADDR_KEY(account_field);
-                    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
-                        rollback(SBUF("Evernode: The host address state exists."), 1);
-
-                    // Check whether the host token id state is deleted.
-                    TOKEN_ID_KEY(data_ptr);
-                    uint8_t token_id[TOKEN_ID_VAL_SIZE];
-                    if (state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST)
-                        rollback(SBUF("Evernode: The host token id state exists."), 1);
-
-                    if (reserved == STRONG_HOOK)
-                    {
-                        if (hook_again() != 1)
-                            rollback(SBUF("Evernode: Hook again faild on post deregistration."), 1);
-
-                        accept(SBUF("Host de-registration nft accept successful."), 0);
-                    }
-                    else if (reserved == AGAIN_HOOK)
-                    {
-                        // Burn the NFT.
-                        etxn_reserve(1);
-
-                        PREPARE_NFT_BURN_TX(data_ptr, hook_accid);
-
-                        uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(NFT_BURN_TX)) < 0)
-                            rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                        accept(SBUF("Host de-registration nft burn successful."), 0);
                     }
                 }
             }
