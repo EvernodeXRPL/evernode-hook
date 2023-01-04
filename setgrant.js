@@ -16,6 +16,10 @@ if (!fs.existsSync(CONFIG_PATH)) {
         "registry": {
             "address": "",
             "secret": ""
+        },
+        "heartbeat": {
+            "address": "",
+            "secret": ""
         }
     }
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
@@ -26,6 +30,7 @@ else {
 
 const governorSecret = cfg.governor.secret;
 const registryAddress = cfg.registry.address;
+const heartbeatAddress = cfg.heartbeat.address;
 
 if (!registryAddress || !governorSecret) {
     console.error("SETHOOK FAILED: Please specify governor secret and registry address in hook.json");
@@ -36,29 +41,34 @@ else {
     getHookHashes(account.classicAddress).then(hookHashes => {
         hookHashes = hookHashes.filter(h => h);
         getHookHashes(registryAddress).then(hook2Hashes => {
-            hook2Hashes = hook2Hashes.filter(h => h);
-            if (hookHashes && hookHashes.length && hook2Hashes && hook2Hashes.length) {
-                const hookTx = {
-                    Account: account.classicAddress,
-                    TransactionType: "SetHook",
-                    Hooks: hookHashes.map(() => {
-                        return {
-                            Hook: {
-                                HookGrants: hook2Hashes.map(h2 => {
-                                    return {
-                                        HookGrant:
-                                        {
-                                            Authorize: registryAddress,
-                                            HookHash: h2
+            hook2Hashes = hook2Hashes.map(h => ({address: registryAddress, hash:h}));
+            getHookHashes(heartbeatAddress).then(hook3Hashes => {
+                hook3Hashes = hook3Hashes.map(h => ({address: heartbeatAddress, hash:h}));
+                if (hookHashes && hookHashes.length && hook2Hashes && hook2Hashes.length && hook3Hashes && hook3Hashes.length) {
+                    const grantHashes = [...hook2Hashes, ...hook3Hashes];
+                    const hookTx = {
+                        Account: account.classicAddress,
+                        TransactionType: "SetHook",
+                        Hooks: hookHashes.map(() => {
+                            return {
+                                Hook: {
+                                    HookGrants: grantHashes.map(h => {
+                                        return {
+                                            HookGrant:
+                                            {
+                                                Authorize: h.address,
+                                                HookHash: h.hash
+                                            }
                                         }
-                                    }
-                                })
+                                    })
+                                }
                             }
-                        }
-                    })
-                };
-                submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
-            }
+                        })
+                    };
+                    submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+                }
+
+            });
         });
     });
 }
