@@ -554,7 +554,7 @@ int64_t hook(uint32_t reserved)
     else if (op_type == OP_HOST_TRANSFER)
     {
         // Check for registration entry, if transferee is different from transfer (transferring to a new account).
-        if (BUFFER_EQUAL_20(memo_params, account_field))
+        if (!BUFFER_EQUAL_20(memo_params, account_field))
         {
             HOST_ADDR_KEY(memo_params); // Generate account key for transferee.
             uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
