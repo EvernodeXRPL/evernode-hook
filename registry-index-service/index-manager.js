@@ -39,6 +39,13 @@ const PROCESS_INTERVAL = 20000; // in milliseconds.
 let PROCESS_LOCK = false;
 
 const AFFECTED_HOOK_STATE_MAP = {
+    COMMON: [
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
+        { operation: 'UPDATE', key: HookStateKeys.MOMENT_BASE_INFO },
+        { operation: 'UPDATE', key: HookStateKeys.HOST_REG_FEE },
+        { operation: 'UPDATE', key: HookStateKeys.MAX_REG },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+    ],
     INIT: [
         // Configs
 
@@ -53,13 +60,14 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
+        { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_BASE_INFO },
         { operation: 'INSERT', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'INSERT', key: HookStateKeys.MAX_REG },
-        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+        { operation: 'INSERT', key: HookStateKeys.REWARD_INFO }
     ],
     HEARTBEAT: [
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
@@ -375,6 +383,9 @@ class IndexManager {
                     break;
                 }
             }
+
+            if (memoType != MemoTypes.REGISTRY_INIT)
+                affectedStates.push(...AFFECTED_HOOK_STATE_MAP.COMMON);
 
             console.log(`|${trx.Account}|${memoType}|Completed fetching transaction data`);
         }
