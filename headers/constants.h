@@ -42,25 +42,14 @@
 #define tfHookOveride 0x00000001
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
-#define MAX_UINT_STR_LEN 20
-#define MAX_MEMO_DATA_LEN 454
-#define MAX_VERSION_LEN 32
 
 #define STRONG_HOOK 0
-#define WEAK_HOOK 1
 #define AGAIN_HOOK 2
 
 #define OP_NONE 0
 #define OP_INITIALIZE 1
-#define OP_HOST_REG 2
-#define OP_HOST_DE_REG 3
-#define OP_HOST_POST_DEREG 4
-#define OP_HOST_UPDATE_REG 5
-#define OP_HEARTBEAT 6
-#define OP_DEAD_HOST_PRUNE 7
-#define OP_HOST_REBATE 8
-#define OP_HOST_TRANSFER 9
-#define OP_SET_HOOK 10
+#define OP_HEARTBEAT 2
+#define OP_SET_HOOK 3
 
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
@@ -170,32 +159,6 @@ const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
-
-// Memo Offsets
-// <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
-// HOST_REG
-const uint32_t HOST_COUNTRY_CODE_MEMO_OFFSET = 0;
-const uint32_t HOST_CPU_MICROSEC_MEMO_OFFSET = 2;
-const uint32_t HOST_RAM_MB_MEMO_OFFSET = 6;
-const uint32_t HOST_DISK_MB_MEMO_OFFSET = 10;
-const uint32_t HOST_TOT_INS_COUNT_MEMO_OFFSET = 14;
-const uint32_t HOST_CPU_MODEL_NAME_MEMO_OFFSET = 18;
-const uint32_t HOST_CPU_COUNT_MEMO_OFFSET = 58;
-const uint32_t HOST_CPU_SPEED_MEMO_OFFSET = 60;
-const uint32_t HOST_DESCRIPTION_MEMO_OFFSET = 62;
-const uint32_t HOST_EMAIL_ADDRESS_MEMO_OFFSET = 88;
-
-// <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
-// HOST_UPDATE_REG
-const uint32_t HOST_UPDATE_TOKEN_ID_MEMO_OFFSET = 0;
-const uint32_t HOST_UPDATE_COUNTRY_CODE_MEMO_OFFSET = 32;
-const uint32_t HOST_UPDATE_CPU_MICROSEC_MEMO_OFFSET = 34;
-const uint32_t HOST_UPDATE_RAM_MB_MEMO_OFFSET = 38;
-const uint32_t HOST_UPDATE_DISK_MB_MEMO_OFFSET = 42;
-const uint32_t HOST_UPDATE_TOT_INS_COUNT_MEMO_OFFSET = 46;
-const uint32_t HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET = 50;
-const uint32_t HOST_UPDATE_DESCRIPTION_MEMO_OFFSET = 54;
-const uint32_t HOST_UPDATE_VERSION_MEMO_OFFSET = 80;
 
 #define META_PARAMS "meta_params"
 const uint32_t META_PARAMS_SIZE = 98;

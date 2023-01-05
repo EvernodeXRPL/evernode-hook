@@ -105,10 +105,16 @@ async function main() {
             await newAccounts[1].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
-        const registry_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        const governor_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+
+        if (governor_lines.length === 0) {
+            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        }
+
+        const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         if (registry_lines.length === 0) {
-            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            await newAccounts[3].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
         console.log("Trust Lines initiated");
@@ -119,7 +125,7 @@ async function main() {
 
         console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
 
-        await newAccounts[1].xrplAcc.makePayment(newAccounts[2].xrplAcc.address, REGISTRY_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        await newAccounts[1].xrplAcc.makePayment(newAccounts[3].xrplAcc.address, REGISTRY_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
         console.log(`${REGISTRY_EVRS} EVRs were transferred to Registry by the Foundation`);
         // END - Transfer Currency
