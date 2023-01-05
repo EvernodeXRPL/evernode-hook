@@ -313,7 +313,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
     }
 
-#define IS_REG_NFT_EXIST(account, issuer, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                       \
+#define IS_REG_NFT_EXIST(account, nft_minter, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                       \
     {                                                                                                                                        \
         nft_exists = 0;                                                                                                                      \
         COPY_20BYTES((nft_keylet + 2), account);                                                                                             \
@@ -332,7 +332,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                      \
             if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                          \
             {                                                                                                                                \
-                COPY_20BYTES((nft_id + 4), issuer); /*Issuer of the NFT should be the registry contract.*/                                   \
+                COPY_20BYTES((nft_id + 4), nft_minter); /*Issuer of the NFT should be the registry contract.*/                                   \
                 if (BUFFER_EQUAL_32(cur_id, nft_id))                                                                                         \
                 {                                                                                                                            \
                     uint8_t uri_read_buf[258];                                                                                               \
