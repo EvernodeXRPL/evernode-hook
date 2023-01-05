@@ -190,12 +190,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8(buf, HEARTBEAT) && \
      BUFFER_EQUAL_4((buf + 8), (HEARTBEAT + 8)))
 
-#define EQUAL_INITIALIZE(buf, len)                  \
-    (sizeof(INITIALIZE) == (len + 1) &&             \
-     BUFFER_EQUAL_8(buf, INITIALIZE) &&             \
-     BUFFER_EQUAL_4((buf + 8), (INITIALIZE + 8)) && \
-     BUFFER_EQUAL_1((buf + 12), (INITIALIZE + 12)))
-
 #define EQUAL_HOST_POST_DEREG(buf, len)      \
     (sizeof(HOST_POST_DEREG) == (len + 1) && \
      BUFFER_EQUAL_8(buf, HOST_POST_DEREG) && \
