@@ -38,37 +38,26 @@ if (!registryAddress || !governorSecret) {
 }
 else {
     const account = xrpljs.Wallet.fromSeed(governorSecret);
-    getHookHashes(account.classicAddress).then(hookHashes => {
-        hookHashes = hookHashes.filter(h => h);
-        getHookHashes(registryAddress).then(hook2Hashes => {
-            hook2Hashes = hook2Hashes.map(h => ({address: registryAddress, hash:h}));
-            getHookHashes(heartbeatAddress).then(hook3Hashes => {
-                hook3Hashes = hook3Hashes.map(h => ({address: heartbeatAddress, hash:h}));
-                if (hookHashes && hookHashes.length && hook2Hashes && hook2Hashes.length && hook3Hashes && hook3Hashes.length) {
-                    const grantHashes = [...hook2Hashes, ...hook3Hashes];
-                    const hookTx = {
-                        Account: account.classicAddress,
-                        TransactionType: "SetHook",
-                        Hooks: hookHashes.map(() => {
-                            return {
-                                Hook: {
-                                    HookGrants: grantHashes.map(h => {
-                                        return {
-                                            HookGrant:
-                                            {
-                                                Authorize: h.address,
-                                                HookHash: h.hash
-                                            }
-                                        }
-                                    })
-                                }
-                            }
-                        })
-                    };
-                    submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
-                }
+    let hookHashes = await getHookHashes(account.classicAddress);
+    
+    let hook2Hashes = await getHookHashes(registryAddress);
+    let hook3Hashes = await getHookHashes(heartbeatAddress);
 
-            });
-        });
-    });
+    const hookTx = {
+        Account: account.classicAddress,
+        TransactionType: "SetHook",
+        Hooks: hookHashes.map(() => {
+            return {
+                Hook: {
+                    HookGrants: [{
+                        ...hook2Hashes.map(h => ({ HookGrant: { Authorize: registryAddress, HookHash: h } })),
+                        ...hook3Hashes.map(h => ({ HookGrant: { Authorize: heartbeatAddress, HookHash: h } }))
+                    }]
+                }
+            };
+        })
+    };
+
+    submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
+
 }
