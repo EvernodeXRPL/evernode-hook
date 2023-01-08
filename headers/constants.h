@@ -4,7 +4,6 @@
 #define HOST_REG "evnHostReg"
 #define HOST_DE_REG "evnHostDereg"
 #define HOST_UPDATE_REG "evnHostUpdateReg"
-#define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
 #define HOST_POST_DEREG "evnHostPostDereg"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
@@ -105,26 +104,11 @@ const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
-const uint32_t REWARD_INFO_VAL_SIZE = 21;
-const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
-const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
 
 // State value offsets
-// REWARD_INFO
-const uint32_t EPOCH_OFFSET = 0;
-const uint32_t SAVED_MOMENT_OFFSET = 1;
-const uint32_t PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 5;
-const uint32_t CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 9;
-const uint32_t EPOCH_POOL_OFFSET = 13;
-
-// REWARD_CONFIGURATION
-const uint32_t EPOCH_COUNT_OFFSET = 0;
-const uint32_t FIRST_EPOCH_REWARD_QUOTA_OFFSET = 1;
-const uint32_t EPOCH_REWARD_AMOUNT_OFFSET = 5;
-const uint32_t REWARD_START_MOMENT_OFFSET = 9;
 
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
