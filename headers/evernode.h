@@ -170,49 +170,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_2((buf + 4), (EVR_HOST + 4)) && \
      BUFFER_EQUAL_1((buf + 6), (EVR_HOST + 6)))
 
-#define EQUAL_HOST_REG(buf, len)      \
-    (sizeof(HOST_REG) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, HOST_REG) && \
-     BUFFER_EQUAL_2((buf + 8), (HOST_REG + 8)))
-
-#define EQUAL_HOST_DE_REG(buf, len)      \
-    (sizeof(HOST_DE_REG) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, HOST_DE_REG) && \
-     BUFFER_EQUAL_4((buf + 8), (HOST_DE_REG + 8)))
-
-#define EQUAL_HOST_UPDATE_REG(buf, len)      \
-    (sizeof(HOST_UPDATE_REG) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, HOST_UPDATE_REG) && \
-     BUFFER_EQUAL_8((buf + 8), (HOST_UPDATE_REG + 8)))
-
-#define EQUAL_INITIALIZE(buf, len)                  \
-    (sizeof(INITIALIZE) == (len + 1) &&             \
-     BUFFER_EQUAL_8(buf, INITIALIZE) &&             \
-     BUFFER_EQUAL_4((buf + 8), (INITIALIZE + 8)) && \
-     BUFFER_EQUAL_1((buf + 12), (INITIALIZE + 12)))
-
-#define EQUAL_HOST_POST_DEREG(buf, len)      \
-    (sizeof(HOST_POST_DEREG) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, HOST_POST_DEREG) && \
-     BUFFER_EQUAL_8((buf + 8), (HOST_POST_DEREG + 8)))
-
-#define EQUAL_DEAD_HOST_PRUNE(buf, len)      \
-    (sizeof(DEAD_HOST_PRUNE) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, DEAD_HOST_PRUNE) && \
-     BUFFER_EQUAL_8((buf + 8), (DEAD_HOST_PRUNE + 8)))
-
-#define EQUAL_HOST_TRANSFER(buf, len)                  \
-    (sizeof(HOST_TRANSFER) == (len + 1) &&             \
-     BUFFER_EQUAL_8(buf, HOST_TRANSFER) &&             \
-     BUFFER_EQUAL_2((buf + 8), (HOST_TRANSFER + 8)) && \
-     BUFFER_EQUAL_1((buf + 10), (HOST_TRANSFER + 10)))
-
-#define EQUAL_HOST_REBATE(buf, len)                  \
-    (sizeof(HOST_REBATE) == (len + 1) &&             \
-     BUFFER_EQUAL_8(buf, HOST_REBATE) &&             \
-     BUFFER_EQUAL_4((buf + 8), (HOST_REBATE + 8)) && \
-     BUFFER_EQUAL_1((buf + 12), (HOST_REBATE + 12)))
-
 #define EQUAL_HOOK_UPDATE(buf, len)                  \
     (sizeof(HOOK_UPDATE) == (len + 1) &&             \
      BUFFER_EQUAL_8(buf, HOOK_UPDATE) &&             \
@@ -224,48 +181,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8(buf, HOST_REGISTRY_REF) &&             \
      BUFFER_EQUAL_8((buf + 8), (HOST_REGISTRY_REF + 8)) && \
      BUFFER_EQUAL_2((buf + 16), (HOST_REGISTRY_REF + 16)))
-
-// Domain related copy macros.
-
-#define COPY_EVR_HOST_PREFIX(buf, spos)            \
-    COPY_4BYTES((buf + spos), EVR_HOST);           \
-    COPY_2BYTES((buf + spos + 4), (EVR_HOST + 4)); \
-    COPY_BYTE((buf + spos + 6), (EVR_HOST + 6));
-
-#define COPY_MOMENT_TRANSIT_INFO(lhsbuf, rhsbuf) \
-    COPY_8BYTES(lhsbuf, rhsbuf);                 \
-    COPY_2BYTES((lhsbuf + 8), (rhsbuf + 8));     \
-    COPY_BYTE((lhsbuf + 10), (rhsbuf + 10));
-
-#define COPY_DESCRIPTION(lhsbuf, rhsbuf)       \
-    COPY_8BYTES(lhsbuf, rhsbuf);               \
-    COPY_8BYTES((lhsbuf + 8), (rhsbuf + 8));   \
-    COPY_8BYTES((lhsbuf + 16), (rhsbuf + 16)); \
-    COPY_2BYTES((lhsbuf + 24), (rhsbuf + 24));
-
-#define COPY_REG_NFT_URI(lhsbuf, rhsbuf)       \
-    COPY_32BYTES(lhsbuf, rhsbuf);              \
-    COPY_4BYTES((lhsbuf + 32), (rhsbuf + 32)); \
-    COPY_2BYTES((lhsbuf + 36), (rhsbuf + 36)); \
-    COPY_BYTE((lhsbuf + 38), (rhsbuf + 38));
-
-// Domain related clear macros.
-
-#define CLEAR_MOMENT_TRANSIT_INFO(buf) \
-    CLEAR_8BYTES(buf);                 \
-    CLEAR_2BYTES((buf + 8));           \
-    CLEAR_BYTE((buf + 10))
-
-// Domain related empty check macros.
-
-#define IS_MOMENT_TRANSIT_INFO_EMPTY(buf) \
-    (IS_BUFFER_EMPTY_8(buf) &&            \
-     IS_BUFFER_EMPTY_2((buf + 8)) &&      \
-     IS_BUFFER_EMPTY_1((buf + 10)))
-
-#define IS_VERSION_EMPTY(buf)  \
-    (IS_BUFFER_EMPTY_2(buf) && \
-     IS_BUFFER_EMPTY_1((buf + 2)))
 
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
@@ -317,29 +232,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                                   \
     }
 
-#define SET_UINT_STATE_VALUE(value, key, error_buf)                         \
-    {                                                                       \
-        uint8_t size = sizeof(value);                                       \
-        uint8_t value_buf[size];                                            \
-        switch (size)                                                       \
-        {                                                                   \
-        case 2:                                                             \
-            UINT16_TO_BUF(value_buf, value);                                \
-            break;                                                          \
-        case 4:                                                             \
-            UINT32_TO_BUF(value_buf, value);                                \
-            break;                                                          \
-        case 8:                                                             \
-            UINT64_TO_BUF(value_buf, value);                                \
-            break;                                                          \
-        default:                                                            \
-            rollback(SBUF("Evernode: Invalid state value set."), 1);        \
-            break;                                                          \
-        }                                                                   \
-        if (state_foreign_set(SBUF(value_buf), SBUF(key), FOREIGN_REF) < 0) \
-            rollback(SBUF(error_buf), 1);                                   \
-    }
-
 #define GET_CONF_VALUE(value, key, error_buf)                                       \
     {                                                                               \
         uint8_t size = sizeof(value);                                               \
@@ -383,7 +275,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                           \
     }
 
-// If host count state does not exist, set host count to 0.
 #define GET_HOST_COUNT(host_count)                                                                  \
     {                                                                                               \
         uint8_t host_count_buf[4] = {0};                                                            \
@@ -391,26 +282,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         if (state_foreign(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) != DOESNT_EXIST) \
             host_count = UINT32_FROM_BUF(host_count_buf);                                           \
     }
-
-#define SET_HOST_COUNT(host_count)                                                          \
-    {                                                                                       \
-        uint8_t host_count_buf[4] = {0};                                                    \
-        UINT32_TO_BUF(host_count_buf, host_count);                                          \
-        if (state_foreign_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) < 0) \
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1);     \
-    }
-
-#define GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, n) \
-    {                                                                                             \
-        UINT16_TO_BUF(token_id, tflag);                                                           \
-        UINT16_TO_BUF((token_id + 2), transaction_fee);                                           \
-        COPY_20BYTES((token_id + 4), accid);                                                      \
-        UINT32_TO_BUF((token_id + 24), (taxon ^ ((NFT_TAXON_M * token_seq) + NFT_TAXON_C)));      \
-        UINT32_TO_BUF((token_id + 28), token_seq);                                                \
-    }
-
-#define GENERATE_NFT_TOKEN_ID(token_id, tflag, transaction_fee, accid, taxon, token_seq) \
-    GENERATE_NFT_TOKEN_ID_GUARD(token_id, tflag, transaction_fee, accid, taxon, token_seq, 1)
 
 #define GET_MOMENT(moment, idx)                                                                                      \
     {                                                                                                                \
@@ -437,7 +308,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
     }
 
-#define IS_REG_NFT_EXIST(account, issuer, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                       \
+#define IS_REG_NFT_EXIST(account, nft_minter, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                       \
     {                                                                                                                                        \
         nft_exists = 0;                                                                                                                      \
         COPY_20BYTES((nft_keylet + 2), account);                                                                                             \
@@ -456,7 +327,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                      \
             if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                          \
             {                                                                                                                                \
-                COPY_20BYTES((nft_id + 4), issuer); /*Issuer of the NFT should be the registry contract.*/                                   \
+                COPY_20BYTES((nft_id + 4), nft_minter); /*Issuer of the NFT should be the registry contract.*/                                   \
                 if (BUFFER_EQUAL_32(cur_id, nft_id))                                                                                         \
                 {                                                                                                                            \
                     uint8_t uri_read_buf[258];                                                                                               \
