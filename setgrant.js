@@ -61,7 +61,7 @@ else {
     
         submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
     } else {
-        throw("Error in Hook hashes.");
+        throw("Error in fetching hook hashes.");
     }
 
 
