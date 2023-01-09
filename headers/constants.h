@@ -47,10 +47,7 @@
 #define AGAIN_HOOK 2
 
 #define OP_NONE 0
-#define OP_INITIALIZE 1
-#define OP_HEARTBEAT 2
-#define OP_SET_HOOK 3
-
+#define OP_SET_HOOK 10
 
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
