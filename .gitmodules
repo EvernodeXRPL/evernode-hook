@@ -4,3 +4,6 @@
 [submodule "evernode-governor-hook"]
 	path = evernode-governor-hook
 	url = https://github.com/EvernodeXRPL/evernode-governor-hook.git
+[submodule "evernode-heartbeat-hook"]
+	path = evernode-heartbeat-hook
+	url = https://github.com/EvernodeXRPL/evernode-heartbeat-hook.git
