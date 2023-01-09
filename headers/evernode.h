@@ -170,11 +170,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_2((buf + 4), (EVR_HOST + 4)) && \
      BUFFER_EQUAL_1((buf + 6), (EVR_HOST + 6)))
 
-#define EQUAL_HEARTBEAT(buf, len)      \
-    (sizeof(HEARTBEAT) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, HEARTBEAT) && \
-     BUFFER_EQUAL_4((buf + 8), (HEARTBEAT + 8)))
-
 #define EQUAL_HOOK_UPDATE(buf, len)                  \
     (sizeof(HOOK_UPDATE) == (len + 1) &&             \
      BUFFER_EQUAL_8(buf, HOOK_UPDATE) &&             \
