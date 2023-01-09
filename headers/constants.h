@@ -102,7 +102,7 @@ const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
 
 // State value offsets
-// REWARD_INFO 
+// REWARD_INFO
 const uint32_t EPOCH_OFFSET = 0;
 const uint32_t SAVED_MOMENT_OFFSET = 1;
 const uint32_t PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 5;

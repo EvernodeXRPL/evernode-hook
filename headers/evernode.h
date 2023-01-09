@@ -341,7 +341,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                                    \
     }
 
-#define POW_OF_TWO(exp, output)              \ 
+#define POW_OF_TWO(exp, output)              \
     {                                        \
         uint16_t val = 32768;                \
         val = (uint16_t)(val >> (15 - exp)); \
