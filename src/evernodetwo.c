@@ -216,13 +216,11 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
-        int64_t amount_half = 0;
-        int64_t pending_rebate_amount = 0;
+        uint64_t host_reg_fee;
+        GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        if (reg_fee > fixed_reg_fee) {
-            amount_half = reg_fee / 2;
-            pending_rebate_amount = reg_fee - fixed_reg_fee;
-        }
+        int64_t amount_half = reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
+        int64_t pending_rebate_amount = reg_fee - host_reg_fee;
 
         if (reg_fee > fixed_reg_fee)
         {
@@ -481,12 +479,15 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
+        uint64_t host_reg_fee;
+        GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
+
         if (reg_fee > fixed_reg_fee)
         {
             // Sending 50% reg fee to Host account and to the epoch Reward pool.
-            const int64_t amount_half = reg_fee / 2;
-            const int64_t pending_rebate_amount = reg_fee - fixed_reg_fee;
-            // Prepare transaction to send 50% of reg fee and pendiong rebates to host account.
+            const int64_t amount_half = host_reg_fee / 2;
+            const int64_t pending_rebate_amount = reg_fee - host_reg_fee;
+            // Prepare transaction to send 50% of reg fee and pending rebates to host account.
             PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half + pending_rebate_amount), memo_params);
             if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_PAYMENT)) < 0)
                 rollback(SBUF("Evernode: Rebating 1/2 reg fee and pending rebates to host account failed."), 1);
