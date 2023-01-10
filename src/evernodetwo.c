@@ -216,7 +216,13 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
-        int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
+        int64_t amount_half = 0;
+        int64_t pending_rebate_amount = 0;
+
+        if (reg_fee > fixed_reg_fee) {
+            amount_half = reg_fee / 2;
+            pending_rebate_amount = reg_fee - fixed_reg_fee;
+        }
 
         if (reg_fee > fixed_reg_fee)
         {
@@ -252,8 +258,8 @@ int64_t hook(uint32_t reserved)
         // Sending nft buy offer to the host.
         etxn_reserve(1);
 
-        // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
-        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, amount_half), account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. We add pending rebates too if there is any. If not, for 0 EVR.
+        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, amount_half + pending_rebate_amount), account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
         uint8_t emithash[HASH_SIZE];
         if (emit(SBUF(emithash), SBUF(NFT_BUY_OFFER_TRUSTLINE)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
@@ -479,10 +485,11 @@ int64_t hook(uint32_t reserved)
         {
             // Sending 50% reg fee to Host account and to the epoch Reward pool.
             const int64_t amount_half = reg_fee / 2;
-            // Prepare transaction to send 50% of reg fee to host account.
-            PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half), memo_params);
+            const int64_t pending_rebate_amount = reg_fee - fixed_reg_fee;
+            // Prepare transaction to send 50% of reg fee and pendiong rebates to host account.
+            PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half + pending_rebate_amount), memo_params);
             if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_PAYMENT)) < 0)
-                rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
+                rollback(SBUF("Evernode: Rebating 1/2 reg fee and pending rebates to host account failed."), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // BEGIN: Update the epoch Reward pool.
