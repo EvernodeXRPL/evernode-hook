@@ -47,27 +47,8 @@
 #define AGAIN_HOOK 2
 
 #define OP_NONE 0
-#define OP_INITIALIZE 1
-#define OP_HEARTBEAT 2
-#define OP_SET_HOOK 3
+#define OP_SET_HOOK 10
 
-// Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rEeFk3SpyCtt8mvjMgaAsvceHHh4nroezM";
-const uint16_t DEF_MOMENT_SIZE = 1190;
-const uint16_t DEF_MOMENT_TYPE = LEDGER_MOMENT_TYPE;
-const uint64_t DEF_MINT_LIMIT = 72253440;
-const uint64_t DEF_HOST_REG_FEE = 5120;
-const uint64_t DEF_FIXED_REG_FEE = 5;
-const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (72253440/5120)
-const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
-const int32_t DEF_TARGET_PRICE_M = 2;
-const int32_t DEF_TARGET_PRICE_E = 0;
-const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 160;   // In seconds
-const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 240; // In moments.
-const uint8_t DEF_EPOCH_COUNT = 10;
-const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
-const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
-const uint32_t DEF_REWARD_START_MOMENT = 0;
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
 const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0x54,

@@ -29,7 +29,7 @@ const ACCOUNT_DATA_DIR = process.env.ACCOUNT_DATA_DIR || __dirname;
 const HOOK_DATA_DIR = ACCOUNT_DATA_DIR + '/data'
 
 // Account names
-const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "GOVERNOR", "REGISTRY"];
+const accounts = ["ISSUER", "FOUNDATION_COLD_WALLET", "GOVERNOR", "REGISTRY", "HEARTBEAT_HOOK"];
 
 // XRP Pre-defined Special Address -> Blackhole
 const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
@@ -115,6 +115,12 @@ async function main() {
 
         if (registry_lines.length === 0) {
             await newAccounts[3].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        }
+
+        const heartbeat_hook_lines = await newAccounts[4].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+
+        if (heartbeat_hook_lines.length === 0) {
+            await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
         }
 
         console.log("Trust Lines initiated");

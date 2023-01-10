@@ -61,6 +61,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
         { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
+        { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_HOOK_ADDR },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
@@ -576,9 +578,11 @@ class IndexManager {
 
 async function initRegistryConfigs(initializerInfo, config, accountConfigPath, rippledServer) {
     // Get issuer and foundation cold wallet account ids.
-    let memoData = Buffer.allocUnsafe(40);
+    let memoData = Buffer.allocUnsafe(80);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
     codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+    codec.decodeAccountID(config.registry.address).copy(memoData, 40);
+    codec.decodeAccountID(config.heartbeatHook.address).copy(memoData, 60);
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
