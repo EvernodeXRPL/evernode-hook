@@ -582,7 +582,7 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
     codec.decodeAccountID(config.issuer.address).copy(memoData);
     codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
     codec.decodeAccountID(config.registry.address).copy(memoData, 40);
-    codec.decodeAccountID(config.heartbeatHook.address).copy(memoData, 60);
+    codec.decodeAccountID(config.heartbeat.address).copy(memoData, 60);
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
