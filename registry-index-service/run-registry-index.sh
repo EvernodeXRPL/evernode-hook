@@ -5,6 +5,7 @@ account_setup="account-setup"
 grant_setup="grant-setup"
 hook_setup="hook-setup"
 hook2_setup="hook2-setup"
+hook3_setup="hook3-setup"
 index="index.js"
 data_dir=$(pwd)
 
@@ -15,11 +16,13 @@ if [ ! -f $index ]; then
     grant_setup="dist/grant-setup"
     hook_setup="dist/hook-setup"
     hook2_setup="dist/hook2-setup"
+    hook3_setup="dist/hook3-setup"
     index="index-manager.js"
 fi
 
 wasm_path="$hook_setup"
 wasm2_path="$hook2_setup"
+wasm3_path="$hook3_setup"
 
 arg1=$1
 arg2=$2
@@ -65,6 +68,7 @@ function create_service() {
 }
 
 function sethook() {
+    ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm3_path $(which node) $hook3_setup && echo "Hook3 setup faild." && exit 1
     ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm2_path $(which node) $hook2_setup && echo "Hook2 setup faild." && exit 1
     ! CONFIG_PATH=$hook_data_dir/$arg1/$config WASM_PATH=$wasm_path $(which node) $hook_setup && echo "Hook setup faild." && exit 1
     ! CONFIG_PATH=$hook_data_dir/$arg1/$config $(which node) $grant_setup && echo "Grant setup faild." && exit 1

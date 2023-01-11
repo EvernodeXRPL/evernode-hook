@@ -84,7 +84,7 @@ const getHookHashes = (account) => {
                 req['account'] = account;
 
             api.request(req).then(resp => {
-                resolve(resp.result.account_objects.find(o => o.Hooks && o.Hooks.length)?.Hooks?.map(h => h?.Hook?.HookHash));
+                resolve(resp.result.account_objects.find(o => o.Hooks && o.Hooks.length)?.Hooks?.map(h => h?.Hook?.HookHash).filter(h => h));
             }).catch(e => {
                 reject(e);
             });
