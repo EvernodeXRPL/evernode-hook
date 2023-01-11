@@ -61,6 +61,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
         { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
+        { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_HOOK_ADDR },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
@@ -576,14 +578,16 @@ class IndexManager {
 
 async function initRegistryConfigs(initializerInfo, config, accountConfigPath, rippledServer) {
     // Get issuer and foundation cold wallet account ids.
-    let memoData = Buffer.allocUnsafe(40);
+    let memoData = Buffer.allocUnsafe(80);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
     codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+    codec.decodeAccountID(config.registry.address).copy(memoData, 40);
+    codec.decodeAccountID(config.heartbeatHook.address).copy(memoData, 60);
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
     const initAccount = new XrplAccount(initializerInfo.address, initializerInfo.secret, { xrplApi: xrplApi });
-    const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+    const res = await initAccount.makePayment(config.governor.address, MIN_XRP, 'XRP', null,
         [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
     if (res.code === 'tesSUCCESS') {
@@ -625,7 +629,7 @@ async function main() {
         console.error('Hook initializer account info not found.');
         return;
     }
-    else if (!accountConfig.registry || !accountConfig.registry.address || !accountConfig.registry.secret) {
+    else if (!accountConfig.governor || !accountConfig.governor.address || !accountConfig.governor.secret) {
         console.error('Registry account info not found, run the account setup tool and generate the accounts.');
         return;
     }
@@ -647,7 +651,7 @@ async function main() {
     }
 
     // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.registry.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.governor.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await indexManager.init(FIREBASE_SEC_KEY_PATH);
 }
 
