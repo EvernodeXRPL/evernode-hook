@@ -121,19 +121,19 @@ class IndexManager {
     #firestoreManager = null;
     #xrplApi = null;
     #xrplAcc = null;
-    #registryClient = null;
+    #governorClient = null;
     #queuedStates = null;
 
-    constructor(rippledServer, registryAddress, stateIndexId = null) {
+    constructor(rippledServer, governorAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
         Defaults.set({
-            registryAddress: registryAddress,
+            governorAddress: governorAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new XrplAccount(registryAddress);
+        this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#registryClient = new RegistryClient(registryAddress);
+        this.#governorClient = new RegistryClient(governorAddress);
         this.#queuedStates = [];
     }
 
@@ -141,11 +141,11 @@ class IndexManager {
         try {
             await this.#xrplApi.connect();
             await this.#connectRegistry();
-            await this.#registryClient.subscribe();
+            await this.#governorClient.subscribe();
             await this.#firestoreManager.authorize(firebaseSecKeyPath);
             this.config = await this.#firestoreManager.getConfigs();
             if (!this.config || !this.config.length) {
-                const states = await this.#registryClient.getHookStates();
+                const states = await this.#governorClient.getHookStates();
                 if (!states || !states.length)
                     throw { code: 'NO_STATE_KEY' };
 
@@ -159,10 +159,10 @@ class IndexManager {
             if (e.code === "NO_STATE_KEY") {
                 console.log(`Waiting for hook initialize transaction (${this.#xrplAcc.address})...`);
                 await new Promise(async (resolve) => {
-                    await this.#registryClient.subscribe()
-                    await this.#registryClient.on(RegistryEvents.RegistryInitialized, async (data) => {
+                    await this.#governorClient.subscribe()
+                    await this.#governorClient.on(RegistryEvents.RegistryInitialized, async (data) => {
                         await this.#updateStatesKeyQueue(data);
-                        await this.#registryClient.connect();
+                        await this.#governorClient.connect();
                         resolve();
                     });
                 });
@@ -177,15 +177,15 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#registryClient.on(RegistryEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
@@ -212,7 +212,7 @@ class IndexManager {
         while (true) {
             try {
                 attempts++;
-                const ret = await this.#registryClient.connect();
+                const ret = await this.#governorClient.connect();
                 if (ret)
                     break;
             } catch (error) {
@@ -245,8 +245,8 @@ class IndexManager {
     // To update index, if the the service is down for a considerable period.
     async #recover() {
         try {
-            const hosts = await this.#registryClient.getAllHosts();
-            const configs = await this.#registryClient.getAllConfigs();
+            const hosts = await this.#governorClient.getAllHosts();
+            const configs = await this.#governorClient.getAllConfigs();
 
             const itemsInIndex = configs.concat(hosts);
             const stateKeyList = itemsInIndex.map(item => item.id);
@@ -310,7 +310,7 @@ class IndexManager {
                     let transferredNFTokenId = null;
 
                     if (trx.Amount.value == EvernodeConstants.NOW_IN_EVRS) {
-                        const previousHostRec = await this.#registryClient.getHosts({ futureOwnerAddress: trx.Account });
+                        const previousHostRec = await this.#governorClient.getHosts({ futureOwnerAddress: trx.Account });
                         const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
                         affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey.toString('hex').toUpperCase() });
                         transferredNFTokenId = previousHostRec[0]?.nfTokenId;
@@ -352,7 +352,7 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
 
-                    const info = await this.#registryClient.getHostInfo(trx.Account);
+                    const info = await this.#governorClient.getHostInfo(trx.Account);
                     stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.nfTokenId);
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
 
@@ -403,7 +403,7 @@ class IndexManager {
         const inserts = [];
         const updates = [];
         const deletes = [];
-        const hookStates = await this.#registryClient.getHookStates();
+        const hookStates = await this.#governorClient.getHookStates();
 
         processingStates.map(ps => {
             const found = hookStates.find(hs => (hs.key === ps.key));
@@ -475,7 +475,7 @@ class IndexManager {
     // To update the Firestore index in a recovery situation.
     async #recoveryIndexUpdate(affectedStates) {
 
-        const hookStates = await this.#registryClient.getHookStates();
+        const hookStates = await this.#governorClient.getHookStates();
         if (!hookStates) {
             throw "No state entries were found for this hook account";
         }
