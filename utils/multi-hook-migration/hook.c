@@ -13,7 +13,6 @@ int64_t hook(uint32_t reserved)
     int64_t txn_type = otxn_type();
     if (txn_type == ttPAYMENT)
     {
-
         uint8_t account_field[20];
         int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
 
@@ -23,7 +22,7 @@ int64_t hook(uint32_t reserved)
         int equal = 0;
         BUFFER_EQUAL(equal, account_field, hook_accid, 20);
         if (equal)
-            accept(SBUF("Outgoing accept accept."), 0);
+            accept(SBUF("Outgoing accept."), 0);
 
         uint8_t memos[4096];
         int64_t memos_len = otxn_field(SBUF(memos), sfMemos);
@@ -58,7 +57,10 @@ int64_t hook(uint32_t reserved)
             {
                 if (state_set(((data_len - 32 > 0) ? (data_ptr + 32) : 0), data_len - 32, data_ptr, 32) < 0)
                     rollback(SBUF("Test: Failed to add state."), 3);
-                accept(SBUF("Successfully migrated."), 0);
+                if (data_len - 32 > 0)
+                    accept(SBUF("Successfully migrated."), 0);
+                else
+                    accept(SBUF("Successfully cleared."), 0);
             }
         }
     }

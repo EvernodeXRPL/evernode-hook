@@ -2,7 +2,8 @@ const fs = require('fs');
 const xrpljs = require('xrpl-hooks');
 const rbc = require('xrpl-binary-codec');
 
-const hsfOVERRIDE = 1;
+const hsfOVERRIDE = 1
+const hsfNSDELETE = 2;
 
 // sha256('evernode.org|registry')
 const NAMESPACE = '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0'
@@ -15,7 +16,7 @@ const MIGRATE = 1;
 const CLEAR = 2;
 
 let mode = ALL;
-if (process.argc > 2) {
+if (process.argv.length > 2) {
     if (process.argv[2] == "migrate")
         mode = MIGRATE;
     else if (process.argv[2] == "clear")
@@ -140,18 +141,21 @@ const setHook = async (secret) => {
                         HookApiVersion: 0,
                         Flags: hsfOVERRIDE
                     }
-                }
+                },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } }
             ]
     };
 
-    await submitTxn(secret, hookTx);
+    return await submitTxn(secret, hookTx);
 }
 
 const main = async () => {
     if (mode == ALL || mode == MIGRATE)
-        await setHook(governorSecret);
+        await setHook(governorSecret).then(console.log);
     if (mode == ALL || mode == CLEAR)
-        await setHook(registrySecret);
+        await setHook(registrySecret).then(console.log);
 }
 
-main().then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
+main().catch(console.error).finally(() => process.exit(0));

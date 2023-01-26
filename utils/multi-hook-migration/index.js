@@ -2,13 +2,14 @@ const fs = require('fs');
 const evernode = require("evernode-js-client");
 
 const CONFIG_PATH = 'accounts.json';
+const TOTAL_MINTED_EVRS = "72253440";
 
 const ALL = 0;
 const MIGRATE = 1;
 const CLEAR = 2;
 
 let mode = ALL;
-if (process.argc > 2) {
+if (process.argv.length > 2) {
     if (process.argv[2] == "migrate")
         mode = MIGRATE;
     else if (process.argv[2] == "clear")
@@ -18,9 +19,11 @@ if (process.argc > 2) {
 const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH));
 
 const registryAddress = cfg.registry.address;
-const registrySecret = cfg.registry.address;
+const registrySecret = cfg.registry.secret;
 const heartbeatAddress = cfg.heartbeat.address;
+const heartbeatSecret = cfg.heartbeat.secret;
 const governorAddress = cfg.governor.address;
+const governorSecret = cfg.governor.secret;
 const migratorAddress = cfg.migrator.address;
 const migratorSecret = cfg.migrator.secret;
 
@@ -68,7 +71,6 @@ async function getDestinationStates() {
     try {
         await client.connect();
         const res = await client.getHookStates();
-        console.log(client.config)
         await client.disconnect();
         return res;
     }
@@ -121,7 +123,7 @@ async function clearSourceStates() {
     console.log('Sending clear payments');
     const initAccount = new evernode.XrplAccount(migratorAddress, migratorSecret);
     for (const state of sourceStates) {
-        await initAccount.makePayment(governorAddress, '1', 'XRP', null,
+        await initAccount.makePayment(registryAddress, '1', 'XRP', null,
             [{ type: 'state', format: 'hex', data: `${state.key}` }]);
         console.log(`Cleared state ${state.key}`);
     }
@@ -136,20 +138,34 @@ async function clearSourceStates() {
 async function transferEVRs() {
     // Transfer EVRs to heartbeat.
     // Check trustlines.
-    const heartbeatAccount = new evernode.XrplAccount(heartbeatAddress);
+    const heartbeatAccount = new evernode.XrplAccount(heartbeatAddress, heartbeatSecret);
+    const governorAccount = new evernode.XrplAccount(governorAddress, governorSecret);
     const registryClient = new evernode.RegistryClient({ registryAddress: registryAddress, });
 
-    const lines = await heartbeatAccount.getTrustLines(evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress);
-    if (lines.length === 0)
-        throw "No trustlines on heartbeat hook account";
+    try {
+        await registryClient.connect();
+    
+        const heartbeatLines = await heartbeatAccount.getTrustLines(evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress);
+        if (heartbeatLines.length === 0)
+            await heartbeatAccount.setTrustLine(evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress, TOTAL_MINTED_EVRS);
+    
+        const governorLines = await governorAccount.getTrustLines(evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress);
+        if (governorLines.length === 0)
+            await governorAccount.setTrustLine(evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress, TOTAL_MINTED_EVRS);
+    
+        const remainingEpochs = registryClient.config.rewardConfiguration.epochCount - registryClient.config.rewardInfo.epoch;
+        const rewardAmount = (remainingEpochs * registryClient.config.rewardConfiguration.epochRewardAmount) + parseFloat(registryClient.config.rewardInfo.epochPool);
 
-    const remainingEpochs = registryClient.config.rewardConfiguration.epochCount - registryClient.config.rewardInfo.epoch;
-    const rewardAmount = (remainingEpochs * registryClient.config.rewardConfiguration.epochRewardAmount) + parseFloat(registryClient.config.rewardInfo.epochPool);
-
-    const regAcc = new evernode.XrplAccount(registryAddress, registrySecret);
-    await regAcc.makePayment(heartbeatAddress, rewardAmount, evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress);
-
-    console.error('Transferred reward EVRs to the heartbeat hook account.');
+        const regAcc = new evernode.XrplAccount(registryAddress, registrySecret);
+        await regAcc.makePayment(heartbeatAddress, rewardAmount.toString(), evernode.EvernodeConstants.EVR, registryClient.config.evrIssuerAddress);
+    
+        await registryClient.disconnect();
+        console.error('Transferred reward EVRs to the heartbeat hook account.');
+    }
+    catch (e) {
+        await registryClient.disconnect();
+        throw e;
+    }
 }
 
-main().catch(console.error);
+main().catch(console.error).finally(() => process.exit(0));

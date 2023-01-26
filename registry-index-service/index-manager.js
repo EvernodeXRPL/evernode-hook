@@ -11,7 +11,7 @@ const path = require('path');
 const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
-    RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
+    HookClientFactory, HookAccountTypes, RegistryEvents, HookStateKeys, MemoTypes,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
@@ -133,12 +133,12 @@ class IndexManager {
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#governorClient = new RegistryClient(governorAddress);
         this.#queuedStates = [];
     }
 
     async init(firebaseSecKeyPath) {
         try {
+            this.#governorClient = await HookClientFactory.create(HookAccountTypes.governorHook);
             await this.#xrplApi.connect();
             await this.#connectRegistry();
             await this.#governorClient.subscribe();

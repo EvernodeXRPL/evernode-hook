@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "migrate": "make && node setHook.js migrate && node index.js migrate",
-    "clear": "make && node migrate.js clear && node index.js clear",
-    "all": "make && node migrate.js all && node index.js all"
+    "migrate": "make && node sethook.js migrate && node index.js migrate",
+    "clear": "make && node sethook.js clear && node index.js clear",
+    "all": "make && node sethook.js all && node index.js all"
   },
   "author": "",
   "license": "ISC",
