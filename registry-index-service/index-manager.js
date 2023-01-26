@@ -11,7 +11,7 @@ const path = require('path');
 const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
-    RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
+    GovernorClient, GovernorEvents, HookClientFactory, HookStateKeys, MemoTypes,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
@@ -38,6 +38,12 @@ const MAX_BATCH_SIZE = 500;
 const PROCESS_INTERVAL = 20000; // in milliseconds.
 let PROCESS_LOCK = false;
 
+const HookAccountTypes = {
+    governorHook: 'GOVERNOR_HOOK',
+    registryHook: 'REGISTRY_HOOK',
+    heartbeatHook: 'HEARTBEAT_HOOK'
+}
+
 const AFFECTED_HOOK_STATE_MAP = {
     COMMON: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
@@ -61,6 +67,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
         { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
+        { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_HOOK_ADDR },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
@@ -119,19 +127,21 @@ class IndexManager {
     #firestoreManager = null;
     #xrplApi = null;
     #xrplAcc = null;
+    #governorClient = null;
+    #heartbeatClient = null;
     #registryClient = null;
+    #hookClientFactory = null;
     #queuedStates = null;
 
-    constructor(rippledServer, registryAddress, stateIndexId = null) {
+    constructor(rippledServer, governorAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
         Defaults.set({
-            registryAddress: registryAddress,
+            governorAddress: governorAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi
         })
-        this.#xrplAcc = new XrplAccount(registryAddress);
+        this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#registryClient = new RegistryClient(registryAddress);
         this.#queuedStates = [];
     }
 
@@ -139,11 +149,18 @@ class IndexManager {
         try {
             await this.#xrplApi.connect();
             await this.#connectRegistry();
-            await this.#registryClient.subscribe();
+            
+            this.#governorClient = new GovernorClient(this.governorAddress);
+            this.#hookClientFactory = new HookClientFactory();
+
+            this.#heartbeatClient = await this.#hookClientFactory.create(HookAccountTypes.heartbeatHook);
+            this.#registryClient = await this.#hookClientFactory.create(HookAccountTypes.registryHook);
+
+            await this.#governorClient.subscribe();
             await this.#firestoreManager.authorize(firebaseSecKeyPath);
             this.config = await this.#firestoreManager.getConfigs();
             if (!this.config || !this.config.length) {
-                const states = await this.#registryClient.getHookStates();
+                const states = await this.#governorClient.getHookStates();
                 if (!states || !states.length)
                     throw { code: 'NO_STATE_KEY' };
 
@@ -157,10 +174,10 @@ class IndexManager {
             if (e.code === "NO_STATE_KEY") {
                 console.log(`Waiting for hook initialize transaction (${this.#xrplAcc.address})...`);
                 await new Promise(async (resolve) => {
-                    await this.#registryClient.subscribe()
-                    await this.#registryClient.on(RegistryEvents.RegistryInitialized, async (data) => {
+                    await this.#governorClient.subscribe()
+                    await this.#governorClient.on(GovernorEvents.RegistryInitialized, async (data) => {
                         await this.#updateStatesKeyQueue(data);
-                        await this.#registryClient.connect();
+                        await this.#governorClient.connect();
                         resolve();
                     });
                 });
@@ -175,15 +192,15 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#registryClient.on(RegistryEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(GovernorEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#heartbeatClient.on(GovernorEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(GovernorEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
         console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
@@ -210,7 +227,7 @@ class IndexManager {
         while (true) {
             try {
                 attempts++;
-                const ret = await this.#registryClient.connect();
+                const ret = await this.#governorClient.connect();
                 if (ret)
                     break;
             } catch (error) {
@@ -243,8 +260,8 @@ class IndexManager {
     // To update index, if the the service is down for a considerable period.
     async #recover() {
         try {
-            const hosts = await this.#registryClient.getAllHosts();
-            const configs = await this.#registryClient.getAllConfigs();
+            const hosts = await this.#governorClient.getAllHosts();
+            const configs = await this.#governorClient.getAllConfigs();
 
             const itemsInIndex = configs.concat(hosts);
             const stateKeyList = itemsInIndex.map(item => item.id);
@@ -308,7 +325,7 @@ class IndexManager {
                     let transferredNFTokenId = null;
 
                     if (trx.Amount.value == EvernodeConstants.NOW_IN_EVRS) {
-                        const previousHostRec = await this.#registryClient.getHosts({ futureOwnerAddress: trx.Account });
+                        const previousHostRec = await this.#governorClient.getHosts({ futureOwnerAddress: trx.Account });
                         const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
                         affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey.toString('hex').toUpperCase() });
                         transferredNFTokenId = previousHostRec[0]?.nfTokenId;
@@ -350,7 +367,7 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
 
-                    const info = await this.#registryClient.getHostInfo(trx.Account);
+                    const info = await this.#governorClient.getHostInfo(trx.Account);
                     stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.nfTokenId);
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
 
@@ -401,7 +418,7 @@ class IndexManager {
         const inserts = [];
         const updates = [];
         const deletes = [];
-        const hookStates = await this.#registryClient.getHookStates();
+        const hookStates = await this.#governorClient.getHookStates();
 
         processingStates.map(ps => {
             const found = hookStates.find(hs => (hs.key === ps.key));
@@ -473,7 +490,7 @@ class IndexManager {
     // To update the Firestore index in a recovery situation.
     async #recoveryIndexUpdate(affectedStates) {
 
-        const hookStates = await this.#registryClient.getHookStates();
+        const hookStates = await this.#governorClient.getHookStates();
         if (!hookStates) {
             throw "No state entries were found for this hook account";
         }
@@ -576,14 +593,16 @@ class IndexManager {
 
 async function initRegistryConfigs(initializerInfo, config, accountConfigPath, rippledServer) {
     // Get issuer and foundation cold wallet account ids.
-    let memoData = Buffer.allocUnsafe(40);
+    let memoData = Buffer.allocUnsafe(80);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
     codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+    codec.decodeAccountID(config.registry.address).copy(memoData, 40);
+    codec.decodeAccountID(config.heartbeat.address).copy(memoData, 60);
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
     const initAccount = new XrplAccount(initializerInfo.address, initializerInfo.secret, { xrplApi: xrplApi });
-    const res = await initAccount.makePayment(config.registry.address, MIN_XRP, 'XRP', null,
+    const res = await initAccount.makePayment(config.governor.address, MIN_XRP, 'XRP', null,
         [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
 
     if (res.code === 'tesSUCCESS') {
@@ -599,14 +618,14 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
 }
 
 async function main() {
-    // Registry address is required as a command line param.
+    // Governance address is required as a command line param.
     if (process.argv.length != 3 || !process.argv[2]) {
         console.error('Registry address is required as a command line parameter.');
         return;
     }
-    const registryAddress = process.argv[2];
+    const governorAddress = process.argv[2];
     const configPath = path.resolve(DATA_DIR, CONFIG_FILE);
-    const accountConfigPath = path.resolve(HOOK_DATA_DIR, registryAddress, ACCOUNT_CONFIG_FILE);
+    const accountConfigPath = path.resolve(HOOK_DATA_DIR, governorAddress, ACCOUNT_CONFIG_FILE);
 
     // If configs doesn't exist, skip the execution.
     if (!fs.existsSync(configPath)) {
@@ -625,7 +644,7 @@ async function main() {
         console.error('Hook initializer account info not found.');
         return;
     }
-    else if (!accountConfig.registry || !accountConfig.registry.address || !accountConfig.registry.secret) {
+    else if (!accountConfig.governor || !accountConfig.governor.address || !accountConfig.governor.secret) {
         console.error('Registry account info not found, run the account setup tool and generate the accounts.');
         return;
     }
@@ -647,7 +666,7 @@ async function main() {
     }
 
     // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.registry.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.governor.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
     await indexManager.init(FIREBASE_SEC_KEY_PATH);
 }
 
