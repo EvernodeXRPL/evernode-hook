@@ -5,7 +5,7 @@ const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
-const REGISTRY_EVRS = "51609600";
+const REWARD_EVRS = "51609600";
 const CONFIG_FILE = 'accounts.json';
 
 // BEGIN - Endpoints.
@@ -62,35 +62,57 @@ async function main() {
     // END - Connect to XRPL API
 
     try {
+        const configDir = path.resolve(HOOK_DATA_DIR, config.governor.address);
+        const configPath = `${configDir}/${CONFIG_FILE}`;
+
+        // Do not generate already generated accounts.
+        let config = {};
+        if (fs.existsSync(configPath)) {
+            config = JSON.parse(fs.readFileSync(configPath));
+            if (config.issuer)
+                accounts[0] = null;
+            if (config.foundationColdWallet)
+                accounts[1] = null;
+            if (config.governor)
+                accounts[2] = null;
+            if (config.registry)
+                accounts[3] = null;
+            if (config.heartbeat)
+                accounts[4] = null;
+        }
 
         // BEGIN - Account Creation 
         console.log('Started to create XRP Accounts');
         const newAccounts = [];
 
         for (const account of accounts) {
-            const resp = await httpPost(FAUCETS_URL);
-            const json = JSON.parse(resp);
+            if (account) {
+                const resp = await httpPost(FAUCETS_URL);
+                const json = JSON.parse(resp);
 
-            // If Hooks TEST NET is used.
-            const acc = new XrplAccount(json.address, json.secret, { xrplApi: xrplApi });
+                // If Hooks TEST NET is used.
+                const acc = new XrplAccount(json.address, json.secret, { xrplApi: xrplApi });
 
-            // If NFT DEV NET is used.
-            // const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
+                // If NFT DEV NET is used.
+                // const acc = new XrplAccount(json.account.address, json.account.secret, { xrplApi: xrplApi });
 
-            if (account === "ISSUER") {
-                await new Promise(r => setTimeout(r, 5000));
-                await acc.setAccountFields({ Flags: { asfDefaultRipple: true } });
+                if (account === "ISSUER") {
+                    await new Promise(r => setTimeout(r, 5000));
+                    await acc.setAccountFields({ Flags: { asfDefaultRipple: true } });
 
-                console.log('Enabled Rippling in ISSUER Account');
+                    console.log('Enabled Rippling in ISSUER Account');
+                }
+
+                console.log(`Created ${account} Account`);
+
+                newAccounts.push({ "name": account, "xrplAcc": acc });
+
+                // Keep 10 seconds gap between two API calls.
+                await new Promise(r => setTimeout(r, 10000));
             }
-
-            console.log(`Created ${account} Account`);
-
-            newAccounts.push({ "name": account, "xrplAcc": acc });
-
-            // Keep 10 seconds gap between two API calls.
-            await new Promise(r => setTimeout(r, 10000));
-
+            else {
+                newAccounts.push(null);
+            }
         }
 
         // END - Account Creation
@@ -99,74 +121,73 @@ async function main() {
         await new Promise(r => setTimeout(r, 5000));
 
         // BEGIN - Trust Lines initiation
-        const foundation_lines = await newAccounts[1].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        if (foundation_lines.length === 0) {
-            await newAccounts[1].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        if (newAccounts[1]) {
+            const foundation_lines = await newAccounts[1].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+            if (foundation_lines.length === 0) {
+                await newAccounts[1].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            }
         }
 
-        const governor_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        if (governor_lines.length === 0) {
-            await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        if (newAccounts[2]) {
+            const governor_lines = await newAccounts[2].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+            if (governor_lines.length === 0) {
+                await newAccounts[2].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            }
         }
 
-        const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        if (registry_lines.length === 0) {
-            await newAccounts[3].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        if (newAccounts[3]) {
+            const registry_lines = await newAccounts[3].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+            if (registry_lines.length === 0) {
+                await newAccounts[3].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            }
         }
 
-        const heartbeat_hook_lines = await newAccounts[4].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        if (heartbeat_hook_lines.length === 0) {
-            await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+        if (newAccounts[4]) {
+            const heartbeat_hook_lines = await newAccounts[4].xrplAcc.getTrustLines(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+            if (heartbeat_hook_lines.length === 0) {
+                await newAccounts[4].xrplAcc.setTrustLine(EvernodeConstants.EVR, newAccounts[0].xrplAcc.address, TOTAL_MINTED_EVRS);
+            }
         }
 
         console.log("Trust Lines initiated");
         // END - Trust Lines initiation
 
         // BEGIN - Transfer Currency
-        await newAccounts[0].xrplAcc.makePayment(newAccounts[1].xrplAcc.address, TOTAL_MINTED_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        if (newAccounts[0] && newAccounts[1]) {
+            await newAccounts[0].xrplAcc.makePayment(newAccounts[1].xrplAcc.address, TOTAL_MINTED_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+            console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
+        }
 
-        console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
-
-        await newAccounts[1].xrplAcc.makePayment(newAccounts[3].xrplAcc.address, REGISTRY_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
-
-        console.log(`${REGISTRY_EVRS} EVRs were transferred to Registry by the Foundation`);
+        if (newAccounts[1] && newAccounts[4]) {
+            await newAccounts[1].xrplAcc.makePayment(newAccounts[4].xrplAcc.address, REWARD_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+            console.log(`${REWARD_EVRS} EVRs were transferred to Heartbeat by the Foundation`);
+        }
         // END - Transfer Currency
 
         // ISSUER Blackholing
-        await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
-        await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster: true } });
-
-        console.log("Blackholed ISSUER");
+        if (newAccounts[0]) {
+            await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
+            await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster: true } });
+            console.log("Blackholed ISSUER");
+        }
 
         // BEGIN - Log Account Details
         console.log('\nAccount Details -------------------------------------------------------');
 
-        let config = {};
-        newAccounts.forEach(element => {
+        newAccounts.filter(a => a).forEach(element => {
             // Convert snake_case to camelCase.
             const configKey = element.name.toLowerCase().replace(/_([a-z])/g, function (g) { return g[1].toUpperCase(); });
             config[configKey] = {
                 address: element.xrplAcc.address
             };
-            console.log(`Account name :${element.name}`);
-            console.log(`Address : ${element.xrplAcc.address}`);
-            if (element.name !== "ISSUER") {
-                console.log(`Secret : ${element.xrplAcc.secret}`);
+            if (element.name !== "ISSUER")
                 config[configKey].secret = element.xrplAcc.secret;
-            }
-            console.log('-----------------------------------------------------------------------');
-
         });
+        console.log(config, '\n');
         // END - Log Account Details
 
         // Save the generated account data in the config.
-        const configDir = path.resolve(HOOK_DATA_DIR, config.governor.address);
         fs.mkdirSync(configDir, { recursive: true });
-        const configPath = `${configDir}/${CONFIG_FILE}`;
         console.log(`Recording account data in ${configPath}`);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 4));
 

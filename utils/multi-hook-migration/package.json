@@ -1,0 +1,16 @@
+{
+  "name": "multi-hook-migration",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "migrate": "make && node setHook.js migrate && node index.js migrate",
+    "clear": "make && node migrate.js clear && node index.js clear",
+    "all": "make && node migrate.js all && node index.js all"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "evernode-js-client": "0.5.16",
+    "xrpl-hooks": "2.2.1"
+  }
+}
