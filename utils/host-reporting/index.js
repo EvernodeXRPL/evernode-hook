@@ -27,8 +27,13 @@ const app = async () => {
     try {
         await xrplApi.connect();
 
-        const hosts = await getHosts();
-        const path = generateReport(hosts);
+        const client = new evernode.RegistryClient();
+
+        await client.connect();
+        const hosts = await getHosts(client);
+        await client.disconnect();
+
+        const path = generateReport(hosts, client.config);
 
         console.log(`Generated the report and saved in location: \n${path}`);
     }
@@ -40,11 +45,8 @@ const app = async () => {
     }
 }
 
-const getHosts = async () => {
-    const registryClient = new evernode.RegistryClient();
-    await registryClient.connect();
-    const hosts = await registryClient.getAllHosts();
-    await registryClient.disconnect();
+const getHosts = async (client) => {
+    const hosts = await client.getAllHosts();
 
     const infos = await Promise.all(hosts.map(async (host) => {
         const hostClient = new evernode.HostClient(host.address);
@@ -59,15 +61,36 @@ const getHosts = async () => {
         await hostClient.disconnect();
         return info;
     }));
-    return infos;
+    return infos.sort((a, b) => b.active - a.active);
 }
 
-const generateReport = (hosts) => {
-    const keys = Object.keys(hosts.sort((a, b) => Object.keys(b).length - Object.keys(a).length)[0]);
-    const content = [
-        keys.map(k => `"${k ? (k.charAt(0).toUpperCase() + k.slice(1)) : ''}"`).join(','),
-        ...hosts.map(h => keys.map(k => `"${isNaN(h[k]) ? (h[k] || '') : h[k]}"`).join(','))
+const generateReport = (hosts, config) => {
+    function formatText(value, upperFirst = false) {
+        let final;
+        if (typeof value == 'string') {
+            final = value || '';
+            if (final && upperFirst)
+                final = final.charAt(0).toUpperCase() + final.slice(1)
+        }
+        else if (typeof value == 'object')
+            final = JSON.stringify(value, null, 2);
+        else
+            final = (value || value === 0) ? value.toString() : (value === false) ? 'false' : '';
+        return `"${final ? final.replace(/"/g, "'") : ''}"`;
+    }
+
+    const hostKeys = Object.keys(hosts.sort((a, b) => Object.keys(b).length - Object.keys(a).length)[0]);
+    const hostContent = [
+        hostKeys.map(k => formatText(k, true)).join(','),
+        ...hosts.map(h => hostKeys.map(k => formatText(h[k])).join(','))
     ].join('\n');
+
+    const configContent = Object.entries(config).map(([key, value]) =>
+        `${formatText(key)},${formatText(value)}`
+    ).join('\n');
+
+    const content = `${hostContent}\n\n\n${configContent}`;
+
     if (!fs.existsSync(DATA_DIR))
         fs.mkdirSync(DATA_DIR);
 
