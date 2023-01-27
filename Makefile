@@ -1,23 +1,36 @@
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+current_dir := $(patsubst %/,%,$(dir $(mkfile_path)))
+
 .PHONY: all build
 
-all: build upload
+all: registry-build governor-build heartbeat-build registry-upload governor-upload heartbeat-upload grant
 
-build:
-	mkdir -p build
-	wasmcc ./src/evernodezero.c -o ./build/evernodezero.wasm -O0 -Wl,--allow-undefined -I../
-	wasm-opt -O2 ./build/evernodezero.wasm -o ./build/evernodezero.wasm
-	hook-cleaner ./build/evernodezero.wasm
+build: registry-build governor-build heartbeat-build
 
-	wasmcc ./src/evernodeone.c -o ./build/evernodeone.wasm -O0 -Wl,--allow-undefined -I../
-	wasm-opt -O2 ./build/evernodeone.wasm -o ./build/evernodeone.wasm
-	hook-cleaner ./build/evernodeone.wasm
+upload: registry-upload governor-upload heartbeat-upload
 
-	wasmcc ./src/evernodetwo.c -o ./build/evernodetwo.wasm -O0 -Wl,--allow-undefined -I../
-	wasm-opt -O2 ./build/evernodetwo.wasm -o ./build/evernodetwo.wasm
-	hook-cleaner ./build/evernodetwo.wasm
+grant:
+	node setgrant.js
 
-upload:
-	node sethook.js
+governor-build:
+	make build -C ./evernode-governor-hook CONFIG_PATH=${current_dir}/hook.json
+
+registry-build:
+	make build -C ./evernode-registry-hook CONFIG_PATH=${current_dir}/hook.json
+
+heartbeat-build:
+	make build -C ./evernode-heartbeat-hook CONFIG_PATH=${current_dir}/hook.json
+
+governor-upload:
+	make upload -C ./evernode-governor-hook CONFIG_PATH=${current_dir}/hook.json
+
+registry-upload:
+	make upload -C ./evernode-registry-hook CONFIG_PATH=${current_dir}/hook.json
+
+heartbeat-upload:
+	make upload -C ./evernode-heartbeat-hook CONFIG_PATH=${current_dir}/hook.json
 
 clean:
-	rm -rf build/*
+	make clean -C ./evernode-governor-hook
+	make clean -C ./evernode-registry-hook
+	make clean -C ./evernode-heartbeat-hook
