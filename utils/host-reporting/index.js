@@ -45,14 +45,28 @@ const getHosts = async () => {
     await registryClient.connect();
     const hosts = await registryClient.getAllHosts();
     await registryClient.disconnect();
-    return hosts;
+
+    const infos = await Promise.all(hosts.map(async (host) => {
+        const hostClient = new evernode.HostClient(host.address);
+        await hostClient.connect();
+        const info = {
+            ...host,
+            evrBalance: await hostClient.getEVRBalance(),
+            xrpBalance: (await hostClient.xrplAcc.getInfo()).Balance / 1000000,
+            vacantLeaseCount: (await hostClient.getLeaseOffers()).length,
+            domain: await hostClient.xrplAcc.getDomain()
+        }
+        await hostClient.disconnect();
+        return info;
+    }));
+    return infos;
 }
 
 const generateReport = (hosts) => {
     const keys = Object.keys(hosts.sort((a, b) => Object.keys(b).length - Object.keys(a).length)[0]);
     const content = [
         keys.map(k => `"${k ? (k.charAt(0).toUpperCase() + k.slice(1)) : ''}"`).join(','),
-        ...hosts.map(h => keys.map(k => `"${h[k] || ''}"`).join(','))
+        ...hosts.map(h => keys.map(k => `"${isNaN(h[k]) ? (h[k] || '') : h[k]}"`).join(','))
     ].join('\n');
     if (!fs.existsSync(DATA_DIR))
         fs.mkdirSync(DATA_DIR);
