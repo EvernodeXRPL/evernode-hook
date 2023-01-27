@@ -50,11 +50,11 @@ const getHosts = async () => {
         const hostClient = new evernode.HostClient(host.address);
         await hostClient.connect();
         const info = {
-            ...host,
+            ...(await hostClient.getHostInfo()),
             evrBalance: await hostClient.getEVRBalance(),
             xrpBalance: (await hostClient.xrplAcc.getInfo()).Balance / 1000000,
             vacantLeaseCount: (await hostClient.getLeaseOffers()).length,
-            domain: await hostClient.xrplAcc.getDomain()
+            domain: await hostClient.xrplAcc.getDomain(),
         }
         await hostClient.disconnect();
         return info;
