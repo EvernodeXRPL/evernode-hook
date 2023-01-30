@@ -5,7 +5,7 @@ const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
-const REGISTRY_EVRS = "51609600";
+const REWARD_EVRS = "51609600";
 const CONFIG_FILE = 'accounts.json';
 
 // BEGIN - Endpoints.
@@ -131,9 +131,9 @@ async function main() {
 
         console.log(`${TOTAL_MINTED_EVRS} EVRs were issued to EVERNODE Foundation`);
 
-        await newAccounts[1].xrplAcc.makePayment(newAccounts[3].xrplAcc.address, REGISTRY_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
+        await newAccounts[1].xrplAcc.makePayment(newAccounts[4].xrplAcc.address, REWARD_EVRS, EvernodeConstants.EVR, newAccounts[0].xrplAcc.address);
 
-        console.log(`${REGISTRY_EVRS} EVRs were transferred to Registry by the Foundation`);
+        console.log(`${REWARD_EVRS} EVRs were transferred to Heartbeat by the Foundation`);
         // END - Transfer Currency
 
         // ISSUER Blackholing

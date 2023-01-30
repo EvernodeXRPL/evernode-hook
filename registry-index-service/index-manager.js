@@ -140,11 +140,11 @@ class IndexManager {
 
     async init(firebaseSecKeyPath) {
         try {
-            await this.#xrplApi.connect();           
+            await this.#xrplApi.connect();
             this.#governorClient = await HookClientFactory.create(HookTypes.governor);
             this.#heartbeatClient = await HookClientFactory.create(HookTypes.heartbeat);
             this.#registryClient = await HookClientFactory.create(HookTypes.registry);
-            
+
             await this.#connectHooks();
             await this.#subscribeHooks();
 
@@ -221,7 +221,7 @@ class IndexManager {
                 let governorConnected = await this.#governorClient.connect();
                 let heartbeatConnected = await this.#heartbeatClient.connect();
                 let registryConnected = await this.#registryClient.connect();
-    
+
                 if (governorConnected && heartbeatConnected && registryConnected)
                     break;
             } catch (error) {
@@ -242,7 +242,7 @@ class IndexManager {
     }
 
     // Hooks subscribe method
-    async #subscribeHooks(){
+    async #subscribeHooks() {
         await this.#governorClient.subscribe()
         await this.#heartbeatClient.subscribe()
         await this.#registryClient.subscribe()
