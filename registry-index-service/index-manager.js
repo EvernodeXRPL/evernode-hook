@@ -141,9 +141,9 @@ class IndexManager {
     async init(firebaseSecKeyPath) {
         try {
             await this.#xrplApi.connect();           
-            this.#governorClient = await HookClientFactory.create(HookTypes.governorHook);
-            this.#heartbeatClient = await HookClientFactory.create(HookTypes.heartbeatHook);
-            this.#registryClient = await HookClientFactory.create(HookTypes.registryHook);
+            this.#governorClient = await HookClientFactory.create(HookTypes.governor);
+            this.#heartbeatClient = await HookClientFactory.create(HookTypes.heartbeat);
+            this.#registryClient = await HookClientFactory.create(HookTypes.registry);
             
             await this.#connectHooks();
             await this.#subscribeHooks();
