@@ -124,7 +124,6 @@ class IndexManager {
     #governorClient = null;
     #heartbeatClient = null;
     #registryClient = null;
-    hookClientFactory = null;
     #queuedStates = null;
 
     constructor(rippledServer, governorAddress, stateIndexId = null) {
@@ -195,7 +194,7 @@ class IndexManager {
         this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
-        console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
+        console.log(`Listening to transactions (${this.#xrplAcc.address})...`);
 
         // Interval based scheduler to process the pending transactions.
         const doUpdate = () => {
@@ -222,7 +221,7 @@ class IndexManager {
                 let governor = await this.#governorClient.connect();
                 let heartbeat = await this.#heartbeatClient.connect();
                 let registry = await this.#registryClient.connect();
-
+    
                 if (governor && heartbeat && registry)
                     break;
             } catch (error) {
