@@ -11,7 +11,7 @@ const path = require('path');
 const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
-    GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookAccountTypes, HookStateKeys, MemoTypes,
+    GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys, MemoTypes,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
@@ -62,7 +62,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
         { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
         { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
-        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_HOOK_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_ADDR },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
@@ -141,9 +141,9 @@ class IndexManager {
     async init(firebaseSecKeyPath) {
         try {
             await this.#xrplApi.connect();           
-            this.#governorClient = await HookClientFactory.create(HookAccountTypes.governorHook);
-            this.#heartbeatClient = await HookClientFactory.create(HookAccountTypes.heartbeatHook);
-            this.#registryClient = await HookClientFactory.create(HookAccountTypes.registryHook);
+            this.#governorClient = await HookClientFactory.create(HookTypes.governorHook);
+            this.#heartbeatClient = await HookClientFactory.create(HookTypes.heartbeatHook);
+            this.#registryClient = await HookClientFactory.create(HookTypes.registryHook);
             
             await this.#connectHooks();
             await this.#subscribeHooks();
