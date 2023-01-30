@@ -136,10 +136,10 @@ class IndexManager {
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#queuedStates = [];   
+        this.#queuedStates = [];
     }
 
-    async init(firebaseSecKeyPath) {        
+    async init(firebaseSecKeyPath) {
         try {
             await this.#xrplApi.connect();           
             this.#governorClient = await HookClientFactory.create(HookAccountTypes.governorHook);
@@ -234,8 +234,8 @@ class IndexManager {
                     }
                     console.log(`Network reset detected. Attempt ${attempts} failed. Retrying in ${delaySec}s...`);
                     await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
-                } else{
-                    throw error;}
+                } else
+                    throw error;
             }
         }
     }
