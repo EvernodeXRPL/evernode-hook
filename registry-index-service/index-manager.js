@@ -218,11 +218,11 @@ class IndexManager {
         while (true) {
             try {
                 attempts++;
-                let governor = await this.#governorClient.connect();
-                let heartbeat = await this.#heartbeatClient.connect();
-                let registry = await this.#registryClient.connect();
+                let governorConnected = await this.#governorClient.connect();
+                let heartbeatConnected = await this.#heartbeatClient.connect();
+                let registryConnected = await this.#registryClient.connect();
     
-                if (governor && heartbeat && registry)
+                if (governorConnected && heartbeatConnected && registryConnected)
                     break;
             } catch (error) {
                 if (error?.data?.error === 'actNotFound') {
@@ -619,7 +619,7 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
 }
 
 async function main() {
-    // Governance address is required as a command line param.
+    // Governor address is required as a command line param.
     if (process.argv.length != 3 || !process.argv[2]) {
         console.error('Registry address is required as a command line parameter.');
         return;
