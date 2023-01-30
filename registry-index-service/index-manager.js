@@ -11,7 +11,7 @@ const path = require('path');
 const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
-    GovernorClient, GovernorEvents, HookClientFactory, HookStateKeys, MemoTypes,
+    GovernorEvents, HookClientFactory, HookAccountTypes, HookStateKeys, MemoTypes,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
@@ -37,12 +37,6 @@ const NFT_WAIT_TIMEOUT = 80;
 const MAX_BATCH_SIZE = 500;
 const PROCESS_INTERVAL = 20000; // in milliseconds.
 let PROCESS_LOCK = false;
-
-const HookAccountTypes = {
-    governorHook: 'GOVERNOR_HOOK',
-    registryHook: 'REGISTRY_HOOK',
-    heartbeatHook: 'HEARTBEAT_HOOK'
-}
 
 const AFFECTED_HOOK_STATE_MAP = {
     COMMON: [
@@ -130,7 +124,7 @@ class IndexManager {
     #governorClient = null;
     #heartbeatClient = null;
     #registryClient = null;
-    #hookClientFactory = null;
+    hookClientFactory = null;
     #queuedStates = null;
 
     constructor(rippledServer, governorAddress, stateIndexId = null) {
@@ -142,20 +136,16 @@ class IndexManager {
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#queuedStates = [];
+        this.#queuedStates = [];   
     }
 
-    async init(firebaseSecKeyPath) {
+    async init(firebaseSecKeyPath) {        
         try {
-            await this.#xrplApi.connect();
-            await this.#connectRegistry();
-            
-            this.#governorClient = new GovernorClient(this.governorAddress);
-            this.#hookClientFactory = new HookClientFactory();
-
-            this.#heartbeatClient = await this.#hookClientFactory.create(HookAccountTypes.heartbeatHook);
-            this.#registryClient = await this.#hookClientFactory.create(HookAccountTypes.registryHook);
-
+            await this.#xrplApi.connect();           
+            this.#governorClient = await HookClientFactory.create(HookAccountTypes.governorHook);
+            this.#heartbeatClient = await HookClientFactory.create(HookAccountTypes.heartbeatHook);
+            this.#registryClient = await HookClientFactory.create(HookAccountTypes.registryHook);
+            await this.#connectHooks();
             await this.#governorClient.subscribe();
             await this.#firestoreManager.authorize(firebaseSecKeyPath);
             this.config = await this.#firestoreManager.getConfigs();
@@ -219,16 +209,19 @@ class IndexManager {
 
     }
 
-    // Connect the registry and trying to reconnect in the event of account not found error.
+    // Connect the governor, registry, hearbeat hooks and trying to reconnect in the event of account not found error.
     // Account not found error can be because of a network reset. (Dev and test nets)
-    async #connectRegistry() {
+    async #connectHooks() {
         let attempts = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
             try {
                 attempts++;
-                const ret = await this.#governorClient.connect();
-                if (ret)
+                let governor = await this.#governorClient.connect();
+                let heartbeat = await this.#heartbeatClient.connect();
+                let registry = await this.#registryClient.connect();
+
+                if (governor && heartbeat && registry)
                     break;
             } catch (error) {
                 if (error?.data?.error === 'actNotFound') {
@@ -241,8 +234,8 @@ class IndexManager {
                     }
                     console.log(`Network reset detected. Attempt ${attempts} failed. Retrying in ${delaySec}s...`);
                     await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
-                } else
-                    throw error;
+                } else{
+                    throw error;}
             }
         }
     }
