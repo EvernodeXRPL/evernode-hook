@@ -11,7 +11,7 @@ const path = require('path');
 const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
-    RegistryClient, RegistryEvents, HookStateKeys, MemoTypes,
+    GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys, MemoTypes,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
@@ -62,7 +62,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MOMENT_TRANSIT_INFO },
         { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
         { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
-        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_HOOK_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_ADDR },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
@@ -122,6 +122,8 @@ class IndexManager {
     #xrplApi = null;
     #xrplAcc = null;
     #governorClient = null;
+    #heartbeatClient = null;
+    #registryClient = null;
     #queuedStates = null;
 
     constructor(rippledServer, governorAddress, stateIndexId = null) {
@@ -133,15 +135,19 @@ class IndexManager {
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
-        this.#governorClient = new RegistryClient(governorAddress);
         this.#queuedStates = [];
     }
 
     async init(firebaseSecKeyPath) {
         try {
-            await this.#xrplApi.connect();
-            await this.#connectRegistry();
-            await this.#governorClient.subscribe();
+            await this.#xrplApi.connect();           
+            this.#governorClient = await HookClientFactory.create(HookTypes.governor);
+            this.#heartbeatClient = await HookClientFactory.create(HookTypes.heartbeat);
+            this.#registryClient = await HookClientFactory.create(HookTypes.registry);
+            
+            await this.#connectHooks();
+            await this.#subscribeHooks();
+
             await this.#firestoreManager.authorize(firebaseSecKeyPath);
             this.config = await this.#firestoreManager.getConfigs();
             if (!this.config || !this.config.length) {
@@ -159,8 +165,8 @@ class IndexManager {
             if (e.code === "NO_STATE_KEY") {
                 console.log(`Waiting for hook initialize transaction (${this.#xrplAcc.address})...`);
                 await new Promise(async (resolve) => {
-                    await this.#governorClient.subscribe()
-                    await this.#governorClient.on(RegistryEvents.RegistryInitialized, async (data) => {
+                    await this.#subscribeHooks();
+                    await this.#governorClient.on(GovernorEvents.RegistryInitialized, async (data) => {
                         await this.#updateStatesKeyQueue(data);
                         await this.#governorClient.connect();
                         resolve();
@@ -177,18 +183,18 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#governorClient.on(RegistryEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#governorClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#governorClient.on(GovernorEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#heartbeatClient.on(HeartbeatEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
+        this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
 
 
-        console.log(`Listening to registry address (${this.#xrplAcc.address})...`);
+        console.log(`Listening to transactions (${this.#xrplAcc.address})...`);
 
         // Interval based scheduler to process the pending transactions.
         const doUpdate = () => {
@@ -204,16 +210,19 @@ class IndexManager {
 
     }
 
-    // Connect the registry and trying to reconnect in the event of account not found error.
+    // Connect the governor, registry, hearbeat hooks and trying to reconnect in the event of account not found error.
     // Account not found error can be because of a network reset. (Dev and test nets)
-    async #connectRegistry() {
+    async #connectHooks() {
         let attempts = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
             try {
                 attempts++;
-                const ret = await this.#governorClient.connect();
-                if (ret)
+                let governorConnected = await this.#governorClient.connect();
+                let heartbeatConnected = await this.#heartbeatClient.connect();
+                let registryConnected = await this.#registryClient.connect();
+    
+                if (governorConnected && heartbeatConnected && registryConnected)
                     break;
             } catch (error) {
                 if (error?.data?.error === 'actNotFound') {
@@ -230,6 +239,13 @@ class IndexManager {
                     throw error;
             }
         }
+    }
+
+    // Hooks subscribe method
+    async #subscribeHooks(){
+        await this.#governorClient.subscribe()
+        await this.#heartbeatClient.subscribe()
+        await this.#registryClient.subscribe()
     }
 
     // Update state queue according to the listened transaction event.
@@ -603,14 +619,14 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
 }
 
 async function main() {
-    // Registry address is required as a command line param.
+    // Governor address is required as a command line param.
     if (process.argv.length != 3 || !process.argv[2]) {
         console.error('Registry address is required as a command line parameter.');
         return;
     }
-    const registryAddress = process.argv[2];
+    const governorAddress = process.argv[2];
     const configPath = path.resolve(DATA_DIR, CONFIG_FILE);
-    const accountConfigPath = path.resolve(HOOK_DATA_DIR, registryAddress, ACCOUNT_CONFIG_FILE);
+    const accountConfigPath = path.resolve(HOOK_DATA_DIR, governorAddress, ACCOUNT_CONFIG_FILE);
 
     // If configs doesn't exist, skip the execution.
     if (!fs.existsSync(configPath)) {
