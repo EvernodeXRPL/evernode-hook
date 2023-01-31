@@ -11,19 +11,19 @@ mode=$1
 # Resolve dev and beta paths.
 to_path=""
 index_path=""
-registry_address=""
+governor_address=""
 if [[ $mode = "dev" ]]; then
     to_path="$dev_path"
     index_path="$to_path/registry-index"
-    registry_address="raaFre81618XegCrzTzVotAmarBcqNSAvK"
+    governor_address=""
 elif [[ $mode = "migration" ]]; then
     to_path="$migration_path"
     index_path="$to_path/registry-index"
-    registry_address="rNEKvvVw5dP38yFDjZbWuEQSi8f7FURahu"
+    governor_address=""
 # elif [[ $mode = "beta" ]]; then
 #     to_path="$beta_path"
 #     index_path="$to_path/registry-index"
-#     registry_address=""
+#     governor_address=""
 else
     echo "Invalid mode"
     echo "Usage: deploy-service.sh <Mode (dev|beta)>"
@@ -53,15 +53,15 @@ tar -xf $bundle_path --strip-components=1 -C $index_path
 pushd $index_path
 
 echo 'Performing set-hook.'
-./run-registry-index.sh $registry_address set-hook
+./run-registry-index.sh $governor_address set-hook
 
 echo 'Re-configuring the service'
-./run-registry-index.sh $registry_address service-reconfig
+./run-registry-index.sh $governor_address service-reconfig
 
 popd
 
 echo 'Restarting the service.'
-systemctl restart registry-index-$registry_address.service
+systemctl restart registry-index-$governor_address.service
 "
 
 sshpass -p $pword ssh root@$ip "$code"
