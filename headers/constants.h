@@ -14,6 +14,9 @@
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
+#define HOST_PROPOSE "evnPropose"
+#define HOST_PROPOSE_REF "evnProposeRef"
+#define HOST_PROPOSE_SUCCESS_REF "evnProposeSuccessRef"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -81,6 +84,8 @@ const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
+const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 98;
 
 // State value offsets
 // REWARD_INFO
@@ -124,6 +129,21 @@ const uint32_t HOST_EMAIL_ADDRESS_OFFSET = 76;
 const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
 const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
 const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
+
+// CANDIDATE_ID
+const uint32_t GOVERNOR_HOOK_HASH_OFFSET = 0;
+const uint32_t REGISTRY_HOOK_HASH_OFFSET = 32;
+const uint32_t HEARTBEAT_HOOK_HASH_OFFSET = 64;
+
+// <unique_id(10)><host_address(20)><short_name(20)><created_timestamp(8)><positive_votes(8)><negative_votes(8)><proposal_fee(8)>
+
+// CANDIDATE_DATA
+const uint32_t OWNER_ADDRESS_OFFSET = 0;
+const uint32_t SHORT_NAME_OFFSET = 20;
+const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
+const uint32_t POSITIVE_VOTE_COUNT_OFFSET = 48;
+const uint32_t NEGATIVE_VOTE_COUNT_OFFSET = 56;
+const uint32_t PROPOSAL_FEE_OFFSET = 84;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
