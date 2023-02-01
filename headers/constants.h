@@ -130,14 +130,12 @@ const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
 const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
 const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
 
-// CANDIDATE_ID
+// CANDIDATE_OWNER
 const uint32_t GOVERNOR_HOOK_HASH_OFFSET = 0;
 const uint32_t REGISTRY_HOOK_HASH_OFFSET = 32;
 const uint32_t HEARTBEAT_HOOK_HASH_OFFSET = 64;
 
-// <unique_id(10)><host_address(20)><short_name(20)><created_timestamp(8)><positive_votes(8)><negative_votes(8)><proposal_fee(8)>
-
-// CANDIDATE_DATA
+// CANDIDATE_ID
 const uint32_t OWNER_ADDRESS_OFFSET = 0;
 const uint32_t SHORT_NAME_OFFSET = 20;
 const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
