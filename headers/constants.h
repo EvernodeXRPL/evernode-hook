@@ -141,34 +141,4 @@ const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
 
-#define META_PARAMS "meta_params"
-const uint32_t META_PARAMS_SIZE = 98;
-const uint32_t CHAIN_IDX_PARAM_OFFSET = 0;
-const uint32_t OP_TYPE_PARAM_OFFSET = 1;
-const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 2;
-const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 10;
-const uint32_t HOOK_ACCID_PARAM_OFFSET = 18;
-const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
-const uint32_t ISSUER_PARAM_OFFSET = 58;
-const uint32_t FOUNDATION_PARAM_OFFSET = 78;
-
-#define MEMO_PARAMS "memo_params"
-const uint32_t MEMO_PARAM_SIZE = 128;
-
-#define VERIFY_PARAMS "verify_params"
-const uint32_t VERIFY_PARAMS_SIZE = 36;
-
-#define CHAIN_ONE_PARAMS "chain_one_params"
-const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;
-const uint32_t AMOUNT_BUF_PARAM_OFFSET = 0;
-const uint32_t FLOAT_AMT_PARAM_OFFSET = 48;
-const uint32_t TXID_PARAM_OFFSET = 56;
-
-#define CHAIN_TWO_PARAMS "chain_two_params"
-const uint32_t CHAIN_TWO_PARAMS_SIZE = 28;
-const uint32_t MOMENT_BASE_IDX_PARAM_OFFSET = 0;
-const uint32_t CUR_MOMENT_TYPE_PARAM_OFFSET = 8;
-const uint32_t CUR_IDX_PARAM_OFFSET = 9;
-const uint32_t MOMENT_TRANSITION_INFO_PARAM_OFFSET = 17;
-
 #endif
