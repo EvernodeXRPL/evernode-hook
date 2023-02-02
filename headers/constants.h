@@ -85,7 +85,7 @@ const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
 const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
-const uint32_t CANDIDATE_ID_VAL_SIZE = 98;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 64;
 
 // State value offsets
 // REWARD_INFO
@@ -140,8 +140,8 @@ const uint32_t OWNER_ADDRESS_OFFSET = 0;
 const uint32_t SHORT_NAME_OFFSET = 20;
 const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
 const uint32_t POSITIVE_VOTE_COUNT_OFFSET = 48;
-const uint32_t NEGATIVE_VOTE_COUNT_OFFSET = 56;
-const uint32_t PROPOSAL_FEE_OFFSET = 84;
+const uint32_t NEGATIVE_VOTE_COUNT_OFFSET = 52;
+const uint32_t PROPOSAL_FEE_OFFSET = 56;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;

@@ -84,8 +84,8 @@ const uint8_t CONF_REGISTRY_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0,
 #define TRANSFEREE_ADDR_KEY(transferee_addr) \
     COPY_20BYTES((STP_TRANSFEREE_ADDR + 12), transferee_addr)
 
-#define CANDIDATE_OWNER_KEY(host_addrs) \
-    COPY_20BYTES((STP_CANDIDATE_OWNER + 12), host_addr)
+#define CANDIDATE_OWNER_KEY(owner_address) \
+    COPY_20BYTES((STP_CANDIDATE_OWNER + 12), owner_address)
 
 #define CANDIDATE_ID_KEY(candidate_id)                         \
     COPY_8BYTES((STP_CANDIDATE_ID + 4), (candidate_id + 4));   \
