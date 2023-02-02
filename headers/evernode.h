@@ -308,7 +308,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
     }
 
-#define IS_REG_NFT_EXIST(account, nft_minter, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                       \
+#define IS_REG_NFT_EXIST(account, nft_minter, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                   \
     {                                                                                                                                        \
         nft_exists = 0;                                                                                                                      \
         COPY_20BYTES((nft_keylet + 2), account);                                                                                             \
@@ -327,7 +327,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                      \
             if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                          \
             {                                                                                                                                \
-                COPY_20BYTES((nft_id + 4), nft_minter); /*Issuer of the NFT should be the registry contract.*/                                   \
+                COPY_20BYTES((nft_id + 4), nft_minter); /*Issuer of the NFT should be the registry contract.*/                               \
                 if (BUFFER_EQUAL_32(cur_id, nft_id))                                                                                         \
                 {                                                                                                                            \
                     uint8_t uri_read_buf[258];                                                                                               \
@@ -423,8 +423,9 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                       \
     }
 
-#define IS_HOST_PRUNEABLE(res, host_addr, cur_moment_type)                                                                                             \
+#define IS_HOST_PRUNABLE(host_addr, cur_moment_type, is_prunable)                                                                                     \
     {                                                                                                                                                  \
+        is_prunable = 0;                                                                                                                               \
         uint16_t moment_size;                                                                                                                          \
         GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                                                         \
         int64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                                       \
@@ -433,25 +434,14 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         int64_t last_active_idx = INT64_FROM_BUF(last_active_idx_ptr);                                                                                 \
         /* If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger. */                                            \
         if (last_active_idx == 0)                                                                                                                      \
-        {                                                                                                                                              \
-            /* TODO : Revisit once the transition is stable. */                                                                                        \
-            if (registration_timestamp > 0 && (cur_moment_type == TIMESTAMP_MOMENT_TYPE))                                                              \
-                last_active_idx = registration_timestamp;                                                                                              \
-            else                                                                                                                                       \
-            {                                                                                                                                          \
-                uint8_t *reg_ledger_ptr = &host_addr[HOST_REG_LEDGER_OFFSET];                                                                          \
-                uint64_t reg_ledger = UINT64_FROM_BUF(reg_ledger_ptr);                                                                                 \
-                /* Assumption : One ledger lasts 3 seconds. */                                                                                         \
-                last_active_idx = (cur_moment_type == TIMESTAMP_MOMENT_TYPE) ? cur_ledger_timestamp - (cur_ledger_seq - reg_ledger) * 3 : reg_ledger;  \
-            }                                                                                                                                          \
-        }                                                                                                                                              \
+            last_active_idx = registration_timestamp;                                                                                                  \
         const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;                                                                     \
                                                                                                                                                        \
         /* Take the maximun tolerable downtime from config. */                                                                                         \
         uint16_t max_tolerable_downtime;                                                                                                               \
         GET_CONF_VALUE(max_tolerable_downtime, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state."); \
                                                                                                                                                        \
-        res = heartbeat_delay < max_tolerable_downtime ? 0 : 1;                                                                                        \
+        is_prunable = heartbeat_delay < max_tolerable_downtime ? 0 : 1;                                                                                \
     }
 
 #endif
