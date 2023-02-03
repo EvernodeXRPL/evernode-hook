@@ -14,6 +14,7 @@
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
+#define VOTE "evnVote"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -55,14 +56,6 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x38, 0x41, 0x21, 0xFF, 0x56, 0xFA, 0x8F, 0xEC,
                                0xC2, 0x15, 0xFD, 0xDE, 0x2E, 0xC3, 0x5D, 0x9E,
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
-const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                              // In Drops.
-
-// Transition related definitions. Transition state is added on the init transaction if this has >0 value
-const uint16_t NEW_MOMENT_SIZE = 3600;
-const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
-
-// Transfer process related definitions
-const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 112;
@@ -81,6 +74,7 @@ const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
+const uint32_t PROPOSAL_META_VAL_SIZE = 109;
 
 // State value offsets
 // REWARD_INFO
@@ -140,5 +134,18 @@ const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
+
+// PROPOSAL_METADATA
+const uint32_t PROPOSAL_META_ADDRESS_OFFSET = 0;
+const uint32_t PROPOSAL_META_UNIQUE_ID_OFFSET = 20;
+const uint32_t PROPOSAL_META_FRIENDLY_NAME_OFFSET = 52;
+const uint32_t PROPOSAL_META_CREATED_TIMESTAMP_OFFSET = 72;
+const uint32_t PROPOSAL_META_STATUS_CHANGE_TIMESTAMP_OFFSET = 80;
+const uint32_t PROPOSAL_META_STATUS_OFFSET = 88;
+const uint32_t PROPOSAL_META_LAST_VOTE_TIMESTAMP_OFFSET = 89;
+const uint32_t PROPOSAL_META_SUPPORT_VOTE_OFFSET = 97;
+const uint32_t PROPOSAL_META_REJECT_VOTE_OFFSET = 101;
+const uint32_t PROPOSAL_META_ABSTAIN_VOTE_OFFSET = 105;
+
 
 #endif
