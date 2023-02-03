@@ -423,4 +423,25 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                       \
     }
 
+#define IS_HOST_PRUNABLE(host_addr, cur_moment_type, is_prunable)                                                                                     \
+    {                                                                                                                                                  \
+        is_prunable = 0;                                                                                                                               \
+        uint16_t moment_size;                                                                                                                          \
+        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                                                         \
+        int64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                                       \
+                                                                                                                                                       \
+        uint8_t *last_active_idx_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];                                                                   \
+        int64_t last_active_idx = INT64_FROM_BUF(last_active_idx_ptr);                                                                                 \
+        /* If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger. */                                            \
+        if (last_active_idx == 0)                                                                                                                      \
+            last_active_idx = registration_timestamp;                                                                                                  \
+        const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;                                                                     \
+                                                                                                                                                       \
+        /* Take the maximun tolerable downtime from config. */                                                                                         \
+        uint16_t max_tolerable_downtime;                                                                                                               \
+        GET_CONF_VALUE(max_tolerable_downtime, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state."); \
+                                                                                                                                                       \
+        is_prunable = heartbeat_delay < max_tolerable_downtime ? 0 : 1;                                                                                \
+    }
+
 #endif
