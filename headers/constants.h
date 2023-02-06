@@ -14,9 +14,9 @@
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
-#define HOST_PROPOSE "evnPropose"
-#define HOST_PROPOSE_REF "evnProposeRef"
-#define HOST_PROPOSE_SUCCESS "evnProposeSuccess"
+#define CANDIDATE_PROPOSE "evnPropose"
+#define CANDIDATE_PROPOSE_REF "evnProposeRef"
+#define CANDIDATE_PROPOSE_SUCCESS "evnProposeSuccess"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -60,9 +60,6 @@ const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                              // In 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
 const uint16_t NEW_MOMENT_SIZE = 3600;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
-
-// Transfer process related definitions
-const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 112;
@@ -128,21 +125,21 @@ const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
 const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
 
 // CANDIDATE_OWNER
-const uint32_t GOVERNOR_HOOK_HASH_OFFSET = 0;
-const uint32_t REGISTRY_HOOK_HASH_OFFSET = 32;
-const uint32_t HEARTBEAT_HOOK_HASH_OFFSET = 64;
+const uint32_t CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET = 0;
+const uint32_t CANDIDATE_REGISTRY_HOOK_HASH_OFFSET = 32;
+const uint32_t CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET = 64;
 
 // CANDIDATE_ID
-const uint32_t OWNER_ADDRESS_OFFSET = 0;
-const uint32_t SHORT_NAME_OFFSET = 20;
+const uint32_t CANDIDATE_OWNER_ADDRESS_OFFSET = 0;
+const uint32_t CANDIDATE_SHORT_NAME_OFFSET = 20;
 const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
-const uint32_t PROPOSAL_FEE_OFFSET = 48;
-const uint32_t TWO_WEEKS_START_TIMESTAMP_OFFSET = 56;
-const uint32_t POSITIVE_VOTE_COUNT_OFFSET = 64;
-const uint32_t NEGATIVE_VOTE_COUNT_OFFSET = 68;
-const uint32_t NEUTRAL_VOTE_COUNT_OFFSET = 72;
-const uint32_t FOUNDATION_VOTE_STATUS_OFFSET = 76;
-const uint32_t VOTE_STATUS_OFFSET = 77;
+const uint32_t CANDIDATE_PROPOSAL_FEE_OFFSET = 48;
+const uint32_t CANDIDATE_TWO_WEEKS_START_TIMESTAMP_OFFSET = 56;
+const uint32_t CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET = 64;
+const uint32_t CANDIDATE_NEGATIVE_VOTE_COUNT_OFFSET = 68;
+const uint32_t CANDIDATE_NEUTRAL_VOTE_COUNT_OFFSET = 72;
+const uint32_t CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET = 76;
+const uint32_t CANDIDATE_VOTE_STATUS_OFFSET = 77;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
