@@ -14,7 +14,10 @@
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
-#define VOTE "evnVote"
+#define CANDIDATE_PROPOSE "evnPropose"
+#define CANDIDATE_PROPOSE_REF "evnProposeRef"
+#define CANDIDATE_PROPOSE_SUCCESS "evnProposeSuccess"
+#define CANDIDATE_VOTE "evnVote"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -44,9 +47,6 @@
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
-#define STRONG_HOOK 0
-#define AGAIN_HOOK 2
-
 #define OP_NONE 0
 #define OP_SET_HOOK 10
 
@@ -74,7 +74,8 @@ const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
-const uint32_t PROPOSAL_META_VAL_SIZE = 109;
+const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 78;
 
 // State value offsets
 // REWARD_INFO
@@ -118,6 +119,23 @@ const uint32_t HOST_EMAIL_ADDRESS_OFFSET = 76;
 const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
 const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
 const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
+
+// CANDIDATE_OWNER
+const uint32_t CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET = 0;
+const uint32_t CANDIDATE_REGISTRY_HOOK_HASH_OFFSET = 32;
+const uint32_t CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET = 64;
+
+// CANDIDATE_ID
+const uint32_t CANDIDATE_OWNER_ADDRESS_OFFSET = 0;
+const uint32_t CANDIDATE_SHORT_NAME_OFFSET = 20;
+const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
+const uint32_t CANDIDATE_PROPOSAL_FEE_OFFSET = 48;
+const uint32_t CANDIDATE_TWO_WEEKS_START_TIMESTAMP_OFFSET = 56;
+const uint32_t CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET = 64;
+const uint32_t CANDIDATE_NEGATIVE_VOTE_COUNT_OFFSET = 68;
+const uint32_t CANDIDATE_NEUTRAL_VOTE_COUNT_OFFSET = 72;
+const uint32_t CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET = 76;
+const uint32_t CANDIDATE_VOTE_STATUS_OFFSET = 77;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;

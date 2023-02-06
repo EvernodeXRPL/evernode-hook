@@ -423,7 +423,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                       \
     }
 
-#define IS_HOST_PRUNABLE(host_addr, cur_moment_type, is_prunable)                                                                                     \
+#define IS_HOST_PRUNABLE(host_addr, cur_moment_type, is_prunable)                                                                                      \
     {                                                                                                                                                  \
         is_prunable = 0;                                                                                                                               \
         uint16_t moment_size;                                                                                                                          \
