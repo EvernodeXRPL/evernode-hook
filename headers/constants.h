@@ -17,6 +17,8 @@
 #define CANDIDATE_PROPOSE "evnPropose"
 #define CANDIDATE_PROPOSE_REF "evnProposeRef"
 #define CANDIDATE_VOTE "evnVote"
+#define CANDIDATE_VETOED_REF "evnVetoedRef"
+#define CANDIDATE_EXPIRY_REF "evnExpiryRef"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -26,6 +28,8 @@
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
 #define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
+#define VETOED_MESSAGE "CANDIDATE_VETOED"
+#define EXPIRY_MESSAGE "CANDIDATE_EXPIRY"
 #define LEDGER_MOMENT_TYPE 0
 #define TIMESTAMP_MOMENT_TYPE 1
 #define PENDING_TRANSFER 1
