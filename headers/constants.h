@@ -46,9 +46,6 @@
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
-#define STRONG_HOOK 0
-#define AGAIN_HOOK 2
-
 #define OP_NONE 0
 #define OP_SET_HOOK 10
 
