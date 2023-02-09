@@ -28,13 +28,13 @@ uint8_t STP_TOKEN_ID[32] = {'E', 'V', 'R', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Host address keys (Host registration entries for xrpl address-based lookup). Last 20 bytes will be replaced by host address in runtime.
 uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Pending Transfers (Host transfer initiations for transferee address based lookup)
+// Pending Transfers (Host transfer initiations for transferee address-based lookup)
 uint8_t STP_TRANSFEREE_ADDR[32] = {'E', 'V', 'R', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Candidate owner keys. (Hook candidate proposal info for xrpl address-based lookup). Last 20 bytes will be replaced by owner address in runtime.
 uint8_t STP_CANDIDATE_OWNER[32] = {'E', 'V', 'R', 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Hook Candidate Id keys. (Hook candidate proposal entries for candidate id based lookup).
+// Hook Candidate Id keys. (Hook candidate proposal entries for candidate id-based lookup).
 uint8_t STP_CANDIDATE_ID[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /////////// Hook Configuration. ///////////
@@ -44,7 +44,7 @@ uint8_t STP_CANDIDATE_ID[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 const uint8_t CONF_ISSUER_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 // Foundation address
 const uint8_t CONF_FOUNDATION_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
-// No. of ledgers per moment.
+// Seconds per moment.
 const uint8_t CONF_MOMENT_SIZE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
 // No. of Evers that will be ever issued.
 const uint8_t CONF_MINT_LIMIT[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
@@ -60,7 +60,7 @@ const uint8_t CONF_LEASE_ACQUIRE_WINDOW[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 
 const uint8_t CONF_REWARD_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9};
 // The maximum tolerable downtime for a host.
 const uint8_t CONF_MAX_TOLERABLE_DOWNTIME[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10};
-// Moment transition info <transition_index(uint64_t)><moment_size<uint16_t)><index_type(uint_8)>.
+// Scheduled moment size transition info <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint_8)>.
 const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11};
 // The maximum fee Hook can bear for a transaction emission.
 // To mitigate consuming XRPs unnecessarily due to the execution of Hooks that might be in destination accounts.
@@ -69,8 +69,8 @@ const uint8_t CONF_MAX_EMIT_TRX_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0
 const uint8_t CONF_HEARTBEAT_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13};
 // Registry Hook address.
 const uint8_t CONF_REGISTRY_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
-// Governance info for proposing/voting <eligibility_period(uint32_t)><candidate_life_period<uint32_t)><candidate_election_period<uint32_t)>
-// <candidate_support_average<uint16_t)><candidate_reject_average<uint16_t)>.
+// Governance configuration for proposing/voting <eligibility_period(uint32_t)><candidate_life_period(uint32_t)><candidate_election_period(uint32_t)>
+// <candidate_support_average(uint16_t)><candidate_reject_average(uint16_t)>.
 const uint8_t CONF_GOVERNANCE_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15};
 
 #define HOST_ADDR_KEY(host_addr) \
