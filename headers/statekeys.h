@@ -66,9 +66,9 @@ const uint8_t CONF_MOMENT_TRANSIT_INFO[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0
 // To mitigate consuming XRPs unnecessarily due to the execution of Hooks that might be in destination accounts.
 const uint8_t CONF_MAX_EMIT_TRX_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12};
 // Heartbeat Hook address.
-const uint8_t CONF_HEARTBEAT_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13};
+const uint8_t CONF_HEARTBEAT_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13};
 // Registry Hook address.
-const uint8_t CONF_REGISTRY_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
+const uint8_t CONF_REGISTRY_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
 // Governance configuration for proposing/voting <eligibility_period(uint32_t)><candidate_life_period(uint32_t)><candidate_election_period(uint32_t)>
 // <candidate_support_average(uint16_t)><candidate_reject_average(uint16_t)>.
 const uint8_t CONF_GOVERNANCE_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15};
