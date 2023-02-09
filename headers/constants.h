@@ -79,7 +79,7 @@ const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
 const uint32_t GOVERNANCE_CONFIGURATION_VAL_SIZE = 16;
 const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
-const uint32_t CANDIDATE_ID_VAL_SIZE = 78;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 86;
 
 // State value offsets
 // REWARD_INFO
