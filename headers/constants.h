@@ -19,8 +19,11 @@
 #define CANDIDATE_VOTE "evnCandidateVote"
 #define CANDIDATE_VETOED_RES "evnCandidateVetoedRes"
 #define CANDIDATE_EXPIRY_RES "evnCandidateExpiryRes"
+#define CANDIDATE_ACCEPT_RES "evnCandidateAcceptRes"
 #define CHANGE_GOVERNANCE_MODE "evnModeChange"
 #define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
+#define HOOK_UPDATE_RES "evnHookUpdateRes"
+#define SET_HOOK "evnSetHook"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -53,7 +56,7 @@
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 #define OP_NONE 0
-#define OP_SET_HOOK 10
+#define OP_HOOK_UPDATE 10
 
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
@@ -74,7 +77,7 @@ const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
-const uint32_t GOVERNANCE_INFO_VAL_SIZE = 41;
+const uint32_t GOVERNANCE_INFO_VAL_SIZE = 42;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
@@ -107,8 +110,9 @@ const uint32_t CANDIDATE_REJECT_AVERAGE_OFFSET = 14;
 
 // GOVERNANCE_INFO
 const uint32_t GOVERNANCE_MODE_OFFSET = 0;
-const uint32_t ACCEPTED_PROPOSAL_HASH_OFFSET = 1;
+const uint32_t ACCEPTED_PROPOSAL_UNIQUE_ID_OFFSET = 1;
 const uint32_t PROPOSAL_ACCEPTED_TIMESTAMP_OFFSET = 33;
+const uint32_t UPDATED_HOOK_COUNT_OFFSET = 41;
 
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
