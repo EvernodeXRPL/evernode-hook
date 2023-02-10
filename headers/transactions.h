@@ -102,24 +102,24 @@ uint8_t SET_HOOK_TRANSACTION[465] = {
         ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */      \
     }
 
-#define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace, tx_size)         \
-    {                                                                         \
-        uint8_t *buf_out = SET_HOOK_TRANSACTION;                              \
-        UINT32_TO_BUF((buf_out + 15), cur_ledger_seq + 1);                    \
-        UINT32_TO_BUF((buf_out + 21), cur_ledger_seq + 5);                    \
-        COPY_20BYTES((buf_out + 71), hook_accid);                             \
-        uint8_t *cur_ptr = buf_out + 91;                                      \
-        ENCODE_FIELDS(cur_ptr, ARRAY, HOOKS);                                 \
-        ENCODE_HOOK_OBJECT(cur_ptr, hash_arr, namespace);                     \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + HASH_SIZE), namespace);       \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (2 * HASH_SIZE)), namespace); \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (3 * HASH_SIZE)), namespace); \
-        ENCODE_FIELDS(cur_ptr, ARRAY, END);                                   \
-        tx_size = cur_ptr - buf_out + 138;                                    \
-        etxn_details(cur_ptr, 138);                                           \
-        int64_t fee = etxn_fee_base(buf_out, tx_size);                        \
-        cur_ptr = SET_HOOK_TRANSACTION + 25;                                  \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(cur_ptr, fee);                         \
+#define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace)                                         \
+    {                                                                                                \
+        uint8_t *buf_out = SET_HOOK_TRANSACTION;                                                     \
+        UINT32_TO_BUF((buf_out + 15), cur_ledger_seq + 1);                                           \
+        UINT32_TO_BUF((buf_out + 21), cur_ledger_seq + 5);                                           \
+        COPY_20BYTES((buf_out + 71), hook_accid);                                                    \
+        uint8_t *cur_ptr = buf_out + 91;                                                             \
+        ENCODE_FIELDS(cur_ptr, ARRAY, HOOKS);                                                        \
+        ENCODE_HOOK_OBJECT(cur_ptr, hash_arr, namespace);                                            \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + HASH_SIZE), namespace);                              \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (2 * HASH_SIZE)), namespace);                        \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (3 * HASH_SIZE)), namespace);                        \
+        ENCODE_FIELDS(cur_ptr, ARRAY, END);                                                          \
+        int tx_size = cur_ptr - buf_out + 138;                                                       \
+        etxn_details(cur_ptr, 138);                                                                  \
+        int64_t fee = etxn_fee_base(buf_out, tx_size);                                               \
+        cur_ptr = buf_out + 25;                                                                      \
+        _06_08_ENCODE_DROPS_FEE(cur_ptr, fee); /** Skip the fee check since this tx is a sethook **/ \
     }
 
 #endif

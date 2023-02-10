@@ -126,6 +126,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     CLEAR_8BYTES((buf + 8)); \
     CLEAR_4BYTES((buf + 16));
 
+#define CLEAR_32BYTES(buf)    \
+    CLEAR_8BYTES(buf);        \
+    CLEAR_8BYTES((buf + 8));  \
+    CLEAR_8BYTES((buf + 16)); \
+    CLEAR_8BYTES((buf + 24));
+
 #define IS_BUFFER_EMPTY_1(buf) \
     (*(uint8_t *)(buf) == 0)
 
