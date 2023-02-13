@@ -62,6 +62,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8((buf1 + 8), (buf2 + 8)) && \
      BUFFER_EQUAL_4((buf1 + 16), (buf2 + 16)))
 
+#define BUFFER_EQUAL_28(buf1, buf2)              \
+    (BUFFER_EQUAL_8(buf1, buf2) &&               \
+     BUFFER_EQUAL_8((buf1 + 8), (buf2 + 8)) &&   \
+     BUFFER_EQUAL_8((buf1 + 16), (buf2 + 16)) && \
+     BUFFER_EQUAL_4((buf1 + 24), (buf2 + 24)))
+
 #define BUFFER_EQUAL_32(buf1, buf2)              \
     (BUFFER_EQUAL_8(buf1, buf2) &&               \
      BUFFER_EQUAL_8((buf1 + 8), (buf2 + 8)) &&   \

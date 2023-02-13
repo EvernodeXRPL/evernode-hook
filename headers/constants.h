@@ -19,6 +19,8 @@
 #define CANDIDATE_VOTE "evnCandidateVote"
 #define CANDIDATE_VETOED_RES "evnCandidateVetoedRes"
 #define CANDIDATE_EXPIRY_RES "evnCandidateExpiryRes"
+#define CHANGE_GOVERNANCE_MODE "evnModeChange"
+#define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -72,6 +74,7 @@ const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
+const uint32_t GOVERNANCE_INFO_VAL_SIZE = 41;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
@@ -101,6 +104,11 @@ const uint32_t CANDIDATE_LIFE_PERIOD_OFFSET = 4;
 const uint32_t CANDIDATE_ELECTION_PERIOD_OFFSET = 8;
 const uint32_t CANDIDATE_SUPPORT_AVERAGE_OFFSET = 12;
 const uint32_t CANDIDATE_REJECT_AVERAGE_OFFSET = 14;
+
+// GOVERNANCE_INFO
+const uint32_t GOVERNANCE_MODE_OFFSET = 0;
+const uint32_t ACCEPTED_PROPOSAL_HASH_OFFSET = 1;
+const uint32_t PROPOSAL_ACCEPTED_TIMESTAMP_OFFSET = 33;
 
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
