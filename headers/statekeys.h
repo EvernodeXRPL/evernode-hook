@@ -20,7 +20,7 @@ const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Epoch reward info <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>.
 const uint8_t STK_REWARD_INFO[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Governance info <governance_mode(1)><elected_proposal_hash(32)><proposal_elected_timestamp(8)>
+// Governance info <governance_mode(uint8_t)><elected_proposal_unique_id(uint32_t)><proposal_elected_timestamp(uint64_t)><<updated_hook_count(uint8_t)>
 const uint8_t STK_GOVERNANCE_INFO[32] = {'E', 'V', 'R', 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 /////////// Repetitive state keys. ///////////
 
