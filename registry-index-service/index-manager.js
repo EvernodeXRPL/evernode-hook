@@ -55,7 +55,6 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MINT_LIMIT },
         { operation: 'INSERT', key: HookStateKeys.FIXED_REG_FEE },
         { operation: 'INSERT', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
-        { operation: 'INSERT', key: HookStateKeys.PURCHASER_TARGET_PRICE },
         { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
         { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
