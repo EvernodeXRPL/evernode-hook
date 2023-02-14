@@ -595,7 +595,7 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
     // Get issuer and foundation cold wallet account ids.
     let memoData = Buffer.allocUnsafe(80);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
-    codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+    codec.decodeAccountID(config.foundation.address).copy(memoData, 20);
     codec.decodeAccountID(config.registry.address).copy(memoData, 40);
     codec.decodeAccountID(config.heartbeat.address).copy(memoData, 60);
 
