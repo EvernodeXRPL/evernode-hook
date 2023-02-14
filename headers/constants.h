@@ -8,15 +8,19 @@
 #define INITIALIZE "evnInitialize"
 #define HOST_POST_DEREG "evnHostPostDereg"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
-#define DEAD_HOST_PRUNE_REF "evnDeadHostPruneRef"
+#define DEAD_HOST_PRUNE_RES "evnDeadHostPruneRes"
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
-#define CANDIDATE_PROPOSE "evnPropose"
-#define CANDIDATE_PROPOSE_REF "evnProposeRef"
-#define CANDIDATE_PROPOSE_SUCCESS "evnProposeSuccess"
+#define CANDIDATE_PROPOSE "evnCandidatePropose"
+#define CANDIDATE_PROPOSE_REF "evnCandidateProposeRef"
+#define CANDIDATE_VOTE "evnCandidateVote"
+#define CANDIDATE_VETOED_RES "evnCandidateVetoedRes"
+#define CANDIDATE_EXPIRY_RES "evnCandidateExpiryRes"
+#define CHANGE_GOVERNANCE_MODE "evnModeChange"
+#define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -55,11 +59,6 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x38, 0x41, 0x21, 0xFF, 0x56, 0xFA, 0x8F, 0xEC,
                                0xC2, 0x15, 0xFD, 0xDE, 0x2E, 0xC3, 0x5D, 0x9E,
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
-const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                              // In Drops.
-
-// Transition related definitions. Transition state is added on the init transaction if this has >0 value
-const uint16_t NEW_MOMENT_SIZE = 3600;
-const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 112;
@@ -73,13 +72,15 @@ const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
+const uint32_t GOVERNANCE_INFO_VAL_SIZE = 41;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
+const uint32_t GOVERNANCE_CONFIGURATION_VAL_SIZE = 16;
 const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
-const uint32_t CANDIDATE_ID_VAL_SIZE = 78;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 86;
 
 // State value offsets
 // REWARD_INFO
@@ -94,6 +95,18 @@ const uint32_t EPOCH_COUNT_OFFSET = 0;
 const uint32_t FIRST_EPOCH_REWARD_QUOTA_OFFSET = 1;
 const uint32_t EPOCH_REWARD_AMOUNT_OFFSET = 5;
 const uint32_t REWARD_START_MOMENT_OFFSET = 9;
+
+// GOVERNANCE_CONFIGURATION
+const uint32_t ELIGIBILITY_PERIOD_OFFSET = 0;
+const uint32_t CANDIDATE_LIFE_PERIOD_OFFSET = 4;
+const uint32_t CANDIDATE_ELECTION_PERIOD_OFFSET = 8;
+const uint32_t CANDIDATE_SUPPORT_AVERAGE_OFFSET = 12;
+const uint32_t CANDIDATE_REJECT_AVERAGE_OFFSET = 14;
+
+// GOVERNANCE_INFO
+const uint32_t GOVERNANCE_MODE_OFFSET = 0;
+const uint32_t ACCEPTED_PROPOSAL_HASH_OFFSET = 1;
+const uint32_t PROPOSAL_ACCEPTED_TIMESTAMP_OFFSET = 33;
 
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
@@ -134,12 +147,13 @@ const uint32_t CANDIDATE_OWNER_ADDRESS_OFFSET = 0;
 const uint32_t CANDIDATE_SHORT_NAME_OFFSET = 20;
 const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
 const uint32_t CANDIDATE_PROPOSAL_FEE_OFFSET = 48;
-const uint32_t CANDIDATE_TWO_WEEKS_START_TIMESTAMP_OFFSET = 56;
-const uint32_t CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET = 64;
-const uint32_t CANDIDATE_NEGATIVE_VOTE_COUNT_OFFSET = 68;
-const uint32_t CANDIDATE_NEUTRAL_VOTE_COUNT_OFFSET = 72;
-const uint32_t CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET = 76;
-const uint32_t CANDIDATE_VOTE_STATUS_OFFSET = 77;
+const uint32_t CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET = 56;
+const uint32_t CANDIDATE_NEGATIVE_VOTE_COUNT_OFFSET = 60;
+const uint32_t CANDIDATE_NEUTRAL_VOTE_COUNT_OFFSET = 64;
+const uint32_t CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET = 68;
+const uint32_t CANDIDATE_STATUS_OFFSET = 76;
+const uint32_t CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET = 77;
+const uint32_t CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET = 85;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
@@ -156,5 +170,6 @@ const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
+
 
 #endif
