@@ -450,7 +450,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                                                         \
         int64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                                       \
                                                                                                                                                        \
-        uint8_t *last_active_idx_ptr = &host_addr[HOST_HEARTBEAT_LEDGER_IDX_OFFSET];                                                                   \
+        uint8_t *last_active_idx_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];                                                                   \
         int64_t last_active_idx = INT64_FROM_BUF(last_active_idx_ptr);                                                                                 \
         /* If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger. */                                            \
         if (last_active_idx == 0)                                                                                                                      \
