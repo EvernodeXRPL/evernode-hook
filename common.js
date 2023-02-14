@@ -1,4 +1,4 @@
-const xrpljs = require('xrpl-hooks');
+const xrpljs = require('xrpl');
 const rbc = require('xrpl-binary-codec');
 
 const appenv = {
@@ -7,7 +7,7 @@ const appenv = {
     hfsOVERRIDE: 1,
     hfsNSDELETE: 2,
     NAMESPACE: '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0',  // sha256('evernode.org|registry')
-    SERVER: 'wss://hooks-testnet-v2.xrpl-labs.com',
+    SERVER: 'wss://hooks-testnet-v3.xrpl-labs.com',
     CONFIG_PATH: process.env.CONFIG_PATH || 'hook.json',
     WASM_DIR_PATH: process.env.WASM_PATH || "build",
     PARAM_STATE_HOOK_KEY: '4556520100000000000000000000000000000000000000000000000000000001'
