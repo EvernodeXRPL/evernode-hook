@@ -257,7 +257,6 @@ uint8_t SET_HOOK_TRANSACTION[705] = {
         int64_t fee = etxn_fee_base(buf_out, tx_size);                                                                                                                                                                     \
         cur_ptr = buf_out + 25;                                                                                                                                                                                            \
         _06_08_ENCODE_DROPS_FEE(cur_ptr, fee); /** Skip the fee check since this tx is a sethook **/                                                                                                                       \
-        TRACEHEX(SET_HOOK_TRANSACTION);                                                                                                                                                                                    \
     }
 
 #define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace, unique_id, param_key, param_key_len, param_value, param_value_len, tx_size) \
