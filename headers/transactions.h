@@ -68,7 +68,7 @@ uint8_t HOOK_UPDATE_RES_PAYMENT[331] = {
 
 // IOU Payment with single memo (Reward).
 // Set Hook
-uint8_t SET_HOOK_TRANSACTION[641] = {
+uint8_t SET_HOOK_TRANSACTION[705] = {
     0x12, 0x00, 0x16,                                     // transaction_type(ttHOOK_SET)
     0x22, 0x00, 0x00, 0x00, 0x02,                         // flags (tfOnlyXRP)
     0x24, 0x00, 0x00, 0x00, 0x00,                         // sequence(0)
@@ -109,7 +109,10 @@ uint8_t SET_HOOK_TRANSACTION[641] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // hook objects - Added on prepare to offset 146
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // hook objects - Added on prepare to offset 146
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -117,6 +120,7 @@ uint8_t SET_HOOK_TRANSACTION[641] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit details(138)
+    // hook objects - Added on prepare to offset 146
 };
 
 #define ENCODE_HASH_SIZE 34
@@ -178,54 +182,85 @@ uint8_t SET_HOOK_TRANSACTION[641] = {
         ENCODE_FIELDS(buf_out, OBJECT, END); /*Object End*/           /* uint32  | size   1 */ \
     }
 
-#define ENCODE_HOOK_OBJECT(buf_out, hash, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, include_grant) \
-    {                                                                                                                         \
-        ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                                          \
-        _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);        /* uint32  | size   5 */                                          \
-        if (!IS_BUFFER_EMPTY_32(hash))                                                                                        \
-        {                                                                                                                     \
-            _05_31_ENCODE_HOOK_HASH(buf_out, hash);           /* uint256 | size  34 */                                        \
-            _05_32_ENCODE_HOOK_NAMESPACE(buf_out, namespace); /* uint256 | size  34 */                                        \
-            if (include_grant)                                                                                                \
-            {                                                                                                                 \
-                ENCODE_SUB_FIELDS(buf_out, ARRAY, HOOK_GRANTS); /*Array start*/ /* uint32  | size   2 */                      \
-                ENCODE_GRANT(buf_out, grant_hash1, grant_account1);                                                           \
-                ENCODE_GRANT(buf_out, grant_hash2, grant_account2);                                                           \
-                ENCODE_FIELDS(cur_ptr, ARRAY, END); /*Array end*/ /* uint32  | size   1 */                                    \
-            }                                                                                                                 \
-        }                                                                                                                     \
-        else                                                                                                                  \
-        {                                                                                                                     \
-            _07_11_ENCODE_DELETE_HOOK(buf_out); /* blob    | size   2 */                                                      \
-        }                                                                                                                     \
-        ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */                                             \
+#define ENCODE_BLOB(buf_out, data, data_len, type) \
+    {                                              \
+        buf_out[0] = 0x70;                         \
+        buf_out[1] = type;                         \
+        buf_out[2] = data_len;                     \
+        if (data_len == 32)                        \
+        {                                          \
+            COPY_32BYTES((buf_out + 3), data);     \
+        }                                          \
+        else if (data_len == 20)                   \
+        {                                          \
+            COPY_20BYTES((buf_out + 3), data);     \
+        }                                          \
+        buf_out += (3 + data_len);                 \
     }
 
-#define PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, grant_account1, grant_hash1, grant_account2, grant_hash2, include_grant, tx_size) \
-    {                                                                                                                                                                \
-        uint8_t *buf_out = SET_HOOK_TRANSACTION;                                                                                                                     \
-        UINT32_TO_BUF((buf_out + 15), cur_ledger_seq + 1);                                                                                                           \
-        UINT32_TO_BUF((buf_out + 21), cur_ledger_seq + 5);                                                                                                           \
-        COPY_20BYTES((buf_out + 71), hook_accid);                                                                                                                    \
-        COPY_10BYTES((buf_out + 95), SET_HOOK);                                                                                                                      \
-        COPY_32BYTES((buf_out + 107), unique_id);                                                                                                                    \
-        COPY_2BYTES((buf_out + 141), FORMAT_HEX);                                                                                                                    \
-        COPY_BYTE((buf_out + 141 + 2), (FORMAT_HEX + 2));                                                                                                            \
-        uint8_t *cur_ptr = buf_out + 146;                                                                                                                            \
-        ENCODE_FIELDS(cur_ptr, ARRAY, HOOKS);                                                                                                                        \
-        ENCODE_HOOK_OBJECT(cur_ptr, hash_arr, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, include_grant);                                   \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + HASH_SIZE), namespace, 0, 0, 0, 0, 0);                                                                               \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (2 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0);                                                                         \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (3 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0);                                                                         \
-        ENCODE_FIELDS(cur_ptr, ARRAY, END);                                                                                                                          \
-        tx_size = cur_ptr - buf_out + 138;                                                                                                                           \
-        etxn_details(cur_ptr, 138);                                                                                                                                  \
-        int64_t fee = etxn_fee_base(buf_out, tx_size);                                                                                                               \
-        cur_ptr = buf_out + 25;                                                                                                                                      \
-        _06_08_ENCODE_DROPS_FEE(cur_ptr, fee); /** Skip the fee check since this tx is a sethook **/                                                                 \
+#define ENCODE_PARAM(buf_out, key, key_len, value, value_len)                                  \
+    {                                                                                          \
+        ENCODE_SUB_FIELDS(buf_out, OBJECT, HOOK_PARAM); /*Obj start*/ /* uint32  | size   2 */ \
+        ENCODE_BLOB(buf_out, key, key_len, HOOK_PARAM_NAME);                                   \
+        ENCODE_BLOB(buf_out, value, value_len, HOOK_PARAM_VALUE);                              \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Object End*/ /* uint32  | size   1 */           \
     }
 
-#define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace, unique_id, tx_size) \
-    PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, 0, 0, 0, 0, 0, tx_size);
+#define ENCODE_HOOK_OBJECT(buf_out, hash, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, param_key, param_key_len, param_value, param_value_len, is_governor) \
+    {                                                                                                                                                                               \
+        ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                                                                                                \
+        _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);        /* uint32  | size   5 */                                                                                                \
+        if (!IS_BUFFER_EMPTY_32(hash))                                                                                                                                              \
+        {                                                                                                                                                                           \
+            _05_31_ENCODE_HOOK_HASH(buf_out, hash);           /* uint256 | size  34 */                                                                                              \
+            _05_32_ENCODE_HOOK_NAMESPACE(buf_out, namespace); /* uint256 | size  34 */                                                                                              \
+            if (is_governor)                                                                                                                                                        \
+            {                                                                                                                                                                       \
+                ENCODE_SUB_FIELDS(buf_out, ARRAY, HOOK_GRANTS); /*Array start*/ /* uint32  | size   2 */                                                                            \
+                ENCODE_GRANT(buf_out, grant_hash1, grant_account1);                                                                                                                 \
+                ENCODE_GRANT(buf_out, grant_hash2, grant_account2);                                                                                                                 \
+                ENCODE_FIELDS(buf_out, ARRAY, END); /*Array end*/ /* uint32  | size   1 */                                                                                          \
+            }                                                                                                                                                                       \
+            else                                                                                                                                                                    \
+            {                                                                                                                                                                       \
+                ENCODE_SUB_FIELDS(buf_out, ARRAY, HOOK_PARAMS); /*Array start*/ /* uint32  | size   2 */                                                                            \
+                ENCODE_PARAM(buf_out, param_key, param_key_len, param_value, param_value_len);                                                                                      \
+                ENCODE_FIELDS(buf_out, ARRAY, END); /*Array end*/ /* uint32  | size   1 */                                                                                          \
+            }                                                                                                                                                                       \
+        }                                                                                                                                                                           \
+        else                                                                                                                                                                        \
+        {                                                                                                                                                                           \
+            _07_11_ENCODE_DELETE_HOOK(buf_out); /* blob    | size   2 */                                                                                                            \
+        }                                                                                                                                                                           \
+        ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */                                                                                                   \
+    }
+
+#define PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, grant_account1, grant_hash1, grant_account2, grant_hash2, param_key, param_key_len, param_value, param_value_len, is_governor, tx_size) \
+    {                                                                                                                                                                                                                      \
+        uint8_t *buf_out = SET_HOOK_TRANSACTION;                                                                                                                                                                           \
+        UINT32_TO_BUF((buf_out + 15), cur_ledger_seq + 1);                                                                                                                                                                 \
+        UINT32_TO_BUF((buf_out + 21), cur_ledger_seq + 5);                                                                                                                                                                 \
+        COPY_20BYTES((buf_out + 71), hook_accid);                                                                                                                                                                          \
+        COPY_10BYTES((buf_out + 95), SET_HOOK);                                                                                                                                                                            \
+        COPY_32BYTES((buf_out + 107), unique_id);                                                                                                                                                                          \
+        COPY_2BYTES((buf_out + 141), FORMAT_HEX);                                                                                                                                                                          \
+        COPY_BYTE((buf_out + 141 + 2), (FORMAT_HEX + 2));                                                                                                                                                                  \
+        uint8_t *cur_ptr = buf_out + 146;                                                                                                                                                                                  \
+        ENCODE_FIELDS(cur_ptr, ARRAY, HOOKS);                                                                                                                                                                              \
+        ENCODE_HOOK_OBJECT(cur_ptr, hash_arr, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, param_key, param_key_len, param_value, param_value_len, is_governor);                                   \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + HASH_SIZE), namespace, 0, 0, 0, 0, 0, 0, 0, 0, 0);                                                                                                                         \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (2 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0, 0, 0, 0, 0);                                                                                                                   \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (3 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0, 0, 0, 0, 0);                                                                                                                   \
+        ENCODE_FIELDS(cur_ptr, ARRAY, END);                                                                                                                                                                                \
+        tx_size = cur_ptr - buf_out + 138;                                                                                                                                                                                 \
+        etxn_details(cur_ptr, 138);                                                                                                                                                                                        \
+        int64_t fee = etxn_fee_base(buf_out, tx_size);                                                                                                                                                                     \
+        cur_ptr = buf_out + 25;                                                                                                                                                                                            \
+        _06_08_ENCODE_DROPS_FEE(cur_ptr, fee); /** Skip the fee check since this tx is a sethook **/                                                                                                                       \
+        TRACEHEX(SET_HOOK_TRANSACTION);                                                                                                                                                                                    \
+    }
+
+#define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace, unique_id, param_key, param_key_len, param_value, param_value_len, tx_size) \
+    PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, 0, 0, 0, 0, param_key, param_key_len, param_value, param_value_len, 0, tx_size);
 
 #endif

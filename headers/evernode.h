@@ -13,6 +13,10 @@
 #define HOOK 0xE
 #define HOOK_GRANTS 0x14
 #define HOOK_GRANT 0x18
+#define HOOK_PARAMS 0x13
+#define HOOK_PARAM 0x17
+#define HOOK_PARAM_NAME 0x18
+#define HOOK_PARAM_VALUE 0x19
 #define END 1
 #define MEMO_TYPE 0xC
 #define MEMO_DATA 0xD
@@ -512,7 +516,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             CLEAR_32BYTES(&hash_arr[HASH_SIZE * 3]);                                                                                                            \
                                                                                                                                                                 \
             int tx_size;                                                                                                                                        \
-            PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, tx_size);                                                                            \
+            PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size);             \
             uint8_t emithash[HASH_SIZE];                                                                                                                        \
             if (emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) < 0)                                                                                        \
                 rollback(SBUF("Evernode: Emitting set hook failed"), 1);                                                                                        \
