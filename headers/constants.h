@@ -19,8 +19,10 @@
 #define CANDIDATE_VOTE "evnCandidateVote"
 #define CANDIDATE_VETOED_RES "evnCandidateVetoedRes"
 #define CANDIDATE_EXPIRY_RES "evnCandidateExpiryRes"
+#define CANDIDATE_ACCEPT_RES "evnCandidateAcceptRes"
 #define CHANGE_GOVERNANCE_MODE "evnModeChange"
 #define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
+#define INVOKE_GOVERNOR "evnInvokeGovernor"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -171,5 +173,36 @@ const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
 
+// BEGIN : Governance Game related constants.
+// Candidate statuses
+#define STATUS_ACTIVE 0
+#define STATUS_ACCEPTED 1
+#define STATUS_VETOED 2
+#define STATUS_EXPIRED 3
+
+// Candidate vote statuses
+const uint8_t CANDIDATE_ABSTAINED = 0;
+const uint8_t CANDIDATE_SUPPORTED = 1;
+const uint8_t CANDIDATE_REJECTED = 2;
+
+// Governance modes
+const uint8_t PILOTED = 1;
+const uint8_t CO_PILOTED = 2;
+const uint8_t AUTO_PILOTED = 3;
+
+// Memo Offsets
+// <unique_id(32)><short_name(20)><hook_keylets(34*3)>
+// PROPOSE
+const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_MEMO_OFFSET = 0;
+const uint32_t CANDIDATE_PROPOSE_SHORT_NAME_MEMO_OFFSET = 32;
+const uint32_t CANDIDATE_PROPOSE_KEYLETS_MEMO_OFFSET = 52;
+const uint32_t CANDIDATE_PROPOSE_MEMO_SIZE = 154;
+
+// <unique_id(32)><vote(1)>
+// VOTE
+const uint32_t CANDIDATE_VOTE_UNIQUE_ID_MEMO_OFFSET = 0;
+const uint32_t CANDIDATE_VOTE_VALUE_MEMO_OFFSET = 32;
+
+// END : Governance Game related constants.
 
 #endif

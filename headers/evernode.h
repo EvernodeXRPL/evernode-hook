@@ -454,4 +454,25 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)                                                                       \
             rollback(SBUF("Evernode: Could not set state for reward info."), 1);                                                                                                \
     }
+
+#define VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback) \
+    {                                                                                                                                  \
+        uint64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                      \
+                                                                                                                                       \
+        if ((cur_ledger_timestamp - registration_timestamp) < min_eligibility_period)                                                  \
+        {                                                                                                                              \
+            eligible_for_governance = 0;                                                                                               \
+            if (do_rollback == 1)                                                                                                      \
+                rollback(SBUF("Evernode: Host is not eligible for proposing due to immaturity."), 1);                                  \
+        }                                                                                                                              \
+                                                                                                                                       \
+        int is_prunable = 0;                                                                                                           \
+        IS_HOST_PRUNABLE(host_addr, is_prunable);                                                                                      \
+        if (is_prunable)                                                                                                               \
+        {                                                                                                                              \
+            eligible_for_governance = 0;                                                                                               \
+            if (do_rollback == 1)                                                                                                      \
+                rollback(SBUF("Evernode: Host is not eligible for proposing due to inactiveness."), 1);                                \
+        }                                                                                                                              \
+    }
 #endif
