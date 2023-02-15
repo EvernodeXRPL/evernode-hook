@@ -6,7 +6,7 @@
 /**************************************************************************/
 
 // Simple XRP Payment with single memo.
-uint8_t HOOK_UPDATE_RES_PAYMENT[328] = {
+uint8_t HOOK_UPDATE_RES_PAYMENT[331] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -51,7 +51,7 @@ uint8_t HOOK_UPDATE_RES_PAYMENT[328] = {
         uint8_t *buf_ptr = (buf_out + 35);                                                                      \
         _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                      \
         COPY_20BYTES((buf_out + 90), hook_accid);                                                               \
-        COPY_20BYTES((buf_out + 122), to_address);                                                              \
+        COPY_20BYTES((buf_out + 112), to_address);                                                              \
         COPY_16BYTES((buf_out + 136), HOOK_UPDATE_RES);                                                         \
         COPY_32BYTES((buf_out + 154), unique_id);                                                               \
         COPY_2BYTES((buf_out + 188), FORMAT_HEX);                                                               \
@@ -201,31 +201,31 @@ uint8_t SET_HOOK_TRANSACTION[641] = {
         ENCODE_FIELDS(buf_out, OBJECT, END); /*Arr End*/ /* uint32  | size   1 */                                             \
     }
 
-#define PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, grant_account1, grant_hash1, grant_account2, grant_hash2) \
-    {                                                                                                                                        \
-        uint8_t *buf_out = SET_HOOK_TRANSACTION;                                                                                             \
-        UINT32_TO_BUF((buf_out + 15), cur_ledger_seq + 1);                                                                                   \
-        UINT32_TO_BUF((buf_out + 21), cur_ledger_seq + 5);                                                                                   \
-        COPY_20BYTES((buf_out + 71), hook_accid);                                                                                            \
-        COPY_10BYTES((buf_out + 95), SET_HOOK);                                                                                              \
-        COPY_32BYTES((buf_out + 107), unique_id);                                                                                            \
-        COPY_2BYTES((buf_out + 141), FORMAT_HEX);                                                                                            \
-        COPY_BYTE((buf_out + 141 + 2), (FORMAT_HEX + 2));                                                                                    \
-        uint8_t *cur_ptr = buf_out + 146;                                                                                                    \
-        ENCODE_FIELDS(cur_ptr, ARRAY, HOOKS);                                                                                                \
-        ENCODE_HOOK_OBJECT(cur_ptr, hash_arr, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, 1);                       \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + HASH_SIZE), namespace, 0, 0, 0, 0, 0);                                                       \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (2 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0);                                                 \
-        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (3 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0);                                                 \
-        ENCODE_FIELDS(cur_ptr, ARRAY, END);                                                                                                  \
-        int tx_size = cur_ptr - buf_out + 138;                                                                                               \
-        etxn_details(cur_ptr, 138);                                                                                                          \
-        int64_t fee = etxn_fee_base(buf_out, tx_size);                                                                                       \
-        cur_ptr = buf_out + 25;                                                                                                              \
-        _06_08_ENCODE_DROPS_FEE(cur_ptr, fee); /** Skip the fee check since this tx is a sethook **/                                         \
+#define PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, grant_account1, grant_hash1, grant_account2, grant_hash2, include_grant, tx_size) \
+    {                                                                                                                                                                \
+        uint8_t *buf_out = SET_HOOK_TRANSACTION;                                                                                                                     \
+        UINT32_TO_BUF((buf_out + 15), cur_ledger_seq + 1);                                                                                                           \
+        UINT32_TO_BUF((buf_out + 21), cur_ledger_seq + 5);                                                                                                           \
+        COPY_20BYTES((buf_out + 71), hook_accid);                                                                                                                    \
+        COPY_10BYTES((buf_out + 95), SET_HOOK);                                                                                                                      \
+        COPY_32BYTES((buf_out + 107), unique_id);                                                                                                                    \
+        COPY_2BYTES((buf_out + 141), FORMAT_HEX);                                                                                                                    \
+        COPY_BYTE((buf_out + 141 + 2), (FORMAT_HEX + 2));                                                                                                            \
+        uint8_t *cur_ptr = buf_out + 146;                                                                                                                            \
+        ENCODE_FIELDS(cur_ptr, ARRAY, HOOKS);                                                                                                                        \
+        ENCODE_HOOK_OBJECT(cur_ptr, hash_arr, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, include_grant);                                   \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + HASH_SIZE), namespace, 0, 0, 0, 0, 0);                                                                               \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (2 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0);                                                                         \
+        ENCODE_HOOK_OBJECT(cur_ptr, (hash_arr + (3 * HASH_SIZE)), namespace, 0, 0, 0, 0, 0);                                                                         \
+        ENCODE_FIELDS(cur_ptr, ARRAY, END);                                                                                                                          \
+        tx_size = cur_ptr - buf_out + 138;                                                                                                                           \
+        etxn_details(cur_ptr, 138);                                                                                                                                  \
+        int64_t fee = etxn_fee_base(buf_out, tx_size);                                                                                                               \
+        cur_ptr = buf_out + 25;                                                                                                                                      \
+        _06_08_ENCODE_DROPS_FEE(cur_ptr, fee); /** Skip the fee check since this tx is a sethook **/                                                                 \
     }
 
-#define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace, unique_id) \
-    PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, 0, 0, 0, 0);
+#define PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, namespace, unique_id, tx_size) \
+    PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, namespace, unique_id, 0, 0, 0, 0, 0, tx_size);
 
 #endif

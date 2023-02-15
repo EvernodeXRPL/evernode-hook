@@ -39,6 +39,9 @@
 #define TIMESTAMP_MOMENT_TYPE 1
 #define PENDING_TRANSFER 1
 
+#define STRONG_HOOK 0
+#define AGAIN_HOOK 2
+
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
 #define ttHOOK_SET 22
@@ -52,6 +55,7 @@
 #define tfBuyToken 0x00000000
 #define tfOnlyXRP 0x00000002
 #define tfHookOveride 0x00000001
+#define ltHOOK 'H'
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
@@ -176,6 +180,5 @@ const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
-
 
 #endif
