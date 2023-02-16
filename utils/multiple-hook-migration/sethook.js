@@ -41,7 +41,7 @@ if (!fs.existsSync(CONFIG_PATH)) {
             "address": "rQrU4ae2saKA9toH8U2SYhrJFkwkNiwnvf",
             "secret": "ssd2Q4p2e4FhZ9ActsSTuiKrDFBdR"
         },
-        "server": "wss://hooks-testnet-v2.xrpl-labs.com"
+        "server": "wss://hooks-testnet-v3.xrpl-labs.com"
     }));
     console.log('Populate the configs and run again!');
     process.exit(0);

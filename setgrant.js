@@ -46,6 +46,7 @@ else {
             const hookTx = {
                 Account: account.classicAddress,
                 TransactionType: "SetHook",
+                NetworkID: appenv.NETWORK_ID,
                 Hooks: hookHashes.map(() => {
                     return {
                         Hook: {
