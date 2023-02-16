@@ -23,7 +23,7 @@ const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant,
 const INIT_MEMO_FORMAT = "hex";
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
-const NETWORK_ID = 21338;
+const NETWORK_ID = process.env.NETWORK_ID || 21338;
 const MODE = process.env.MODE || 'dev';
 const ACTION = process.env.ACTION || 'run';
 

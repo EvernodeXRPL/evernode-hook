@@ -22,7 +22,7 @@ const CONFIG_FILE = 'accounts.json';
 // Hooks V2 TEST NET URLs.
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v3.xrpl-labs.com/newcreds';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v3.xrpl-labs.com';
-const NETWORK_ID = 21338;
+const NETWORK_ID = process.env.NETWORK_ID || 21338;
 
 // END - Endpoints.
 
