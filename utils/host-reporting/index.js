@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const evernode = require("evernode-js-client");
+const { appenv } = require('../../common');
 
 const CONFIG_PATH = 'reporting.cfg';
 const DATA_DIR = 'data';
@@ -22,7 +23,7 @@ const app = async () => {
     evernode.Defaults.set({
         registryAddress: hookAddress,
         xrplApi: xrplApi,
-        NetworkID: 21338
+        NetworkID: appenv.NETWORK_ID
     })
 
     try {

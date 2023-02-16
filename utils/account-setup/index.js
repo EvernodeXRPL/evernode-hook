@@ -3,6 +3,7 @@ const process = require('process');
 const fs = require('fs');
 const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants, Defaults } = require('evernode-js-client');
+const { appenv } = require('../../common');
 
 const TOTAL_MINTED_EVRS = "72253440";
 const REWARD_EVRS = "51609600";
@@ -60,7 +61,7 @@ async function main() {
     const xrplApi = new XrplApi(RIPPLED_URL);
     Defaults.set({
         xrplApi: xrplApi,
-        networkID: 21338
+        networkID: appenv.NETWORK_ID
     })
     await xrplApi.connect();
     // END - Connect to XRPL API
