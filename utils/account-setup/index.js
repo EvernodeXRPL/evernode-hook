@@ -3,7 +3,6 @@ const process = require('process');
 const fs = require('fs');
 const path = require('path');
 const { XrplAccount, XrplApi, EvernodeConstants, Defaults } = require('evernode-js-client');
-const { appenv } = require('../../common');
 
 const TOTAL_MINTED_EVRS = "72253440";
 const REWARD_EVRS = "51609600";
@@ -23,6 +22,7 @@ const CONFIG_FILE = 'accounts.json';
 // Hooks V2 TEST NET URLs.
 const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v3.xrpl-labs.com/newcreds';
 const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v3.xrpl-labs.com';
+const NETWORK_ID = 21338;
 
 // END - Endpoints.
 
@@ -61,7 +61,7 @@ async function main() {
     const xrplApi = new XrplApi(RIPPLED_URL);
     Defaults.set({
         xrplApi: xrplApi,
-        networkID: appenv.NETWORK_ID
+        networkID: NETWORK_ID
     })
     await xrplApi.connect();
     // END - Connect to XRPL API
@@ -99,7 +99,7 @@ async function main() {
         }
 
         // END - Account Creation
-        
+
         // 5 second wait in order to sync the accounts
         await new Promise(r => setTimeout(r, 5000));
 

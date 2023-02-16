@@ -1,9 +1,9 @@
 const fs = require('fs');
 const evernode = require("evernode-js-client");
-const { appenv } = require('../../common');
 
 const CONFIG_PATH = 'accounts.json';
 const TOTAL_MINTED_EVRS = "72253440";
+const NETWORK_ID = 21338;
 
 const ALL = 0;
 const MIGRATE = 1;
@@ -33,7 +33,7 @@ async function main() {
     evernode.Defaults.set({
         registryAddress: registryAddress,
         xrplApi: xrplApi,
-        NetworkID: appenv.NETWORK_ID
+        NetworkID: NETWORK_ID
     })
 
     try {

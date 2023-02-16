@@ -16,7 +16,6 @@ const {
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
 const { FirestoreManager } = require('./lib/firestore-manager');
-const { appenv } = require('../common');
 
 const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
 const MIN_XRP = "1";
@@ -24,6 +23,7 @@ const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant,
 const INIT_MEMO_FORMAT = "hex";
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
+const NETWORK_ID = 21338;
 const MODE = process.env.MODE || 'dev';
 const ACTION = process.env.ACTION || 'run';
 
@@ -133,7 +133,7 @@ class IndexManager {
             governorAddress: governorAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi,
-            networkID: appenv.NETWORK_ID
+            networkID: NETWORK_ID
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});

@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const evernode = require("evernode-js-client");
-const { appenv } = require('../../common');
 
 const CONFIG_PATH = 'reporting.cfg';
 const DATA_DIR = 'data';
+const NETWORK_ID = 21338;
 
 if (!fs.existsSync(CONFIG_PATH)) {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify({
@@ -23,7 +23,7 @@ const app = async () => {
     evernode.Defaults.set({
         registryAddress: hookAddress,
         xrplApi: xrplApi,
-        NetworkID: appenv.NETWORK_ID
+        NetworkID: NETWORK_ID
     })
 
     try {
