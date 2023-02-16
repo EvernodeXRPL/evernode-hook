@@ -18,10 +18,11 @@ const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH));
 const hookAddress = cfg.hookAddress;
 
 const app = async () => {
-    const xrplApi = new evernode.XrplApi('wss://hooks-testnet-v2.xrpl-labs.com');
+    const xrplApi = new evernode.XrplApi('wss://hooks-testnet-v3.xrpl-labs.com');
     evernode.Defaults.set({
         registryAddress: hookAddress,
-        xrplApi: xrplApi
+        xrplApi: xrplApi,
+        NetworkID: 21338
     })
 
     try {

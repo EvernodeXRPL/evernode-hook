@@ -31,7 +31,8 @@ async function main() {
     const xrplApi = new evernode.XrplApi(cfg.server);
     evernode.Defaults.set({
         registryAddress: registryAddress,
-        xrplApi: xrplApi
+        xrplApi: xrplApi,
+        NetworkID: 21338
     })
 
     try {

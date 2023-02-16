@@ -2,7 +2,7 @@ const https = require('https');
 const process = require('process');
 const fs = require('fs');
 const path = require('path');
-const { XrplAccount, XrplApi, EvernodeConstants } = require('evernode-js-client');
+const { XrplAccount, XrplApi, EvernodeConstants, Defaults } = require('evernode-js-client');
 
 const TOTAL_MINTED_EVRS = "72253440";
 const REWARD_EVRS = "51609600";
@@ -20,8 +20,8 @@ const CONFIG_FILE = 'accounts.json';
 // const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://xls20-sandbox.rippletest.net:51233';
 
 // Hooks V2 TEST NET URLs.
-const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v2.xrpl-labs.com/newcreds';
-const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v2.xrpl-labs.com';
+const FAUCETS_URL = process.env.CONF_FAUCETS_URL || 'https://hooks-testnet-v3.xrpl-labs.com/newcreds';
+const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v3.xrpl-labs.com';
 
 // END - Endpoints.
 
@@ -58,6 +58,10 @@ async function main() {
 
     // BEGIN - Connect to XRPL API
     const xrplApi = new XrplApi(RIPPLED_URL);
+    Defaults.set({
+        xrplApi: xrplApi,
+        networkID: 21338
+    })
     await xrplApi.connect();
     // END - Connect to XRPL API
 
@@ -94,7 +98,7 @@ async function main() {
         }
 
         // END - Account Creation
-
+        
         // 5 second wait in order to sync the accounts
         await new Promise(r => setTimeout(r, 5000));
 
