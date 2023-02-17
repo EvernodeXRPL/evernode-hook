@@ -209,7 +209,7 @@ uint8_t SET_HOOK_TRANSACTION[705] = {
 #define ENCODE_HOOK_OBJECT(buf_out, hash, namespace, grant_hash1, grant_account1, grant_hash2, grant_account2, param_key, param_key_len, param_value, param_value_len, is_governor) \
     {                                                                                                                                                                               \
         ENCODE_FIELDS(buf_out, OBJECT, HOOK); /*Obj start*/ /* uint32  | size   1 */                                                                                                \
-        _02_02_ENCODE_FLAGS(buf_out, tfHookOveride);        /* uint32  | size   5 */                                                                                                \
+        _02_02_ENCODE_FLAGS(buf_out, tfHookOverride);       /* uint32  | size   5 */                                                                                                \
         if (!IS_BUFFER_EMPTY_32(hash))                                                                                                                                              \
         {                                                                                                                                                                           \
             _05_31_ENCODE_HOOK_HASH(buf_out, hash);           /* uint256 | size  34 */                                                                                              \
