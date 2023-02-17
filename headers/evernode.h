@@ -188,15 +188,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 // If it is used 3 times inside a macro use m = 1,2,3
 // We need to dump the iou amount into a buffer.
 // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
-#define SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, n, m)              \
-    {                                                                            \
-        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                        \
-        if (float_sto(amt_out, 48, currency, 20, issuer, 20, amount, -1) < 0)    \
-            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1); \
-        COPY_20BYTES((amt_out + 8), currency);                                   \
-        COPY_20BYTES((amt_out + 28), issuer);                                    \
-        if (amount == 0)                                                         \
-            amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/    \
+#define SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, n, m)                 \
+    {                                                                               \
+        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                           \
+        if (float_sto(amt_out, 49, currency, 20, issuer, 20, amount, sfAmount) < 0) \
+            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1);    \
+        COPY_20BYTES((amt_out + 9), currency);                                      \
+        COPY_20BYTES((amt_out + 29), issuer);                                       \
+        if (amount == 0)                                                            \
+            amt_out[1] = amt_out[1] & 0b10111111; /* Set the sign bit to 0.*/       \
     }
 
 #define SET_AMOUNT_OUT_GUARD(amt_out, token, issuer, amount, n) \
