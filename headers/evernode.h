@@ -206,6 +206,11 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8(buf, SET_HOOK) && \
      BUFFER_EQUAL_2((buf + 8), (SET_HOOK + 8)))
 
+#define EQUAL_CANDIDATE_VOTE(buf, len)      \
+    (sizeof(CANDIDATE_VOTE) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, CANDIDATE_VOTE) && \
+     BUFFER_EQUAL_8(buf + 8, CANDIDATE_VOTE + 8))
+
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
 // e.g. if it is in a loop that loops 10 times n = 10
@@ -479,27 +484,19 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             rollback(SBUF("Evernode: Could not set state for reward info."), 1);                                                                                                \
     }
 
-#define VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback) \
-    {                                                                                                                                  \
-        eligible_for_governance = 1;                                                                                                   \
-        uint64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                      \
-                                                                                                                                       \
-        if ((cur_ledger_timestamp - registration_timestamp) < min_eligibility_period)                                                  \
-        {                                                                                                                              \
-            eligible_for_governance = 0;                                                                                               \
-            if (do_rollback == 1)                                                                                                      \
-                rollback(SBUF("Evernode: Host is not eligible for proposing due to immaturity."), 1);                                  \
-        }                                                                                                                              \
-                                                                                                                                       \
-        int is_prunable = 0;                                                                                                           \
-        IS_HOST_PRUNABLE(host_addr, is_prunable);                                                                                      \
-        if (is_prunable)                                                                                                               \
-        {                                                                                                                              \
-            eligible_for_governance = 0;                                                                                               \
-            if (do_rollback == 1)                                                                                                      \
-                rollback(SBUF("Evernode: Host is not eligible for proposing due to inactiveness."), 1);                                \
-        }                                                                                                                              \
+#define VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period)    \
+    {                                                                                               \
+        uint64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);   \
+                                                                                                    \
+        if ((cur_ledger_timestamp - registration_timestamp) < min_eligibility_period)               \
+            rollback(SBUF("Evernode: Host is not eligible for proposing due to immaturity."), 1);   \
+                                                                                                    \
+        int is_prunable = 0;                                                                        \
+        IS_HOST_PRUNABLE(host_addr, is_prunable);                                                   \
+        if (is_prunable)                                                                            \
+            rollback(SBUF("Evernode: Host is not eligible for proposing due to inactiveness."), 1); \
     }
+
 #define HANDLE_HOOK_UPDATE(hash_offset)                                                                                                                         \
     {                                                                                                                                                           \
         /* We accept only the hook update transaction from governor account. */                                                                                 \
