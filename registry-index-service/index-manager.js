@@ -55,7 +55,6 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MINT_LIMIT },
         { operation: 'INSERT', key: HookStateKeys.FIXED_REG_FEE },
         { operation: 'INSERT', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
-        { operation: 'INSERT', key: HookStateKeys.PURCHASER_TARGET_PRICE },
         { operation: 'INSERT', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
         { operation: 'INSERT', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
         { operation: 'INSERT', key: HookStateKeys.REWARD_CONFIGURATION },
@@ -596,7 +595,7 @@ async function initRegistryConfigs(initializerInfo, config, accountConfigPath, r
     // Get issuer and foundation cold wallet account ids.
     let memoData = Buffer.allocUnsafe(80);
     codec.decodeAccountID(config.issuer.address).copy(memoData);
-    codec.decodeAccountID(config.foundationColdWallet.address).copy(memoData, 20);
+    codec.decodeAccountID(config.foundation.address).copy(memoData, 20);
     codec.decodeAccountID(config.registry.address).copy(memoData, 40);
     codec.decodeAccountID(config.heartbeat.address).copy(memoData, 60);
 

@@ -23,6 +23,8 @@
 #define CHANGE_GOVERNANCE_MODE "evnModeChange"
 #define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
 #define INVOKE_GOVERNOR "evnInvokeGovernor"
+#define HOOK_UPDATE_RES "evnHookUpdateRes"
+#define SET_HOOK "evnSetHook"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -32,9 +34,14 @@
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
 #define PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
+#define VETOED_MESSAGE "CANDIDATE_VETOED"
+#define EXPIRY_MESSAGE "CANDIDATE_EXPIRY"
 #define LEDGER_MOMENT_TYPE 0
 #define TIMESTAMP_MOMENT_TYPE 1
 #define PENDING_TRANSFER 1
+
+#define STRONG_HOOK 0
+#define AGAIN_HOOK 2
 
 #define ttCHECK_CASH 17
 #define ttTRUST_SET 20
@@ -49,11 +56,12 @@
 #define tfBuyToken 0x00000000
 #define tfOnlyXRP 0x00000002
 #define tfHookOveride 0x00000001
+#define ltHOOK 'H'
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 #define OP_NONE 0
-#define OP_SET_HOOK 10
+#define OP_HOOK_UPDATE 10
 
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
@@ -74,7 +82,7 @@ const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
-const uint32_t GOVERNANCE_INFO_VAL_SIZE = 41;
+const uint32_t GOVERNANCE_INFO_VAL_SIZE = 42;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
@@ -107,8 +115,9 @@ const uint32_t CANDIDATE_REJECT_AVERAGE_OFFSET = 14;
 
 // GOVERNANCE_INFO
 const uint32_t GOVERNANCE_MODE_OFFSET = 0;
-const uint32_t ACCEPTED_PROPOSAL_HASH_OFFSET = 1;
-const uint32_t PROPOSAL_ACCEPTED_TIMESTAMP_OFFSET = 33;
+const uint32_t ELECTED_PROPOSAL_UNIQUE_ID_OFFSET = 1;
+const uint32_t PROPOSAL_ELECTED_TIMESTAMP_OFFSET = 33;
+const uint32_t UPDATED_HOOK_COUNT_OFFSET = 41;
 
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
@@ -119,7 +128,7 @@ const uint32_t HOST_REG_LEDGER_OFFSET = 68;
 const uint32_t HOST_REG_FEE_OFFSET = 76;
 const uint32_t HOST_TOT_INS_COUNT_OFFSET = 84;
 const uint32_t HOST_ACT_INS_COUNT_OFFSET = 88;
-const uint32_t HOST_HEARTBEAT_LEDGER_IDX_OFFSET = 92;
+const uint32_t HOST_HEARTBEAT_TIMESTAMP_OFFSET = 92;
 const uint32_t HOST_VERSION_OFFSET = 100;
 const uint32_t HOST_REG_TIMESTAMP_OFFSET = 103;
 const uint32_t HOST_TRANSFER_FLAG_OFFSET = 111;
@@ -204,5 +213,7 @@ const uint32_t CANDIDATE_VOTE_UNIQUE_ID_MEMO_OFFSET = 0;
 const uint32_t CANDIDATE_VOTE_VALUE_MEMO_OFFSET = 32;
 
 // END : Governance Game related constants.
+// HOOK_PARAM_KEYS
+uint8_t PARAM_STATE_HOOK_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
 #endif
