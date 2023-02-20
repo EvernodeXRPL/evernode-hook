@@ -55,7 +55,7 @@
 #define tfSellToken 0x00000001
 #define tfBuyToken 0x00000000
 #define tfOnlyXRP 0x00000002
-#define tfHookOveride 0x00000001
+#define tfHookOverride 0x00000001
 #define ltHOOK 'H'
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
