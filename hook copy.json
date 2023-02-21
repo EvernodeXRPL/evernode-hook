@@ -1,0 +1,22 @@
+{
+    "issuer": {
+        "address": "r4DLtB5tHHjGaP2xbP368Un4E47rDCtBeF"
+    },
+    "foundation": {
+        "address": "rJDZnQVMZAVJEZupqRLmfaS9Ek9B5FAxtW",
+        "secret": "shdBAcaUrSRcWXcR2wAqf2k9EZpwM"
+    },
+    "governor": {
+        "address": "rKZEkH4foVi6zjPFUdmpoRGKUuCKF99fsA",
+        "secret": "sh1MukrfsmEfjCACeZa8Nk6kvdeMZ"
+    },
+    "registry": {
+        "address": "rPzt6tKCrmMvWupRVxc4gk9NaipfGSqDuz",
+        "secret": "ssCLqVc6e7EqegUjxF7rfnUk4hX83"
+    },
+    "heartbeat": {
+        "address": "rBaFNUrWTeLD8YREJR2YAa9RbwP8TFMToC",
+        "secret": "spoAENjNjPEHwmcrTVB9c6yWjqrAc"
+    },
+    "initialized": true
+}
