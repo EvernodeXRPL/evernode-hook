@@ -188,15 +188,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 // If it is used 3 times inside a macro use m = 1,2,3
 // We need to dump the iou amount into a buffer.
 // by supplying -1 as the fieldcode we tell float_sto not to prefix an actual STO header on the field.
-#define SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, n, m)              \
-    {                                                                            \
-        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                        \
-        if (float_sto(amt_out, 48, currency, 20, issuer, 20, amount, -1) < 0)    \
-            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1); \
-        COPY_20BYTES((amt_out + 8), currency);                                   \
-        COPY_20BYTES((amt_out + 28), issuer);                                    \
-        if (amount == 0)                                                         \
-            amt_out[0] = amt_out[0] & 0b10111111; /* Set the sign bit to 0.*/    \
+#define SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, n, m)                 \
+    {                                                                               \
+        uint8_t currency[20] = GET_TOKEN_CURRENCY(token);                           \
+        if (float_sto(amt_out, 49, currency, 20, issuer, 20, amount, sfAmount) < 0) \
+            rollback(SBUF("Evernode: Could not dump token amount into sto"), 1);    \
+        COPY_20BYTES((amt_out + 9), currency);                                      \
+        COPY_20BYTES((amt_out + 29), issuer);                                       \
+        if (amount == 0)                                                            \
+            amt_out[1] = amt_out[1] & 0b10111111; /* Set the sign bit to 0.*/       \
     }
 
 #define SET_AMOUNT_OUT_GUARD(amt_out, token, issuer, amount, n) \
@@ -308,37 +308,25 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
     }
 
-#define IS_REG_NFT_EXIST(account, nft_minter, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                   \
-    {                                                                                                                                        \
-        nft_exists = 0;                                                                                                                      \
-        COPY_20BYTES((nft_keylet + 2), account);                                                                                             \
-        int64_t nft_slot = slot_set(nft_keylet, 34, 0);                                                                                      \
-        if (nft_slot < 0)                                                                                                                    \
-            rollback(SBUF("Evernode: Could not set ledger nft keylet in slot"), 10);                                                         \
-                                                                                                                                             \
-        nft_slot = slot_subfield(nft_slot, sfNFTokens, 0);                                                                                   \
-        if (nft_slot < 0)                                                                                                                    \
-            rollback(SBUF("Evernode: Could not find sfNFTokens on ledger nft keylet"), 1);                                                   \
-                                                                                                                                             \
-        nft_slot = slot_subarray(nft_slot, nft_loc_idx, 0);                                                                                  \
-        if (nft_slot >= 0)                                                                                                                   \
-        {                                                                                                                                    \
-            uint8_t cur_id[NFT_TOKEN_ID_SIZE] = {0};                                                                                         \
-            int64_t cur_slot = slot_subfield(nft_slot, sfNFTokenID, 0);                                                                      \
-            if (cur_slot >= 0 && slot(SBUF(cur_id), cur_slot) == NFT_TOKEN_ID_SIZE)                                                          \
-            {                                                                                                                                \
-                COPY_20BYTES((nft_id + 4), nft_minter); /*Issuer of the NFT should be the registry contract.*/                               \
-                if (BUFFER_EQUAL_32(cur_id, nft_id))                                                                                         \
-                {                                                                                                                            \
-                    uint8_t uri_read_buf[258];                                                                                               \
-                    cur_slot = slot_subfield(nft_slot, sfURI, 0);                                                                            \
-                    int64_t uri_read_len = slot(SBUF(uri_read_buf), cur_slot);                                                               \
-                    int64_t nft_uri_len = (uri_read_len >= 195) ? 193 + ((uri_read_buf[0] - 193) * 256) + uri_read_buf[1] : uri_read_buf[0]; \
-                    /*NFT URI should start with 'evrhost'*/                                                                                  \
-                    nft_exists = (nft_uri_len == REG_NFT_URI_SIZE && EQUAL_EVR_HOST_PREFIX((uri_read_buf + (uri_read_len >= 195 ? 2 : 1)))); \
-                }                                                                                                                            \
-            }                                                                                                                                \
-        }                                                                                                                                    \
+#define IS_REG_NFT_EXIST(account, urit_id, urit_exists)                                                    \
+    {                                                                                                      \
+        urit_exists = 0;                                                                                   \
+        uint8_t keylet[34];                                                                                \
+        UINT16_TO_BUF(keylet, ltURI_TOKEN);                                                                \
+        COPY_32BYTES((keylet + 2), urit_id);                                                               \
+        TRACEHEX(keylet);                                                                                  \
+        \                                                                                                                      
+        int64_t token_slot = slot_set(keylet, 34, 0);                                                      \
+        if (token_slot < 0)                                                                                \
+            rollback(SBUF("Evernode: Could not set ledger uri token keylet in slot"), 10);                 \
+        \                                                                     
+        token_slot = slot_subfield(token_slot, sfOwner, 0);                                                \
+        \                             
+        if (token_slot < 0)                                                                                \                                                              
+            rollback(SBUF("Evernode: Could not find sfOwner for uri token"), 1);                           \
+        uint8_t owner[ACCOUNT_ID_SIZE] = {0};                                                              \
+        \  
+        urit_exists = slot(SBUF(owner), token_slot) == ACCOUNT_ID_SIZE && BUFFER_EQUAL_20(owner, account); \
     }
 
 #define POW_OF_TWO(exp, output)              \

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const process = require('process');
-const xrpljs = require('xrpl-hooks');
+const xrpljs = require('xrpl');
 const { submitTxn, getHookHashes, appenv } = require('./common');
 
 const CONFIG_PATH = appenv.CONFIG_PATH;
@@ -46,6 +46,7 @@ else {
             const hookTx = {
                 Account: account.classicAddress,
                 TransactionType: "SetHook",
+                NetworkID: 21338,
                 Hooks: hookHashes.map(() => {
                     return {
                         Hook: {
