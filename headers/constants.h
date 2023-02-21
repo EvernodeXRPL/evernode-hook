@@ -21,9 +21,9 @@
 #define CANDIDATE_EXPIRY_RES "evnCandidateExpiryRes"
 #define CANDIDATE_ACCEPT_RES "evnCandidateAcceptRes"
 #define CANDIDATE_WITHDRAW "evnCandidateWithdraw"
+#define CANDIDATE_STATUS_CHANGE "evnCandidateStatusChange"
 #define CHANGE_GOVERNANCE_MODE "evnModeChange"
 #define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
-#define INVOKE_GOVERNOR "evnInvokeGovernor"
 #define HOOK_UPDATE_RES "evnHookUpdateRes"
 #define SET_HOOK "evnSetHook"
 
