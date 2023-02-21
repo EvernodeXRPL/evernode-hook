@@ -18,6 +18,8 @@
 #define CANDIDATE_PROPOSE_REF "evnProposeRef"
 #define CANDIDATE_PROPOSE_SUCCESS "evnProposeSuccess"
 
+#define HOST_DE_REG_RES "evnHostDeregRes"
+
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
 #define FORMAT_TEXT "text/plain"
@@ -43,6 +45,8 @@
 #define tfBuyToken 0x00000000
 #define tfOnlyXRP 0x00000002
 #define tfHookOveride 0x00000001
+
+#define ltURI_TOKEN 'U'
 
 #define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 

@@ -22,7 +22,7 @@ const MIN_XRP = "1";
 const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
 const INIT_MEMO_FORMAT = "hex";
 
-const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v2.xrpl-labs.com";
+const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
 const MODE = process.env.MODE || 'dev';
 const ACTION = process.env.ACTION || 'run';
 
@@ -131,7 +131,8 @@ class IndexManager {
         Defaults.set({
             governorAddress: governorAddress,
             rippledServer: rippledServer,
-            xrplApi: this.#xrplApi
+            xrplApi: this.#xrplApi,
+            networkID: 21338
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
