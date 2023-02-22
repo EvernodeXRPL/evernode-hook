@@ -1,8 +1,9 @@
 # evernode-hook
 XRPL hook for Evernode.
 
-# Dev
+# Preparation
 - Use `sudo apt-get install gcc-multilib` to install 32 bit gcc header files which is needed to compile hook as a 32 bit binary.
+- Run `./dev-setup.sh` to install prerequisites.
 - Create hook account configuration file with following format and populate the accounts.
 ```
     {
@@ -22,7 +23,7 @@ XRPL hook for Evernode.
 ```
 
 ## Build
-- Run `make build` to build the hook binaries
+- Run `make build` to build the hook binaries.
 - Run `make upload` to upload hook to the account.
 - Run `make grant` grant the governance state access.
 - Run `make clean` to clear the build directories.
