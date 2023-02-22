@@ -1,4 +1,4 @@
-const xrpljs = require('xrpl');
+const xrpljs = require('xrpl-hooks');
 const rbc = require('xrpl-binary-codec');
 
 const appenv = {
@@ -10,7 +10,8 @@ const appenv = {
     SERVER: 'wss://hooks-testnet-v3.xrpl-labs.com',
     CONFIG_PATH: process.env.CONFIG_PATH || 'hook.json',
     WASM_DIR_PATH: process.env.WASM_PATH || "build",
-    PARAM_STATE_HOOK_KEY: '4556520100000000000000000000000000000000000000000000000000000001'
+    PARAM_STATE_HOOK_KEY: '4556520100000000000000000000000000000000000000000000000000000001',
+    NETWORK_ID: 21338
 }
 
 const api = new xrpljs.Client(appenv.SERVER);

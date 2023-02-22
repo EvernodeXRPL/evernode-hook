@@ -4,6 +4,9 @@
 #include "constants.h"
 #include "transactions.h"
 
+#define STRONG_HOOK 0
+#define AGAIN_HOOK 2
+
 /****** Field and Type codes ******/
 #define ARRAY 0xF0U
 #define OBJECT 0xE0U
