@@ -13,9 +13,7 @@
         "build": "rm -rf dist && npm run build:hook && npm run build:self && npm run build:governor && npm run build:registry && npm run build:heartbeat && cp ./evernode-governor-hook/build/* dist/hook-setup/ && cp ./evernode-registry-hook/build/* dist/hook2-setup/ && cp ./evernode-heartbeat-hook/build/* dist/hook3-setup/"
     },
     "dependencies": {
-        "xrpl": "^2.8.0-beta.0",
-        "xrpl-binary-codec": "^1.4.2",
-        "xrpl-hooks": "^2.2.1"
+        "xrpl-hooks": "2.2.1"
     },
     "devDependencies": {
         "eslint": "8.3.0"
