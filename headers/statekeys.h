@@ -70,19 +70,17 @@ const uint8_t CONF_HEARTBEAT_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 
 // Registry Hook address.
 const uint8_t CONF_REGISTRY_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13};
 // Governance configuration for proposing/voting <eligibility_period(uint32_t)><candidate_life_period(uint32_t)><candidate_election_period(uint32_t)>
-// <candidate_support_average(uint16_t)><candidate_reject_average(uint16_t)>.
+// <candidate_support_average(uint16_t)>.
 const uint8_t CONF_GOVERNANCE_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
 
 #define HOST_ADDR_KEY(host_addr) \
     COPY_20BYTES((STP_HOST_ADDR + 12), host_addr)
 
-#define TOKEN_ID_KEY(token_id)                             \
-    {                                                      \
-        COPY_8BYTES((STP_TOKEN_ID + 4), (token_id + 4));   \
-        COPY_8BYTES((STP_TOKEN_ID + 12), (token_id + 12)); \
-        COPY_8BYTES((STP_TOKEN_ID + 20), (token_id + 20)); \
-        COPY_4BYTES((STP_TOKEN_ID + 28), (token_id + 28)); \
-    }
+#define TOKEN_ID_KEY(token_id)                         \
+    COPY_8BYTES((STP_TOKEN_ID + 4), (token_id + 4));   \
+    COPY_8BYTES((STP_TOKEN_ID + 12), (token_id + 12)); \
+    COPY_8BYTES((STP_TOKEN_ID + 20), (token_id + 20)); \
+    COPY_4BYTES((STP_TOKEN_ID + 28), (token_id + 28));
 
 #define TRANSFEREE_ADDR_KEY(transferee_addr) \
     COPY_20BYTES((STP_TRANSFEREE_ADDR + 12), transferee_addr)

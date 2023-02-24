@@ -211,6 +211,22 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8(buf, CANDIDATE_VOTE) && \
      BUFFER_EQUAL_8(buf + 8, CANDIDATE_VOTE + 8))
 
+#define EQUAL_NEW_HOOK_CAND_PREFIX(buf)                   \
+    (BUFFER_EQUAL_8(buf, NEW_HOOK_CAND_PREFIX) &&         \
+     BUFFER_EQUAL_2(buf + 8, NEW_HOOK_CAND_PREFIX + 8) && \
+     BUFFER_EQUAL_1(buf + 10, NEW_HOOK_CAND_PREFIX + 10))
+
+#define EQUAL_PILOTED_MODE_CAND_PREFIX(buf)                     \
+    (BUFFER_EQUAL_8(buf, PILOTED_MODE_CAND_PREFIX) &&           \
+     BUFFER_EQUAL_4(buf + 8, PILOTED_MODE_CAND_PREFIX + 8) &&   \
+     BUFFER_EQUAL_2(buf + 12, PILOTED_MODE_CAND_PREFIX + 12) && \
+     BUFFER_EQUAL_1(buf + 14, PILOTED_MODE_CAND_PREFIX + 14))
+
+#define EQUAL_DUD_HOST_CAND_PREFIX(buf)                   \
+    (BUFFER_EQUAL_8(buf, DUD_HOST_CAND_PREFIX) &&         \
+     BUFFER_EQUAL_2(buf + 8, DUD_HOST_CAND_PREFIX + 8) && \
+     BUFFER_EQUAL_1(buf + 10, DUD_HOST_CAND_PREFIX + 10))
+
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
 // e.g. if it is in a loop that loops 10 times n = 10
@@ -335,6 +351,14 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);                     \
         uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                                 \
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
+    }
+
+#define SET_HOST_COUNT(host_count)                                                          \
+    {                                                                                       \
+        uint8_t host_count_buf[4] = {0};                                                    \
+        UINT32_TO_BUF(host_count_buf, host_count);                                          \
+        if (state_foreign_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) < 0) \
+            rollback(SBUF("Evernode: Could not set default state for host count."), 1);     \
     }
 
 #define IS_REG_NFT_EXIST(account, nft_minter, nft_id, nft_keylet, nft_loc_idx, nft_exists)                                                   \
@@ -506,63 +530,76 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                              \
     }
 
-#define HANDLE_HOOK_UPDATE(hash_offset)                                                                                                                                                                      \
-    {                                                                                                                                                                                                        \
-        /* We accept only the hook update transaction from governor account. */                                                                                                                              \
-        if (!BUFFER_EQUAL_20(state_hook_accid, account_field))                                                                                                                                               \
-            rollback(SBUF("Evernode: Only governor allowed to send hook update trigger."), 1);                                                                                                               \
-                                                                                                                                                                                                             \
-        /* <governance_mode(1)><last_candidate_idx(2)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(2)><elected_proposal_unique_id(32)><proposal_elected_timestamp(8)><updated_hook_count(1)> */ \
-        uint8_t governance_game_info[GOVERNANCE_INFO_VAL_SIZE];                                                                                                                                              \
-        if (state_foreign(SBUF(governance_game_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)                                                                                                           \
-            rollback(SBUF("Evernode: Could not get state governance_game info."), 1);                                                                                                                        \
-                                                                                                                                                                                                             \
-        if (!BUFFER_EQUAL_32(data_ptr, &governance_game_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]))                                                                                                            \
-            rollback(SBUF("Evernode: Candidate unique id is invalid."), 1);                                                                                                                                  \
-                                                                                                                                                                                                             \
-        CANDIDATE_ID_KEY(data_ptr);                                                                                                                                                                          \
-        /* <owner_address(20)><candidate_idx(2)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)><negative_vote_count(4)> */                                                   \
-        /* <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)> */                                                                                                     \
-        uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];                                                                                                                                                         \
-        if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)                                                                                                                      \
-            rollback(SBUF("Evernode: Error getting a candidate for the given id."), 1);                                                                                                                      \
-                                                                                                                                                                                                             \
-        /* As first 20 bytes of "candidate_id" represents owner address.*/                                                                                                                                   \
-        CANDIDATE_OWNER_KEY(candidate_id);                                                                                                                                                                   \
-        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)> */                                                                                                                                     \
-        uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];                                                                                                                                                   \
-        if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)                                                                                                                \
-            rollback(SBUF("Evernode: Could not get candidate owner state."), 1);                                                                                                                             \
-                                                                                                                                                                                                             \
-        etxn_reserve(1);                                                                                                                                                                                     \
-        if (reserved == STRONG_HOOK)                                                                                                                                                                         \
-        {                                                                                                                                                                                                    \
-            uint8_t hash_arr[HASH_SIZE * 4];                                                                                                                                                                 \
-            COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                                                                           \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE]);                                                                                                                                                             \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 2]);                                                                                                                                                         \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 3]);                                                                                                                                                         \
-                                                                                                                                                                                                             \
-            int tx_size;                                                                                                                                                                                     \
-            PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size);                                                     \
-            uint8_t emithash[HASH_SIZE];                                                                                                                                                                     \
-            if (emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) < 0)                                                                                                                                     \
-                rollback(SBUF("Evernode: Emitting set hook failed"), 1);                                                                                                                                     \
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                                                                   \
-                                                                                                                                                                                                             \
-            if (hook_again() != 1)                                                                                                                                                                           \
-                rollback(SBUF("Evernode: Hook again failed on update hook."), 1);                                                                                                                            \
-            accept(SBUF("Evernode: Successfully applied the hook update."), 0);                                                                                                                              \
-        }                                                                                                                                                                                                    \
-        else if (reserved == AGAIN_HOOK)                                                                                                                                                                     \
-        {                                                                                                                                                                                                    \
-            PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, data_ptr);                                                                                                                               \
-            uint8_t emithash[HASH_SIZE];                                                                                                                                                                     \
-            if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) < 0)                                                                                                                                     \
-                rollback(SBUF("Evernode: Emitting txn failed"), 1);                                                                                                                                          \
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                                                                   \
-            accept(SBUF("Evernode: Hook update results sent successfully."), 0);                                                                                                                             \
-        }                                                                                                                                                                                                    \
+#define HANDLE_HOOK_UPDATE(hash_offset)                                                                                                                  \
+    {                                                                                                                                                    \
+        /* We accept only the hook update transaction from governor account. */                                                                          \
+        if (!BUFFER_EQUAL_20(state_hook_accid, account_field))                                                                                           \
+            rollback(SBUF("Evernode: Only governor allowed to send hook update trigger."), 1);                                                           \
+                                                                                                                                                         \
+        /* <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)> */                                    \
+        /* <foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)><proposal_elected_timestamp(8)><updated_hook_count(1)> */             \
+        uint8_t governance_game_info[GOVERNANCE_INFO_VAL_SIZE];                                                                                          \
+        if (state_foreign(SBUF(governance_game_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)                                                       \
+            rollback(SBUF("Evernode: Could not get state governance_game info."), 1);                                                                    \
+                                                                                                                                                         \
+        if (!BUFFER_EQUAL_32(data_ptr, &governance_game_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]))                                                        \
+            rollback(SBUF("Evernode: Candidate unique id is invalid."), 1);                                                                              \
+                                                                                                                                                         \
+        CANDIDATE_ID_KEY(data_ptr);                                                                                                                      \
+        /* <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)> */                       \
+        /* <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)> */                                                 \
+        uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];                                                                                                     \
+        if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)                                                                  \
+            rollback(SBUF("Evernode: Error getting a candidate for the given id."), 1);                                                                  \
+                                                                                                                                                         \
+        /* As first 20 bytes of "candidate_id" represents owner address.*/                                                                               \
+        CANDIDATE_OWNER_KEY(candidate_id);                                                                                                               \
+        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)> */                                                                                 \
+        uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];                                                                                               \
+        if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)                                                            \
+            rollback(SBUF("Evernode: Could not get candidate owner state."), 1);                                                                         \
+                                                                                                                                                         \
+        etxn_reserve(1);                                                                                                                                 \
+        if (reserved == STRONG_HOOK)                                                                                                                     \
+        {                                                                                                                                                \
+            uint8_t hash_arr[HASH_SIZE * 4];                                                                                                             \
+            COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                       \
+            CLEAR_32BYTES(&hash_arr[HASH_SIZE]);                                                                                                         \
+            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 2]);                                                                                                     \
+            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 3]);                                                                                                     \
+                                                                                                                                                         \
+            int tx_size;                                                                                                                                 \
+            PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size); \
+            uint8_t emithash[HASH_SIZE];                                                                                                                 \
+            if (emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) < 0)                                                                                 \
+                rollback(SBUF("Evernode: Emitting set hook failed"), 1);                                                                                 \
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                               \
+                                                                                                                                                         \
+            if (hook_again() != 1)                                                                                                                       \
+                rollback(SBUF("Evernode: Hook again failed on update hook."), 1);                                                                        \
+            accept(SBUF("Evernode: Successfully applied the hook update."), 0);                                                                          \
+        }                                                                                                                                                \
+        else if (reserved == AGAIN_HOOK)                                                                                                                 \
+        {                                                                                                                                                \
+            PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, data_ptr);                                                                           \
+            uint8_t emithash[HASH_SIZE];                                                                                                                 \
+            if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) < 0)                                                                                 \
+                rollback(SBUF("Evernode: Emitting txn failed"), 1);                                                                                      \
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                               \
+            accept(SBUF("Evernode: Hook update results sent successfully."), 0);                                                                         \
+        }                                                                                                                                                \
+    }
+
+#define GET_CANDIDATE_TYPE(id, type)                 \
+    {                                                \
+        if (EQUAL_NEW_HOOK_CAND_PREFIX(id))          \
+            type = NEW_HOOK_CANDIDATE;               \
+        else if (EQUAL_PILOTED_MODE_CAND_PREFIX(id)) \
+            type = PILOTED_MODE_CANDIDATE;           \
+        else if (EQUAL_DUD_HOST_CAND_PREFIX(id))     \
+            type = DUD_HOST_CANDIDATE;               \
+        else                                         \
+            type = 0;                                \
     }
 
 #endif
