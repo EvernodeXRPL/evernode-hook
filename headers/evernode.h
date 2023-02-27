@@ -201,11 +201,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8((buf + 8), (HOST_REGISTRY_REF + 8)) && \
      BUFFER_EQUAL_2((buf + 16), (HOST_REGISTRY_REF + 16)))
 
-#define EQUAL_SET_HOOK(buf, len)      \
-    (sizeof(SET_HOOK) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, SET_HOOK) && \
-     BUFFER_EQUAL_2((buf + 8), (SET_HOOK + 8)))
-
 #define EQUAL_CANDIDATE_VOTE(buf, len)      \
     (sizeof(CANDIDATE_VOTE) == (len + 1) && \
      BUFFER_EQUAL_8(buf, CANDIDATE_VOTE) && \
@@ -590,16 +585,74 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                                                \
     }
 
-#define GET_CANDIDATE_TYPE(id, type)                 \
-    {                                                \
-        if (EQUAL_NEW_HOOK_CAND_PREFIX(id))          \
-            type = NEW_HOOK_CANDIDATE;               \
-        else if (EQUAL_PILOTED_MODE_CAND_PREFIX(id)) \
-            type = PILOTED_MODE_CANDIDATE;           \
-        else if (EQUAL_DUD_HOST_CAND_PREFIX(id))     \
-            type = DUD_HOST_CANDIDATE;               \
-        else                                         \
-            type = 0;                                \
+#define CANDIDATE_TYPE(id) \
+    (*(uint8_t *)(id + 4))
+
+#define HANDLE_HOST_PRUNE(reward_info, moment_size, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, is_defective)                                  \
+    {                                                                                                                                                                           \
+        uint8_t index_for_burnability = 0;                                                                                                                                      \
+        uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];                                                                                                               \
+        uint16_t flags = UINT16_FROM_BUF(token_id_ptr);                                                                                                                         \
+                                                                                                                                                                                \
+        uint8_t emithash[HASH_SIZE];                                                                                                                                            \
+        if ((flags & (1 << index_for_burnability)) != 0)                                                                                                                        \
+        {                                                                                                                                                                       \
+            /* Reserve for two transaction emissions. */                                                                                                                        \
+            etxn_reserve(2);                                                                                                                                                    \
+                                                                                                                                                                                \
+            /* Burn Registration NFT. */                                                                                                                                        \
+            PREPARE_NFT_BURN_TX(token_id_ptr, data_ptr);                                                                                                                        \
+                                                                                                                                                                                \
+            if (emit(SBUF(emithash), SBUF(NFT_BURN_TX)) < 0)                                                                                                                    \
+                rollback(SBUF("Evernode: Emitting NFT burn txn failed"), 1);                                                                                                    \
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                                      \
+        }                                                                                                                                                                       \
+        else                                                                                                                                                                    \
+        {                                                                                                                                                                       \
+            /* Reserve for a transaction emission. */                                                                                                                           \
+            etxn_reserve(1);                                                                                                                                                    \
+        }                                                                                                                                                                       \
+                                                                                                                                                                                \
+        /* Delete registration entries. */                                                                                                                                      \
+        if (state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)                                      \
+            rollback(SBUF("Evernode: Could not delete host registration entry."), 1);                                                                                           \
+                                                                                                                                                                                \
+        /* Reduce host count by 1. */                                                                                                                                           \
+        uint64_t host_count;                                                                                                                                                    \
+        GET_HOST_COUNT(host_count);                                                                                                                                             \
+        host_count -= 1;                                                                                                                                                        \
+        SET_HOST_COUNT(host_count);                                                                                                                                             \
+                                                                                                                                                                                \
+        const uint64_t reg_fee = UINT64_FROM_BUF(host_addr + HOST_REG_FEE_OFFSET);                                                                                              \
+        uint64_t fixed_reg_fee;                                                                                                                                                 \
+        GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");                                                                            \
+                                                                                                                                                                                \
+        uint64_t host_reg_fee;                                                                                                                                                  \
+        GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");                                                                          \
+                                                                                                                                                                                \
+        const int64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;                                                                                        \
+        const int64_t pending_rebate_amount = reg_fee - host_reg_fee;                                                                                                           \
+                                                                                                                                                                                \
+        if (host_reg_fee > fixed_reg_fee || pending_rebate_amount > 0)                                                                                                          \
+        {                                                                                                                                                                       \
+            /* Prepare transaction to send 50% of reg fee and pending rebates to host account. */                                                                               \
+            PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half + pending_rebate_amount), data_ptr, is_defective ? DFECTIVE_PRUNE_MESSAGE : INACTIVE_PRUNE_MESSAGE); \
+            if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_PAYMENT)) < 0)                                                                                                     \
+                rollback(SBUF("Evernode: Rebating 1/2 reg fee and pending rebates to host account failed."), 1);                                                                \
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                                      \
+                                                                                                                                                                                \
+            /* Add amount_half - 5 to the epoch's reward pool. */                                                                                                               \
+            if (amount_half > 0)                                                                                                                                                \
+                ADD_TO_REWARD_POOL(reward_info, moment_size, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, (amount_half - 5));                   \
+        }                                                                                                                                                                       \
+        else                                                                                                                                                                    \
+        {                                                                                                                                                                       \
+            /*  Prepare MIN XRP transaction to host about pruning.*/                                                                                                            \
+            PREPARE_PRUNED_HOST_REBATE_MIN_PAYMENT_TX(1, data_ptr, is_defective ? DFECTIVE_PRUNE_MESSAGE : INACTIVE_PRUNE_MESSAGE);                                             \
+            if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_MIN_PAYMENT)) < 0)                                                                                                 \
+                rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);                                                                                             \
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                                      \
+        }                                                                                                                                                                       \
     }
 
 #endif

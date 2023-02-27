@@ -265,6 +265,51 @@ class FirestoreManager extends FirestoreHandler {
 
         return await this.#deleteDocument(this.getCollectionId('hosts'), key);
     }
+
+    async setCandidate(candidate, isUpdate = false) {
+        if (!candidate.key)
+            throw { type: 'Validation Error', message: 'Candidate key is required.' };
+
+        // If document already exist, update that.
+        const documentId = candidate.key;
+        let res;
+        if (isUpdate) {
+            try {
+                res = await this.#updateDocument(this.getCollectionId('candidates'), candidate, documentId);
+            } catch (e) {
+                if (e?.data) {
+                    const resJson = JSON.parse(e.data);
+                    if (resJson.error.code === 404 && resJson.error.status === 'NOT_FOUND') {
+                        res = await this.#addDocument(this.getCollectionId('candidates'), candidate, documentId);
+                    } else
+                        throw e;
+                } else
+                    throw e;
+            }
+        }
+        else {
+            try {
+                res = await this.#addDocument(this.getCollectionId('candidates'), candidate, documentId);
+            } catch (e) {
+                if (e?.data) {
+                    const resJson = JSON.parse(e.data);
+                    if (resJson.error.code === 409 && resJson.error.status === 'ALREADY_EXISTS') {
+                        res = await this.#updateDocument(this.getCollectionId('candidates'), candidate, documentId);
+                    } else
+                        throw e;
+                } else
+                    throw e;
+            }
+        }
+        return res;
+    }
+
+    async deleteCandidate(key) {
+        if (!key)
+            throw { type: 'Validation Error', message: 'Candidate key is required.' };
+
+        return await this.#deleteDocument(this.getCollectionId('candidates'), key);
+    }
 }
 
 module.exports = {
