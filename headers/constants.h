@@ -22,7 +22,7 @@
 #define CANDIDATE_ACCEPT_RES "evnCandidateAcceptRes"
 #define CANDIDATE_WITHDRAW "evnCandidateWithdraw"
 #define CANDIDATE_STATUS_CHANGE "evnCandidateStatusChange"
-#define CHANGE_GOVERNANCE_MODE "evnModeChange"
+#define CHANGE_GOVERNANCE_MODE "evnGovernanceModeChange"
 #define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
 #define HOOK_UPDATE_RES "evnHookUpdateRes"
 #define SET_HOOK "evnSetHook"

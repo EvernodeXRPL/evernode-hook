@@ -818,7 +818,7 @@ async function main() {
     if (!accountConfig.initialized) {
         console.log('Sending registry contract initialization transation.');
         const res = await initRegistryConfigs(config.hookInitializer, accountConfig, accountConfigPath, RIPPLED_URL).catch(e => {
-            throw `Registry contract initialization transaction failed with ${e}.`;
+            throw { message: 'Registry contract initialization transaction failed with.', error: e.hookExecutionResult };
         });
         if (res)
             console.log('Registry contract initialization success.')
