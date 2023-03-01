@@ -323,30 +323,14 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             host_count = UINT32_FROM_BUF(host_count_buf);                                           \
     }
 
-#define GET_MOMENT(moment, idx)                                                                                      \
-    {                                                                                                                \
-        uint16_t moment_size;                                                                                        \
-        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                       \
-        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                                         \
-        if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0) \
-            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                                    \
-        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);                     \
-        uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);           \
-        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                                 \
-        moment = prev_transition_moment + relative_n;                                                                \
-    }
+#define GET_MOMENT(idx) \
+    (prev_transition_moment + ((idx - moment_base_idx) / moment_size))
 
-#define GET_MOMENT_END_INDEX(moment_end_idx, idx)                                                                    \
-    {                                                                                                                \
-        uint16_t moment_size;                                                                                        \
-        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                       \
-        uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE];                                                         \
-        if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0) \
-            rollback(SBUF("Evernode: Could not get moment base info state."), 1);                                    \
-        uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);                     \
-        uint64_t relative_n = (idx - moment_base_idx) / moment_size;                                                 \
-        moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
-    }
+#define GET_NEXT_MOMENT_START_INDEX(idx) \
+    (moment_base_idx + ((((idx - moment_base_idx) / moment_size) + 1) * moment_size))
+
+#define GET_MOMENT_START_INDEX(idx) \
+    (moment_base_idx + ((((idx - moment_base_idx) / moment_size)) * moment_size))
 
 #define SET_HOST_COUNT(host_count)                                                          \
     {                                                                                       \
@@ -404,59 +388,58 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         quota = first_epoch_reward_quota / div;                        \
     }
 
-#define PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, is_heartbeat, reward_pool_amount_ref, reward_amount_ref) \
-    {                                                                                                                                                                                             \
-        const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                                                                                          \
-        uint32_t reward_quota;                                                                                                                                                                    \
-        GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, reward_quota);                                                                                                                    \
-        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                             \
-        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                         \
-        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                                                \
-        reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                                                                        \
-        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                                         \
-        uint32_t cur_moment;                                                                                                                                                                      \
-        GET_MOMENT(cur_moment, cur_idx);                                                                                                                                                          \
-        /* If this is a new moment, update the host counts. */                                                                                                                                    \
-        if (saved_moment != cur_moment)                                                                                                                                                           \
-        {                                                                                                                                                                                         \
-            /* Remove previous moment data and move current moment data to previous moment. */                                                                                                    \
-            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                                                                         \
-            /* If the saved moment is not cur_moment - 1, We've missed some moments. Means there was no heartbeat received in previous moment. */                                                 \
-            prev_moment_active_host_count = ((saved_moment == cur_moment - 1) ? cur_moment_active_host_count : 0);                                                                                \
-            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                                                                     \
-            /* If the macro is called from heartbeat intialte cur moment active host count as 1. */                                                                                               \
-            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                                                                             \
-        }                                                                                                                                                                                         \
-        /* If the macro is called from heartbeat increase cur moment active host count by 1. */                                                                                                   \
-        else if (is_heartbeat)                                                                                                                                                                    \
-        {                                                                                                                                                                                         \
-            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (cur_moment_active_host_count + 1));                                                                                 \
-        }                                                                                                                                                                                         \
-        /* Reward pool amount is less than the reward quota for the moment, Increment the epoch. And add the remaining to the next epoch pool. */                                                 \
-        if (float_compare(reward_pool_amount_ref, float_set(0, reward_quota), COMPARE_LESS) == 1)                                                                                                 \
-        {                                                                                                                                                                                         \
-            /* If the current epoch is < epoch count increment otherwise skip. */                                                                                                                 \
-            if (epoch < epoch_count)                                                                                                                                                              \
-            {                                                                                                                                                                                     \
-                reward_pool_amount_ref = float_sum(float_set(0, epoch_reward_amount), reward_pool_amount_ref);                                                                                    \
-                INT64_TO_BUF(pool_ptr, reward_pool_amount_ref);                                                                                                                                   \
-                reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                                                                            \
-                /* When epoch incremented by 1, reward quota halves. */                                                                                                                           \
-                reward_quota = reward_quota / 2;                                                                                                                                                  \
-            }                                                                                                                                                                                     \
-            else                                                                                                                                                                                  \
-            {                                                                                                                                                                                     \
-                reward_quota = 0;                                                                                                                                                                 \
-            }                                                                                                                                                                                     \
-        }                                                                                                                                                                                         \
-        /* Calculate the reward quota for the current epoch. */                                                                                                                                   \
-        /* Use float division only if modulo is not zero to reduce floating point complications. */                                                                                               \
-        if (prev_moment_active_host_count == 0)                                                                                                                                                   \
-            reward_amount_ref = float_set(0, 0);                                                                                                                                                  \
-        else if (reward_quota % prev_moment_active_host_count == 0)                                                                                                                               \
-            reward_amount_ref = float_set(0, (reward_quota / prev_moment_active_host_count));                                                                                                     \
-        else                                                                                                                                                                                      \
-            reward_amount_ref = float_divide(float_set(0, reward_quota), float_set(0, prev_moment_active_host_count));                                                                            \
+#define PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, is_heartbeat, reward_pool_amount_ref, reward_amount_ref) \
+    {                                                                                                                                                                                \
+        const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                                                                             \
+        uint32_t reward_quota;                                                                                                                                                       \
+        GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, reward_quota);                                                                                                       \
+        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                \
+        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                            \
+        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                                   \
+        reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                                                           \
+        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                            \
+        const uint32_t cur_moment = GET_MOMENT(cur_idx);                                                                                                                             \
+        /* If this is a new moment, update the host counts. */                                                                                                                       \
+        if (saved_moment != cur_moment)                                                                                                                                              \
+        {                                                                                                                                                                            \
+            /* Remove previous moment data and move current moment data to previous moment. */                                                                                       \
+            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                                                            \
+            /* If the saved moment is not cur_moment - 1, We've missed some moments. Means there was no heartbeat received in previous moment. */                                    \
+            prev_moment_active_host_count = ((saved_moment == cur_moment - 1) ? cur_moment_active_host_count : 0);                                                                   \
+            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                                                        \
+            /* If the macro is called from heartbeat intialte cur moment active host count as 1. */                                                                                  \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                                                                \
+        }                                                                                                                                                                            \
+        /* If the macro is called from heartbeat increase cur moment active host count by 1. */                                                                                      \
+        else if (is_heartbeat)                                                                                                                                                       \
+        {                                                                                                                                                                            \
+            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (cur_moment_active_host_count + 1));                                                                    \
+        }                                                                                                                                                                            \
+        /* Reward pool amount is less than the reward quota for the moment, Increment the epoch. And add the remaining to the next epoch pool. */                                    \
+        if (float_compare(reward_pool_amount_ref, float_set(0, reward_quota), COMPARE_LESS) == 1)                                                                                    \
+        {                                                                                                                                                                            \
+            /* If the current epoch is < epoch count increment otherwise skip. */                                                                                                    \
+            if (epoch < epoch_count)                                                                                                                                                 \
+            {                                                                                                                                                                        \
+                reward_pool_amount_ref = float_sum(float_set(0, epoch_reward_amount), reward_pool_amount_ref);                                                                       \
+                INT64_TO_BUF(pool_ptr, reward_pool_amount_ref);                                                                                                                      \
+                reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                                                               \
+                /* When epoch incremented by 1, reward quota halves. */                                                                                                              \
+                reward_quota = reward_quota / 2;                                                                                                                                     \
+            }                                                                                                                                                                        \
+            else                                                                                                                                                                     \
+            {                                                                                                                                                                        \
+                reward_quota = 0;                                                                                                                                                    \
+            }                                                                                                                                                                        \
+        }                                                                                                                                                                            \
+        /* Calculate the reward quota for the current epoch. */                                                                                                                      \
+        /* Use float division only if modulo is not zero to reduce floating point complications. */                                                                                  \
+        if (prev_moment_active_host_count == 0)                                                                                                                                      \
+            reward_amount_ref = float_set(0, 0);                                                                                                                                     \
+        else if (reward_quota % prev_moment_active_host_count == 0)                                                                                                                  \
+            reward_amount_ref = float_set(0, (reward_quota / prev_moment_active_host_count));                                                                                        \
+        else                                                                                                                                                                         \
+            reward_amount_ref = float_divide(float_set(0, reward_quota), float_set(0, prev_moment_active_host_count));                                                               \
     }
 
 #define CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee)                                                                 \
@@ -474,8 +457,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define IS_HOST_PRUNABLE(host_addr, is_prunable)                                                                                                       \
     {                                                                                                                                                  \
         is_prunable = 0;                                                                                                                               \
-        uint16_t moment_size;                                                                                                                          \
-        GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");                                                         \
         int64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                                       \
                                                                                                                                                        \
         uint8_t *last_active_idx_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];                                                                    \
@@ -492,15 +473,15 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         is_prunable = heartbeat_delay < max_tolerable_downtime ? 0 : 1;                                                                                \
     }
 
-#define ADD_TO_REWARD_POOL(reward_info, moment_size, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount)                                       \
-    {                                                                                                                                                                           \
-        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                              \
-        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount))); /* Prepare reward info to update host counts and epoch. */                           \
-        int64_t reward_pool_amount, reward_amount;                                                                                                                              \
-        PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount); \
-                                                                                                                                                                                \
-        if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)                                                                       \
-            rollback(SBUF("Evernode: Could not set state for reward info."), 1);                                                                                                \
+#define ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount)                                       \
+    {                                                                                                                                                              \
+        const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                 \
+        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount))); /* Prepare reward info to update host counts and epoch. */              \
+        int64_t reward_pool_amount, reward_amount;                                                                                                                 \
+        PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 0, reward_pool_amount, reward_amount); \
+                                                                                                                                                                   \
+        if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)                                                          \
+            rollback(SBUF("Evernode: Could not set state for reward info."), 1);                                                                                   \
     }
 
 #define VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback) \
@@ -588,7 +569,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define CANDIDATE_TYPE(id) \
     (*(uint8_t *)(id + 4))
 
-#define HANDLE_HOST_PRUNE(reward_info, moment_size, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, is_defective)                                  \
+#define HANDLE_HOST_PRUNE(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, is_defective)                                               \
     {                                                                                                                                                                           \
         uint8_t index_for_burnability = 0;                                                                                                                                      \
         uint8_t *token_id_ptr = &host_addr[HOST_TOKEN_ID_OFFSET];                                                                                                               \
@@ -643,7 +624,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                                                                                                                                                                                 \
             /* Add amount_half - 5 to the epoch's reward pool. */                                                                                                               \
             if (amount_half > 0)                                                                                                                                                \
-                ADD_TO_REWARD_POOL(reward_info, moment_size, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, (amount_half - 5));                   \
+                ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, (amount_half - 5));                                \
         }                                                                                                                                                                       \
         else                                                                                                                                                                    \
         {                                                                                                                                                                       \
@@ -653,6 +634,90 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                 rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);                                                                                             \
             trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                                      \
         }                                                                                                                                                                       \
+    }
+
+#define PREPARE_VOTE_INFO(cur_moment, last_vote_moment, last_vote_timestamp, voter_base_count, governance_info, candidate_id, supported_count, status)              \
+    {                                                                                                                                                               \
+        const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);                                    \
+        const uint8_t governance_mode = governance_info[GOVERNANCE_MODE_OFFSET];                                                                                    \
+        const uint32_t life_period = UINT32_FROM_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);                                                      \
+        const uint32_t election_period = UINT32_FROM_BUF(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET]);                                              \
+        const uint64_t created_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);                                                      \
+        uint8_t cur_status = candidate_id[CANDIDATE_STATUS_OFFSET];                                                                                                 \
+        uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];                                                                     \
+        uint64_t status_changed_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);                                               \
+                                                                                                                                                                    \
+        status = STATUS_ACTIVE;                                                                                                                                     \
+        /* If this is piloted mode candidate we treat differently, we do not expire or reject event if there's already elected candidate. */                        \
+        /* If there is a recently closed election. This voted candidate will be vetoed. (If that candidate was created before the election completion timestamp) */ \
+        if ((candidate_type != PILOTED_MODE_CANDIDATE) &&                                                                                                           \
+            (last_election_completed_timestamp > created_timestamp) &&                                                                                              \
+            (last_election_completed_timestamp < (created_timestamp + life_period)))                                                                                \
+        {                                                                                                                                                           \
+            status = STATUS_VETOED;                                                                                                                                 \
+        }                                                                                                                                                           \
+        /* If the candidate is older than the life period destroy the candidate and rebate the half of staked EVRs. */                                              \
+        else if ((candidate_type != PILOTED_MODE_CANDIDATE) &&                                                                                                      \
+                 (cur_ledger_timestamp - created_timestamp > life_period))                                                                                          \
+        {                                                                                                                                                           \
+            status = STATUS_EXPIRED;                                                                                                                                \
+        }                                                                                                                                                           \
+        /* If this is a new moment, Evaluate the votes and vote statuses. Then reset the votes for the next moment. */                                              \
+        else if (cur_moment > last_vote_moment)                                                                                                                     \
+        {                                                                                                                                                           \
+            uint8_t new_status = CANDIDATE_REJECTED;                                                                                                                \
+            uint64_t election_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);                                                                             \
+            /* If the last vote is received before previous moment means the proposal is rejected in the next moment after last_vote_moment. */                     \
+            if (cur_moment - 1 > last_vote_moment)                                                                                                                  \
+            {                                                                                                                                                       \
+                supported_count = 0;                                                                                                                                \
+                foundation_vote_status = CANDIDATE_REJECTED;                                                                                                        \
+                election_timestamp = GET_NEXT_MOMENT_START_INDEX(last_vote_timestamp + (2 * moment_size));                                                          \
+            }                                                                                                                                                       \
+                                                                                                                                                                    \
+            /* Piloted: which means the Foundation vote determined the outcome of all Proposals */                                                                  \
+            /* Co-Piloted:  which means no Proposal can succeed unless the Foundation Supports it and it fails if the Foundation opposes it. */                     \
+            /* Auto-Piloted: which means the standard voting rules apply with the Foundation being treated equally with any other Participant. */                   \
+            if (governance_mode == PILOTED)                                                                                                                         \
+                new_status = foundation_vote_status;                                                                                                                \
+            else                                                                                                                                                    \
+            {                                                                                                                                                       \
+                const uint16_t support_average = UINT16_FROM_BUF(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);                                      \
+                                                                                                                                                                    \
+                /* If auto-piloted standard voting rules applies for foundation. */                                                                                 \
+                if (governance_mode == AUTO_PILOTED)                                                                                                                \
+                {                                                                                                                                                   \
+                    voter_base_count++;                                                                                                                             \
+                    if (foundation_vote_status == CANDIDATE_SUPPORTED)                                                                                              \
+                        supported_count++;                                                                                                                          \
+                }                                                                                                                                                   \
+                                                                                                                                                                    \
+                if (voter_base_count > 0 && ((supported_count * 100) / voter_base_count > support_average))                                                         \
+                    new_status = CANDIDATE_SUPPORTED;                                                                                                               \
+                                                                                                                                                                    \
+                /* In co-piloted mode if foundation is not supported, we do not consider other participants' status. */                                             \
+                if (governance_mode == CO_PILOTED && foundation_vote_status != CANDIDATE_SUPPORTED)                                                                 \
+                    new_status = foundation_vote_status;                                                                                                            \
+            }                                                                                                                                                       \
+                                                                                                                                                                    \
+            /* Update the vote status if changed. */                                                                                                                \
+            if (new_status != cur_status)                                                                                                                           \
+            {                                                                                                                                                       \
+                candidate_id[CANDIDATE_STATUS_OFFSET] = new_status;                                                                                                 \
+                cur_status = new_status;                                                                                                                            \
+                UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], election_timestamp);                                                         \
+                status_changed_timestamp = election_timestamp;                                                                                                      \
+            }                                                                                                                                                       \
+                                                                                                                                                                    \
+            /* Reset the foundation vote. */                                                                                                                        \
+            candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = (uint8_t)CANDIDATE_REJECTED;                                                                    \
+            /* Update the vote counts. */                                                                                                                           \
+            supported_count = 0;                                                                                                                                    \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        /* If the candidate is not vetoed and expired and it fulfils the time period to get elected or vetoed. */                                                   \
+        if (status == STATUS_ACTIVE && (cur_ledger_timestamp - status_changed_timestamp) > election_period)                                                         \
+            status = (cur_status == CANDIDATE_SUPPORTED) ? STATUS_ACCEPTED : STATUS_VETOED;                                                                         \
     }
 
 #endif
