@@ -311,25 +311,20 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         moment_end_idx = moment_base_idx + ((relative_n + 1) * moment_size);                                         \
     }
 
-#define IS_REG_NFT_EXIST(account, urit_id, urit_exists)                                                    \
-    {                                                                                                      \
-        urit_exists = 0;                                                                                   \
-        uint8_t keylet[34];                                                                                \
-        UINT16_TO_BUF(keylet, ltURI_TOKEN);                                                                \
-        COPY_32BYTES((keylet + 2), urit_id);                                                               \
-        TRACEHEX(keylet);                                                                                  \
-        \                                                                                                                      
-        int64_t token_slot = slot_set(keylet, 34, 0);                                                      \
-        if (token_slot < 0)                                                                                \
-            rollback(SBUF("Evernode: Could not set ledger uri token keylet in slot"), 10);                 \
-        \                                                                     
-        token_slot = slot_subfield(token_slot, sfOwner, 0);                                                \
-        \                             
-        if (token_slot < 0)                                                                                \                                                              
-            rollback(SBUF("Evernode: Could not find sfOwner for uri token"), 1);                           \
-        uint8_t owner[ACCOUNT_ID_SIZE] = {0};                                                              \
-        \  
-        urit_exists = slot(SBUF(owner), token_slot) == ACCOUNT_ID_SIZE && BUFFER_EQUAL_20(owner, account); \
+#define IS_REG_TOKEN_EXIST(account, token_id, token_exists)                                                 \
+    {                                                                                                       \
+        token_exists = 0;                                                                                   \
+        uint8_t keylet[34];                                                                                 \
+        UINT16_TO_BUF(keylet, ltURI_TOKEN);                                                                 \
+        COPY_32BYTES((keylet + 2), token_id);                                                               \
+        int64_t token_slot = slot_set(keylet, 34, 0);                                                       \
+        if (token_slot < 0)                                                                                 \
+            rollback(SBUF("Evernode: Could not set ledger uri token keylet in slot"), 10);                  \
+        token_slot = slot_subfield(token_slot, sfOwner, 0);                                                 \
+        if (token_slot < 0)                                                                                 \
+            rollback(SBUF("Evernode: Could not find sfOwner for uri token"), 1);                            \
+        uint8_t owner[ACCOUNT_ID_SIZE] = {0};                                                               \
+        token_exists = slot(SBUF(owner), token_slot) == ACCOUNT_ID_SIZE && BUFFER_EQUAL_20(owner, account); \
     }
 
 #define POW_OF_TWO(exp, output)              \
