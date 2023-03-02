@@ -27,6 +27,7 @@
 #define HOOK_UPDATE_RES "evnHookUpdateRes"
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
+#define DUD_HOST_REMOVE "evnDudHostRemove"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -44,8 +45,6 @@
 #define NEW_HOOK_CANDIDATE 1
 #define PILOTED_MODE_CANDIDATE 2
 #define DUD_HOST_CANDIDATE 3
-
-#define DUD_HOST_CANDID_ADDRESS_OFFSET 12
 
 #define STRONG_HOOK 0
 #define AGAIN_HOOK 2
@@ -193,6 +192,8 @@ const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
+
+const uint32_t DUD_HOST_CANDID_ADDRESS_OFFSET = 12;
 
 // BEGIN : Governance Game related constants.
 // Candidate statuses
