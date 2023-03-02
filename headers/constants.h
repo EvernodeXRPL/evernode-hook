@@ -204,6 +204,9 @@ const uint32_t DUD_HOST_CANDID_ADDRESS_OFFSET = 12;
 // Candidate vote statuses
 const uint8_t CANDIDATE_REJECTED = 0;
 const uint8_t CANDIDATE_SUPPORTED = 1;
+const uint8_t CANDIDATE_ACCEPTED = 2;
+const uint8_t CANDIDATE_VETOED = 3;
+const uint8_t CANDIDATE_EXPIRED = 4;
 
 // Governance modes
 const uint8_t PILOTED = 1;

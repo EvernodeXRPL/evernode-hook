@@ -34,6 +34,10 @@
 
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
+// Get candidate status from vote status.
+#define CANDIDATE_STATUS(vote_status) \
+    ((uint8_t)(vote_status + 1))
+
 // Checks for EVR currency issued by issuer account.
 #define IS_EVR(amount_buffer, issuer_accid)                \
     (BUFFER_EQUAL_20((amount_buffer + 8), evr_currency) && \
