@@ -23,6 +23,7 @@ const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant,
 const INIT_MEMO_FORMAT = "hex";
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
+const NETWORK_ID = process.env.NETWORK_ID || 21338;
 const MODE = process.env.MODE || 'dev';
 const ACTION = process.env.ACTION || 'run';
 
@@ -132,7 +133,7 @@ class IndexManager {
             governorAddress: governorAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi,
-            networkID: 21338
+            networkID: NETWORK_ID
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
@@ -657,9 +658,9 @@ async function main() {
         return;
     }
 
-    // Send the accountConfig init transaction to the registry account.
+    // Send the accountConfig init transaction to the governor account.
     if (!accountConfig.initialized) {
-        console.log('Sending registry contract initialization transation.');
+        console.log('Sending governor contract initialization transation.');
         const res = await initRegistryConfigs(config.hookInitializer, accountConfig, accountConfigPath, RIPPLED_URL).catch(e => {
             throw `Registry contract initialization transaction failed with ${e}.`;
         });

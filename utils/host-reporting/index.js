@@ -4,6 +4,7 @@ const evernode = require("evernode-js-client");
 
 const CONFIG_PATH = 'reporting.cfg';
 const DATA_DIR = 'data';
+const NETWORK_ID = 21338;
 
 if (!fs.existsSync(CONFIG_PATH)) {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify({
@@ -18,10 +19,11 @@ const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH));
 const hookAddress = cfg.hookAddress;
 
 const app = async () => {
-    const xrplApi = new evernode.XrplApi('wss://hooks-testnet-v2.xrpl-labs.com');
+    const xrplApi = new evernode.XrplApi('wss://hooks-testnet-v3.xrpl-labs.com');
     evernode.Defaults.set({
         registryAddress: hookAddress,
-        xrplApi: xrplApi
+        xrplApi: xrplApi,
+        NetworkID: NETWORK_ID
     })
 
     try {
