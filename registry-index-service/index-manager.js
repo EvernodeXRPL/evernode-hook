@@ -540,7 +540,7 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.CHANGE_GOVERNANCE_MODE.slice();
 
                     if (data.mode === EvernodeConstants.GovernanceModes.CoPiloted || data.mode === EvernodeConstants.GovernanceModes.AutoPiloted)
-                        affectedStates.push({ operation: 'INSERT', key: StateHelpers.getPilotedModeCandidateId() });
+                        affectedStates.push({ operation: 'INSERT', key: StateHelpers.generateCandidateIdStateKey(StateHelpers.getPilotedModeCandidateId()) });
 
                     break;
                 }
