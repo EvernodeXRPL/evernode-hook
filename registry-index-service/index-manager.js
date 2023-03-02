@@ -331,7 +331,7 @@ class IndexManager {
                         const previousHostRec = await this.#governorClient.getHosts({ futureOwnerAddress: trx.Account });
                         const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
                         affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey.toString('hex').toUpperCase() });
-                        transferredTokenId = previousHostRec[0]?.nfTokenId;
+                        transferredTokenId = previousHostRec[0]?.uriTokenId;
                     }
 
                     const firstPart = trx.hash.substring(0, 8);
