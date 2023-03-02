@@ -31,6 +31,12 @@ uint8_t STP_HOST_ADDR[32] = {'E', 'V', 'R', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 // Pending Transfers (Host transfer initiations for transferee address based lookup)
 uint8_t STP_TRANSFEREE_ADDR[32] = {'E', 'V', 'R', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+// Candidate owner keys. (Hook candidate proposal info for xrpl address-based lookup). Last 20 bytes will be replaced by owner address in runtime.
+uint8_t STP_CANDIDATE_OWNER[32] = {'E', 'V', 'R', 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// Hook Candidate Id keys. (Hook candidate proposal entries for candidate id based lookup).
+uint8_t STP_CANDIDATE_ID[32] = {'E', 'V', 'R', 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 /////////// Hook Configuration. ///////////
 // All configuration keys has the prefix STP_CONF = 1;
 
@@ -63,6 +69,8 @@ const uint8_t CONF_MAX_EMIT_TRX_FEE[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0
 const uint8_t CONF_HEARTBEAT_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13};
 // Registry Hook address.
 const uint8_t CONF_REGISTRY_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
+// Minimum eligilibility period of a host for proposing/voting.
+const uint8_t CONF_GOVERNANCE_ELIGIBILITY_PERIOD[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15};
 
 #define HOST_ADDR_KEY(host_addr) \
     COPY_20BYTES((STP_HOST_ADDR + 12), host_addr)
@@ -77,5 +85,14 @@ const uint8_t CONF_REGISTRY_HOOK_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0,
 
 #define TRANSFEREE_ADDR_KEY(transferee_addr) \
     COPY_20BYTES((STP_TRANSFEREE_ADDR + 12), transferee_addr)
+
+#define CANDIDATE_OWNER_KEY(owner_address) \
+    COPY_20BYTES((STP_CANDIDATE_OWNER + 12), owner_address)
+
+#define CANDIDATE_ID_KEY(candidate_id)                         \
+    COPY_8BYTES((STP_CANDIDATE_ID + 4), (candidate_id + 4));   \
+    COPY_8BYTES((STP_CANDIDATE_ID + 12), (candidate_id + 12)); \
+    COPY_8BYTES((STP_CANDIDATE_ID + 20), (candidate_id + 20)); \
+    COPY_4BYTES((STP_CANDIDATE_ID + 28), (candidate_id + 28));
 
 #endif

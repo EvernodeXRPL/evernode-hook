@@ -14,6 +14,11 @@
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
 #define HOST_REGISTRY_REF "evnHostRegistryRef"
+#define CANDIDATE_PROPOSE "evnPropose"
+#define CANDIDATE_PROPOSE_REF "evnProposeRef"
+#define CANDIDATE_PROPOSE_SUCCESS "evnProposeSuccess"
+
+#define HOST_DE_REG_RES "evnHostDeregRes"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -41,10 +46,9 @@
 #define tfOnlyXRP 0x00000002
 #define tfHookOveride 0x00000001
 
-#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
+#define ltURI_TOKEN 'U'
 
-#define STRONG_HOOK 0
-#define AGAIN_HOOK 2
+#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 #define OP_NONE 0
 #define OP_SET_HOOK 10
@@ -60,9 +64,6 @@ const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                              // In 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
 const uint16_t NEW_MOMENT_SIZE = 3600;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
-
-// Transfer process related definitions
-const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 
 // Constants
 const uint32_t HOST_ADDR_VAL_SIZE = 112;
@@ -81,6 +82,10 @@ const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
+const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 78;
+const uint32_t URI_TOKEN_ID_SIZE = 32;
+const uint32_t REG_URI_TOKEN_URI_SIZE = 23;
 
 // State value offsets
 // REWARD_INFO
@@ -125,6 +130,23 @@ const uint32_t TRANSFER_HOST_ADDRESS_OFFSET = 0;
 const uint32_t TRANSFER_HOST_LEDGER_OFFSET = 20;
 const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
 
+// CANDIDATE_OWNER
+const uint32_t CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET = 0;
+const uint32_t CANDIDATE_REGISTRY_HOOK_HASH_OFFSET = 32;
+const uint32_t CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET = 64;
+
+// CANDIDATE_ID
+const uint32_t CANDIDATE_OWNER_ADDRESS_OFFSET = 0;
+const uint32_t CANDIDATE_SHORT_NAME_OFFSET = 20;
+const uint32_t CANDIDATE_CREATED_TIMESTAMP_OFFSET = 40;
+const uint32_t CANDIDATE_PROPOSAL_FEE_OFFSET = 48;
+const uint32_t CANDIDATE_TWO_WEEKS_START_TIMESTAMP_OFFSET = 56;
+const uint32_t CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET = 64;
+const uint32_t CANDIDATE_NEGATIVE_VOTE_COUNT_OFFSET = 68;
+const uint32_t CANDIDATE_NEUTRAL_VOTE_COUNT_OFFSET = 72;
+const uint32_t CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET = 76;
+const uint32_t CANDIDATE_VOTE_STATUS_OFFSET = 77;
+
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;
 const uint32_t NFT_TAXON_M = 384160001;
@@ -140,35 +162,5 @@ const uint32_t TRANSIT_MOMENT_TYPE_OFFSET = 10;
 const uint32_t MOMENT_BASE_POINT_OFFSET = 0;
 const uint32_t MOMENT_AT_TRANSITION_OFFSET = 8;
 const uint32_t MOMENT_TYPE_OFFSET = 12;
-
-#define META_PARAMS "meta_params"
-const uint32_t META_PARAMS_SIZE = 98;
-const uint32_t CHAIN_IDX_PARAM_OFFSET = 0;
-const uint32_t OP_TYPE_PARAM_OFFSET = 1;
-const uint32_t CUR_LEDGER_SEQ_PARAM_OFFSET = 2;
-const uint32_t CUR_LEDGER_TIMESTAMP_PARAM_OFFSET = 10;
-const uint32_t HOOK_ACCID_PARAM_OFFSET = 18;
-const uint32_t ACCOUNT_FIELD_PARAM_OFFSET = 38;
-const uint32_t ISSUER_PARAM_OFFSET = 58;
-const uint32_t FOUNDATION_PARAM_OFFSET = 78;
-
-#define MEMO_PARAMS "memo_params"
-const uint32_t MEMO_PARAM_SIZE = 128;
-
-#define VERIFY_PARAMS "verify_params"
-const uint32_t VERIFY_PARAMS_SIZE = 36;
-
-#define CHAIN_ONE_PARAMS "chain_one_params"
-const uint32_t CHAIN_ONE_PARAMS_SIZE = 88;
-const uint32_t AMOUNT_BUF_PARAM_OFFSET = 0;
-const uint32_t FLOAT_AMT_PARAM_OFFSET = 48;
-const uint32_t TXID_PARAM_OFFSET = 56;
-
-#define CHAIN_TWO_PARAMS "chain_two_params"
-const uint32_t CHAIN_TWO_PARAMS_SIZE = 28;
-const uint32_t MOMENT_BASE_IDX_PARAM_OFFSET = 0;
-const uint32_t CUR_MOMENT_TYPE_PARAM_OFFSET = 8;
-const uint32_t CUR_IDX_PARAM_OFFSET = 9;
-const uint32_t MOMENT_TRANSITION_INFO_PARAM_OFFSET = 17;
 
 #endif
