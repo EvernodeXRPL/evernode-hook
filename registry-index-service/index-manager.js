@@ -11,7 +11,7 @@ const path = require('path');
 const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers,
-    GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys, MemoTypes,
+    GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
@@ -62,26 +62,87 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.MAX_TRX_EMISSION_FEE },
         { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
         { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_ADDR },
+        { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
         { operation: 'INSERT', key: HookStateKeys.MOMENT_BASE_INFO },
         { operation: 'INSERT', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'INSERT', key: HookStateKeys.MAX_REG },
-        { operation: 'INSERT', key: HookStateKeys.REWARD_INFO }
+        { operation: 'INSERT', key: HookStateKeys.REWARD_INFO },
+        { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_INFO }
     ],
-    HEARTBEAT: [
+    CANDIDATE_PROPOSE: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_OWNER
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    CANDIDATE_VOTE: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    CANDIDATE_WITHDRAW: [
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_OWNER
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    DUD_HOST_REMOVE: [
+        { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
 
-        // NOTE: Repetetative State keys
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
         // HookStateKeys.PREFIX_HOST_ADDR
+    ],
+    FALLBACK_PILOTED: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    CANDIDATE_ELECT: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    CHILD_HOOK_UPDATE: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    CHANGE_GOVERNANCE_MODE: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    DUD_HOST_REPORT: [
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
+    HEARTBEAT: [
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO },
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_CANDIDATE_ID
     ],
     HOST_REG: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
         { operation: 'UPDATE', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'UPDATE', key: HookStateKeys.MAX_REG }
 
-        // NOTE: Repetetative State keys
+        // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_HOST_TOKENID
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
@@ -90,8 +151,9 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
     ],
     HOST_UPDATE_REG: [
-        // NOTE: Repetetative State keys
+        // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_HOST_ADDR
+        // HookStateKeys.PREFIX_HOST_TOKENID
     ],
     HOST_POST_DEREG: [
         // NOTE: Repetetative State keys
@@ -100,15 +162,17 @@ const AFFECTED_HOOK_STATE_MAP = {
     DEAD_HOST_PRUNE: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
-        // NOTE: Repetetative State keys
+
+        // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_TRANSFER: [
-        // NOTE: Repetetative State keys
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_TRANSFEREE_ADDR
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_REBATE: [
-        // NOTE: Repetetative State keys
+        // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_HOST_ADDR
     ]
 }
@@ -165,8 +229,8 @@ class IndexManager {
                 console.log(`Waiting for hook initialize transaction (${this.#xrplAcc.address})...`);
                 await new Promise(async (resolve) => {
                     await this.#subscribeHooks();
-                    await this.#governorClient.on(GovernorEvents.RegistryInitialized, async (data) => {
-                        await this.#updateStatesKeyQueue(data);
+                    await this.#governorClient.on(GovernorEvents.Initialized, async (data) => {
+                        await this.#updateStatesKeyQueue({ event: GovernorEvents.Initialized, ...data });
                         await this.#governorClient.connect();
                         resolve();
                     });
@@ -182,15 +246,18 @@ class IndexManager {
             await this.#recover()
         }
 
-        this.#governorClient.on(GovernorEvents.RegistryInitialized, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRegistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRegUpdated, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#heartbeatClient.on(HeartbeatEvents.Heartbeat, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostPostDeregistered, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.DeadHostPrune, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostRebate, async (data) => { await this.#updateStatesKeyQueue(data) });
-        this.#registryClient.on(RegistryEvents.HostTransfer, async (data) => { await this.#updateStatesKeyQueue(data) });
+        for (const [key, event] of Object.entries(GovernorEvents)) {
+            console.log(`Start listening to ${key} event in Governor...`);
+            this.#governorClient.on(event, async (data) => { await this.#updateStatesKeyQueue({ event: event, ...data }) });
+        }
+        for (const [key, event] of Object.entries(RegistryEvents)) {
+            console.log(`Start listening to ${key} event in Registry...`);
+            this.#registryClient.on(event, async (data) => { await this.#updateStatesKeyQueue({ event: event, ...data }) });
+        }
+        for (const [key, event] of Object.entries(HeartbeatEvents)) {
+            console.log(`Start listening to ${key} event in Heartbeat...`);
+            this.#heartbeatClient.on(event, async (data) => { await this.#updateStatesKeyQueue({ event: event, ...data }) });
+        }
 
 
         console.log(`Listening to transactions (${this.#xrplAcc.address})...`);
@@ -262,8 +329,9 @@ class IndexManager {
         try {
             const hosts = await this.#governorClient.getAllHosts();
             const configs = await this.#governorClient.getAllConfigs();
+            const candidates = await this.#governorClient.getAllCandidates();
 
-            const itemsInIndex = configs.concat(hosts);
+            const itemsInIndex = configs.concat(hosts).concat(candidates);
             const stateKeyList = itemsInIndex.map(item => item.id);
 
             await this.#recoveryIndexUpdate(stateKeyList);
@@ -297,37 +365,64 @@ class IndexManager {
         }
     }
 
-    // To get the summary of the listened trasaction (offected states with the operation).
+    // To get the summary of the listened transaction (effected states with the operation).
     async #getTransactionSummary(data) {
         const trx = data.transaction;
+        const event = data.event;
         let affectedStates = [];
         let stateKeyHostAddrId = null;
         let stateKeyTokenId = null;
+        let stateKeyCandidateOwner = null;
+        let stateKeyCandidateId = null;
 
-        const hostTrxs = [MemoTypes.HOST_REG, MemoTypes.HOST_DEREG, MemoTypes.HOST_UPDATE_INFO, MemoTypes.HEARTBEAT, MemoTypes.HOST_POST_DEREG, MemoTypes.DEAD_HOST_PRUNE, MemoTypes.HOST_REBATE, MemoTypes.HOST_TRANSFER];
+        const hostEvents = [
+            RegistryEvents.HostRegistered,
+            RegistryEvents.HostDeregistered,
+            RegistryEvents.HostRegUpdated,
+            RegistryEvents.HostPostDeregistered,
+            RegistryEvents.DeadHostPrune,
+            RegistryEvents.HostRebate,
+            RegistryEvents.HostTransfer,
+            HeartbeatEvents.Heartbeat,
+            GovernorEvents.DudHostRemoved
+        ];
 
-        const memoType = trx.Memos[0].type;
-        console.log(`|${trx.Account}|${memoType}|Triggered a transaction.`);
+        const candidateEvents = [
+            GovernorEvents.CandidateProposed,
+            GovernorEvents.CandidateWithdrew,
+            GovernorEvents.ChildHookUpdated,
+            GovernorEvents.FoundationVoted,
+            GovernorEvents.DudHostReported,
+            GovernorEvents.DudHostRemoved,
+            GovernorEvents.FallbackToPiloted,
+            GovernorEvents.NewHookStatusChanged
+        ];
+
+        console.log(`|${trx.Account}|${event}|Triggered a transaction.`);
 
         try {
             // HOST_ADDR State Key
-            if (hostTrxs.includes(memoType))
-                stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey((memoType !== MemoTypes.DEAD_HOST_PRUNE) ? trx.Account : data.host);
+            if (hostEvents.includes(event))
+                stateKeyHostAddrId = StateHelpers.generateHostAddrStateKey((event === RegistryEvents.DeadHostPrune || event === GovernorEvents.DudHostRemoved) ? data.host : trx.Account);
 
-            switch (memoType) {
-                case MemoTypes.REGISTRY_INIT:
+            // CANDIDATE_ID State Key
+            if (candidateEvents.includes(event))
+                stateKeyCandidateId = StateHelpers.generateCandidateIdStateKey(data.candidateId);
+
+            switch (event) {
+                case GovernorEvents.Initialized:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.INIT.slice();
                     break;
-                case MemoTypes.HOST_REG: {
+                case RegistryEvents.HostRegistered: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG.slice();
-                    affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId.toString('hex').toUpperCase() });
+                    affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId });
 
                     let transferredNFTokenId = null;
 
                     if (trx.Amount.value == EvernodeConstants.NOW_IN_EVRS) {
                         const previousHostRec = await this.#governorClient.getHosts({ futureOwnerAddress: trx.Account });
                         const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
-                        affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey.toString('hex').toUpperCase() });
+                        affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey });
                         transferredNFTokenId = previousHostRec[0]?.nfTokenId;
                     }
 
@@ -352,7 +447,7 @@ class IndexManager {
                     }
 
                     if (!regNft) {
-                        console.log(`|${trx.Account}|${memoType}|No Reg. NFT was found within the timeout.`);
+                        console.log(`|${trx.Account}|${event}|No Reg. NFT was found within the timeout.`);
                         break;
                     }
 
@@ -360,10 +455,10 @@ class IndexManager {
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
                     break;
                 }
-                case MemoTypes.HOST_DEREG:
+                case RegistryEvents.HostDeregistered:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG.slice();
                     break;
-                case MemoTypes.HOST_UPDATE_INFO: {
+                case RegistryEvents.HostRegUpdated: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
 
@@ -373,44 +468,133 @@ class IndexManager {
 
                     break;
                 }
-                case MemoTypes.HEARTBEAT:
+                case HeartbeatEvents.Heartbeat:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+
+                    if (data.voteInfo)
+                        affectedStates.push({ operation: 'UPDATE', key: StateHelpers.generateCandidateIdStateKey(data.voteInfo.candidateId) });
+
                     break;
-                case MemoTypes.HOST_POST_DEREG: {
+                case RegistryEvents.HostPostDeregistered: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
-                case MemoTypes.DEAD_HOST_PRUNE: {
+                case RegistryEvents.DeadHostPrune: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
-                case MemoTypes.HOST_REBATE: {
+                case RegistryEvents.HostRebate: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REBATE.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                     break;
                 }
-                case MemoTypes.HOST_TRANSFER: {
+                case RegistryEvents.HostTransfer: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_TRANSFER.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
                     const transfereeAddressKey = StateHelpers.generateTransfereeAddrStateKey(data.transferee);
                     affectedStates.push({ operation: 'UPDATE', key: transfereeAddressKey });
                     break;
                 }
+                case GovernorEvents.CandidateProposed: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_PROPOSE.slice();
+                    affectedStates.push({ operation: 'INSERT', key: stateKeyCandidateId });
+                    stateKeyCandidateOwner = StateHelpers.generateCandidateOwnerStateKey(data.owner);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateOwner });
+                    break;
+                }
+                case GovernorEvents.FoundationVoted: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_VOTE.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.CandidateWithdrew: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_WITHDRAW.slice();
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.DudHostRemoved: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.DUD_HOST_REMOVE.slice();
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.FallbackToPiloted: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.FALLBACK_PILOTED.slice();
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.NewHookStatusChanged: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_ELECT.slice();
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.ChildHookUpdated: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CHILD_HOOK_UPDATE.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.GovernanceModeChanged: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CHANGE_GOVERNANCE_MODE.slice();
+
+                    if (data.mode === EvernodeConstants.GovernanceModes.CoPiloted || data.mode === EvernodeConstants.GovernanceModes.AutoPiloted)
+                        affectedStates.push({ operation: 'INSERT', key: StateHelpers.generateCandidateIdStateKey(StateHelpers.getPilotedModeCandidateId()) });
+
+                    break;
+                }
+                case GovernorEvents.DudHostReported: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.DUD_HOST_REPORT.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateId });
+                    break;
+                }
             }
 
-            if (memoType != MemoTypes.REGISTRY_INIT)
+            if (event != GovernorEvents.Initialized)
                 affectedStates.push(...AFFECTED_HOOK_STATE_MAP.COMMON);
 
-            console.log(`|${trx.Account}|${memoType}|Completed fetching transaction data`);
+            console.log(`|${trx.Account}|${event}|Completed fetching transaction data`);
         }
         catch (e) {
             console.error(e);
         }
 
         return affectedStates
+    }
+
+    #prepareHostObject(decodedObj) {
+        // If this is a token id update we replace the key with address key,
+        // So the existing host address state will get updated.
+        if (decodedObj.type == StateHelpers.StateTypes.TOKEN_ID) {
+            decodedObj.key = decodedObj.addressKey;
+            delete decodedObj.addressKey;
+        }
+
+        // If this is a transferee addr state update we add additional data to the host info.
+        // So the existing host address state will get updated.
+        if (decodedObj.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+            decodedObj.key = decodedObj.prevHostAddressKey;
+            delete decodedObj.prevHostAddress;
+            delete decodedObj.prevHostAddressKey;
+            delete decodedObj.transferredNfTokenId;
+        }
+
+        delete decodedObj.type;
+
+        return decodedObj;
+    }
+
+    #prepareCandidateObject(decodedObj) {
+        // If this is a candidate owner update we replace the key with candidate id key,
+        if (decodedObj.type == StateHelpers.StateTypes.CANDIDATE_OWNER) {
+            decodedObj.key = decodedObj.idKey;
+            delete decodedObj.idKey;
+        }
+
+        delete decodedObj.type;
+
+        return decodedObj;
     }
 
     // To update the Firestore index with a set of pending states in the queue.
@@ -436,54 +620,30 @@ class IndexManager {
             const decoded = StateHelpers.decodeStateData(Buffer.from(ps.key, 'hex'), Buffer.from(ps.data, 'hex'));
             if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
                 await this.#firestoreManager.setConfig(decoded);
-            else {
-                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
-                    decoded.key = decoded.addressKey;
-                    delete decoded.addressKey;
-                }
-
-                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
-                    decoded.key = decoded.prevHostAddressKey;
-                    delete decoded.prevHostAddress;
-                    delete decoded.prevHostAddressKey;
-                    delete decoded.transferredNfTokenId;
-                }
-                delete decoded.type;
-                await this.#firestoreManager.setHost(decoded);
-            }
+            else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_OWNER || decoded.type == StateHelpers.StateTypes.CANDIDATE_ID)
+                await this.#firestoreManager.setCandidate(this.#prepareCandidateObject(decoded));
+            else
+                await this.#firestoreManager.setHost(this.#prepareHostObject(decoded));
         }));
 
         await Promise.all(updates.map(async ps => {
             const decoded = StateHelpers.decodeStateData(Buffer.from(ps.key, 'hex'), Buffer.from(ps.data, 'hex'));
             if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
                 await this.#firestoreManager.setConfig(decoded, true);
-            else {
-                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
-                    decoded.key = decoded.addressKey;
-                    delete decoded.addressKey;
-                }
-
-                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
-                    decoded.key = decoded.prevHostAddressKey;
-                    delete decoded.prevHostAddress;
-                    delete decoded.prevHostAddressKey;
-                    delete decoded.transferredNfTokenId;
-                }
-                delete decoded.type;
-                await this.#firestoreManager.setHost(decoded, true);
-            }
-
+            else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_OWNER || decoded.type == StateHelpers.StateTypes.CANDIDATE_ID)
+                await this.#firestoreManager.setCandidate(this.#prepareCandidateObject(decoded), true);
+            else
+                await this.#firestoreManager.setHost(this.#prepareHostObject(decoded), true);
         }));
 
         await Promise.all(deletes.map(async ps => {
             const decoded = StateHelpers.decodeStateKey(Buffer.from(ps.key, 'hex'));
             if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
                 await this.#firestoreManager.deleteConfig(ps.key);
-            else {
-                if (decoded.type == StateHelpers.StateTypes.HOST_ADDR) {
-                    await this.#firestoreManager.deleteHost(decoded.key);
-                }
-            }
+            else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_ID)
+                await this.#firestoreManager.deleteCandidate(decoded.key);
+            else if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
+                await this.#firestoreManager.deleteHost(decoded.key);
         }));
     }
 
@@ -502,11 +662,13 @@ class IndexManager {
         let indexUpdates = {
             set: {
                 hosts: {},
-                configs: {}
+                configs: {},
+                candidates: {}
             },
             delete: {
                 hosts: {},
-                configs: {}
+                configs: {},
+                candidates: {}
             }
         };
 
@@ -515,26 +677,17 @@ class IndexManager {
             // If the object already exists we override it.
             // We combine host address and token objects.
             if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID || decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
-                // If this is a token id update we replace the key with address key,
-                // So the existing host address state will get updated.
-                if (decoded.type == StateHelpers.StateTypes.TOKEN_ID) {
-                    decoded.key = decoded.addressKey;
-                    delete decoded.addressKey;
+                const prepared = this.#prepareHostObject(decoded);
+                indexUpdates.set.hosts[prepared.key] = {
+                    ...(indexUpdates.set.hosts[prepared.key] ? indexUpdates.set.hosts[prepared.key] : {}),
+                    ...prepared
                 }
-
-                // If this is a transferee addr state update we add additional data to the host info.
-                // So the existing host address state will get updated.
-                if (decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
-                    decoded.key = decoded.prevHostAddressKey;
-                    delete decoded.prevHostAddress;
-                    delete decoded.prevHostAddressKey;
-                    delete decoded.transferredNfTokenId;
-                }
-
-                delete decoded.type;
-                indexUpdates.set.hosts[decoded.key] = {
-                    ...(indexUpdates.set.hosts[decoded.key] ? indexUpdates.set.hosts[decoded.key] : {}),
-                    ...decoded
+            }
+            else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_OWNER || decoded.type == StateHelpers.StateTypes.CANDIDATE_ID) {
+                const prepared = this.#prepareCandidateObject(decoded);
+                indexUpdates.set.candidates[prepared.key] = {
+                    ...(indexUpdates.set.candidates[prepared.key] ? indexUpdates.set.candidates[prepared.key] : {}),
+                    ...prepared
                 }
             }
             else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
@@ -546,7 +699,8 @@ class IndexManager {
 
             if (decoded.type == StateHelpers.StateTypes.HOST_ADDR)
                 indexUpdates.delete.hosts[decoded.key] = true;
-
+            else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_ID)
+                indexUpdates.delete.candidates[decoded.key] = true;
             else if (decoded.type == StateHelpers.StateTypes.SIGLETON || decoded.type == StateHelpers.StateTypes.CONFIGURATION)
                 indexUpdates.delete.configs[decoded.key] = true;
 
@@ -561,11 +715,17 @@ class IndexManager {
                 ...Object.values(indexUpdates.set.hosts).map(async obj => {
                     await this.#firestoreManager.setHost(obj);
                 }),
+                ...Object.values(indexUpdates.set.candidates).map(async obj => {
+                    await this.#firestoreManager.setCandidate(obj);
+                }),
                 ...Object.values(indexUpdates.set.configs).map(async obj => {
                     await this.#firestoreManager.setConfig(obj);
                 }),
                 ...Object.keys(indexUpdates.delete.hosts).map(async key => {
                     await this.#firestoreManager.deleteHost(key);
+                }),
+                ...Object.keys(indexUpdates.delete.candidates).map(async key => {
+                    await this.#firestoreManager.deleteCandidate(key);
                 }),
                 ...Object.keys(indexUpdates.delete.configs).map(async key => {
                     await this.#firestoreManager.deleteConfig(key);
@@ -578,7 +738,6 @@ class IndexManager {
             const keyBuf = Buffer.from(state.key, 'hex');
             const valueBuf = Buffer.from(state.data, 'hex');
             updateIndexSet(keyBuf, valueBuf);
-
         });
 
         // Prepare for delete.
@@ -659,7 +818,7 @@ async function main() {
     if (!accountConfig.initialized) {
         console.log('Sending registry contract initialization transation.');
         const res = await initRegistryConfigs(config.hookInitializer, accountConfig, accountConfigPath, RIPPLED_URL).catch(e => {
-            throw `Registry contract initialization transaction failed with ${e}.`;
+            throw { message: 'Registry contract initialization transaction failed with.', error: e.hookExecutionResult };
         });
         if (res)
             console.log('Registry contract initialization success.')
