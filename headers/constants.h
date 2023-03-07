@@ -3,6 +3,7 @@
 
 #define HOST_REG "evnHostReg"
 #define HOST_DE_REG "evnHostDereg"
+#define HOST_DE_REG_RES "evnHostDeregRes"
 #define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
@@ -67,6 +68,8 @@
 
 #define OP_NONE 0
 #define OP_HOOK_UPDATE 10
+
+#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
 
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
