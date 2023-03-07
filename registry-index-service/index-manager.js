@@ -10,7 +10,7 @@ const process = require('process');
 const path = require('path');
 const codec = require('ripple-address-codec');
 const {
-    XrplApi, XrplAccount, StateHelpers,
+    XrplApi, XrplAccount, StateHelpers, TransactionHelper,
     GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys,
     Defaults, EvernodeConstants
 } = require('evernode-js-client');
@@ -22,7 +22,8 @@ const MIN_XRP = "1";
 const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
 const INIT_MEMO_FORMAT = "hex";
 
-const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v2.xrpl-labs.com";
+const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
+const NETWORK_ID = process.env.NETWORK_ID || 21338;
 const MODE = process.env.MODE || 'dev';
 const ACTION = process.env.ACTION || 'run';
 
@@ -194,7 +195,8 @@ class IndexManager {
         Defaults.set({
             governorAddress: governorAddress,
             rippledServer: rippledServer,
-            xrplApi: this.#xrplApi
+            xrplApi: this.#xrplApi,
+            networkID: NETWORK_ID
         })
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
@@ -417,28 +419,32 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_REG.slice();
                     affectedStates.push({ operation: 'INSERT', key: stateKeyHostAddrId });
 
-                    let transferredNFTokenId = null;
+                    let transferredTokenId = null;
 
                     if (trx.Amount.value == EvernodeConstants.NOW_IN_EVRS) {
                         const previousHostRec = await this.#governorClient.getHosts({ futureOwnerAddress: trx.Account });
                         const previousHostAddrStateKey = StateHelpers.generateHostAddrStateKey(previousHostRec[0]?.address);
                         affectedStates.push({ operation: 'DELETE', key: previousHostAddrStateKey });
-                        transferredNFTokenId = previousHostRec[0]?.nfTokenId;
+                        transferredTokenId = previousHostRec[0]?.uriTokenId;
                     }
 
-                    const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trx.hash}`;
-                    let regNft = null;
+                    const firstPart = trx.hash.substring(0, 8);
+                    const lastPart = trx.hash.substring(trx.hash.length - 8);
+                    const trxRef = TransactionHelper.asciiToHex(firstPart + lastPart);
+
+                    const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trxRef}`;
+                    let regToken = null;
                     const hostXrplAcc = new XrplAccount(trx.Account);
                     let attempts = 0;
                     while (attempts < NFT_WAIT_TIMEOUT) {
                         // Check in Registry.
-                        regNft = (await this.#xrplAcc.getNfts()).find(n => (n.URI === uri || n.NFTokenID == transferredNFTokenId));
-                        if (!regNft) {
+                        regToken = (await this.#xrplAcc.getURITokens()).find(n => (n.URI === uri || n.index == transferredTokenId));
+                        if (!regToken) {
                             // Check in Host.
-                            regNft = (await hostXrplAcc.getNfts()).find(n => (n.URI === uri));
+                            regToken = (await hostXrplAcc.getURITokens()).find(n => (n.URI === uri));
                         }
 
-                        if (regNft) {
+                        if (regToken) {
                             break;
                         }
 
@@ -446,12 +452,12 @@ class IndexManager {
                         attempts++;
                     }
 
-                    if (!regNft) {
+                    if (!regToken) {
                         console.log(`|${trx.Account}|${event}|No Reg. NFT was found within the timeout.`);
                         break;
                     }
 
-                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regNft.NFTokenID);
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(regToken.index);
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
                     break;
                 }
@@ -463,7 +469,7 @@ class IndexManager {
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
 
                     const info = await this.#governorClient.getHostInfo(trx.Account);
-                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.nfTokenId);
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.uriTokenId);
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
 
                     break;
@@ -814,9 +820,9 @@ async function main() {
         return;
     }
 
-    // Send the accountConfig init transaction to the registry account.
+    // Send the accountConfig init transaction to the governor account.
     if (!accountConfig.initialized) {
-        console.log('Sending registry contract initialization transation.');
+        console.log('Sending governor contract initialization transation.');
         const res = await initRegistryConfigs(config.hookInitializer, accountConfig, accountConfigPath, RIPPLED_URL).catch(e => {
             throw { message: 'Registry contract initialization transaction failed with.', error: e.hookExecutionResult };
         });

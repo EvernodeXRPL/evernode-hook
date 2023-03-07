@@ -63,7 +63,7 @@
 #define tfHookOverride 0x00000001
 #define ltHOOK 'H'
 
-#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
+#define ltURI_TOKEN 'U'
 
 #define OP_NONE 0
 #define OP_HOOK_UPDATE 10
@@ -96,6 +96,8 @@ const uint32_t REG_NFT_URI_SIZE = 39;
 const uint32_t GOVERNANCE_CONFIGURATION_VAL_SIZE = 14;
 const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
 const uint32_t CANDIDATE_ID_VAL_SIZE = 82;
+const uint32_t URI_TOKEN_ID_SIZE = 32;
+const uint32_t REG_URI_TOKEN_URI_SIZE = 23;
 
 // State value offsets
 // REWARD_INFO

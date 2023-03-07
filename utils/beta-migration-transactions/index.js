@@ -9,7 +9,7 @@ const INIT_MEMO_FORMAT = "hex";
 const CONFIG_FILE = './evr-transfer-config.json';
 
 // Hooks V2 TEST NET URL.
-const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v2.xrpl-labs.com';
+const RIPPLED_URL = process.env.CONF_RIPPLED_URL || 'wss://hooks-testnet-v3.xrpl-labs.com';
 
 function readConfigs() {
     // If config doesn't exist, skip the execution.
