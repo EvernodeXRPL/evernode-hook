@@ -430,7 +430,7 @@ class IndexManager {
                     const lastPart = trx.hash.substring(trx.hash.length - 8);
                     const trxRef = TransactionHelper.asciiToHex(firstPart + lastPart);
 
-                    const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trxRef}`;
+                    const uri = `${EvernodeConstants.TOKEN_PREFIX_HEX}${trxRef}`;
                     let regToken = null;
                     const hostXrplAcc = new XrplAccount(trx.Account);
                     let attempts = 0;
@@ -451,7 +451,7 @@ class IndexManager {
                     }
 
                     if (!regToken) {
-                        console.log(`|${trx.Account}|${event}|No Reg. NFT was found within the timeout.`);
+                        console.log(`|${trx.Account}|${event}|No Reg. Token was found within the timeout.`);
                         break;
                     }
 
