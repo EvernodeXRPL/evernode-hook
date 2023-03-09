@@ -41,7 +41,7 @@ uint8_t PAYMENT_TRUSTLINE[310] = {
         uint8_t *buf_out = PAYMENT_TRUSTLINE;                            \
         UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);               \
         UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);               \
-        SET_AMOUNT_OUT((buf_out + 36), token, issuer, amount);           \
+        SET_AMOUNT_OUT((buf_out + 35), token, issuer, amount);           \
         COPY_20BYTES((buf_out + 130), hook_accid);                       \
         COPY_20BYTES((buf_out + 152), to_address);                       \
         etxn_details((buf_out + 172), PAYMENT_TRUSTLINE_TX_SIZE);        \
