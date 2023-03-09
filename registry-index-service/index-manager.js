@@ -150,15 +150,14 @@ const AFFECTED_HOOK_STATE_MAP = {
     HOST_DEREG: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+
+        // NOTE: Repetetative State keys
+        // HookStateKeys.PREFIX_HOST_ADDR
     ],
     HOST_UPDATE_REG: [
         // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_HOST_ADDR
         // HookStateKeys.PREFIX_HOST_TOKENID
-    ],
-    HOST_POST_DEREG: [
-        // NOTE: Repetetative State keys
-        // HookStateKeys.PREFIX_HOST_ADDR
     ],
     DEAD_HOST_PRUNE: [
         { operation: 'UPDATE', key: HookStateKeys.HOST_COUNT },
@@ -381,7 +380,6 @@ class IndexManager {
             RegistryEvents.HostRegistered,
             RegistryEvents.HostDeregistered,
             RegistryEvents.HostRegUpdated,
-            RegistryEvents.HostPostDeregistered,
             RegistryEvents.DeadHostPrune,
             RegistryEvents.HostRebate,
             RegistryEvents.HostTransfer,
@@ -432,7 +430,7 @@ class IndexManager {
                     const lastPart = trx.hash.substring(trx.hash.length - 8);
                     const trxRef = TransactionHelper.asciiToHex(firstPart + lastPart);
 
-                    const uri = `${EvernodeConstants.NFT_PREFIX_HEX}${trxRef}`;
+                    const uri = `${EvernodeConstants.TOKEN_PREFIX_HEX}${trxRef}`;
                     let regToken = null;
                     const hostXrplAcc = new XrplAccount(trx.Account);
                     let attempts = 0;
@@ -453,7 +451,7 @@ class IndexManager {
                     }
 
                     if (!regToken) {
-                        console.log(`|${trx.Account}|${event}|No Reg. NFT was found within the timeout.`);
+                        console.log(`|${trx.Account}|${event}|No Reg. Token was found within the timeout.`);
                         break;
                     }
 
@@ -463,6 +461,7 @@ class IndexManager {
                 }
                 case RegistryEvents.HostDeregistered:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG.slice();
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 case RegistryEvents.HostRegUpdated: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
@@ -474,17 +473,13 @@ class IndexManager {
 
                     break;
                 }
-                case HeartbeatEvents.Heartbeat:
+                case HeartbeatEvents.Heartbeat: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
 
                     if (data.voteInfo)
                         affectedStates.push({ operation: 'UPDATE', key: StateHelpers.generateCandidateIdStateKey(data.voteInfo.candidateId) });
 
-                    break;
-                case RegistryEvents.HostPostDeregistered: {
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_POST_DEREG.slice();
-                    affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     break;
                 }
                 case RegistryEvents.DeadHostPrune: {
