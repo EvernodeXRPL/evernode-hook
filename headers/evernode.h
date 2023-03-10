@@ -493,11 +493,39 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                              \
     }
 
+#define GET_NEW_HOOK_CANDIDATE_ID(hash_ptr, hash_len, id)                      \
+    {                                                                          \
+        if (util_sha512h(SBUF(id), hash_ptr, hash_len) < 0)                    \
+            rollback(SBUF("Evernode: Could not generate candidate hash."), 1); \
+        CLEAR_4BYTES(id);                                                      \
+        *(uint8_t *)(id + 4) = (uint8_t)(NEW_HOOK_CANDIDATE);                  \
+    }
+
+#define GET_PILOTED_MODE_CANDIDATE_ID(id)                         \
+    {                                                             \
+        CLEAR_4BYTES(id);                                         \
+        *(uint8_t *)(id + 4) = (uint8_t)(PILOTED_MODE_CANDIDATE); \
+        COPY_16BYTES(id + 5, NAMESPACE + 5);                      \
+        COPY_8BYTES(id + 21, NAMESPACE + 21);                     \
+        COPY_2BYTES(id + 29, NAMESPACE + 29);                     \
+        COPY_BYTE(id + 31, NAMESPACE + 31);                       \
+    }
+
+#define GET_DUD_HOST_CANDIDATE_ID(host_account, id)           \
+    {                                                         \
+        CLEAR_4BYTES(id);                                     \
+        *(uint8_t *)(id + 4) = (uint8_t)(DUD_HOST_CANDIDATE); \
+        CLEAR_4BYTES(id + 5);                                 \
+        CLEAR_2BYTES(id + 9);                                 \
+        CLEAR_BYTE(id + 11);                                  \
+        COPY_20BYTES(id + 12, host_account);                  \
+    }
+
 #define HANDLE_HOOK_UPDATE(hash_offset)                                                                                                                  \
     {                                                                                                                                                    \
         /* We accept only the hook update transaction from governor account. */                                                                          \
         if (!BUFFER_EQUAL_20(state_hook_accid, account_field))                                                                                           \
-            rollback(SBUF("Evernode: Only governor allowed to send hook update trigger."), 1);                                                           \
+            rollback(SBUF("Evernode: Only governor is allowed to send hook update trigger."), 1);                                                        \
                                                                                                                                                          \
         /* <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)> */                                    \
         /* <foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)><proposal_elected_timestamp(8)><updated_hook_count(1)> */             \
