@@ -199,18 +199,15 @@ const uint32_t MOMENT_TYPE_OFFSET = 12;
 const uint32_t DUD_HOST_CANDID_ADDRESS_OFFSET = 12;
 
 // BEGIN : Governance Game related constants.
-// Candidate statuses
-#define STATUS_ACTIVE 0
-#define STATUS_ACCEPTED 1
-#define STATUS_VETOED 2
-#define STATUS_EXPIRED 3
-
 // Candidate vote statuses
 const uint8_t CANDIDATE_REJECTED = 0;
 const uint8_t CANDIDATE_SUPPORTED = 1;
-const uint8_t CANDIDATE_ACCEPTED = 2;
+const uint8_t CANDIDATE_ELECTED = 2;
 const uint8_t CANDIDATE_VETOED = 3;
 const uint8_t CANDIDATE_EXPIRED = 4;
+
+#define VOTING_COMPLETED(status) \
+    (status > CANDIDATE_SUPPORTED)
 
 // Governance modes
 const uint8_t PILOTED = 1;

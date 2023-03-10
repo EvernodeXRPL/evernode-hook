@@ -568,7 +568,7 @@ int64_t hook(uint32_t reserved)
                         if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Error getting a candidate for the given id."), 1);
 
-                        if (candidate_id[CANDIDATE_STATUS_OFFSET] != CANDIDATE_ACCEPTED)
+                        if (candidate_id[CANDIDATE_STATUS_OFFSET] != CANDIDATE_ELECTED)
                             rollback(SBUF("Evernode: Trying to remove un-elected dud host."), 1);
 
                         // Remove dud host candidate after validation.

@@ -99,6 +99,12 @@ const AFFECTED_HOOK_STATE_MAP = {
         // HookStateKeys.PREFIX_CANDIDATE_ID
         // HookStateKeys.PREFIX_HOST_ADDR
     ],
+    DUD_HOST_STATUS_CHANGE: [
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+
+        // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_CANDIDATE_ID
+    ],
     FALLBACK_PILOTED: [
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
 
@@ -394,6 +400,7 @@ class IndexManager {
             GovernorEvents.FoundationVoted,
             GovernorEvents.DudHostReported,
             GovernorEvents.DudHostRemoved,
+            GovernorEvents.DudHostStatusChanged,
             GovernorEvents.FallbackToPiloted,
             GovernorEvents.NewHookStatusChanged
         ];
@@ -519,6 +526,11 @@ class IndexManager {
                 case GovernorEvents.DudHostRemoved: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DUD_HOST_REMOVE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
+                    affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
+                    break;
+                }
+                case GovernorEvents.DudHostStatusChanged: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.DUD_HOST_STATUS_CHANGE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
                     break;
                 }

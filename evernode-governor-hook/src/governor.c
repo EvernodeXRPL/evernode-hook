@@ -262,7 +262,7 @@ int64_t hook(uint32_t reserved)
                         candidate_type = CANDIDATE_TYPE(data_ptr);
                         if (candidate_type == 0)
                             rollback(SBUF("Evernode: Invalid candidate type."), 1);
-                        vote_status = STATUS_ACTIVE;
+                        vote_status = CANDIDATE_REJECTED;
                     }
 
                     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
@@ -495,9 +495,9 @@ int64_t hook(uint32_t reserved)
 
                         PREPARE_VOTE_INFO(cur_moment, last_vote_moment, last_vote_timestamp, voter_base_count, governance_info, candidate_id, supported_count, vote_status);
 
-                        if ((candidate_type != PILOTED_MODE_CANDIDATE) ? (vote_status != STATUS_ACTIVE) : (vote_status == STATUS_ACCEPTED))
+                        if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(vote_status) : (vote_status == CANDIDATE_ELECTED))
                         {
-                            candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_STATUS(vote_status);
+                            candidate_id[CANDIDATE_STATUS_OFFSET] = vote_status;
                             op_type = OP_STATUS_CHANGE;
                         }
                         else
@@ -725,7 +725,7 @@ int64_t hook(uint32_t reserved)
                     }
                     if (op_type == OP_STATUS_CHANGE)
                     {
-                        if (candidate_id[CANDIDATE_STATUS_OFFSET] != CANDIDATE_STATUS(vote_status))
+                        if (candidate_id[CANDIDATE_STATUS_OFFSET] != vote_status)
                             rollback(SBUF("Evernode: Invalid status sent with the memo."), 1);
 
                         // For each candidate type we treat differently.
@@ -739,12 +739,12 @@ int64_t hook(uint32_t reserved)
                             const int64_t proposal_fee = INT64_FROM_BUF(proposal_fee_ptr);
 
                             // If proposal expired 50% of proposal fee will be rebated to owner.
-                            const int64_t reward_amount = (vote_status == STATUS_ACCEPTED) ? 0 : (vote_status == STATUS_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
+                            const int64_t reward_amount = (vote_status == CANDIDATE_ELECTED) ? 0 : (vote_status == CANDIDATE_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
                                                                                                                                  : proposal_fee;
                             const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);
 
                             uint8_t emithash[HASH_SIZE];
-                            if (vote_status == STATUS_VETOED || vote_status == STATUS_EXPIRED)
+                            if (vote_status == CANDIDATE_VETOED || vote_status == CANDIDATE_EXPIRED)
                             {
                                 etxn_reserve(reward_amount > 0 ? 2 : 1);
 
@@ -773,7 +773,7 @@ int64_t hook(uint32_t reserved)
                                         rollback(SBUF("Evernode: Could not delete the candidate owner state."), 1);
                                 }
                             }
-                            else if (vote_status == STATUS_ACCEPTED)
+                            else if (vote_status == CANDIDATE_ELECTED)
                             {
                                 etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 3 : 2);
 
@@ -802,12 +802,12 @@ int64_t hook(uint32_t reserved)
                                 }
                             }
 
-                            if (vote_status == STATUS_ACCEPTED || vote_status == STATUS_VETOED || vote_status == STATUS_EXPIRED)
+                            if (vote_status == CANDIDATE_ELECTED || vote_status == CANDIDATE_VETOED || vote_status == CANDIDATE_EXPIRED)
                             {
                                 const int64_t rebate_amount = float_sum(proposal_fee, float_negate(reward_amount));
                                 uint8_t *tx_ptr;
                                 uint32_t tx_size;
-                                const uint8_t *memo_data_ptr = ((vote_status == STATUS_VETOED) ? CANDIDATE_VETOED_RES : ((vote_status == STATUS_ACCEPTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_EXPIRY_RES));
+                                const uint8_t *memo_data_ptr = ((vote_status == CANDIDATE_VETOED) ? CANDIDATE_VETOED_RES : ((vote_status == CANDIDATE_ELECTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_EXPIRY_RES));
                                 if (float_compare(rebate_amount, float_set(0, 0), COMPARE_GREATER) == 1)
                                 {
                                     PREPARE_CANDIDATE_REBATE_PAYMENT_TX(rebate_amount, candidate_id, memo_data_ptr, data_ptr, FORMAT_HEX);
@@ -830,7 +830,7 @@ int64_t hook(uint32_t reserved)
                             else
                                 accept(SBUF("Evernode: Dud host candidate status changed."), vote_status);
                         }
-                        else if (candidate_type == PILOTED_MODE_CANDIDATE && vote_status == STATUS_ACCEPTED)
+                        else if (candidate_type == PILOTED_MODE_CANDIDATE && vote_status == CANDIDATE_ELECTED)
                         {
                             // Change governance the mode.
                             governance_info[GOVERNANCE_MODE_OFFSET] = PILOTED;

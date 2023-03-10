@@ -34,10 +34,6 @@
 
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
-// Get candidate status from vote status.
-#define CANDIDATE_STATUS(vote_status) \
-    ((uint8_t)(vote_status + 1))
-
 // Checks for EVR currency issued by issuer account.
 #define IS_EVR(amount_buffer, issuer_accid)                \
     (BUFFER_EQUAL_20((amount_buffer + 8), evr_currency) && \
@@ -595,20 +591,20 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];                                                                     \
         uint64_t status_changed_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);                                               \
                                                                                                                                                                     \
-        status = STATUS_ACTIVE;                                                                                                                                     \
+        status = CANDIDATE_REJECTED;                                                                                                                                \
         /* If this is piloted mode candidate we treat differently, we do not expire or reject event if there's already elected candidate. */                        \
         /* If there is a recently closed election. This voted candidate will be vetoed. (If that candidate was created before the election completion timestamp) */ \
         if ((candidate_type != PILOTED_MODE_CANDIDATE) &&                                                                                                           \
             (last_election_completed_timestamp > created_timestamp) &&                                                                                              \
             (last_election_completed_timestamp < (created_timestamp + life_period)))                                                                                \
         {                                                                                                                                                           \
-            status = STATUS_VETOED;                                                                                                                                 \
+            status = CANDIDATE_VETOED;                                                                                                                                 \
         }                                                                                                                                                           \
         /* If the candidate is older than the life period destroy the candidate and rebate the half of staked EVRs. */                                              \
         else if ((candidate_type != PILOTED_MODE_CANDIDATE) &&                                                                                                      \
                  (cur_ledger_timestamp - created_timestamp > life_period))                                                                                          \
         {                                                                                                                                                           \
-            status = STATUS_EXPIRED;                                                                                                                                \
+            status = CANDIDATE_EXPIRED;                                                                                                                             \
         }                                                                                                                                                           \
         /* If this is a new moment, Evaluate the votes and vote statuses. Then reset the votes for the next moment. */                                              \
         else if (cur_moment > last_vote_moment)                                                                                                                     \
@@ -664,8 +660,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                                                           \
                                                                                                                                                                     \
         /* If the candidate is not vetoed and expired and it fulfils the time period to get elected or vetoed. */                                                   \
-        if (status == STATUS_ACTIVE && (cur_ledger_timestamp - status_changed_timestamp) > election_period)                                                         \
-            status = (cur_status == CANDIDATE_SUPPORTED) ? STATUS_ACCEPTED : STATUS_VETOED;                                                                         \
+        if (status != CANDIDATE_VETOED && status != CANDIDATE_EXPIRED && (cur_ledger_timestamp - status_changed_timestamp) > election_period)                       \
+            status = (cur_status == CANDIDATE_SUPPORTED) ? CANDIDATE_ELECTED : CANDIDATE_VETOED;                                                                    \
     }
 
 #endif
