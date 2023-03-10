@@ -460,10 +460,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         is_prunable = heartbeat_delay < max_tolerable_downtime ? 0 : 1;                                                                                \
     }
 
-#define ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount)                                       \
+#define ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount_float)                                 \
     {                                                                                                                                                              \
         const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                 \
-        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount))); /* Prepare reward info to update host counts and epoch. */              \
+        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), amount_float)); /* Prepare reward info to update host counts and epoch. */                      \
         int64_t reward_pool_amount, reward_amount;                                                                                                                 \
         PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 0, reward_pool_amount, reward_amount); \
                                                                                                                                                                    \

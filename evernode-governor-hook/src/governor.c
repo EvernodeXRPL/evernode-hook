@@ -169,15 +169,15 @@ int64_t hook(uint32_t reserved)
                     // Child hook update results.
                     else if (EQUAL_HOOK_UPDATE_RES(type_ptr, type_len))
                         op_type = OP_HOOK_UPDATE;
-                    // Dud host report.
-                    else if (EQUAL_DUD_HOST_REPORT(type_ptr, type_len))
-                        op_type = OP_DUD_HOST_REPORT;
                 }
                 else // IOU payments.
                 {
                     // Proposing a Hook Candidate.
                     if (EQUAL_CANDIDATE_PROPOSE(type_ptr, type_len))
                         op_type = OP_PROPOSE;
+                    // Dud host report.
+                    else if (EQUAL_DUD_HOST_REPORT(type_ptr, type_len))
+                        op_type = OP_DUD_HOST_REPORT;
                 }
 
                 if (op_type != OP_NONE)
@@ -211,7 +211,7 @@ int64_t hook(uint32_t reserved)
                         source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
 
                         // Validation check for participants other than the foundation address
-                        if (!source_is_foundation && op_type == OP_PROPOSE)
+                        if (!source_is_foundation && op_type == OP_PROPOSE && op_type == DUD_HOST_REPORT)
                         {
                             HOST_ADDR_KEY(account_field);
 
@@ -263,6 +263,52 @@ int64_t hook(uint32_t reserved)
                         if (candidate_type == 0)
                             rollback(SBUF("Evernode: Invalid candidate type."), 1);
                         vote_status = STATUS_ACTIVE;
+                    }
+
+                    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+                    uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+                    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                    uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+                    if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
+                    {
+                        if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
+                            state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
+                            rollback(SBUF("Evernode: Could not get reward configuration or reward info states."), 1);
+                    }
+
+                    int64_t proposal_fee;
+                    if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT)
+                    {
+                        // BEGIN : Proposal Fee validations.
+                        uint8_t amount_buffer[AMOUNT_BUF_SIZE];
+                        const int64_t result = slot(SBUF(amount_buffer), amt_slot);
+                        if (result != AMOUNT_BUF_SIZE)
+                            rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
+
+                        const int64_t float_amt = slot_float(amt_slot);
+                        if (float_amt < 0)
+                            rollback(SBUF("Evernode: Could not parse amount."), 1);
+
+                        // Currency should be EVR.
+                        if (!IS_EVR(amount_buffer, issuer_accid))
+                            rollback(SBUF("Evernode: Currency should be EVR for candidate proposal."), 1);
+
+                        const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+                        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+
+                        const uint8_t epoch = reward_info[EPOCH_OFFSET];
+                        uint32_t reward_quota;
+                        GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, reward_quota);
+
+                        // Proposal fee for dud host remove would be 25% of reward quota.
+                        proposal_fee = float_set(0, reward_quota);
+                        proposal_fee = op_type == OP_PROPOSE ? proposal_fee : float_multiply(proposal_fee, float_set(-2, 25));
+
+                        if (float_compare(float_amt, proposal_fee, COMPARE_LESS) == 1)
+                            rollback(SBUF("Evernode: Proposal fee amount is less than the minimum fee."), 1);
+
+                        proposal_fee = float_amt;
+                        // END : Proposal Fee validations.
                     }
 
                     if (op_type == OP_INITIALIZE)
@@ -322,8 +368,6 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Could not set state for registry hook account."), 1);
                         }
 
-                        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-                        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                         if (state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) == DOESNT_EXIST)
                         {
                             const uint32_t cur_moment = GET_MOMENT(cur_idx);
@@ -391,39 +435,6 @@ int64_t hook(uint32_t reserved)
                     }
                     else if (op_type == OP_PROPOSE)
                     {
-                        // BEGIN : Proposal Fee validations.
-                        uint8_t amount_buffer[AMOUNT_BUF_SIZE];
-                        const int64_t result = slot(SBUF(amount_buffer), amt_slot);
-                        if (result != AMOUNT_BUF_SIZE)
-                            rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
-
-                        const int64_t float_amt = slot_float(amt_slot);
-                        if (float_amt < 0)
-                            rollback(SBUF("Evernode: Could not parse amount."), 1);
-
-                        // Currency should be EVR.
-                        if (!IS_EVR(amount_buffer, issuer_accid))
-                            rollback(SBUF("Evernode: Currency should be EVR for candidate proposal."), 1);
-
-                        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-                        if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not get reward info state."), 1);
-
-                        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                        if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
-
-                        const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-                        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-
-                        const uint8_t epoch = reward_info[EPOCH_OFFSET];
-                        uint32_t reward_quota;
-                        GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, reward_quota);
-
-                        if (float_compare(float_set(0, reward_quota), float_amt, COMPARE_EQUAL) == 0)
-                            rollback(SBUF("Evernode: Proposal fee amount should be equal to the epoch reward quota."), 1);
-                        // END : Proposal Fee validations.
-
                         int hooks_exists = 0;
                         IS_HOOKS_VALID((data_ptr1 + CANDIDATE_PROPOSE_KEYLETS_MEMO_OFFSET), hooks_exists);
                         if (hooks_exists == 0)
@@ -449,7 +460,7 @@ int64_t hook(uint32_t reserved)
                         UINT32_TO_BUF(&candidate_id[CANDIDATE_IDX_OFFSET], candidate_idx);
                         COPY_20BYTES((candidate_id + CANDIDATE_SHORT_NAME_OFFSET), (data_ptr1 + CANDIDATE_PROPOSE_SHORT_NAME_MEMO_OFFSET));
                         UINT64_TO_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], reward_quota);
+                        INT64_TO_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], proposal_fee);
                         UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], 0);
                         UINT64_TO_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], 0);
                         candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_REJECTED;
@@ -537,11 +548,12 @@ int64_t hook(uint32_t reserved)
                         if (cur_ledger_timestamp - created_timestamp > life_period)
                             rollback(SBUF("Evernode: Trying to withdraw an already expired proposal."), 1);
 
-                        const uint64_t proposal_fee = UINT64_FROM_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET]);
+                        const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
+                        const int64_t proposal_fee = INT64_FROM_BUF(proposal_fee_ptr);
 
                         // Send the proposal fee to the owner.
                         etxn_reserve(1);
-                        PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, proposal_fee), account_field);
+                        PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, account_field);
                         uint8_t emithash[32];
                         if (emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) < 0)
                             rollback(SBUF("Evernode: Emitting EVR forward txn failed"), 1);
@@ -693,7 +705,7 @@ int64_t hook(uint32_t reserved)
                         UINT32_TO_BUF(&candidate_id[CANDIDATE_IDX_OFFSET], candidate_idx);
                         COPY_20BYTES((candidate_id + CANDIDATE_SHORT_NAME_OFFSET), (data_ptr1 + CANDIDATE_PROPOSE_SHORT_NAME_MEMO_OFFSET));
                         UINT64_TO_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], 0);
+                        INT64_TO_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], proposal_fee);
                         UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], 0);
                         UINT64_TO_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], 0);
                         candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_REJECTED;
@@ -717,32 +729,25 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Invalid status sent with the memo."), 1);
 
                         // For each candidate type we treat differently.
-                        if (candidate_type == NEW_HOOK_CANDIDATE)
+                        if (candidate_type == NEW_HOOK_CANDIDATE || candidate_type == DUD_HOST_CANDIDATE)
                         {
-                            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
-                            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                            // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-                            uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-                            if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
-                                state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not get reward configuration or reward info states."), 1);
-
-                            const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
-                            const uint8_t governance_mode = governance_info[GOVERNANCE_MODE_OFFSET];
-
                             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
                             const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
                             const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
-                            const uint64_t proposal_fee = UINT64_FROM_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET]);
+                            const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
+                            const int64_t proposal_fee = INT64_FROM_BUF(proposal_fee_ptr);
 
-                            uint32_t reward_amount = (vote_status == STATUS_ACCEPTED) ? 0 : (vote_status == STATUS_EXPIRED) ? (proposal_fee / 2)
-                                                                                                                            : proposal_fee;
+                            // If proposal expired 50% of proposal fee will be rebated to owner.
+                            const int64_t reward_amount = (vote_status == STATUS_ACCEPTED) ? 0 : (vote_status == STATUS_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
+                                                                                                                                 : proposal_fee;
                             const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);
 
+                            uint8_t emithash[HASH_SIZE];
                             if (vote_status == STATUS_VETOED || vote_status == STATUS_EXPIRED)
                             {
-                                uint8_t emithash[HASH_SIZE];
+                                etxn_reserve(reward_amount > 0 ? 2 : 1);
+
                                 if (reward_amount > 0)
                                 {
                                     ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount);
@@ -751,49 +756,79 @@ int64_t hook(uint32_t reserved)
                                     if (state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0)
                                         rollback(SBUF("Evernode: Error getting heartbeat hook address from states."), 1);
 
-                                    // Prepare EVR transaction to heartbeat hook account.
-                                    etxn_reserve(2);
-
-                                    PREPARE_HEARTBEAT_FUND_PAYMENT_TX(float_set(0, reward_amount), heartbeat_hook_accid, txid);
+                                    PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount, heartbeat_hook_accid, txid);
                                     if (emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) < 0)
                                         rollback(SBUF("Evernode: EVR funding to heartbeat hook account failed."), 1);
                                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
                                 }
-                                else
-                                {
-                                    etxn_reserve(1);
-                                }
 
                                 // Clear the proposal states.
-                                if (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)
-                                    rollback(SBUF("Evernode: Could not delete the candidate states."), 1);
+                                if (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
+                                    rollback(SBUF("Evernode: Could not delete the candidate id state."), 1);
+
+                                // Dud host candidate does not have a owner state.
+                                if (candidate_type == NEW_HOOK_CANDIDATE)
+                                {
+                                    if (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)
+                                        rollback(SBUF("Evernode: Could not delete the candidate owner state."), 1);
+                                }
                             }
                             else if (vote_status == STATUS_ACCEPTED)
                             {
-                                // Sending hook update trigger transactions to registry and heartbeat hooks.
-                                etxn_reserve(3);
+                                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 3 : 2);
 
-                                uint8_t emithash[HASH_SIZE];
+                                if (candidate_type == NEW_HOOK_CANDIDATE)
+                                {
+                                    // Sending hook update trigger transactions to registry and heartbeat hooks.
+                                    PREPARE_HOOK_UPDATE_PAYMENT_TX(1, heartbeat_accid, data_ptr);
+                                    if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) < 0)
+                                        rollback(SBUF("Evernode: Emitting heartbeat hook update trigger failed."), 1);
 
-                                PREPARE_HOOK_UPDATE_PAYMENT_TX(1, heartbeat_accid, data_ptr);
-                                if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) < 0)
-                                    rollback(SBUF("Evernode: Emitting heartbeat hook update trigger failed."), 1);
+                                    PREPARE_HOOK_UPDATE_PAYMENT_TX(1, registry_accid, data_ptr);
+                                    if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) < 0)
+                                        rollback(SBUF("Evernode: Emitting registry hook update trigger failed."), 1);
 
-                                PREPARE_HOOK_UPDATE_PAYMENT_TX(1, registry_accid, data_ptr);
-                                if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) < 0)
-                                    rollback(SBUF("Evernode: Emitting registry hook update trigger failed."), 1);
-
-                                // Update the governance info state.
-                                COPY_32BYTES(&governance_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET], data_ptr);
-                                UINT64_TO_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET], cur_moment_start_timestamp);
-                                if (state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
-                                    rollback(SBUF("Evernode: Could not set state for governance info."), 1);
+                                    // Update the governance info state.
+                                    COPY_32BYTES(&governance_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET], data_ptr);
+                                    UINT64_TO_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET], cur_moment_start_timestamp);
+                                    if (state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
+                                        rollback(SBUF("Evernode: Could not set state for governance info."), 1);
+                                }
+                                else
+                                {
+                                    PREPARE_DUD_HOST_REMOVE_TX(1, registry_accid, DUD_HOST_REMOVE, (uint8_t *)(STP_CANDIDATE_ID + DUD_HOST_CANDID_ADDRESS_OFFSET), FORMAT_HEX);
+                                    if (emit(SBUF(emithash), SBUF(DUD_HOST_REMOVE_TX)) < 0)
+                                        rollback(SBUF("Evernode: Emitting registry dud host removal trigger failed."), 1);
+                                }
                             }
 
                             if (vote_status == STATUS_ACCEPTED || vote_status == STATUS_VETOED || vote_status == STATUS_EXPIRED)
-                                NOTIFY_OWNER((proposal_fee - reward_amount), candidate_id, vote_status, data_ptr);
+                            {
+                                const int64_t rebate_amount = float_sum(proposal_fee, float_negate(reward_amount));
+                                uint8_t *tx_ptr;
+                                uint32_t tx_size;
+                                const uint8_t *memo_data_ptr = ((vote_status == STATUS_VETOED) ? CANDIDATE_VETOED_RES : ((vote_status == STATUS_ACCEPTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_EXPIRY_RES));
+                                if (float_compare(rebate_amount, float_set(0, 0), COMPARE_GREATER) == 1)
+                                {
+                                    PREPARE_CANDIDATE_REBATE_PAYMENT_TX(rebate_amount, candidate_id, memo_data_ptr, data_ptr, FORMAT_HEX);
+                                    tx_ptr = CANDIDATE_REBATE_PAYMENT;
+                                    tx_size = CANDIDATE_REBATE_PAYMENT_TX_SIZE;
+                                }
+                                else
+                                {
+                                    PREPARE_CANDIDATE_REBATE_MIN_PAYMENT_TX(1, candidate_id, memo_data_ptr, data_ptr, FORMAT_HEX);
+                                    tx_ptr = CANDIDATE_REBATE_MIN_PAYMENT;
+                                    tx_size = CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE;
+                                }
+                                if (emit(SBUF(emithash), tx_ptr, tx_size) < 0)
+                                    rollback(SBUF("Evernode: EVR funding to candidate account failed."), 1);
+                                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                            }
 
-                            accept(SBUF("Evernode: New hook candidate status changed."), vote_status);
+                            if (candidate_type == NEW_HOOK_CANDIDATE)
+                                accept(SBUF("Evernode: New hook candidate status changed."), vote_status);
+                            else
+                                accept(SBUF("Evernode: Dud host candidate status changed."), vote_status);
                         }
                         else if (candidate_type == PILOTED_MODE_CANDIDATE && vote_status == STATUS_ACCEPTED)
                         {
@@ -807,25 +842,6 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Could not set state for piloted mode candidate."), 1);
 
                             accept(SBUF("Evernode: Piloted mode candidate status changed."), vote_status);
-                        }
-                        else if (candidate_type == DUD_HOST_CANDIDATE)
-                        {
-                            if (vote_status == STATUS_ACCEPTED)
-                            {
-                                // Emit evnDudHostRemove transaction to registry so it could handle the host removal.
-                                etxn_reserve(1);
-
-                                uint8_t emithash[HASH_SIZE];
-                                PREPARE_DUD_HOST_REMOVE_TX(1, registry_accid, DUD_HOST_REMOVE, (uint8_t *)(STP_CANDIDATE_ID + DUD_HOST_CANDID_ADDRESS_OFFSET), FORMAT_HEX);
-                                if (emit(SBUF(emithash), SBUF(DUD_HOST_REMOVE_TX)) < 0)
-                                    rollback(SBUF("Evernode: Emitting registry dud host removal trigger failed."), 1);
-                            }
-
-                            // Accepted candidates will be removed from the registry.
-                            if (vote_status != STATUS_ACTIVE && vote_status != STATUS_ACCEPTED && state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not remove dud host candidate."), 1);
-
-                            accept(SBUF("Evernode: Dud host candidate status changed."), vote_status);
                         }
                     }
                 }

@@ -7,9 +7,8 @@
 #define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
-#define HOST_POST_DEREG "evnHostPostDereg"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
-#define DEAD_HOST_PRUNE_RES "evnDeadHostPruneRes"
+#define DEAD_HOST_PRUNE_RES "evnHostPruneRes"
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
@@ -29,6 +28,7 @@
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
 #define DUD_HOST_REMOVE "evnDudHostRemove"
+#define DUD_HOST_REMOVE_RES "evnHostDudRmRes"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -37,7 +37,6 @@
 
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
-#define INACTIVE_PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
 #define LEDGER_MOMENT_TYPE 0
 #define TIMESTAMP_MOMENT_TYPE 1
 #define PENDING_TRANSFER 1
