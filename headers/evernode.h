@@ -195,12 +195,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_4((buf + 8), (HOOK_UPDATE + 8)) && \
      BUFFER_EQUAL_1((buf + 12), (HOOK_UPDATE + 12)))
 
-#define EQUAL_HOST_REGISTRY_REF(buf, len)                  \
-    (sizeof(HOST_REGISTRY_REF) == (len + 1) &&             \
-     BUFFER_EQUAL_8(buf, HOST_REGISTRY_REF) &&             \
-     BUFFER_EQUAL_8((buf + 8), (HOST_REGISTRY_REF + 8)) && \
-     BUFFER_EQUAL_2((buf + 16), (HOST_REGISTRY_REF + 16)))
-
 #define EQUAL_CANDIDATE_VOTE(buf, len)      \
     (sizeof(CANDIDATE_VOTE) == (len + 1) && \
      BUFFER_EQUAL_8(buf, CANDIDATE_VOTE) && \

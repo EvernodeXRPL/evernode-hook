@@ -44,11 +44,6 @@ const uint32_t HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET = 50;
 const uint32_t HOST_UPDATE_DESCRIPTION_MEMO_OFFSET = 54;
 const uint32_t HOST_UPDATE_VERSION_MEMO_OFFSET = 80;
 
-// <nft_keylet(34)><nft_idx(2)>
-// HOST_REGISTRY_REF
-const uint32_t HOST_REG_NFT_KEYLET_OFFSET = 0;
-const uint32_t HOST_REG_NFT_IDX_OFFSET = 34;
-
 // Parameters
 // Hook address which contains the states
 const uint8_t PARAM_STATE_HOOK[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};

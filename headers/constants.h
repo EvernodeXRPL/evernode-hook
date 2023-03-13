@@ -13,7 +13,6 @@
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
-#define HOST_REGISTRY_REF "evnHostRegistryRef"
 #define CANDIDATE_PROPOSE "evnCandidatePropose"
 #define CANDIDATE_PROPOSE_REF "evnCandidateProposeRef"
 #define CANDIDATE_VOTE "evnCandidateVote"
@@ -28,7 +27,7 @@
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
 #define DUD_HOST_REMOVE "evnDudHostRemove"
-#define DUD_HOST_REMOVE_RES "evnDudHostRemRes"
+#define DUD_HOST_REMOVE_RES "evnDudHostRmRes"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
