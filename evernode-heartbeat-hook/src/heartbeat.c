@@ -274,14 +274,14 @@ int64_t hook(uint32_t reserved)
 
                                 // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
                                 if (cur_moment == host_vote_moment && candidate_idx <= last_vote_candidate_idx)
-                                    rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for already voted candidate is not allowed."), 1);
+                                    rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
                                 // Only one support vote is allowed for new hook candidate per moment.
                                 if (candidate_type == NEW_HOOK_CANDIDATE)
                                 {
                                     if (cur_moment == host_vote_moment &&
                                         *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED &&
                                         host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET] == 1)
-                                        rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Only one support vote is allowed per moment."), 1);
+                                        rollback(SBUF("Evernode: Only one support vote is allowed per moment."), 1);
                                     host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET] = *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) ? 1 : 0;
                                 }
 
