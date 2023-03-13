@@ -186,8 +186,8 @@ int64_t hook(uint32_t reserved)
                     if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
                         rollback(SBUF("Evernode: Memo format should be hex."), 1);
 
-                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)>
+                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
+                    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
@@ -199,35 +199,33 @@ int64_t hook(uint32_t reserved)
                     {
                         if (state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not get governance configuration state."), 1);
-                        const uint32_t min_eligibility_period = UINT32_FROM_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
                         if (state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not get issuer account id."), 1);
 
-                        // BEGIN :Participant validations.
                         if (state_foreign(foundation_accid, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not get state for foundation account."), 1);
 
                         source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
-
-                        // Validation check for participants other than the foundation address
-                        if (!source_is_foundation && op_type == OP_PROPOSE && op_type == DUD_HOST_REPORT)
-                        {
-                            HOST_ADDR_KEY(account_field);
-
-                            // Check for registration entry.
-                            if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST)
-                                rollback(SBUF("Evernode: This host is not registered."), 1);
-
-                            uint8_t eligible_for_governance = 0;
-                            uint8_t do_rollback = 1;
-                            VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);
-                        }
-
-                        // END :Participant validations.
                     }
 
-                    // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)><proposal_elected_timestamp(8)><updated_hook_count(1)>
+                    // Validation check for participants other than the foundation address
+                    if ((op_type == OP_PROPOSE || op_type == OP_VOTE || op_type == DUD_HOST_REPORT) && !source_is_foundation)
+                    {
+                        const uint32_t min_eligibility_period = UINT32_FROM_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
+
+                        HOST_ADDR_KEY(account_field);
+                        // Check for registration entry.
+                        if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST)
+                            rollback(SBUF("Evernode: This host is not registered."), 1);
+
+                        uint8_t eligible_for_governance = 0;
+                        uint8_t do_rollback = 1;
+                        VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);
+                    }
+
+                    // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)>
+                    // <proposal_elected_timestamp(8)><updated_hook_count(1)><foundation_vote_flag(1)>
                     uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
                     if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_VOTE || op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT)
                     {
@@ -509,6 +507,15 @@ int64_t hook(uint32_t reserved)
                             // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
                             if (cur_moment == foundation_vote_moment && candidate_idx <= last_vote_candidate_idx)
                                 rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
+                            // Only one support vote is allowed for new hook candidate per moment.
+                            if (candidate_type == NEW_HOOK_CANDIDATE)
+                            {
+                                if (cur_moment == foundation_vote_moment &&
+                                    *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED &&
+                                    governance_info[FOUNDATION_SUPPORT_VOTE_FLAG_OFFSET] == 1)
+                                    rollback(SBUF("Evernode: Only one support vote is allowed per moment."), 1);
+                                governance_info[FOUNDATION_SUPPORT_VOTE_FLAG_OFFSET] = *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) ? 1 : 0;
+                            }
 
                             UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], supported_count);
 
@@ -641,7 +648,7 @@ int64_t hook(uint32_t reserved)
                     else if (op_type == OP_GOVERNANCE_MODE_CHANGE)
                     {
                         // We accept only the change mode transaction from foundation account.
-                        if (!BUFFER_EQUAL_20(foundation_accid, account_field))
+                        if (!source_is_foundation)
                             rollback(SBUF("Evernode: Only foundation is allowed to change governance mode."), 1);
 
                         if (*(data_ptr) <= governance_info[GOVERNANCE_MODE_OFFSET])
@@ -740,7 +747,7 @@ int64_t hook(uint32_t reserved)
 
                             // If proposal expired 50% of proposal fee will be rebated to owner.
                             const int64_t reward_amount = (vote_status == CANDIDATE_ELECTED) ? 0 : (vote_status == CANDIDATE_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
-                                                                                                                                 : proposal_fee;
+                                                                                                                                      : proposal_fee;
                             const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);
 
                             uint8_t emithash[HASH_SIZE];
