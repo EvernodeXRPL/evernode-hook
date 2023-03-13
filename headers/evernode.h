@@ -34,10 +34,6 @@
 
 const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
-// Get candidate status from vote status.
-#define CANDIDATE_STATUS(vote_status) \
-    ((uint8_t)(vote_status + 1))
-
 // Checks for EVR currency issued by issuer account.
 #define IS_EVR(amount_buffer, issuer_accid)                \
     (BUFFER_EQUAL_20((amount_buffer + 8), evr_currency) && \
@@ -198,12 +194,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_8(buf, HOOK_UPDATE) &&             \
      BUFFER_EQUAL_4((buf + 8), (HOOK_UPDATE + 8)) && \
      BUFFER_EQUAL_1((buf + 12), (HOOK_UPDATE + 12)))
-
-#define EQUAL_HOST_REGISTRY_REF(buf, len)                  \
-    (sizeof(HOST_REGISTRY_REF) == (len + 1) &&             \
-     BUFFER_EQUAL_8(buf, HOST_REGISTRY_REF) &&             \
-     BUFFER_EQUAL_8((buf + 8), (HOST_REGISTRY_REF + 8)) && \
-     BUFFER_EQUAL_2((buf + 16), (HOST_REGISTRY_REF + 16)))
 
 #define EQUAL_CANDIDATE_VOTE(buf, len)      \
     (sizeof(CANDIDATE_VOTE) == (len + 1) && \
@@ -460,10 +450,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         is_prunable = heartbeat_delay < max_tolerable_downtime ? 0 : 1;                                                                                \
     }
 
-#define ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount)                                       \
+#define ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount_float)                                 \
     {                                                                                                                                                              \
         const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                 \
-        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount))); /* Prepare reward info to update host counts and epoch. */              \
+        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), amount_float)); /* Prepare reward info to update host counts and epoch. */                      \
         int64_t reward_pool_amount, reward_amount;                                                                                                                 \
         PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 0, reward_pool_amount, reward_amount); \
                                                                                                                                                                    \
@@ -595,25 +585,24 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];                                                                     \
         uint64_t status_changed_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);                                               \
                                                                                                                                                                     \
-        status = STATUS_ACTIVE;                                                                                                                                     \
+        status = CANDIDATE_REJECTED;                                                                                                                                \
         /* If this is piloted mode candidate we treat differently, we do not expire or reject event if there's already elected candidate. */                        \
         /* If there is a recently closed election. This voted candidate will be vetoed. (If that candidate was created before the election completion timestamp) */ \
         if ((candidate_type != PILOTED_MODE_CANDIDATE) &&                                                                                                           \
             (last_election_completed_timestamp > created_timestamp) &&                                                                                              \
             (last_election_completed_timestamp < (created_timestamp + life_period)))                                                                                \
         {                                                                                                                                                           \
-            status = STATUS_VETOED;                                                                                                                                 \
+            status = CANDIDATE_VETOED;                                                                                                                              \
         }                                                                                                                                                           \
         /* If the candidate is older than the life period destroy the candidate and rebate the half of staked EVRs. */                                              \
         else if ((candidate_type != PILOTED_MODE_CANDIDATE) &&                                                                                                      \
                  (cur_ledger_timestamp - created_timestamp > life_period))                                                                                          \
         {                                                                                                                                                           \
-            status = STATUS_EXPIRED;                                                                                                                                \
+            status = CANDIDATE_EXPIRED;                                                                                                                             \
         }                                                                                                                                                           \
         /* If this is a new moment, Evaluate the votes and vote statuses. Then reset the votes for the next moment. */                                              \
         else if (cur_moment > last_vote_moment)                                                                                                                     \
         {                                                                                                                                                           \
-            uint8_t new_status = CANDIDATE_REJECTED;                                                                                                                \
             uint64_t election_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);                                                                             \
             /* If the last vote is received before previous moment means the proposal is rejected in the next moment after last_vote_moment. */                     \
             if (cur_moment - 1 > last_vote_moment)                                                                                                                  \
@@ -627,7 +616,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             /* Co-Piloted:  which means no Proposal can succeed unless the Foundation Supports it and it fails if the Foundation opposes it. */                     \
             /* Auto-Piloted: which means the standard voting rules apply with the Foundation being treated equally with any other Participant. */                   \
             if (governance_mode == PILOTED)                                                                                                                         \
-                new_status = foundation_vote_status;                                                                                                                \
+                status = foundation_vote_status;                                                                                                                    \
             else                                                                                                                                                    \
             {                                                                                                                                                       \
                 const uint16_t support_average = UINT16_FROM_BUF(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);                                      \
@@ -641,18 +630,18 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                 }                                                                                                                                                   \
                                                                                                                                                                     \
                 if (voter_base_count > 0 && ((supported_count * 100) / voter_base_count > support_average))                                                         \
-                    new_status = CANDIDATE_SUPPORTED;                                                                                                               \
+                    status = CANDIDATE_SUPPORTED;                                                                                                                   \
                                                                                                                                                                     \
                 /* In co-piloted mode if foundation is not supported, we do not consider other participants' status. */                                             \
                 if (governance_mode == CO_PILOTED && foundation_vote_status != CANDIDATE_SUPPORTED)                                                                 \
-                    new_status = foundation_vote_status;                                                                                                            \
+                    status = foundation_vote_status;                                                                                                                \
             }                                                                                                                                                       \
                                                                                                                                                                     \
             /* Update the vote status if changed. */                                                                                                                \
-            if (new_status != cur_status)                                                                                                                           \
+            if (status != cur_status)                                                                                                                               \
             {                                                                                                                                                       \
-                candidate_id[CANDIDATE_STATUS_OFFSET] = new_status;                                                                                                 \
-                cur_status = new_status;                                                                                                                            \
+                candidate_id[CANDIDATE_STATUS_OFFSET] = status;                                                                                                     \
+                cur_status = status;                                                                                                                                \
                 UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], election_timestamp);                                                         \
                 status_changed_timestamp = election_timestamp;                                                                                                      \
             }                                                                                                                                                       \
@@ -664,8 +653,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                                                           \
                                                                                                                                                                     \
         /* If the candidate is not vetoed and expired and it fulfils the time period to get elected or vetoed. */                                                   \
-        if (status == STATUS_ACTIVE && (cur_ledger_timestamp - status_changed_timestamp) > election_period)                                                         \
-            status = (cur_status == CANDIDATE_SUPPORTED) ? STATUS_ACCEPTED : STATUS_VETOED;                                                                         \
+        if (status != CANDIDATE_VETOED && status != CANDIDATE_EXPIRED && (cur_ledger_timestamp - status_changed_timestamp) > election_period)                       \
+            status = (cur_status == CANDIDATE_SUPPORTED) ? CANDIDATE_ELECTED : CANDIDATE_VETOED;                                                                    \
     }
 
 #endif

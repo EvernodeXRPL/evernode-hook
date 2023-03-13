@@ -7,14 +7,12 @@
 #define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
-#define HOST_POST_DEREG "evnHostPostDereg"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
-#define DEAD_HOST_PRUNE_RES "evnDeadHostPruneRes"
+#define DEAD_HOST_PRUNE_RES "evnHostPruneRes"
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
 #define HOOK_UPDATE "evnHookUpdate"
-#define HOST_REGISTRY_REF "evnHostRegistryRef"
 #define CANDIDATE_PROPOSE "evnCandidatePropose"
 #define CANDIDATE_PROPOSE_REF "evnCandidateProposeRef"
 #define CANDIDATE_VOTE "evnCandidateVote"
@@ -29,6 +27,7 @@
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
 #define DUD_HOST_REMOVE "evnDudHostRemove"
+#define DUD_HOST_REMOVE_RES "evnDudHostRmRes"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -37,7 +36,6 @@
 
 #define EVR_TOKEN "EVR"
 #define EVR_HOST "evrhost"
-#define INACTIVE_PRUNE_MESSAGE "PRUNED_INACTIVE_HOST"
 #define LEDGER_MOMENT_TYPE 0
 #define TIMESTAMP_MOMENT_TYPE 1
 #define PENDING_TRANSFER 1
@@ -200,18 +198,15 @@ const uint32_t MOMENT_TYPE_OFFSET = 12;
 const uint32_t DUD_HOST_CANDID_ADDRESS_OFFSET = 12;
 
 // BEGIN : Governance Game related constants.
-// Candidate statuses
-#define STATUS_ACTIVE 0
-#define STATUS_ACCEPTED 1
-#define STATUS_VETOED 2
-#define STATUS_EXPIRED 3
-
 // Candidate vote statuses
 const uint8_t CANDIDATE_REJECTED = 0;
 const uint8_t CANDIDATE_SUPPORTED = 1;
-const uint8_t CANDIDATE_ACCEPTED = 2;
+const uint8_t CANDIDATE_ELECTED = 2;
 const uint8_t CANDIDATE_VETOED = 3;
 const uint8_t CANDIDATE_EXPIRED = 4;
+
+#define VOTING_COMPLETED(status) \
+    (status > CANDIDATE_SUPPORTED)
 
 // Governance modes
 const uint8_t PILOTED = 1;

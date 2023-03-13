@@ -249,12 +249,12 @@ int64_t hook(uint32_t reserved)
                             const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
                             uint32_t supported_count = UINT32_FROM_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
 
-                            int status = STATUS_ACTIVE;
+                            int status = CANDIDATE_REJECTED;
                             PREPARE_VOTE_INFO(cur_moment, last_vote_moment, last_vote_timestamp, voter_base_count, governance_info, candidate_id, supported_count, status);
 
-                            if ((candidate_type != PILOTED_MODE_CANDIDATE) ? (status != STATUS_ACTIVE) : (status == STATUS_ACCEPTED))
+                            if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(status) : (status == CANDIDATE_ELECTED))
                             {
-                                candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_STATUS(status);
+                                candidate_id[CANDIDATE_STATUS_OFFSET] = status;
 
                                 // Invoke Governor to trigger on this condition.
                                 uint8_t trigger_memo_data[33];
