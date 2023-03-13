@@ -28,7 +28,7 @@
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
 #define DUD_HOST_REMOVE "evnDudHostRemove"
-#define DUD_HOST_REMOVE_RES "evnHostDudRmRes"
+#define DUD_HOST_REMOVE_RES "evnDudHostRemRes"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
