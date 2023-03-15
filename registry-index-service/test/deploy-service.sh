@@ -2,7 +2,7 @@
 
 dev_path="/root/dev-test"
 beta_path="/root/beta1"
-migration_path="/root/migration-test"
+v3dev_path="/root/v3dev"
 build_path="../dist"
 bundle="registry-index.tar.gz"
 
@@ -16,8 +16,8 @@ if [[ $mode = "dev" ]]; then
     to_path="$dev_path"
     index_path="$to_path/registry-index"
     governor_address=""
-elif [[ $mode = "migration" ]]; then
-    to_path="$migration_path"
+elif [[ $mode = "v3dev" ]]; then
+    to_path="$v3dev_path"
     index_path="$to_path/registry-index"
     governor_address=""
 # elif [[ $mode = "beta" ]]; then
