@@ -64,7 +64,6 @@ function create_service() {
                 [Install]
                 WantedBy=multi-user.target" >$systemd_file
     systemctl daemon-reload
-    systemctl enable $service
 }
 
 function sethook() {
@@ -90,17 +89,21 @@ elif [ ! -z "$arg2" ]; then # If 2nd param is given.
         exit 1
     elif [ "$arg2" == "service-reconfig" ]; then
         create_service
+        systemctl enable $service
+        systemctl restart $service
         echo "Created systemd service $service"
     elif [ "$arg2" == "service-start" ]; then
         if [ ! -f "$systemd_file" ]; then # Create a systemd service if not exist.
             create_service
             echo "Created systemd service $service"
         fi
+        systemctl enable $service
         systemctl start $service
         echo "Started systemd service $service"
     elif [ "$arg2" == "service-stop" ]; then
         [ ! -f "$systemd_file" ] && echo "Systemd service not found, Create a service with 'service-start'." && exit 1
         systemctl stop $service
+        systemctl disable $service
         echo "Stopped systemd service $service"
     elif [ "$arg2" == "service-rm" ] || [ "$arg2" == "rm" ]; then # If service-rm or rm given, Handle removes.
         if [ -f "$systemd_file" ]; then

@@ -19,7 +19,7 @@ if [[ $mode = "dev" ]]; then
 elif [[ $mode = "v3-dev" ]]; then
     to_path="$v3_dev_path"
     index_path="$to_path/registry-index"
-    governor_address=""
+    governor_address="rao1FoQ9SPhjyxVayMVNeyh9wsWZ6jF3L"
 # elif [[ $mode = "beta" ]]; then
 #     to_path="$beta_path"
 #     index_path="$to_path/registry-index"
@@ -34,10 +34,8 @@ index_bk_path="$index_path-bk"
 index_bk_data_path="$index_bk_path/data"
 bundle_path="$to_path/$bundle"
 
-echo "Enter the machine ip address:"
-read ip </dev/tty
-echo "Enter the $ip root password:"
-read pword </dev/tty
+read -p "Enter the machine ip address: " ip </dev/tty
+read -s -p "Enter the $ip root password (your input will be hidden on screen): " pword </dev/tty && echo ""
 
 # Copy the bundle from local machine.
 sshpass -p $pword scp "$build_path/$bundle" root@$ip:"$to_path/"
@@ -59,9 +57,6 @@ echo 'Re-configuring the service'
 ./run-registry-index.sh $governor_address service-reconfig
 
 popd
-
-echo 'Restarting the service.'
-systemctl restart registry-index-$governor_address.service
 "
 
 sshpass -p $pword ssh root@$ip "$code"
