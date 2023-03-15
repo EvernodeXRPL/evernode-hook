@@ -77,7 +77,7 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 124;
+const uint32_t HOST_ADDR_VAL_SIZE = 125;
 const uint32_t TOKEN_ID_VAL_SIZE = 116;
 const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
@@ -88,7 +88,7 @@ const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
-const uint32_t GOVERNANCE_INFO_VAL_SIZE = 70;
+const uint32_t GOVERNANCE_INFO_VAL_SIZE = 71;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 13;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
@@ -130,6 +130,7 @@ const uint32_t FOUNDATION_LAST_VOTED_TIMESTAMP_OFFSET = 21;
 const uint32_t ELECTED_PROPOSAL_UNIQUE_ID_OFFSET = 29;
 const uint32_t PROPOSAL_ELECTED_TIMESTAMP_OFFSET = 61;
 const uint32_t UPDATED_HOOK_COUNT_OFFSET = 69;
+const uint32_t FOUNDATION_SUPPORT_VOTE_FLAG_OFFSET = 70;
 
 // HOST_ADDR
 const uint32_t HOST_TOKEN_ID_OFFSET = 0;
@@ -146,6 +147,7 @@ const uint32_t HOST_REG_TIMESTAMP_OFFSET = 103;
 const uint32_t HOST_TRANSFER_FLAG_OFFSET = 111;
 const uint32_t HOST_LAST_VOTE_CANDIDATE_IDX_OFFSET = 112;
 const uint32_t HOST_LAST_VOTE_TIMESTAMP_OFFSET = 116;
+const uint32_t HOST_SUPPORT_VOTE_FLAG_OFFSET = 124;
 
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;

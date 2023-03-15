@@ -270,11 +270,20 @@ int64_t hook(uint32_t reserved)
                             {
                                 const uint32_t candidate_idx = UINT32_FROM_BUF(&candidate_id[CANDIDATE_IDX_OFFSET]);
                                 const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF(&host_addr[HOST_LAST_VOTE_CANDIDATE_IDX_OFFSET]);
-                                const uint32_t host_vote_moment = GET_MOMENT(UINT64_FROM_BUF(&governance_info[HOST_LAST_VOTE_TIMESTAMP_OFFSET]));
+                                const uint32_t host_vote_moment = GET_MOMENT(UINT64_FROM_BUF(&host_addr[HOST_LAST_VOTE_TIMESTAMP_OFFSET]));
 
                                 // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
                                 if (cur_moment == host_vote_moment && candidate_idx <= last_vote_candidate_idx)
-                                    rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for already voted candidate is not allowed."), 1);
+                                    rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
+                                // Only one support vote is allowed for new hook candidate per moment.
+                                if (candidate_type == NEW_HOOK_CANDIDATE)
+                                {
+                                    if (cur_moment == host_vote_moment &&
+                                        *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED &&
+                                        host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET] == 1)
+                                        rollback(SBUF("Evernode: Only one support vote is allowed per moment."), 1);
+                                    host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET] = *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) ? 1 : 0;
+                                }
 
                                 if (*(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED)
                                     supported_count++;

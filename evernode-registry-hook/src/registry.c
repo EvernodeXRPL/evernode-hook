@@ -126,8 +126,8 @@ int64_t hook(uint32_t reserved)
                     if (op_type != OP_HOST_REBATE && !EQUAL_FORMAT_HEX(format_ptr, format_len))
                         rollback(SBUF("Evernode: Memo format should be hex."), 1);
 
-                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
-                    // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)>
+                    // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
+                    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
                     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
