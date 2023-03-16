@@ -4,6 +4,7 @@
 #include "../../headers/transactions.h"
 
 #define OP_HEARTBEAT 1
+#define OP_VOTE 2
 
 // IOU Payment with single memo (Reward).
 uint8_t REWARD_PAYMENT[333] = {

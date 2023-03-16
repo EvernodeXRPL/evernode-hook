@@ -157,9 +157,6 @@ int64_t hook(uint32_t reserved)
                     // Change Governance Mode.
                     else if (EQUAL_CHANGE_GOVERNANCE_MODE(type_ptr, type_len))
                         op_type = OP_GOVERNANCE_MODE_CHANGE;
-                    // Vote for a Hook Candidate.
-                    else if (EQUAL_CANDIDATE_VOTE(type_ptr, type_len))
-                        op_type = OP_VOTE;
                     // Invoke Governor on host heartbeat.
                     else if (EQUAL_CANDIDATE_STATUS_CHANGE(type_ptr, type_len))
                         op_type = OP_STATUS_CHANGE;
@@ -195,7 +192,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
                     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
                     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-                    if (op_type == OP_PROPOSE || op_type == OP_VOTE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE)
+                    if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE)
                     {
                         if (state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not get governance configuration state."), 1);
@@ -210,7 +207,7 @@ int64_t hook(uint32_t reserved)
                     }
 
                     // Validation check for participants other than the foundation address
-                    if ((op_type == OP_PROPOSE || op_type == OP_VOTE || op_type == DUD_HOST_REPORT) && !source_is_foundation)
+                    if ((op_type == OP_PROPOSE || op_type == DUD_HOST_REPORT) && !source_is_foundation)
                     {
                         const uint32_t min_eligibility_period = UINT32_FROM_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
@@ -227,7 +224,7 @@ int64_t hook(uint32_t reserved)
                     // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)>
                     // <proposal_elected_timestamp(8)><updated_hook_count(1)><foundation_vote_flag(1)>
                     uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
-                    if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_VOTE || op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT)
+                    if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT)
                     {
                         if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
                             rollback(SBUF("Evernode: Could not get state governance_game info."), 1);
@@ -240,7 +237,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
                     // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)>
                     uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
-                    if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_VOTE || op_type == OP_WITHDRAW)
+                    if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW)
                     {
                         if (state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not get heartbeat or registry account id."), 1);
@@ -253,21 +250,11 @@ int64_t hook(uint32_t reserved)
                         CANDIDATE_OWNER_KEY(candidate_id);
                     }
 
-                    uint8_t candidate_type;
-                    int vote_status;
-                    if (op_type == OP_VOTE || op_type == OP_STATUS_CHANGE)
-                    {
-                        candidate_type = CANDIDATE_TYPE(data_ptr);
-                        if (candidate_type == 0)
-                            rollback(SBUF("Evernode: Invalid candidate type."), 1);
-                        vote_status = CANDIDATE_REJECTED;
-                    }
-
                     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                     // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
                     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                    if (op_type == OP_PROPOSE || op_type == OP_VOTE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
+                    if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
                     {
                         if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
                             state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
@@ -477,65 +464,6 @@ int64_t hook(uint32_t reserved)
 
                         accept(SBUF("Evernode: Successfully accepted Hook candidate proposal."), 0);
                     }
-                    else if (op_type == OP_VOTE)
-                    {
-                        if (!source_is_foundation)
-                            rollback(SBUF("Evernode: Only foundation is allowed to vote in governance hook."), 1);
-
-                        if (BUFFER_EQUAL_32((governance_info + ELECTED_PROPOSAL_UNIQUE_ID_OFFSET), data_ptr))
-                            rollback(SBUF("Evernode: Voting for an already elected candidate."), 1);
-
-                        const uint32_t cur_moment = GET_MOMENT(cur_idx);
-                        uint32_t voter_base_count = UINT32_FROM_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET]);
-                        const uint64_t last_vote_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
-                        const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
-                        uint32_t supported_count = UINT32_FROM_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
-
-                        PREPARE_VOTE_INFO(cur_moment, last_vote_moment, last_vote_timestamp, voter_base_count, governance_info, candidate_id, supported_count, vote_status);
-
-                        if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(vote_status) : (vote_status == CANDIDATE_ELECTED))
-                        {
-                            candidate_id[CANDIDATE_STATUS_OFFSET] = vote_status;
-                            op_type = OP_STATUS_CHANGE;
-                        }
-                        else
-                        {
-                            const uint32_t candidate_idx = UINT32_FROM_BUF(&candidate_id[CANDIDATE_IDX_OFFSET]);
-                            const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF(&governance_info[FOUNDATION_LAST_VOTED_CANDIDATE_IDX]);
-                            const uint32_t foundation_vote_moment = GET_MOMENT(UINT64_FROM_BUF(&governance_info[FOUNDATION_LAST_VOTED_TIMESTAMP_OFFSET]));
-
-                            // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
-                            if (cur_moment == foundation_vote_moment && candidate_idx <= last_vote_candidate_idx)
-                                rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
-                            // Only one support vote is allowed for new hook candidate per moment.
-                            if (candidate_type == NEW_HOOK_CANDIDATE)
-                            {
-                                if (cur_moment == foundation_vote_moment &&
-                                    *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED &&
-                                    governance_info[FOUNDATION_SUPPORT_VOTE_FLAG_OFFSET] == 1)
-                                    rollback(SBUF("Evernode: Only one support vote is allowed per moment."), 1);
-                                governance_info[FOUNDATION_SUPPORT_VOTE_FLAG_OFFSET] = *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) ? 1 : 0;
-                            }
-
-                            UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], supported_count);
-
-                            // Update the last vote timestamp.
-                            UINT64_TO_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-
-                            candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET);
-
-                            UINT32_TO_BUF(&governance_info[FOUNDATION_LAST_VOTED_CANDIDATE_IDX], candidate_idx);
-                            UINT64_TO_BUF(&governance_info[FOUNDATION_LAST_VOTED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                            if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not set state for governance_game info."), 1);
-                        }
-
-                        if (state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for candidate id."), 1);
-
-                        if (op_type == OP_VOTE)
-                            accept(SBUF("Evernode: Successfully accepted foundation hook candidate vote."), 0);
-                    }
                     else if (op_type == OP_WITHDRAW)
                     {
                         if (!BUFFER_EQUAL_20(candidate_id, account_field))
@@ -545,8 +473,8 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Trying to withdraw an already elected proposal."), 1);
 
                         const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
-                        if (candidate_type == 0)
-                            rollback(SBUF("Evernode: Voting for an invalid candidate type."), 1);
+                        if (candidate_type != DUD_HOST_CANDIDATE && candidate_type != NEW_HOOK_CANDIDATE)
+                            rollback(SBUF("Evernode: Withdrawing an an invalid candidate type."), 1);
                         else if (candidate_type == PILOTED_MODE_CANDIDATE)
                             rollback(SBUF("Evernode: Piloted mode candidate cannot be withdrawn."), 1);
 
@@ -571,16 +499,6 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not delete the candidate states."), 1);
 
                         accept(SBUF("Evernode: Successfully withdrawn Hook candidate proposal."), 0);
-                    }
-                    else if (op_type == OP_STATUS_CHANGE)
-                    {
-                        // We accept only the status change transaction from hook heartbeat account.
-                        if (!BUFFER_EQUAL_20(heartbeat_accid, account_field))
-                            rollback(SBUF("Evernode: Status change is only allowed from heartbeat account."), 1);
-                        else if (BUFFER_EQUAL_32((governance_info + ELECTED_PROPOSAL_UNIQUE_ID_OFFSET), data_ptr))
-                            rollback(SBUF("Evernode: Status change for an already elected candidate."), 1);
-
-                        vote_status = *(data_ptr + HASH_SIZE);
                     }
                     else if (op_type == OP_HOOK_UPDATE)
                     {
@@ -732,6 +650,17 @@ int64_t hook(uint32_t reserved)
                     }
                     if (op_type == OP_STATUS_CHANGE)
                     {
+                        // We accept only the status change transaction from hook heartbeat account.
+                        if (!BUFFER_EQUAL_20(heartbeat_accid, account_field))
+                            rollback(SBUF("Evernode: Status change is only allowed from heartbeat account."), 1);
+                        else if (BUFFER_EQUAL_32((governance_info + ELECTED_PROPOSAL_UNIQUE_ID_OFFSET), data_ptr))
+                            rollback(SBUF("Evernode: Status change for an already elected candidate."), 1);
+
+                        const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
+                        if (candidate_type == 0)
+                            rollback(SBUF("Evernode: Invalid candidate type."), 1);
+
+                        const uint8_t vote_status = *(data_ptr + HASH_SIZE);
                         if (candidate_id[CANDIDATE_STATUS_OFFSET] != vote_status)
                             rollback(SBUF("Evernode: Invalid status sent with the memo."), 1);
 

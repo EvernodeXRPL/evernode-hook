@@ -397,12 +397,12 @@ class IndexManager {
             GovernorEvents.CandidateProposed,
             GovernorEvents.CandidateWithdrew,
             GovernorEvents.ChildHookUpdated,
-            GovernorEvents.FoundationVoted,
             GovernorEvents.DudHostReported,
             GovernorEvents.DudHostRemoved,
             GovernorEvents.DudHostStatusChanged,
             GovernorEvents.FallbackToPiloted,
-            GovernorEvents.NewHookStatusChanged
+            GovernorEvents.NewHookStatusChanged,
+            HeartbeatEvents.FoundationVoted
         ];
 
         console.log(`|${trx.Account}|${event}|Triggered a transaction.`);
@@ -489,6 +489,11 @@ class IndexManager {
 
                     break;
                 }
+                case HeartbeatEvents.FoundationVoted: {
+                    affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_VOTE.slice();
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateId });
+                    break;
+                }
                 case RegistryEvents.DeadHostPrune: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
@@ -511,11 +516,6 @@ class IndexManager {
                     affectedStates.push({ operation: 'INSERT', key: stateKeyCandidateId });
                     stateKeyCandidateOwner = StateHelpers.generateCandidateOwnerStateKey(data.owner);
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateOwner });
-                    break;
-                }
-                case GovernorEvents.FoundationVoted: {
-                    affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_VOTE.slice();
-                    affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateId });
                     break;
                 }
                 case GovernorEvents.CandidateWithdrew: {
