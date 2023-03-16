@@ -267,7 +267,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
                     // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
                     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                    if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
+                    if (op_type == OP_PROPOSE || op_type == OP_VOTE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
                     {
                         if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
                             state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
