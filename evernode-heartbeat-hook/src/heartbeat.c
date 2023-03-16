@@ -162,6 +162,9 @@ int64_t hook(uint32_t reserved)
                                 accept_heartbeat = 1;
                         }
 
+                        // Allocate for both rewards trx + vote triggers.
+                        etxn_reserve(accept_heartbeat ? 2 : 1);
+
                         if (accept_heartbeat)
                         {
                             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
@@ -188,7 +191,6 @@ int64_t hook(uint32_t reserved)
                                 last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
                                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
                             {
-                                etxn_reserve(1);
                                 PREPARE_REWARD_PAYMENT_TX(reward_amount, account_field);
                                 uint8_t emithash[HASH_SIZE];
                                 if (emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) < 0)
@@ -210,21 +212,16 @@ int64_t hook(uint32_t reserved)
                         uint8_t do_rollback = 0;
                         VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);
 
-                        // Update the voter base count if eligible for governance.
-                        if (eligible_for_governance)
+                        // Increase the voter base count if this host haven't send heartbeat before and host is eligible for voting.
+                        if (accept_heartbeat && eligible_for_governance)
                         {
                             uint32_t voter_base_count = UINT32_FROM_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET]);
-
-                            // Increase the voter base count if this host is eligible for voting.
-                            if (eligible_for_governance)
-                            {
-                                const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
-                                // Reset the count if this is a new moment.
-                                UINT32_TO_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET], (uint32_t)((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1));
-                                UINT64_TO_BUF(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                                if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
-                                    rollback(SBUF("Evernode: Could not set state governance_game info."), 1);
-                            }
+                            const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
+                            // Reset the count if this is a new moment.
+                            UINT32_TO_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET], (uint32_t)((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1));
+                            UINT64_TO_BUF(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                            if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
+                                rollback(SBUF("Evernode: Could not set state governance_game info."), 1);
                         }
 
                         // Handle votes if there's a vote.
@@ -249,6 +246,9 @@ int64_t hook(uint32_t reserved)
                     {
                         if (!source_is_foundation)
                             rollback(SBUF("Evernode: Only foundation is allowed to vote in governance hook."), 1);
+
+                        // Allocate vote triggers.
+                        etxn_reserve(1);
                     }
 
                     if (op_type == OP_VOTE)
@@ -367,7 +367,6 @@ int64_t hook(uint32_t reserved)
                             COPY_32BYTES(trigger_memo_data, data_ptr);
                             trigger_memo_data[32] = status;
 
-                            etxn_reserve(1);
                             PREPARE_CANDIDATE_STATUS_CHANGE_MIN_PAYMENT(1, state_hook_accid, trigger_memo_data);
                             uint8_t emithash[HASH_SIZE];
                             if (emit(SBUF(emithash), SBUF(CANDIDATE_STATUS_CHANGE_MIN_PAYMENT_TX)) < 0)
