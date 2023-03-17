@@ -273,12 +273,15 @@ int64_t hook(uint32_t reserved)
                         if (candidate_type == 0)
                             rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type."), 1);
 
+                        if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
+                            rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed."), 1);
+
                         uint32_t voter_base_count = UINT32_FROM_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET]);
                         const uint64_t last_vote_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
                         const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
                         uint32_t supported_count = UINT32_FROM_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
 
-                        int status = CANDIDATE_REJECTED;
+                        uint8_t status = CANDIDATE_REJECTED;
                         const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
                         const uint8_t governance_mode = governance_info[GOVERNANCE_MODE_OFFSET];
                         const uint32_t life_period = UINT32_FROM_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
