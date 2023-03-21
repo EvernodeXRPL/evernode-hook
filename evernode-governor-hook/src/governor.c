@@ -469,8 +469,8 @@ int64_t hook(uint32_t reserved)
                         if (!BUFFER_EQUAL_20(candidate_id, account_field))
                             rollback(SBUF("Evernode: Candidate proposal is not owned by this account."), 1);
 
-                        if (BUFFER_EQUAL_32(data_ptr, &governance_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]))
-                            rollback(SBUF("Evernode: Trying to withdraw an already elected proposal."), 1);
+                        if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
+                            rollback(SBUF("Evernode: Trying to withdraw an already closed proposal."), 1);
 
                         const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
                         if (candidate_type != DUD_HOST_CANDIDATE && candidate_type != NEW_HOOK_CANDIDATE)
@@ -522,6 +522,8 @@ int64_t hook(uint32_t reserved)
 
                         if (!BUFFER_EQUAL_32(data_ptr, &governance_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]))
                             rollback(SBUF("Evernode: Candidate unique id is invalid."), 1);
+                        else if (candidate_id[CANDIDATE_STATUS_OFFSET] != CANDIDATE_ELECTED)
+                            rollback(SBUF("Evernode: Trying to apply a candidate which is not elected."), 1);
 
                         const uint8_t updated_hook_count = governance_info[UPDATED_HOOK_COUNT_OFFSET];
 
@@ -549,8 +551,6 @@ int64_t hook(uint32_t reserved)
 
                             // Clear the proposal states.
                             governance_info[UPDATED_HOOK_COUNT_OFFSET] = 0;
-                            CLEAR_32BYTES(&governance_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]);
-                            UINT64_TO_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET], 0);
 
                             if (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not delete the candidate states."), 1);
@@ -653,8 +653,6 @@ int64_t hook(uint32_t reserved)
                         // We accept only the status change transaction from hook heartbeat account.
                         if (!BUFFER_EQUAL_20(heartbeat_accid, account_field))
                             rollback(SBUF("Evernode: Status change is only allowed from heartbeat account."), 1);
-                        else if (BUFFER_EQUAL_32((governance_info + ELECTED_PROPOSAL_UNIQUE_ID_OFFSET), data_ptr))
-                            rollback(SBUF("Evernode: Status change for an already elected candidate."), 1);
 
                         const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
                         if (candidate_type == 0)

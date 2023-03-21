@@ -266,9 +266,6 @@ int64_t hook(uint32_t reserved)
                         // As first 20 bytes of "candidate_id" represents owner address.
                         CANDIDATE_OWNER_KEY(candidate_id);
 
-                        if (BUFFER_EQUAL_32((governance_info + ELECTED_PROPOSAL_UNIQUE_ID_OFFSET), data_ptr))
-                            rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for an already elected candidate."), 1);
-
                         const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
                         if (candidate_type == 0)
                             rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type."), 1);

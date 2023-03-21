@@ -532,6 +532,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];                                                                                                          \
         if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)                                                                       \
             rollback(SBUF("Evernode: Error getting a candidate for the given id."), 1);                                                                       \
+        else if (candidate_id[CANDIDATE_STATUS_OFFSET] != CANDIDATE_ELECTED)                                                                                  \
+            rollback(SBUF("Evernode: Trying to apply a candidate which is not elected."), 1);                                                                 \
                                                                                                                                                               \
         /* As first 20 bytes of "candidate_id" represents owner address.*/                                                                                    \
         CANDIDATE_OWNER_KEY(candidate_id);                                                                                                                    \
