@@ -397,6 +397,7 @@ int64_t hook(uint32_t reserved)
                             if (cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx)
                                 rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
                             // Only one support vote is allowed for new hook candidate per moment.
+                            *support_vote_flag_ptr = 0;
                             if (candidate_type == NEW_HOOK_CANDIDATE)
                             {
                                 if (cur_moment == voted_moment && *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED && voted_flag == 1)
