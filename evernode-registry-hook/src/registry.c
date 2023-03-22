@@ -129,7 +129,7 @@ int64_t hook(uint32_t reserved)
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
                     // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
+                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><accumulated_reward_amount(8)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
 
                     // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
@@ -162,7 +162,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Registration URIToken does not exist."), 1);
                     }
 
-                    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
                     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
                     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
@@ -599,10 +599,6 @@ int64_t hook(uint32_t reserved)
 
                     if (redirect_op_type == OP_HOST_REMOVE)
                     {
-                        // Delete registration entries.
-                        if (state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not delete host registration entry."), 1);
-
                         // Reduce host count by 1.
                         uint64_t host_count;
                         GET_HOST_COUNT(host_count);
@@ -616,38 +612,46 @@ int64_t hook(uint32_t reserved)
                         uint64_t host_reg_fee;
                         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-                        const int64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
-                        const int64_t pending_rebate_amount = reg_fee - host_reg_fee;
+                        const uint64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
+                        const uint64_t reward_amount = (amount_half - fixed_reg_fee);
+                        const uint64_t pending_rebate_amount = reg_fee > host_reg_fee ? reg_fee - host_reg_fee : 0;
+
+                        const uint64_t total_rebate_amount = amount_half + pending_rebate_amount;
 
                         const uint8_t *memo_type_ptr = op_type == OP_HOST_DE_REG ? HOST_DE_REG_RES : (op_type == OP_DEAD_HOST_PRUNE ? DEAD_HOST_PRUNE_RES : DUD_HOST_REMOVE_RES);
                         const uint8_t *host_addr_ptr = op_type == OP_HOST_DE_REG ? account_field : data_ptr;
 
-                        uint8_t emithash[HASH_SIZE];
-                        if (host_reg_fee > fixed_reg_fee || pending_rebate_amount > 0)
+                        const uint8_t *host_accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
+                        const int64_t accumulated_reward = INT64_FROM_BUF(host_accumulated_reward_ptr);
+                        if (float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
                         {
-                            etxn_reserve(amount_half > 0 ? 3 : 2);
+                            // TODO: Send reward trigger to the heartbeat.
+                        }
+
+                        uint8_t emithash[HASH_SIZE];
+                        etxn_reserve(reward_amount > 0 ? 3 : 2);
+                        // Add amount_half - 5 to the epoch's reward pool.
+                        if (reward_amount > 0)
+                        {
+                            const int64_t reward_amount_float = float_set(0, reward_amount);
+                            ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount_float);
+
+                            PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount_float, heartbeat_hook_accid, txid);
+                            if (emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) < 0)
+                                rollback(SBUF("Evernode: EVR funding to heartbeat hook account failed."), 1);
+                            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                        }
+
+                        if (total_rebate_amount > 0)
+                        {
                             // Prepare transaction to send 50% of reg fee and pending rebates to host account.
-                            PREPARE_REMOVED_HOST_RES_PAYMENT_TX(float_set(0, amount_half + pending_rebate_amount), host_addr_ptr, memo_type_ptr, txid);
+                            PREPARE_REMOVED_HOST_RES_PAYMENT_TX(float_set(0, total_rebate_amount), host_addr_ptr, memo_type_ptr, txid);
                             if (emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_PAYMENT)) < 0)
                                 rollback(SBUF("Evernode: Rebating 1/2 reg fee and pending rebates to host account failed."), 1);
                             trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-                            // Add amount_half - 5 to the epoch's reward pool.
-                            if (amount_half > 0)
-                            {
-                                const int64_t reward_amount = (amount_half - 5);
-                                const int64_t reward_amount_float = float_set(0, reward_amount);
-                                ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount_float);
-
-                                PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount_float, heartbeat_hook_accid, txid);
-                                if (emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) < 0)
-                                    rollback(SBUF("Evernode: EVR funding to heartbeat hook account failed."), 1);
-                                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-                            }
                         }
                         else
                         {
-                            etxn_reserve(2);
                             // Prepare MIN XRP transaction to host about pruning.
                             PREPARE_REMOVED_HOST_RES_MIN_PAYMENT_TX(1, host_addr_ptr, memo_type_ptr, txid);
                             if (emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_MIN_PAYMENT)) < 0)
@@ -660,6 +664,10 @@ int64_t hook(uint32_t reserved)
                         if (emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) < 0)
                             rollback(SBUF("Evernode: Emitting URI token burn txn failed"), 1);
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                        // Delete registration entries.
+                        if (state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
+                            rollback(SBUF("Evernode: Could not delete host registration entry."), 1);
 
                         if (op_type == OP_HOST_DE_REG)
                             accept(SBUF("Evernode: Host de-registration successful."), 0);
