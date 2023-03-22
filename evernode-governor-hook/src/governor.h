@@ -91,6 +91,7 @@ const uint32_t DEF_GOVERNANCE_ELIGIBILITY_PERIOD = 7884000; // 3 months in secon
 const uint32_t DEF_CANDIDATE_LIFE_PERIOD = 7884000;         // 3 months in seconds.
 const uint32_t DEF_CANDIDATE_ELECTION_PERIOD = 1209600;     // 2 weeks in seconds.
 const uint16_t DEF_CANDIDATE_SUPPORT_AVERAGE = 80;
+const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 24;
 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
 const uint16_t NEW_MOMENT_SIZE = 3600;

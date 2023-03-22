@@ -117,7 +117,7 @@ int64_t hook(uint32_t reserved)
                     // Host heartbeat.
                     if (op_type == OP_HEARTBEAT)
                     {
-                        // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
+                        // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><accumulated_reward_amount(8)>
                         uint8_t token_id[TOKEN_ID_VAL_SIZE];
 
                         HOST_ADDR_KEY(account_field);
@@ -167,7 +167,7 @@ int64_t hook(uint32_t reserved)
 
                         if (accept_heartbeat)
                         {
-                            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
                             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
                             if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
@@ -185,20 +185,36 @@ int64_t hook(uint32_t reserved)
                             int64_t reward_pool_amount, reward_amount;
                             PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
 
+                            const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
+                            int64_t accumulated_reward = INT64_FROM_BUF(accumulated_reward_ptr);
+
                             // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
                             // the reward quota is not 0.
                             if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
                                 last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
                                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
                             {
-                                PREPARE_REWARD_PAYMENT_TX(reward_amount, account_field);
+                                accumulated_reward = float_sum(accumulated_reward, reward_amount);
+                                INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_negate(reward_amount)));
+                            }
+
+                            // Send the accumulated rewards if there's any.
+                            const uint16_t accumulated_reward_freq = UINT16_FROM_BUF(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET]);
+                            if (cur_moment % accumulated_reward_freq == 0 && float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
+                            {
+                                PREPARE_REWARD_PAYMENT_TX(accumulated_reward, account_field);
                                 uint8_t emithash[HASH_SIZE];
                                 if (emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) < 0)
                                     rollback(SBUF("Evernode: Emitting txn failed"), 1);
                                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                                INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_negate(reward_amount)));
+                                // Make the accumulated reward 0 after sending the rewards.
+                                accumulated_reward = float_set(0, 0);
                             }
+
+                            INT64_TO_BUF(accumulated_reward_ptr, accumulated_reward);
+                            if (state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
+                                rollback(SBUF("Evernode: Could not set state for host token id."), 1);
 
                             if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
