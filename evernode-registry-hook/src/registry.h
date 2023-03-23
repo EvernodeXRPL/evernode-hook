@@ -278,17 +278,17 @@ uint8_t REG_URI_TOKEN_MINT_TX[237] = {
 
 #define REG_URI_TOKEN_MINT_TX_SIZE \
     sizeof(REG_URI_TOKEN_MINT_TX)
-#define PREPARE_URI_TOKEN_MINT_TX(txid_ref_ptr)                    \
-    {                                                              \
-        uint8_t *buf_out = REG_URI_TOKEN_MINT_TX;                  \
-        UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);         \
-        UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);         \
-        COPY_16BYTES((buf_out + 83), txid_ref_ptr);                \
-        COPY_20BYTES((buf_out + 101), hook_accid);                 \
-        etxn_details((buf_out + 121), REG_URI_TOKEN_MINT_TX_SIZE); \
-        int64_t fee = etxn_fee_base(buf_out, 116);                 \
-        uint8_t *fee_ptr = buf_out + 30;                           \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);              \
+#define PREPARE_URI_TOKEN_MINT_TX(txid_ref_ptr)                           \
+    {                                                                     \
+        uint8_t *buf_out = REG_URI_TOKEN_MINT_TX;                         \
+        UINT32_TO_BUF((buf_out + 20), cur_ledger_seq + 1);                \
+        UINT32_TO_BUF((buf_out + 26), cur_ledger_seq + 5);                \
+        COPY_16BYTES((buf_out + 83), txid_ref_ptr);                       \
+        COPY_20BYTES((buf_out + 101), hook_accid);                        \
+        etxn_details((buf_out + 121), 116);                               \
+        int64_t fee = etxn_fee_base(buf_out, REG_URI_TOKEN_MINT_TX_SIZE); \
+        uint8_t *fee_ptr = buf_out + 30;                                  \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                     \
     }
 
 // Burn URI Token
