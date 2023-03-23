@@ -391,11 +391,12 @@ int64_t hook(uint32_t reserved)
                             const uint32_t candidate_idx = UINT32_FROM_BUF(&candidate_id[CANDIDATE_IDX_OFFSET]);
                             const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF(last_voted_candidate_idx_ptr);
                             const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF(last_voted_timestamp_ptr));
-                            const uint8_t voted_flag = *support_vote_flag_ptr;
 
                             // Change the vote flag in a vote of a new moment.
                             if (cur_moment != voted_moment)
                                 *support_vote_flag_ptr = 0;
+
+                            const uint8_t voted_flag = *support_vote_flag_ptr;
 
                             // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
                             if (cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx)
