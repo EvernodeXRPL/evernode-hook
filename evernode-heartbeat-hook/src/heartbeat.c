@@ -393,11 +393,14 @@ int64_t hook(uint32_t reserved)
                             const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF(last_voted_timestamp_ptr));
                             const uint8_t voted_flag = *support_vote_flag_ptr;
 
+                            // Change the vote flag in a vote of a new moment.
+                            if (cur_moment != voted_moment)
+                                *support_vote_flag_ptr = 0;
+
                             // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
                             if (cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx)
                                 rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
                             // Only one support vote is allowed for new hook candidate per moment.
-                            *support_vote_flag_ptr = 0;
                             if (candidate_type == NEW_HOOK_CANDIDATE)
                             {
                                 if (cur_moment == voted_moment && *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED && voted_flag == 1)
