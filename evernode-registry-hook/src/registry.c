@@ -228,7 +228,6 @@ int64_t hook(uint32_t reserved)
                         // Populate values to the state address buffer and set state.
                         // Clear reserve and description sections first.
                         COPY_2BYTES((host_addr + HOST_COUNTRY_CODE_OFFSET), (data_ptr + HOST_COUNTRY_CODE_MEMO_OFFSET));
-                        CLEAR_8BYTES((host_addr + HOST_RESERVED_OFFSET));
                         COPY_DESCRIPTION((host_addr + HOST_DESCRIPTION_OFFSET), (data_ptr + HOST_DESCRIPTION_MEMO_OFFSET));
                         INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
                         UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);

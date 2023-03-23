@@ -525,9 +525,6 @@ int64_t hook(uint32_t reserved)
                         {
                             uint8_t hash_arr[HASH_SIZE * 4];
                             COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET]);
-                            CLEAR_32BYTES(&hash_arr[HASH_SIZE]);
-                            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 2]);
-                            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 3]);
 
                             etxn_reserve(1);
                             int tx_size;
@@ -581,7 +578,6 @@ int64_t hook(uint32_t reserved)
                             COPY_4BYTES(candidate_id + CANDIDATE_SHORT_NAME_OFFSET + 8, PILOTED_MODE_CAND_SHORTNAME + 8);
                             COPY_BYTE(candidate_id + CANDIDATE_SHORT_NAME_OFFSET + 12, PILOTED_MODE_CAND_SHORTNAME + 12);
                             UINT64_TO_BUF(candidate_id + CANDIDATE_CREATED_TIMESTAMP_OFFSET, cur_ledger_timestamp);
-                            CLEAR_20BYTES(candidate_id + CANDIDATE_PROPOSAL_FEE_OFFSET);
                             candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_REJECTED;
                             UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
                             candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = CANDIDATE_REJECTED;

@@ -547,9 +547,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         {                                                                                                                                                     \
             uint8_t hash_arr[HASH_SIZE * 4];                                                                                                                  \
             COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                            \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE]);                                                                                                              \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 2]);                                                                                                          \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 3]);                                                                                                          \
                                                                                                                                                               \
             int tx_size;                                                                                                                                      \
             PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size);      \
