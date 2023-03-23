@@ -1,10 +1,14 @@
+/**
+ * This script has been implemented to take the hosts' stats registered on the current XRPL hooks test net V2
+ * (wss://hooks-testnet-v2.xrpl-labs.com) prior to Hooks Testnet V3 migration.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const evernode = require("evernode-js-client");
 
 const CONFIG_PATH = 'reporting.cfg';
 const DATA_DIR = 'data';
-const NETWORK_ID = 21338;
 
 if (!fs.existsSync(CONFIG_PATH)) {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify({
@@ -19,11 +23,10 @@ const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH));
 const hookAddress = cfg.hookAddress;
 
 const app = async () => {
-    const xrplApi = new evernode.XrplApi('wss://hooks-testnet-v3.xrpl-labs.com');
+    const xrplApi = new evernode.XrplApi('wss://hooks-testnet-v2.xrpl-labs.com');
     evernode.Defaults.set({
         registryAddress: hookAddress,
-        xrplApi: xrplApi,
-        NetworkID: NETWORK_ID
+        xrplApi: xrplApi
     })
 
     try {
