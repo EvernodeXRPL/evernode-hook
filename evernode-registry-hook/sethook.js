@@ -53,7 +53,7 @@ else {
         Hooks:
             [{
                 Hook: {
-                    CreateCode: binary.slice(0, 194252),
+                    CreateCode: binary,
                     HookOn: '0000000000000000000000000000000000000000000000000000000000000000',
                     HookNamespace: NAMESPACE,
                     HookApiVersion: 0,

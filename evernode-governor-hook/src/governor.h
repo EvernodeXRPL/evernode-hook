@@ -73,28 +73,28 @@
 
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rGnsxB6rwDhXQeGKojgB7meoXMwsAGxeaH";
-const uint16_t DEF_MOMENT_SIZE = 3600;
+const uint16_t DEF_MOMENT_SIZE = 120;
 const uint16_t DEF_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;
-const uint64_t DEF_MAX_REG = 14112; // No. of theoretical maximum registrants. (72253440/5120)
+const uint64_t DEF_MAX_REG = 10; // No. of theoretical maximum registrants. (72253440/5120)
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 160;   // In seconds
-const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 240; // In moments.
+const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 10; // In moments.
 const uint8_t DEF_EPOCH_COUNT = 10;
 const uint32_t DEF_FIRST_EPOCH_REWARD_QUOTA = 5120;
-const uint32_t DEF_EPOCH_REWARD_AMOUNT = 5160960;
+const uint32_t DEF_EPOCH_REWARD_AMOUNT = 1474560; // EVRs worth of a day.
 const uint32_t DEF_REWARD_START_MOMENT = 0;
-const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                // In Drops.
-const uint32_t DEF_GOVERNANCE_ELIGIBILITY_PERIOD = 7884000; // 3 months in seconds.
-const uint32_t DEF_CANDIDATE_LIFE_PERIOD = 7884000;         // 3 months in seconds.
-const uint32_t DEF_CANDIDATE_ELECTION_PERIOD = 1209600;     // 2 weeks in seconds.
+const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;             // In Drops.
+const uint32_t DEF_GOVERNANCE_ELIGIBILITY_PERIOD = 300; // 1 hour in seconds.
+const uint32_t DEF_CANDIDATE_LIFE_PERIOD = 900;         // 2 hours in seconds.
+const uint32_t DEF_CANDIDATE_ELECTION_PERIOD = 300;     // 1 hour in seconds.
 const uint16_t DEF_CANDIDATE_SUPPORT_AVERAGE = 80;
-const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 24;
+const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 5;
 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
-const uint16_t NEW_MOMENT_SIZE = 3600;
+const uint16_t NEW_MOMENT_SIZE = 120;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
 #define SET_UINT_STATE_VALUE(value, key, error_buf)                  \

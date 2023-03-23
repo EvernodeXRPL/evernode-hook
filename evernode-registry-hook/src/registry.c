@@ -1,12 +1,5 @@
 #include "registry.h"
 
-// Executed when an emitted transaction is successfully accepted into a ledger
-// or when an emitted transaction cannot be accepted into any ledger (with what = 1),
-int64_t cbak(uint32_t reserved)
-{
-    return 0;
-}
-
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
