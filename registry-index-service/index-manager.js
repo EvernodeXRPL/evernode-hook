@@ -141,6 +141,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
 
         // NOTE: Repetitive State keys
+        // HookStateKeys.PREFIX_HOST_TOKENID
         // HookStateKeys.PREFIX_HOST_ADDR
         // HookStateKeys.PREFIX_CANDIDATE_ID
     ],
@@ -483,6 +484,10 @@ class IndexManager {
                 case HeartbeatEvents.Heartbeat: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HEARTBEAT.slice();
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyHostAddrId });
+
+                    const info = await this.#governorClient.getHostInfo(trx.Account);
+                    stateKeyTokenId = StateHelpers.generateTokenIdStateKey(info.uriTokenId);
+                    affectedStates.push({ operation: 'UPDATE', key: stateKeyTokenId });
 
                     if (data.voteInfo)
                         affectedStates.push({ operation: 'UPDATE', key: StateHelpers.generateCandidateIdStateKey(data.voteInfo.candidateId) });

@@ -1,12 +1,5 @@
 #include "governor.h"
 
-// Executed when an emitted transaction is successfully accepted into a ledger
-// or when an emitted transaction cannot be accepted into any ledger (with what = 1),
-int64_t cbak(uint32_t reserved)
-{
-    return 0;
-}
-
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
@@ -32,7 +25,7 @@ int64_t hook(uint32_t reserved)
     // Take the moment size from config.
     uint8_t moment_size_buf[2];
     int64_t moment_size_res = state_foreign(SBUF(moment_size_buf), SBUF(CONF_MOMENT_SIZE), FOREIGN_REF);
-    if (moment_size_res < 0 && moment_base_info_state_res != DOESNT_EXIST)
+    if (moment_size_res < 0 && moment_size_res != DOESNT_EXIST)
         rollback(SBUF("Evernode: Could not get moment size."), 1);
     uint16_t moment_size = UINT16_FROM_BUF(moment_size_buf);
 
@@ -74,8 +67,8 @@ int64_t hook(uint32_t reserved)
             if (state_foreign_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment transition info."), 1);
 
-            moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
-            prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+            moment_base_idx = transition_idx;
+            prev_transition_moment = transition_moment;
             cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
             cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
             moment_size = UINT16_FROM_BUF(moment_size_ptr);
@@ -186,7 +179,7 @@ int64_t hook(uint32_t reserved)
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
                     // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
                     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)>
+                    // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><accumulated_reward_amount(8)>
                     uint8_t token_id[TOKEN_ID_VAL_SIZE];
                     // <eligibility_period(uint32_t)><candidate_life_period<uint32_t)><candidate_election_period<uint32_t)><candidate_support_average<uint16_t)>
                     uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
@@ -252,7 +245,7 @@ int64_t hook(uint32_t reserved)
 
                     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-                    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
                     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
                     if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
                     {
@@ -315,30 +308,20 @@ int64_t hook(uint32_t reserved)
                         uint8_t *registry_hook_ptr = data_ptr + (2 * ACCOUNT_ID_SIZE);
                         uint8_t *heartbeat_hook_ptr = data_ptr + (3 * ACCOUNT_ID_SIZE);
 
-                        // First check if the states are already initialized by checking one state key for existence.
+                        // First check if the states are already initialized by checking lastly added state key for existence.
                         int already_initalized = 0; // For Beta test purposes
                         uint8_t host_count_buf[8];
-                        if (state_foreign(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) != DOESNT_EXIST)
+                        if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST)
                         {
                             already_initalized = 1;
-                            rollback(SBUF("Evernode: State is already initialized."), 1);
+                            rollback(SBUF("Evernode: States are already initialized."), 1);
                         }
 
                         const uint64_t zero = 0;
                         // Initialize the state.
                         if (!already_initalized)
                         {
-                            SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-
-                            uint8_t moment_base_info_buf[MOMENT_BASE_INFO_VAL_SIZE] = {0};
-                            moment_base_info_buf[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
-                            if (state_foreign_set(SBUF(moment_base_info_buf), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not initialize state for moment base info."), 1);
-
-                            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
-                            moment_size = DEF_MOMENT_SIZE;
-                            SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
-                            SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+                            //// Configuration states. ////
 
                             if (state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for issuer account."), 1);
@@ -351,10 +334,46 @@ int64_t hook(uint32_t reserved)
 
                             if (state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for registry hook account."), 1);
-                        }
 
-                        if (state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) == DOESNT_EXIST)
-                        {
+                            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+                            moment_size = DEF_MOMENT_SIZE;
+                            SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
+                            SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
+
+                            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
+                            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+                            reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
+                            UINT32_TO_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
+                            UINT32_TO_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
+                            UINT32_TO_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+                            UINT16_TO_BUF(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
+                            if (state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
+                                rollback(SBUF("Evernode: Could not set state for reward configuration."), 1);
+
+                            SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
+                            SET_UINT_STATE_VALUE(DEF_LEASE_ACQUIRE_WINDOW, CONF_LEASE_ACQUIRE_WINDOW, "Evernode: Could not initialize state for lease acquire window.");
+                            SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
+                            SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
+
+                            UINT32_TO_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
+                            UINT32_TO_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
+                            UINT32_TO_BUF(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
+                            UINT16_TO_BUF(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
+                            if (state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)
+                                rollback(SBUF("Evernode: Could not set state for governance configuration."), 1);
+
+                            // Singleton states. ////
+
+                            SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
+                            SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
+                            SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+
+                            moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
+                            UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
+                            moment_base_idx = cur_idx;
+                            if (state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
+                                rollback(SBUF("Evernode: Could not initialize state for moment base info."), 1);
+
                             const uint32_t cur_moment = GET_MOMENT(cur_idx);
                             reward_info[EPOCH_OFFSET] = 1;
                             UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
@@ -363,33 +382,7 @@ int64_t hook(uint32_t reserved)
                             INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, DEF_EPOCH_REWARD_AMOUNT));
                             if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
-                        }
 
-                        SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
-                        SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
-                        SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
-                        SET_UINT_STATE_VALUE(DEF_LEASE_ACQUIRE_WINDOW, CONF_LEASE_ACQUIRE_WINDOW, "Evernode: Could not initialize state for lease acquire window.");
-                        SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
-                        SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
-
-                        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>;
-                        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                        reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
-                        UINT32_TO_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
-                        UINT32_TO_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
-                        UINT32_TO_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
-                        if (state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for reward configuration."), 1);
-
-                        UINT32_TO_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
-                        UINT32_TO_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
-                        UINT32_TO_BUF(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
-                        UINT16_TO_BUF(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
-                        if (state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for governance configuration."), 1);
-
-                        if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
-                        {
                             governance_info[EPOCH_OFFSET] = PILOTED;
                             if (state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for governance info."), 1);
@@ -675,7 +668,7 @@ int64_t hook(uint32_t reserved)
                             // If proposal expired 50% of proposal fee will be rebated to owner.
                             const int64_t reward_amount = (vote_status == CANDIDATE_ELECTED) ? 0 : (vote_status == CANDIDATE_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
                                                                                                                                       : proposal_fee;
-                            const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);
+                            const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_idx);
 
                             uint8_t emithash[HASH_SIZE];
                             if (vote_status == CANDIDATE_VETOED || vote_status == CANDIDATE_EXPIRED)

@@ -37,7 +37,7 @@ if (!governorSecret) {
 }
 else {
     const account = xrpljs.Wallet.fromSeed(governorSecret)
-    const binaryZero = fs.readFileSync(WASM_PATH_GOVERNOR).toString('hex').toUpperCase();
+    const binary = fs.readFileSync(WASM_PATH_GOVERNOR).toString('hex').toUpperCase();
 
     let hookTx = {
         Account: account.classicAddress,
@@ -46,7 +46,7 @@ else {
         Hooks:
             [{
                 Hook: {
-                    CreateCode: binaryZero.slice(0, 194252),
+                    CreateCode: binary,
                     HookOn: '0000000000000000000000000000000000000000000000000000000000000000',
                     HookNamespace: NAMESPACE,
                     HookApiVersion: 0,
