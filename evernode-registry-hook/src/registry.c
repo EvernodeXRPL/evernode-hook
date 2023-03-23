@@ -24,8 +24,8 @@ int64_t hook(uint32_t reserved)
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
     if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
         rollback(SBUF("Evernode: Could not get moment base info state."), 1);
-    uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
-    uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+    uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+    uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
     // If state does not exist, take the moment type from default constant.
     uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
     uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
@@ -62,11 +62,8 @@ int64_t hook(uint32_t reserved)
                 GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
                 // specifically we're interested in the amount sent
-                int64_t oslot = otxn_slot(0);
-                if (oslot < 0)
-                    rollback(SBUF("Evernode: Could not slot originating txn."), 1);
-
-                int64_t amt_slot = slot_subfield(oslot, sfAmount, 0);
+                otxn_slot(1);
+                int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
                 uint8_t op_type = OP_NONE;
                 uint8_t redirect_op_type = OP_NONE;
@@ -169,8 +166,8 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not get reward configuration or reward info states."), 1);
 
                         epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-                        first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-                        epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+                        first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                        epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
                     }
 
                     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
@@ -210,7 +207,7 @@ int64_t hook(uint32_t reserved)
                         const int parties_are_similar = (has_initiated_transfer && BUFFER_EQUAL_20((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field));
 
                         // Take the host reg fee from config.
-                        int64_t host_reg_fee;
+                        uint64_t host_reg_fee;
                         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
                         const int64_t comparison_status = (has_initiated_transfer == 0) ? float_compare(float_amt, float_set(0, host_reg_fee), COMPARE_LESS) : float_compare(float_amt, float_set(0, NOW_IN_EVRS), COMPARE_LESS);
@@ -229,10 +226,10 @@ int64_t hook(uint32_t reserved)
                         // Clear reserve and description sections first.
                         COPY_2BYTES((host_addr + HOST_COUNTRY_CODE_OFFSET), (data_ptr + HOST_COUNTRY_CODE_MEMO_OFFSET));
                         COPY_DESCRIPTION((host_addr + HOST_DESCRIPTION_OFFSET), (data_ptr + HOST_DESCRIPTION_MEMO_OFFSET));
-                        INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
-                        UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                        INT64_TO_BUF_LE(&host_addr[HOST_REG_LEDGER_OFFSET], cur_ledger_seq);
+                        UINT64_TO_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                         COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (data_ptr + HOST_TOT_INS_COUNT_MEMO_OFFSET));
-                        UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                        UINT64_TO_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                         if (has_initiated_transfer == 0)
                         {
@@ -320,17 +317,10 @@ int64_t hook(uint32_t reserved)
                             // If maximum theoretical host count reached, halve the registration fee.
                             if (host_reg_fee > conf_fixed_reg_fee && host_count >= (conf_max_reg / 2))
                             {
-                                uint8_t state_buf[8] = {0};
-
                                 host_reg_fee /= 2;
-                                UINT64_TO_BUF(state_buf, host_reg_fee);
-                                if (state_foreign_set(SBUF(state_buf), SBUF(STK_HOST_REG_FEE), FOREIGN_REF) < 0)
-                                    rollback(SBUF("Evernode: Could not update the state for host reg fee."), 1);
-
+                                SET_UINT_STATE_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not update the state for host reg fee.");
                                 conf_max_reg *= 2;
-                                UINT64_TO_BUF(state_buf, conf_max_reg);
-                                if (state_foreign_set(SBUF(state_buf), SBUF(STK_MAX_REG), FOREIGN_REF) < 0)
-                                    rollback(SBUF("Evernode: Could not update state for max theoretical registrants."), 1);
+                                SET_UINT_STATE_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
                             }
 
                             accept(SBUF("Host registration successful."), 0);
@@ -354,9 +344,9 @@ int64_t hook(uint32_t reserved)
 
                             // Copy some of the previous host state figures to the new HOST_ADDR state.
                             const uint8_t *heartbeat_ptr = &prev_host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
-                            INT64_TO_BUF(&host_addr[HOST_REG_LEDGER_OFFSET], INT64_FROM_BUF(heartbeat_ptr));
-                            UINT64_TO_BUF(&host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET], UINT64_FROM_BUF(prev_host_addr + HOST_HEARTBEAT_TIMESTAMP_OFFSET));
-                            UINT64_TO_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET], UINT64_FROM_BUF(prev_host_addr + HOST_REG_TIMESTAMP_OFFSET));
+                            COPY_8BYTES(&host_addr[HOST_REG_LEDGER_OFFSET], &prev_host_addr[HOST_REG_LEDGER_OFFSET]);
+                            COPY_8BYTES(&host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET], &prev_host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET]);
+                            COPY_8BYTES(&host_addr[HOST_REG_TIMESTAMP_OFFSET], &prev_host_addr[HOST_REG_TIMESTAMP_OFFSET]);
 
                             // Set the STP_HOST_ADDR with corresponding new state's key.
                             HOST_ADDR_KEY(account_field);
@@ -455,7 +445,7 @@ int64_t hook(uint32_t reserved)
                     }
                     else if (op_type == OP_HOST_REBATE)
                     {
-                        uint64_t reg_fee = UINT64_FROM_BUF(&host_addr[HOST_REG_FEE_OFFSET]);
+                        uint64_t reg_fee = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET]);
 
                         uint64_t host_reg_fee;
                         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
@@ -473,7 +463,7 @@ int64_t hook(uint32_t reserved)
                             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                             // Updating the current reg fee in the host state.
-                            UINT64_TO_BUF(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+                            UINT64_TO_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
                             if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not update host address state."), 1);
                         }
@@ -510,7 +500,7 @@ int64_t hook(uint32_t reserved)
 
                             // Saving the Pending transfer in Hook States.
                             COPY_20BYTES((transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field);
-                            INT64_TO_BUF(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
+                            INT64_TO_BUF_LE(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
                             COPY_32BYTES((transferee_addr + TRANSFER_HOST_TOKEN_ID_OFFSET), (host_addr + HOST_TOKEN_ID_OFFSET));
 
                             if (state_foreign_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) < 0)
@@ -597,7 +587,7 @@ int64_t hook(uint32_t reserved)
                         host_count -= 1;
                         SET_HOST_COUNT(host_count);
 
-                        const uint64_t reg_fee = UINT64_FROM_BUF(host_addr + HOST_REG_FEE_OFFSET);
+                        const uint64_t reg_fee = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET]);
                         uint64_t fixed_reg_fee;
                         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
@@ -614,7 +604,7 @@ int64_t hook(uint32_t reserved)
                         const uint8_t *host_addr_ptr = op_type == OP_HOST_DE_REG ? account_field : data_ptr;
 
                         const uint8_t *host_accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
-                        const int64_t accumulated_reward = INT64_FROM_BUF(host_accumulated_reward_ptr);
+                        const int64_t accumulated_reward = INT64_FROM_BUF_LE(host_accumulated_reward_ptr);
                         if (float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
                         {
                             // TODO: Send reward trigger to the heartbeat.

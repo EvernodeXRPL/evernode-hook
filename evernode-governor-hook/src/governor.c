@@ -16,18 +16,17 @@ int64_t hook(uint32_t reserved)
     int moment_base_info_state_res = state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF);
     if (moment_base_info_state_res < 0 && moment_base_info_state_res != DOESNT_EXIST)
         rollback(SBUF("Evernode: Could not get moment base info state."), 1);
-    uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
-    uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+    uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+    uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
     // If state does not exist, take the moment type from default constant.
     uint8_t cur_moment_type = (moment_base_info_state_res == DOESNT_EXIST) ? DEF_MOMENT_TYPE : moment_base_info[MOMENT_TYPE_OFFSET];
     uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
 
     // Take the moment size from config.
-    uint8_t moment_size_buf[2];
-    int64_t moment_size_res = state_foreign(SBUF(moment_size_buf), SBUF(CONF_MOMENT_SIZE), FOREIGN_REF);
+    uint16_t moment_size;
+    int64_t moment_size_res = state_foreign(&moment_size, sizeof(moment_size), SBUF(CONF_MOMENT_SIZE), FOREIGN_REF);
     if (moment_size_res < 0 && moment_size_res != DOESNT_EXIST)
         rollback(SBUF("Evernode: Could not get moment size."), 1);
-    uint16_t moment_size = UINT16_FROM_BUF(moment_size_buf);
 
     ///////////////////////////////////////////////////////////////
     /////// Moment transition related logic is handled here ///////
@@ -42,7 +41,7 @@ int64_t hook(uint32_t reserved)
     {
         // Begin : Moment size transition implementation.
         // If there is a transition, transition_idx specifies a index value to perform that.
-        uint64_t transition_idx = UINT64_FROM_BUF(&moment_transition_info[TRANSIT_IDX_OFFSET]);
+        uint64_t transition_idx = UINT64_FROM_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET]);
         if (transition_idx > 0 && cur_idx >= transition_idx)
         {
             uint8_t transit_moment_type = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
@@ -56,8 +55,8 @@ int64_t hook(uint32_t reserved)
                 rollback(SBUF("Evernode: Could not update the state for moment size."), 1);
 
             // Update the moment base info.
-            UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], transition_idx);
-            UINT32_TO_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
+            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], transition_idx);
+            UINT32_TO_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
             moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
             if (state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
                 rollback(SBUF("Evernode: Could not set state for moment base info."), 1);
@@ -71,7 +70,7 @@ int64_t hook(uint32_t reserved)
             prev_transition_moment = transition_moment;
             cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
             cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
-            moment_size = UINT16_FROM_BUF(moment_size_ptr);
+            moment_size = UINT16_FROM_BUF_LE(moment_size_ptr);
         }
         // End : Moment size transition implementation.
     }
@@ -126,14 +125,12 @@ int64_t hook(uint32_t reserved)
                 }
 
                 // specifically we're interested in the amount sent
-                int64_t oslot = otxn_slot(0);
-                if (oslot < 0)
-                    rollback(SBUF("Evernode: Could not slot originating txn."), 1);
-
-                int64_t amt_slot = slot_subfield(oslot, sfAmount, 0);
+                otxn_slot(1);
+                int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
                 uint8_t op_type = OP_NONE;
                 uint8_t source_is_foundation = 0;
+                const uint64_t zero = 0;
 
                 if (amt_slot < 0)
                     rollback(SBUF("Evernode: Could not slot otxn.sfAmount"), 1);
@@ -202,7 +199,7 @@ int64_t hook(uint32_t reserved)
                     // Validation check for participants other than the foundation address
                     if ((op_type == OP_PROPOSE || op_type == DUD_HOST_REPORT) && !source_is_foundation)
                     {
-                        const uint32_t min_eligibility_period = UINT32_FROM_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
+                        const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
                         HOST_ADDR_KEY(account_field);
                         // Check for registration entry.
@@ -272,7 +269,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Currency should be EVR for candidate proposal."), 1);
 
                         const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-                        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
 
                         const uint8_t epoch = reward_info[EPOCH_OFFSET];
                         uint32_t reward_quota;
@@ -343,10 +340,10 @@ int64_t hook(uint32_t reserved)
                             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
                             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
                             reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
-                            UINT32_TO_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
-                            UINT32_TO_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
-                            UINT32_TO_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
-                            UINT16_TO_BUF(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
+                            UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
+                            UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
+                            UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+                            UINT16_TO_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
                             if (state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for reward configuration."), 1);
 
@@ -355,10 +352,10 @@ int64_t hook(uint32_t reserved)
                             SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
                             SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
 
-                            UINT32_TO_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
-                            UINT32_TO_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
-                            UINT32_TO_BUF(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
-                            UINT16_TO_BUF(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
+                            UINT32_TO_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
+                            UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
+                            UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
+                            UINT16_TO_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
                             if (state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for governance configuration."), 1);
 
@@ -369,17 +366,18 @@ int64_t hook(uint32_t reserved)
                             SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
                             moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
-                            UINT64_TO_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
+                            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
                             moment_base_idx = cur_idx;
                             if (state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not initialize state for moment base info."), 1);
 
                             const uint32_t cur_moment = GET_MOMENT(cur_idx);
                             reward_info[EPOCH_OFFSET] = 1;
-                            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
-                            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                            INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_set(0, DEF_EPOCH_REWARD_AMOUNT));
+                            UINT32_TO_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
+                            UINT32_TO_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+                            UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+                            const int64_t epoch_pool = float_set(0, DEF_EPOCH_REWARD_AMOUNT);
+                            INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], epoch_pool);
                             if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
 
@@ -399,8 +397,8 @@ int64_t hook(uint32_t reserved)
 
                             const uint64_t next_moment_start_idx = GET_NEXT_MOMENT_START_INDEX(cur_idx);
 
-                            UINT64_TO_BUF(moment_transition_info + TRANSIT_IDX_OFFSET, next_moment_start_idx);
-                            UINT16_TO_BUF(moment_transition_info + TRANSIT_MOMENT_SIZE_OFFSET, NEW_MOMENT_SIZE);
+                            UINT64_TO_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET], next_moment_start_idx);
+                            UINT16_TO_BUF_LE(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
                             moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
 
                             if (state_foreign_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) < 0)
@@ -432,17 +430,17 @@ int64_t hook(uint32_t reserved)
                         if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) != DOESNT_EXIST)
                             rollback(SBUF("Evernode: This candidate is already proposed"), 1);
 
-                        const uint32_t candidate_idx = (UINT32_FROM_BUF(&governance_info[LAST_CANDIDATE_IDX_OFFSET]) + 1);
+                        const uint32_t candidate_idx = (UINT32_FROM_BUF_LE(&governance_info[LAST_CANDIDATE_IDX_OFFSET]) + 1);
 
                         COPY_20BYTES((candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET), account_field);
-                        UINT32_TO_BUF(&candidate_id[CANDIDATE_IDX_OFFSET], candidate_idx);
+                        UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_IDX_OFFSET], candidate_idx);
                         COPY_20BYTES((candidate_id + CANDIDATE_SHORT_NAME_OFFSET), (data_ptr1 + CANDIDATE_PROPOSE_SHORT_NAME_MEMO_OFFSET));
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                        INT64_TO_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], proposal_fee);
-                        UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], 0);
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], 0);
+                        UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                        INT64_TO_BUF_LE(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], proposal_fee);
+                        UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], zero);
+                        UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], zero);
                         candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_REJECTED;
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                        UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
                         candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = CANDIDATE_REJECTED;
 
                         // Write to states.
@@ -451,7 +449,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not set state for candidate."), 1);
 
                         // Update the new candidate index.
-                        UINT32_TO_BUF(&governance_info[LAST_CANDIDATE_IDX_OFFSET], candidate_idx);
+                        UINT32_TO_BUF_LE(&governance_info[LAST_CANDIDATE_IDX_OFFSET], candidate_idx);
                         if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not set governance info state."), 1);
 
@@ -471,13 +469,13 @@ int64_t hook(uint32_t reserved)
                         else if (candidate_type == PILOTED_MODE_CANDIDATE)
                             rollback(SBUF("Evernode: Piloted mode candidate cannot be withdrawn."), 1);
 
-                        const uint32_t life_period = UINT32_FROM_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
-                        const uint64_t created_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
+                        const uint32_t life_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
+                        const uint64_t created_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
                         if (cur_ledger_timestamp - created_timestamp > life_period)
                             rollback(SBUF("Evernode: Trying to withdraw an already expired proposal."), 1);
 
                         const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
-                        const int64_t proposal_fee = INT64_FROM_BUF(proposal_fee_ptr);
+                        const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
 
                         // Send the proposal fee to the owner.
                         etxn_reserve(1);
@@ -573,13 +571,13 @@ int64_t hook(uint32_t reserved)
                             CANDIDATE_ID_KEY(piloted_cand_id);
 
                             COPY_20BYTES(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET, foundation_accid);
-                            UINT32_TO_BUF(candidate_id + CANDIDATE_IDX_OFFSET, 0);
+                            UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_IDX_OFFSET], zero);
                             COPY_8BYTES(candidate_id + CANDIDATE_SHORT_NAME_OFFSET, PILOTED_MODE_CAND_SHORTNAME);
                             COPY_4BYTES(candidate_id + CANDIDATE_SHORT_NAME_OFFSET + 8, PILOTED_MODE_CAND_SHORTNAME + 8);
                             COPY_BYTE(candidate_id + CANDIDATE_SHORT_NAME_OFFSET + 12, PILOTED_MODE_CAND_SHORTNAME + 12);
-                            UINT64_TO_BUF(candidate_id + CANDIDATE_CREATED_TIMESTAMP_OFFSET, cur_ledger_timestamp);
+                            UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
                             candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_REJECTED;
-                            UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                            UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
                             candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = CANDIDATE_REJECTED;
 
                             if (state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
@@ -613,17 +611,17 @@ int64_t hook(uint32_t reserved)
                         if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) != DOESNT_EXIST)
                             rollback(SBUF("Evernode: This candidate is already proposed"), 1);
 
-                        const uint32_t candidate_idx = (UINT32_FROM_BUF(&governance_info[LAST_CANDIDATE_IDX_OFFSET]) + 1);
+                        const uint32_t candidate_idx = (UINT32_FROM_BUF_LE(&governance_info[LAST_CANDIDATE_IDX_OFFSET]) + 1);
 
                         COPY_20BYTES((candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET), account_field);
-                        UINT32_TO_BUF(&candidate_id[CANDIDATE_IDX_OFFSET], candidate_idx);
+                        UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_IDX_OFFSET], candidate_idx);
                         COPY_20BYTES((candidate_id + CANDIDATE_SHORT_NAME_OFFSET), (data_ptr1 + CANDIDATE_PROPOSE_SHORT_NAME_MEMO_OFFSET));
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                        INT64_TO_BUF(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], proposal_fee);
-                        UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], 0);
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], 0);
+                        UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                        INT64_TO_BUF_LE(&candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET], proposal_fee);
+                        UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], zero);
+                        UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], zero);
                         candidate_id[CANDIDATE_STATUS_OFFSET] = CANDIDATE_REJECTED;
-                        UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                        UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
                         candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = CANDIDATE_REJECTED;
 
                         // Write to states.
@@ -631,7 +629,7 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Could not set state for candidate."), 1);
 
                         // Update the new candidate index.
-                        UINT32_TO_BUF(&governance_info[LAST_CANDIDATE_IDX_OFFSET], candidate_idx);
+                        governance_info[LAST_CANDIDATE_IDX_OFFSET] = candidate_idx;
                         if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not set governance info state."), 1);
 
@@ -655,11 +653,11 @@ int64_t hook(uint32_t reserved)
                         if (candidate_type == NEW_HOOK_CANDIDATE || candidate_type == DUD_HOST_CANDIDATE)
                         {
                             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-                            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-                            const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+                            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                            const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
                             const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
-                            const int64_t proposal_fee = INT64_FROM_BUF(proposal_fee_ptr);
+                            const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
 
                             // If proposal expired 50% of proposal fee will be rebated to owner.
                             const int64_t reward_amount = (vote_status == CANDIDATE_ELECTED) ? 0 : (vote_status == CANDIDATE_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
@@ -713,7 +711,7 @@ int64_t hook(uint32_t reserved)
 
                                     // Update the governance info state.
                                     COPY_32BYTES(&governance_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET], data_ptr);
-                                    UINT64_TO_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET], cur_moment_start_timestamp);
+                                    UINT64_TO_BUF_LE(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET], cur_moment_start_timestamp);
                                     if (state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
                                         rollback(SBUF("Evernode: Could not set state for governance info."), 1);
                                 }
