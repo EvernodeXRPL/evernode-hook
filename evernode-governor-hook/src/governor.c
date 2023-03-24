@@ -411,7 +411,7 @@ int64_t hook(uint32_t reserved)
                         rollback(SBUF("Evernode: This owner has already created a proposal."), 1);
 
                     uint8_t unique_id[HASH_SIZE] = {0};
-                    GET_NEW_HOOK_CANDIDATE_ID(event_data, event_data_len, unique_id);
+                    GET_NEW_HOOK_CANDIDATE_ID(event_data + CANDIDATE_PROPOSE_HASHES_PARAM_OFFSET, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, unique_id);
 
                     if (!BUFFER_EQUAL_32((event_data + CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET), unique_id))
                         rollback(SBUF("Evernode: Generated candidate hash is not matched with provided."), 1);
