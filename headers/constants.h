@@ -67,10 +67,10 @@
 #define OP_NONE 0
 #define OP_HOOK_UPDATE 10
 
-#define MAX_MEMO_SIZE 4096       // Maximum tx blob size.
-#define MAX_HOOK_PARAM_SIZE 128  // Maximum txn param length.
-#define MAX_EVENT_TYPE_SIZE 40   // Maximum string length of the event type.
-#define MAX_EVENT_DATA_SIZE 1024 // Maximum size of the event data.
+#define MAX_MEMO_SIZE 4096      // Maximum tx blob size.
+#define MAX_HOOK_PARAM_SIZE 128 // Maximum txn param length.
+#define MAX_EVENT_TYPE_SIZE 40  // Maximum string length of the event type.
+#define MAX_EVENT_DATA_SIZE 256 // Maximum size of the event data.
 
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
