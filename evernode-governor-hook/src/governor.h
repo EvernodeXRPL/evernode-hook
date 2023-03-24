@@ -97,29 +97,6 @@ const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 24;
 const uint16_t NEW_MOMENT_SIZE = 3600;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
-#define SET_UINT_STATE_VALUE(value, key, error_buf)                  \
-    {                                                                \
-        uint8_t size = sizeof(value);                                \
-        uint8_t value_buf[size];                                     \
-        switch (size)                                                \
-        {                                                            \
-        case 2:                                                      \
-            UINT16_TO_BUF(value_buf, value);                         \
-            break;                                                   \
-        case 4:                                                      \
-            UINT32_TO_BUF(value_buf, value);                         \
-            break;                                                   \
-        case 8:                                                      \
-            UINT64_TO_BUF(value_buf, value);                         \
-            break;                                                   \
-        default:                                                     \
-            rollback(SBUF("Evernode: Invalid state value set."), 1); \
-            break;                                                   \
-        }                                                            \
-        if (state_set(SBUF(value_buf), SBUF(key)) < 0)               \
-            rollback(SBUF(error_buf), 1);                            \
-    }
-
 // Domain related clear macros.
 
 #define CLEAR_MOMENT_TRANSIT_INFO(buf) \
@@ -188,7 +165,7 @@ const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 /**************************************************************************/
 
 // Simple XRP Payment with single memo.
-uint8_t CANDIDATE_REBATE_MIN_PAYMENT[336] = {
+uint8_t CANDIDATE_REBATE_MIN_PAYMENT[314] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -219,9 +196,7 @@ uint8_t CANDIDATE_REBATE_MIN_PAYMENT[336] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(138) - Added on prepare to offset 198
-    // emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 198
 };
 
 #define CANDIDATE_REBATE_COMMON(buf_out, to_address, memo_type, memo_data, memo_format) \
@@ -247,14 +222,14 @@ uint8_t CANDIDATE_REBATE_MIN_PAYMENT[336] = {
         uint8_t *buf_ptr = (buf_out + 35);                                                                   \
         _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                   \
         CANDIDATE_REBATE_COMMON((buf_out + 90), to_address, memo_type, memo_data, memo_format);              \
-        etxn_details((buf_out + 198), CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE);                                 \
+        etxn_details((buf_out + 198), 116);                                                                  \
         int64_t fee = etxn_fee_base(buf_out, CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE);                          \
         buf_ptr = buf_out + 44;                                                                              \
         CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                                        \
     }
 
 // IOU Payment with single memo
-uint8_t CANDIDATE_REBATE_PAYMENT[376] = {
+uint8_t CANDIDATE_REBATE_PAYMENT[354] = {
     0x12, 0x00, 0x00,                   // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,       // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,       // TAG_SOURCE
@@ -287,9 +262,7 @@ uint8_t CANDIDATE_REBATE_PAYMENT[376] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(138) - Added on prepare to offset 238
-    // emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 238
 };
 
 #define CANDIDATE_REBATE_PAYMENT_TX_SIZE \
@@ -301,14 +274,14 @@ uint8_t CANDIDATE_REBATE_PAYMENT[376] = {
         UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                             \
         SET_AMOUNT_OUT((buf_out + 35), EVR_TOKEN, issuer_accid, evr_amount);                           \
         CANDIDATE_REBATE_COMMON((buf_out + 130), to_address, memo_type, memo_data, memo_format);       \
-        etxn_details((buf_out + 238), CANDIDATE_REBATE_PAYMENT_TX_SIZE);                               \
+        etxn_details((buf_out + 238), 116);                                                            \
         int64_t fee = etxn_fee_base(buf_out, CANDIDATE_REBATE_PAYMENT_TX_SIZE);                        \
         uint8_t *fee_ptr = buf_out + 84;                                                               \
         CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                  \
     }
 
 // Simple XRP Payment with single memo.
-uint8_t HOOK_UPDATE_PAYMENT[328] = {
+uint8_t HOOK_UPDATE_PAYMENT[306] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -338,9 +311,7 @@ uint8_t HOOK_UPDATE_PAYMENT[328] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(138) - Added on prepare to offset 190
-    // emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 190
 };
 
 #define HOOK_UPDATE_PAYMENT_TX_SIZE \
@@ -360,14 +331,14 @@ uint8_t HOOK_UPDATE_PAYMENT[328] = {
         COPY_32BYTES((buf_out + 151), unique_id);                                                                        \
         COPY_2BYTES((buf_out + 185), FORMAT_HEX);                                                                        \
         COPY_BYTE((buf_out + 185 + 2), (FORMAT_HEX + 2));                                                                \
-        etxn_details((buf_out + 190), HOOK_UPDATE_PAYMENT_TX_SIZE);                                                      \
+        etxn_details((buf_out + 190), 116);                                                                              \
         int64_t fee = etxn_fee_base(buf_out, HOOK_UPDATE_PAYMENT_TX_SIZE);                                               \
         buf_ptr = buf_out + 44;                                                                                          \
         _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to registry/governor hook.*/ \
     }
 
 // Simple XRP Payment with single memo.
-uint8_t DUD_HOST_REMOVE_TX[319] = {
+uint8_t DUD_HOST_REMOVE_TX[297] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -396,9 +367,7 @@ uint8_t DUD_HOST_REMOVE_TX[319] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(138) - Added on prepare to offset 181
-    // emit_details - NOTE : Considered additional 22 bytes for the callback scenario.
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 181
 };
 
 #define DUD_HOST_REMOVE_TX_SIZE \
@@ -416,7 +385,7 @@ uint8_t DUD_HOST_REMOVE_TX[319] = {
         COPY_20BYTES((buf_out + 154), memo_data);                                               \
         COPY_2BYTES((buf_out + 176), memo_format);                                              \
         COPY_BYTE((buf_out + 176 + 2), (memo_format + 2));                                      \
-        etxn_details((buf_out + 181), DUD_HOST_REMOVE_TX_SIZE);                                 \
+        etxn_details((buf_out + 181), 116);                                                     \
         int64_t fee = etxn_fee_base(buf_out, DUD_HOST_REMOVE_TX_SIZE);                          \
         buf_ptr = buf_out + 44;                                                                 \
         _06_08_ENCODE_DROPS_FEE(buf_ptr, fee);                                                  \

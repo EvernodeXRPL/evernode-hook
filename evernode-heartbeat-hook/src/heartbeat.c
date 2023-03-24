@@ -16,8 +16,8 @@ int64_t hook(uint32_t reserved)
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
     if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
         rollback(SBUF("Evernode: Could not get moment base info state."), 1);
-    uint64_t moment_base_idx = UINT64_FROM_BUF(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
-    uint32_t prev_transition_moment = UINT32_FROM_BUF(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+    uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+    uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
     // If state does not exist, take the moment type from default constant.
     uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
     uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
@@ -54,11 +54,8 @@ int64_t hook(uint32_t reserved)
                 GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len);
 
                 // specifically we're interested in the amount sent
-                int64_t oslot = otxn_slot(0);
-                if (oslot < 0)
-                    rollback(SBUF("Evernode: Could not slot originating txn."), 1);
-
-                int64_t amt_slot = slot_subfield(oslot, sfAmount, 0);
+                otxn_slot(1);
+                int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
                 uint8_t op_type = OP_NONE;
 
@@ -131,9 +128,9 @@ int64_t hook(uint32_t reserved)
                             rollback(SBUF("Evernode: Registration token does not exist."), 1);
 
                         const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
-                        const int64_t last_heartbeat_idx = INT64_FROM_BUF(heartbeat_ptr);
+                        const int64_t last_heartbeat_idx = INT64_FROM_BUF_LE(heartbeat_ptr);
 
-                        INT64_TO_BUF(heartbeat_ptr, cur_idx);
+                        INT64_TO_BUF_LE(heartbeat_ptr, cur_idx);
 
                         // Take the heartbeat frequency.
                         uint16_t heartbeat_freq;
@@ -171,15 +168,15 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
                             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-                            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-                            const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
-                            const uint32_t reward_start_moment = UINT32_FROM_BUF(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
+                            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                            const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+                            const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
 
                             int64_t reward_pool_amount, reward_amount;
                             PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
 
                             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
-                            int64_t accumulated_reward = INT64_FROM_BUF(accumulated_reward_ptr);
+                            int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
 
                             // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
                             // the reward quota is not 0.
@@ -188,11 +185,12 @@ int64_t hook(uint32_t reserved)
                                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
                             {
                                 accumulated_reward = float_sum(accumulated_reward, reward_amount);
-                                INT64_TO_BUF(&reward_info[EPOCH_POOL_OFFSET], float_sum(reward_pool_amount, float_negate(reward_amount)));
+                                reward_pool_amount = float_sum(reward_pool_amount, float_negate(reward_amount));
+                                INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], reward_pool_amount);
                             }
 
                             // Send the accumulated rewards if there's any.
-                            const uint16_t accumulated_reward_freq = UINT16_FROM_BUF(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET]);
+                            const uint16_t accumulated_reward_freq = UINT16_FROM_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET]);
                             if (cur_moment % accumulated_reward_freq == 0 && float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
                             {
                                 PREPARE_REWARD_PAYMENT_TX(accumulated_reward, account_field);
@@ -205,7 +203,7 @@ int64_t hook(uint32_t reserved)
                                 accumulated_reward = float_set(0, 0);
                             }
 
-                            INT64_TO_BUF(accumulated_reward_ptr, accumulated_reward);
+                            INT64_TO_BUF_LE(accumulated_reward_ptr, accumulated_reward);
                             if (state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
                                 rollback(SBUF("Evernode: Could not set state for host token id."), 1);
 
@@ -213,7 +211,7 @@ int64_t hook(uint32_t reserved)
                                 rollback(SBUF("Evernode: Could not set state for reward info."), 1);
                         }
 
-                        const uint32_t min_eligibility_period = UINT32_FROM_BUF(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
+                        const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
                         if (state_foreign(foundation_accid, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0)
                             rollback(SBUF("Evernode: Could not get state for foundation account."), 1);
 
@@ -224,11 +222,12 @@ int64_t hook(uint32_t reserved)
                         // Increase the voter base count if this host haven't send heartbeat before and host is eligible for voting.
                         if (accept_heartbeat && eligible_for_governance)
                         {
-                            uint32_t voter_base_count = UINT32_FROM_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET]);
-                            const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
+                            uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
+                            const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
                             // Reset the count if this is a new moment.
-                            UINT32_TO_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET], (uint32_t)((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1));
-                            UINT64_TO_BUF(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                            voter_base_count = ((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1);
+                            UINT32_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET], voter_base_count);
+                            UINT64_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
                             if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
                                 rollback(SBUF("Evernode: Could not set state governance_game info."), 1);
                         }
@@ -282,20 +281,20 @@ int64_t hook(uint32_t reserved)
                         if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
                             rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed."), 1);
 
-                        uint32_t voter_base_count = UINT32_FROM_BUF(&governance_info[VOTER_BASE_COUNT_OFFSET]);
-                        const uint64_t last_vote_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
+                        uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
+                        const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
                         const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
-                        uint32_t supported_count = UINT32_FROM_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
+                        uint32_t supported_count = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
 
                         uint8_t status = CANDIDATE_REJECTED;
-                        const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
+                        const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF_LE(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
                         const uint8_t governance_mode = governance_info[GOVERNANCE_MODE_OFFSET];
-                        const uint32_t life_period = UINT32_FROM_BUF(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
-                        const uint32_t election_period = UINT32_FROM_BUF(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET]);
-                        const uint64_t created_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
+                        const uint32_t life_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
+                        const uint32_t election_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET]);
+                        const uint64_t created_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
                         uint8_t cur_status = candidate_id[CANDIDATE_STATUS_OFFSET];
                         uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];
-                        uint64_t status_changed_timestamp = UINT64_FROM_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);
+                        uint64_t status_changed_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);
 
                         // If this is piloted mode candidate we treat differently, we do not expire or reject event if there's already elected candidate.
                         // If there is a recently closed election. This voted candidate will be vetoed. (If that candidate was created before the election completion timestamp)
@@ -330,7 +329,7 @@ int64_t hook(uint32_t reserved)
                                 status = foundation_vote_status;
                             else
                             {
-                                const uint16_t support_average = UINT16_FROM_BUF(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);
+                                const uint16_t support_average = UINT16_FROM_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);
 
                                 // If auto-piloted standard voting rules applies for foundation.
                                 if (governance_mode == AUTO_PILOTED)
@@ -353,7 +352,7 @@ int64_t hook(uint32_t reserved)
                             {
                                 candidate_id[CANDIDATE_STATUS_OFFSET] = status;
                                 cur_status = status;
-                                UINT64_TO_BUF(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], election_timestamp);
+                                UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], election_timestamp);
                                 status_changed_timestamp = election_timestamp;
                             }
 
@@ -397,9 +396,9 @@ int64_t hook(uint32_t reserved)
                                 last_voted_timestamp_ptr = &host_addr[HOST_LAST_VOTE_TIMESTAMP_OFFSET];
                                 support_vote_flag_ptr = &host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET];
                             }
-                            const uint32_t candidate_idx = UINT32_FROM_BUF(&candidate_id[CANDIDATE_IDX_OFFSET]);
-                            const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF(last_voted_candidate_idx_ptr);
-                            const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF(last_voted_timestamp_ptr));
+                            const uint32_t candidate_idx = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_IDX_OFFSET]);
+                            const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF_LE(last_voted_candidate_idx_ptr);
+                            const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF_LE(last_voted_timestamp_ptr));
 
                             // Change the vote flag in a vote of a new moment.
                             if (cur_moment != voted_moment)
@@ -425,14 +424,14 @@ int64_t hook(uint32_t reserved)
                             else if (*(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED)
                                 supported_count++;
 
-                            UINT32_TO_BUF(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], supported_count);
+                            UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], supported_count);
 
                             // Update the last vote timestamp.
-                            UINT64_TO_BUF(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+                            UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                             // Update the last vote info.
-                            UINT64_TO_BUF(last_voted_timestamp_ptr, cur_ledger_timestamp);
-                            UINT32_TO_BUF(last_voted_candidate_idx_ptr, candidate_idx);
+                            UINT64_TO_BUF_LE(last_voted_timestamp_ptr, cur_ledger_timestamp);
+                            UINT32_TO_BUF_LE(last_voted_candidate_idx_ptr, candidate_idx);
                             if (source_is_foundation)
                             {
                                 if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)

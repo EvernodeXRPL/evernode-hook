@@ -27,6 +27,31 @@
 /****************************Utility macros********************************/
 /**************************************************************************/
 
+// Integer buffer operations in little endian.
+#define UINT16_TO_BUF_LE(buf_raw, i) \
+    *(uint16_t *)buf_raw = *(uint16_t *)(&i);
+
+#define UINT16_FROM_BUF_LE(buf_raw) \
+    *(uint16_t *)(buf_raw)
+
+#define UINT32_TO_BUF_LE(buf_raw, i) \
+    *(uint32_t *)buf_raw = *(uint32_t *)(&i);
+
+#define UINT32_FROM_BUF_LE(buf_raw) \
+    *(uint32_t *)(buf_raw)
+
+#define UINT64_TO_BUF_LE(buf_raw, i) \
+    *(uint64_t *)buf_raw = *(uint64_t *)(&i);
+
+#define UINT64_FROM_BUF_LE(buf_raw) \
+    *(uint64_t *)(buf_raw)
+
+#define INT64_TO_BUF_LE(buf_raw, i) \
+    *(int64_t *)buf_raw = *(int64_t *)(&i);
+
+#define INT64_FROM_BUF_LE(buf_raw) \
+    *(int64_t *)(buf_raw)
+
 #define GET_TOKEN_CURRENCY(token)                                                       \
     {                                                                                   \
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, token[0], token[1], token[2], 0, 0, 0, 0, 0 \
@@ -120,13 +145,13 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     *(uint8_t *)(buf) = 0;
 
 #define CLEAR_2BYTES(buf) \
-    UINT16_TO_BUF(buf, 0);
+    *(uint16_t *)(buf) = (uint16_t)0;
 
 #define CLEAR_4BYTES(buf) \
-    UINT32_TO_BUF(buf, 0);
+    *(uint32_t *)(buf) = (uint32_t)0;
 
 #define CLEAR_8BYTES(buf) \
-    UINT64_TO_BUF(buf, 0);
+    *(uint64_t *)(buf) = (uint64_t)0;
 
 #define CLEAR_20BYTES(buf)   \
     CLEAR_8BYTES(buf);       \
@@ -216,6 +241,12 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_2(buf + 8, DUD_HOST_CAND_PREFIX + 8) && \
      BUFFER_EQUAL_1(buf + 10, DUD_HOST_CAND_PREFIX + 10))
 
+#define SET_UINT_STATE_VALUE(value, key, error_buf)          \
+    {                                                        \
+        if (state_set(&value, sizeof(value), SBUF(key)) < 0) \
+            rollback(SBUF(error_buf), 1);                    \
+    }
+
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
 // e.g. if it is in a loop that loops 10 times n = 10
@@ -266,55 +297,28 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                                   \
     }
 
-#define GET_CONF_VALUE(value, key, error_buf)                                       \
-    {                                                                               \
-        uint8_t size = sizeof(value);                                               \
-        uint8_t value_buf[size];                                                    \
-        int64_t state_res = state_foreign(SBUF(value_buf), SBUF(key), FOREIGN_REF); \
-        if (state_res < 0)                                                          \
-            rollback(SBUF(error_buf), 1);                                           \
-        switch (size)                                                               \
-        {                                                                           \
-        case 2:                                                                     \
-            value = UINT16_FROM_BUF(value_buf);                                     \
-            break;                                                                  \
-        case 4:                                                                     \
-            value = UINT32_FROM_BUF(value_buf);                                     \
-            break;                                                                  \
-        case 8:                                                                     \
-            value = UINT64_FROM_BUF(value_buf);                                     \
-            break;                                                                  \
-        default:                                                                    \
-            rollback(SBUF("Evernode: Invalid state value."), 1);                    \
-            break;                                                                  \
-        }                                                                           \
+#define GET_CONF_VALUE(value, key, error_buf)                                 \
+    {                                                                         \
+        if (state_foreign(&value, sizeof(value), SBUF(key), FOREIGN_REF) < 0) \
+            rollback(SBUF(error_buf), 1);                                     \
     }
 
-#define GET_FLOAT_CONF_VALUE(value, def_mentissa, def_exponent, key, error_buf)     \
-    {                                                                               \
-        uint8_t value_buf[8];                                                       \
-        int64_t state_res = state_foreign(SBUF(value_buf), SBUF(key), FOREIGN_REF); \
-        if (state_res == DOESNT_EXIST)                                              \
-        {                                                                           \
-            value = float_set(def_exponent, def_mentissa);                          \
-            INT64_TO_BUF(value_buf, value);                                         \
-        }                                                                           \
-        else                                                                        \
-            value = INT64_FROM_BUF(value_buf);                                      \
-                                                                                    \
-        if (state_res == DOESNT_EXIST)                                              \
-        {                                                                           \
-            if (state_foreign_set(SBUF(value_buf), SBUF(key), FOREIGN_REF) < 0)     \
-                rollback(SBUF(error_buf), 1);                                       \
-        }                                                                           \
+#define GET_FLOAT_CONF_VALUE(value, def_mentissa, def_exponent, key, error_buf) \
+    {                                                                           \
+        int64_t value;                                                          \
+        int64_t state_res = state_foreign(&value, sizeof(value), FOREIGN_REF);  \
+        if (state_res == DOESNT_EXIST)                                          \
+        {                                                                       \
+            value = float_set(def_exponent, def_mentissa);                      \
+            if (state_foreign_set(&value, sizeof(value), FOREIGN_REF) < 0)      \
+                rollback(SBUF(error_buf), 1);                                   \
+        }                                                                       \
     }
 
-#define GET_HOST_COUNT(host_count)                                                                  \
-    {                                                                                               \
-        uint8_t host_count_buf[4] = {0};                                                            \
-        host_count = 0;                                                                             \
-        if (state_foreign(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) != DOESNT_EXIST) \
-            host_count = UINT32_FROM_BUF(host_count_buf);                                           \
+#define GET_HOST_COUNT(host_count)                                                                             \
+    {                                                                                                          \
+        if (state_foreign(&host_count, sizeof(host_count), SBUF(STK_HOST_COUNT), FOREIGN_REF) == DOESNT_EXIST) \
+            host_count = 0;                                                                                    \
     }
 
 #define GET_MOMENT(idx) \
@@ -326,12 +330,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define GET_MOMENT_START_INDEX(idx) \
     (moment_base_idx + ((((idx - moment_base_idx) / moment_size)) * moment_size))
 
-#define SET_HOST_COUNT(host_count)                                                          \
-    {                                                                                       \
-        uint8_t host_count_buf[4] = {0};                                                    \
-        UINT32_TO_BUF(host_count_buf, host_count);                                          \
-        if (state_foreign_set(SBUF(host_count_buf), SBUF(STK_HOST_COUNT), FOREIGN_REF) < 0) \
-            rollback(SBUF("Evernode: Could not set default state for host count."), 1);     \
+#define SET_HOST_COUNT(host_count)                                                                     \
+    {                                                                                                  \
+        if (state_foreign_set(&host_count, sizeof(host_count), SBUF(STK_HOST_COUNT), FOREIGN_REF) < 0) \
+            rollback(SBUF("Evernode: Could not set default state for host count."), 1);                \
     }
 
 #define IS_REG_TOKEN_EXIST(account, token_id, token_exists)                                                 \
@@ -370,27 +372,29 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         const uint8_t epoch = reward_info[EPOCH_OFFSET];                                                                                                                             \
         uint32_t reward_quota;                                                                                                                                                       \
         GET_EPOCH_REWARD_QUOTA(epoch, first_epoch_reward_quota, reward_quota);                                                                                                       \
-        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                                \
-        const uint32_t cur_moment_active_host_count = UINT32_FROM_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                            \
+        uint32_t prev_moment_active_host_count = UINT32_FROM_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                             \
+        uint32_t cur_moment_active_host_count = UINT32_FROM_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET]);                                                               \
         const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                                   \
-        reward_pool_amount_ref = INT64_FROM_BUF(pool_ptr);                                                                                                                           \
-        const uint32_t saved_moment = UINT32_FROM_BUF(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                            \
+        reward_pool_amount_ref = INT64_FROM_BUF_LE(pool_ptr);                                                                                                                        \
+        const uint32_t saved_moment = UINT32_FROM_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET]);                                                                                         \
         const uint32_t cur_moment = GET_MOMENT(cur_idx);                                                                                                                             \
         /* If this is a new moment, update the host counts. */                                                                                                                       \
         if (saved_moment != cur_moment)                                                                                                                                              \
         {                                                                                                                                                                            \
             /* Remove previous moment data and move current moment data to previous moment. */                                                                                       \
-            UINT32_TO_BUF(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                                                            \
+            UINT32_TO_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);                                                                                                         \
             /* If the saved moment is not cur_moment - 1, We've missed some moments. Means there was no heartbeat received in previous moment. */                                    \
             prev_moment_active_host_count = ((saved_moment == cur_moment - 1) ? cur_moment_active_host_count : 0);                                                                   \
-            UINT32_TO_BUF(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                                                        \
+            UINT32_TO_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], prev_moment_active_host_count);                                                                     \
             /* If the macro is called from heartbeat intialte cur moment active host count as 1. */                                                                                  \
-            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (is_heartbeat ? 1 : 0));                                                                                \
+            cur_moment_active_host_count = (is_heartbeat ? 1 : 0);                                                                                                                   \
+            UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], cur_moment_active_host_count);                                                                       \
         }                                                                                                                                                                            \
         /* If the macro is called from heartbeat increase cur moment active host count by 1. */                                                                                      \
         else if (is_heartbeat)                                                                                                                                                       \
         {                                                                                                                                                                            \
-            UINT32_TO_BUF(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], (cur_moment_active_host_count + 1));                                                                    \
+            cur_moment_active_host_count += 1;                                                                                                                                       \
+            UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], cur_moment_active_host_count);                                                                       \
         }                                                                                                                                                                            \
         /* Reward pool amount is less than the reward quota for the moment, Increment the epoch. And add the remaining to the next epoch pool. */                                    \
         if (float_compare(reward_pool_amount_ref, float_set(0, reward_quota), COMPARE_LESS) == 1)                                                                                    \
@@ -399,7 +403,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             if (epoch < epoch_count)                                                                                                                                                 \
             {                                                                                                                                                                        \
                 reward_pool_amount_ref = float_sum(float_set(0, epoch_reward_amount), reward_pool_amount_ref);                                                                       \
-                INT64_TO_BUF(pool_ptr, reward_pool_amount_ref);                                                                                                                      \
+                INT64_TO_BUF_LE(pool_ptr, reward_pool_amount_ref);                                                                                                                   \
                 reward_info[EPOCH_OFFSET] = epoch + 1;                                                                                                                               \
                 /* When epoch incremented by 1, reward quota halves. */                                                                                                              \
                 reward_quota = reward_quota / 2;                                                                                                                                     \
@@ -434,10 +438,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define IS_HOST_PRUNABLE(host_addr, is_prunable)                                                                                                       \
     {                                                                                                                                                  \
         is_prunable = 0;                                                                                                                               \
-        int64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                                       \
+        int64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                                    \
                                                                                                                                                        \
         uint8_t *last_active_idx_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];                                                                    \
-        int64_t last_active_idx = INT64_FROM_BUF(last_active_idx_ptr);                                                                                 \
+        int64_t last_active_idx = INT64_FROM_BUF_LE(last_active_idx_ptr);                                                                              \
         /* If host haven't sent a heartbeat yet, take the registration ledger as the last active ledger. */                                            \
         if (last_active_idx == 0)                                                                                                                      \
             last_active_idx = registration_timestamp;                                                                                                  \
@@ -453,7 +457,8 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, amount_float)                                 \
     {                                                                                                                                                              \
         const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];                                                                                                 \
-        INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), amount_float)); /* Prepare reward info to update host counts and epoch. */                      \
+        const int64_t added_pool = float_sum(INT64_FROM_BUF_LE(pool_ptr), amount_float);                                                                           \
+        INT64_TO_BUF_LE(pool_ptr, added_pool); /* Prepare reward info to update host counts and epoch. */                                                          \
         int64_t reward_pool_amount, reward_amount;                                                                                                                 \
         PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 0, reward_pool_amount, reward_amount); \
                                                                                                                                                                    \
@@ -464,7 +469,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback) \
     {                                                                                                                                  \
         eligible_for_governance = 1;                                                                                                   \
-        uint64_t registration_timestamp = UINT64_FROM_BUF(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                      \
+        uint64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);                                   \
                                                                                                                                        \
         if ((cur_ledger_timestamp - registration_timestamp) < min_eligibility_period)                                                  \
         {                                                                                                                              \
@@ -547,9 +552,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         {                                                                                                                                                     \
             uint8_t hash_arr[HASH_SIZE * 4];                                                                                                                  \
             COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                            \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE]);                                                                                                              \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 2]);                                                                                                          \
-            CLEAR_32BYTES(&hash_arr[HASH_SIZE * 3]);                                                                                                          \
                                                                                                                                                               \
             int tx_size;                                                                                                                                      \
             PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size);      \
