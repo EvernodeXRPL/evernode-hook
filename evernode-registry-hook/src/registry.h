@@ -18,35 +18,31 @@ const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 #define OP_DUD_HOST_REMOVE 7
 #define OP_HOST_REMOVE 8
 
-// Memo Offsets
+// Param Offsets
 // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
 // HOST_REG
-const uint32_t HOST_COUNTRY_CODE_MEMO_OFFSET = 0;
-const uint32_t HOST_CPU_MICROSEC_MEMO_OFFSET = 2;
-const uint32_t HOST_RAM_MB_MEMO_OFFSET = 6;
-const uint32_t HOST_DISK_MB_MEMO_OFFSET = 10;
-const uint32_t HOST_TOT_INS_COUNT_MEMO_OFFSET = 14;
-const uint32_t HOST_CPU_MODEL_NAME_MEMO_OFFSET = 18;
-const uint32_t HOST_CPU_COUNT_MEMO_OFFSET = 58;
-const uint32_t HOST_CPU_SPEED_MEMO_OFFSET = 60;
-const uint32_t HOST_DESCRIPTION_MEMO_OFFSET = 62;
-const uint32_t HOST_EMAIL_ADDRESS_MEMO_OFFSET = 88;
+const uint32_t HOST_COUNTRY_CODE_PARAM_OFFSET = 0;
+const uint32_t HOST_CPU_MICROSEC_PARAM_OFFSET = 2;
+const uint32_t HOST_RAM_MB_PARAM_OFFSET = 6;
+const uint32_t HOST_DISK_MB_PARAM_OFFSET = 10;
+const uint32_t HOST_TOT_INS_COUNT_PARAM_OFFSET = 14;
+const uint32_t HOST_CPU_MODEL_NAME_PARAM_OFFSET = 18;
+const uint32_t HOST_CPU_COUNT_PARAM_OFFSET = 58;
+const uint32_t HOST_CPU_SPEED_PARAM_OFFSET = 60;
+const uint32_t HOST_DESCRIPTION_PARAM_OFFSET = 62;
+const uint32_t HOST_EMAIL_ADDRESS_PARAM_OFFSET = 88;
 
 // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
 // HOST_UPDATE_REG
-const uint32_t HOST_UPDATE_TOKEN_ID_MEMO_OFFSET = 0;
-const uint32_t HOST_UPDATE_COUNTRY_CODE_MEMO_OFFSET = 32;
-const uint32_t HOST_UPDATE_CPU_MICROSEC_MEMO_OFFSET = 34;
-const uint32_t HOST_UPDATE_RAM_MB_MEMO_OFFSET = 38;
-const uint32_t HOST_UPDATE_DISK_MB_MEMO_OFFSET = 42;
-const uint32_t HOST_UPDATE_TOT_INS_COUNT_MEMO_OFFSET = 46;
-const uint32_t HOST_UPDATE_ACT_INS_COUNT_MEMO_OFFSET = 50;
-const uint32_t HOST_UPDATE_DESCRIPTION_MEMO_OFFSET = 54;
-const uint32_t HOST_UPDATE_VERSION_MEMO_OFFSET = 80;
-
-// Parameters
-// Hook address which contains the states
-const uint8_t PARAM_STATE_HOOK[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+const uint32_t HOST_UPDATE_TOKEN_ID_PARAM_OFFSET = 0;
+const uint32_t HOST_UPDATE_COUNTRY_CODE_PARAM_OFFSET = 32;
+const uint32_t HOST_UPDATE_CPU_MICROSEC_PARAM_OFFSET = 34;
+const uint32_t HOST_UPDATE_RAM_MB_PARAM_OFFSET = 38;
+const uint32_t HOST_UPDATE_DISK_MB_PARAM_OFFSET = 42;
+const uint32_t HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET = 46;
+const uint32_t HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET = 50;
+const uint32_t HOST_UPDATE_DESCRIPTION_PARAM_OFFSET = 54;
+const uint32_t HOST_UPDATE_VERSION_PARAM_OFFSET = 80;
 
 #define FOREIGN_REF SBUF(NAMESPACE), state_hook_accid, ACCOUNT_ID_SIZE
 
@@ -136,7 +132,7 @@ const uint8_t PARAM_STATE_HOOK[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 
 /**************************************************************************/
 
 // Simple XRP Payment with single memo (De reg/Prune/Dud Host).
-uint8_t REMOVED_HOST_RES_MIN_PAYMENT[308] = {
+uint8_t REMOVED_HOST_RES_MIN_PAYMENT[380] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -152,54 +148,64 @@ uint8_t REMOVED_HOST_RES_MIN_PAYMENT[308] = {
     0x00, 0x00, // account_source(20) - Added on prepare to offset 90
     0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, // account_destination(20) - Added on prepare to offset 112
-    0xF9, 0xEA, // Memo array and object start markers
-    0x7C, 0x0F,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoType (15 bytes) offset 136
-    0x7D, 0x20,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (32 bytes) offset 153
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x7E, 0x03,
-    0x00, 0x00, 0x00, // MemoFormat (3 bytes) offset 187
-    0xE1, 0xF1,       // Memo array and object end markers
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                   // Parameter name
+    0x70,                                                                                     // Blob start marker
+    0x19, 0x0F,                                                                               // Parameter value length 15 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (15 bytes) offset 174
+    0xE1,                                                                                     // Hook parameter object end marker
+    0xE0, 0x17,                                                                               // Hook parameter object start marker
+    0x70,                                                                                     // Blob start marker
+    0x18, 0x20,                                                                               // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x20,                                                             // Parameter value length 32 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 230
+    0xE1,                                                                   // Hook parameter object end marker
+    0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 192
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 264
 };
 
-#define REMOVED_HOST_RES_COMMON(buf_out, to_address, memo_type, memo_data) \
-    {                                                                      \
-        COPY_20BYTES((buf_out), hook_accid);                               \
-        COPY_20BYTES((buf_out + 22), to_address);                          \
-        COPY_8BYTES((buf_out + 46), memo_type);                            \
-        COPY_4BYTES((buf_out + 46 + 8), memo_type + 8);                    \
-        COPY_2BYTES((buf_out + 46 + 12), memo_type + 12);                  \
-        COPY_BYTE((buf_out + 46 + 14), memo_type + 14);                    \
-        COPY_32BYTES((buf_out + 63), memo_data);                           \
-        COPY_2BYTES((buf_out + 97), FORMAT_HEX);                           \
-        COPY_BYTE((buf_out + 97 + 2), (FORMAT_HEX + 2));                   \
+#define REMOVED_HOST_RES_COMMON(buf_out, to_address, param_1, param_2) \
+    {                                                                  \
+        COPY_20BYTES((buf_out), hook_accid);                           \
+        COPY_20BYTES((buf_out + 22), to_address);                      \
+        COPY_8BYTES((buf_out + 84), param_1);                          \
+        COPY_4BYTES((buf_out + 84 + 8), param_1 + 8);                  \
+        COPY_2BYTES((buf_out + 84 + 12), param_1 + 12);                \
+        COPY_BYTE((buf_out + 84 + 14), param_1 + 14);                  \
+        COPY_32BYTES((buf_out + 140), param_2);                        \
     }
 
 #define REMOVED_HOST_RES_MIN_PAYMENT_TX_SIZE \
     sizeof(REMOVED_HOST_RES_MIN_PAYMENT)
-#define PREPARE_REMOVED_HOST_RES_MIN_PAYMENT_TX(drops_amount, to_address, memo_type, memo_data) \
-    {                                                                                           \
-        uint8_t *buf_out = REMOVED_HOST_RES_MIN_PAYMENT;                                        \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                      \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                      \
-        uint8_t *buf_ptr = (buf_out + 35);                                                      \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                      \
-        REMOVED_HOST_RES_COMMON((buf_out + 90), to_address, memo_type, memo_data);              \
-        etxn_details((buf_out + 192), 116);                                                     \
-        int64_t fee = etxn_fee_base(buf_out, REMOVED_HOST_RES_MIN_PAYMENT_TX_SIZE);             \
-        buf_ptr = buf_out + 44;                                                                 \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                           \
+#define PREPARE_REMOVED_HOST_RES_MIN_PAYMENT_TX(drops_amount, to_address, param_1, param_2) \
+    {                                                                                       \
+        uint8_t *buf_out = REMOVED_HOST_RES_MIN_PAYMENT;                                    \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                  \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                  \
+        uint8_t *buf_ptr = (buf_out + 35);                                                  \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                  \
+        REMOVED_HOST_RES_COMMON((buf_out + 90), to_address, param_1, param_2);              \
+        etxn_details((buf_out + 264), 116);                                                 \
+        int64_t fee = etxn_fee_base(buf_out, REMOVED_HOST_RES_MIN_PAYMENT_TX_SIZE);         \
+        buf_ptr = buf_out + 44;                                                             \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                       \
     }
 
 // IOU Payment with single memo (De reg/Prune/Dud Host).
-uint8_t REMOVED_HOST_RES_PAYMENT[348] = {
+uint8_t REMOVED_HOST_RES_PAYMENT[420] = {
     0x12, 0x00, 0x00,                   // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,       // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,       // TAG_SOURCE
@@ -217,36 +223,48 @@ uint8_t REMOVED_HOST_RES_PAYMENT[348] = {
     0x00, 0x00, // account_source(20) - Added on prepare to offset 130
     0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, // account_destination(20) - Added on prepare to offset 152
-    0xF9, 0xEA, // Memo array and object start markers
-    0x7C, 0x0F,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoType (15 bytes) offset 136
-    0x7D, 0x20,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (32 bytes) offset 153
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x7E, 0x03,
-    0x00, 0x00, 0x00, // MemoFormat (3 bytes) offset 187
-    0xE1, 0xF1,       // Memo array and object end markers
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                   // Parameter name
+    0x70,                                                                                     // Blob start marker
+    0x19, 0x0F,                                                                               // Parameter value length 15 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (15 bytes) offset 214
+    0xE1,                                                                                     // Hook parameter object end marker
+    0xE0, 0x17,                                                                               // Hook parameter object start marker
+    0x70,                                                                                     // Blob start marker
+    0x18, 0x20,                                                                               // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x20,                                                             // Parameter value length 32 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 270
+    0xE1,                                                                   // Hook parameter object end marker
+    0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 232
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 304
 };
 
 #define REMOVED_HOST_RES_PAYMENT_TX_SIZE \
     sizeof(REMOVED_HOST_RES_PAYMENT)
-#define PREPARE_REMOVED_HOST_RES_PAYMENT_TX(evr_amount, to_address, memo_type, memo_data) \
-    {                                                                                     \
-        uint8_t *buf_out = REMOVED_HOST_RES_PAYMENT;                                      \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                \
-        SET_AMOUNT_OUT((buf_out + 35), EVR_TOKEN, issuer_accid, evr_amount);              \
-        REMOVED_HOST_RES_COMMON((buf_out + 130), to_address, memo_type, memo_data);       \
-        etxn_details((buf_out + 232), 116);                                               \
-        int64_t fee = etxn_fee_base(buf_out, REMOVED_HOST_RES_PAYMENT_TX_SIZE);           \
-        uint8_t *fee_ptr = buf_out + 84;                                                  \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                     \
+#define PREPARE_REMOVED_HOST_RES_PAYMENT_TX(evr_amount, to_address, param_1, param_2) \
+    {                                                                                 \
+        uint8_t *buf_out = REMOVED_HOST_RES_PAYMENT;                                  \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                            \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                            \
+        SET_AMOUNT_OUT((buf_out + 35), EVR_TOKEN, issuer_accid, evr_amount);          \
+        REMOVED_HOST_RES_COMMON((buf_out + 130), to_address, param_1, param_2);       \
+        etxn_details((buf_out + 304), 116);                                           \
+        int64_t fee = etxn_fee_base(buf_out, REMOVED_HOST_RES_PAYMENT_TX_SIZE);       \
+        uint8_t *fee_ptr = buf_out + 84;                                              \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                 \
     }
 
 /************************************************************************************/

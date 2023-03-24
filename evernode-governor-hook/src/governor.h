@@ -6,6 +6,7 @@
 #include "../../headers/statekeys.h"
 
 #define PILOTED_MODE_CAND_SHORTNAME "piloted_mode"
+#define DUD_HOST_CAND_SHORTNAME "dud_host"
 
 #define OP_INITIALIZE 1
 #define OP_PROPOSE 2
@@ -165,7 +166,7 @@ const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 /**************************************************************************/
 
 // Simple XRP Payment with single memo.
-uint8_t CANDIDATE_REBATE_MIN_PAYMENT[314] = {
+uint8_t CANDIDATE_REBATE_MIN_PAYMENT[386] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -181,55 +182,65 @@ uint8_t CANDIDATE_REBATE_MIN_PAYMENT[314] = {
     0x00, 0x00, // account_source(20) - Added on prepare to offset 90
     0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, // account_destination(20) - Added on prepare to offset 112
-    0xF9, 0xEA, // Memo array and object start markers
-    0x7C, 0x15,
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x15,                                                             // Parameter value length 21 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, // MemoType (21 bytes) offset 136
-    0x7D, 0x20,
+    0x00,       // Event Type (21 bytes) offset 174
+    0xE1,       // Hook parameter object end marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x20,                                                             // Parameter value length 32 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (32 bytes) offset 159
-    0x7E, 0x03,
-    0x00, 0x00, 0x00, // MemoFormat (3 bytes) offset 193
-    0xE1, 0xF1,       // Memo array and object end markers
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 236
+    0xE1,                                                                   // Hook parameter object end marker
+    0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 198
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 270
 };
 
-#define CANDIDATE_REBATE_COMMON(buf_out, to_address, memo_type, memo_data, memo_format) \
-    {                                                                                   \
-        COPY_20BYTES((buf_out), hook_accid);                                            \
-        COPY_20BYTES((buf_out + 22), to_address);                                       \
-        COPY_8BYTES((buf_out + 46), memo_type);                                         \
-        COPY_8BYTES((buf_out + 46 + 8), (memo_type + 8));                               \
-        COPY_4BYTES((buf_out + 46 + 16), (memo_type + 16));                             \
-        COPY_BYTE((buf_out + 46 + 20), (memo_type + 20));                               \
-        COPY_32BYTES((buf_out + 69), memo_data);                                        \
-        COPY_2BYTES((buf_out + 103), memo_format);                                      \
-        COPY_BYTE((buf_out + 103 + 2), (memo_format + 2));                              \
+#define CANDIDATE_REBATE_COMMON(buf_out, to_address, param_1, param_2) \
+    {                                                                  \
+        COPY_20BYTES((buf_out), hook_accid);                           \
+        COPY_20BYTES((buf_out + 22), to_address);                      \
+        COPY_8BYTES((buf_out + 84), param_1);                          \
+        COPY_8BYTES((buf_out + 84 + 8), (param_1 + 8));                \
+        COPY_4BYTES((buf_out + 84 + 16), (param_1 + 16));              \
+        COPY_BYTE((buf_out + 84 + 20), (param_1 + 20));                \
+        COPY_32BYTES((buf_out + 146), param_2);                        \
     }
 
 #define CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE \
     sizeof(CANDIDATE_REBATE_MIN_PAYMENT)
-#define PREPARE_CANDIDATE_REBATE_MIN_PAYMENT_TX(drops_amount, to_address, memo_type, memo_data, memo_format) \
-    {                                                                                                        \
-        uint8_t *buf_out = CANDIDATE_REBATE_MIN_PAYMENT;                                                     \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                                   \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                                   \
-        uint8_t *buf_ptr = (buf_out + 35);                                                                   \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                   \
-        CANDIDATE_REBATE_COMMON((buf_out + 90), to_address, memo_type, memo_data, memo_format);              \
-        etxn_details((buf_out + 198), 116);                                                                  \
-        int64_t fee = etxn_fee_base(buf_out, CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE);                          \
-        buf_ptr = buf_out + 44;                                                                              \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                                        \
+#define PREPARE_CANDIDATE_REBATE_MIN_PAYMENT_TX(drops_amount, to_address, param_1, param_2) \
+    {                                                                                       \
+        uint8_t *buf_out = CANDIDATE_REBATE_MIN_PAYMENT;                                    \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                  \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                  \
+        uint8_t *buf_ptr = (buf_out + 35);                                                  \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                  \
+        CANDIDATE_REBATE_COMMON((buf_out + 90), to_address, param_1, param_2);              \
+        etxn_details((buf_out + 270), 116);                                                 \
+        int64_t fee = etxn_fee_base(buf_out, CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE);         \
+        buf_ptr = buf_out + 44;                                                             \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                       \
     }
 
 // IOU Payment with single memo
-uint8_t CANDIDATE_REBATE_PAYMENT[354] = {
+uint8_t CANDIDATE_REBATE_PAYMENT[426] = {
     0x12, 0x00, 0x00,                   // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,       // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,       // TAG_SOURCE
@@ -247,41 +258,53 @@ uint8_t CANDIDATE_REBATE_PAYMENT[354] = {
     0x00, 0x00, // account_source(20) - Added on prepare to offset 130
     0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, // account_destination(20) - Added on prepare to offset 152
-    0xF9, 0xEA, // Memo array and object start markers
-    0x7C, 0x15,
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x15,                                                             // Parameter value length 21 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, // MemoType (21 bytes) offset 176
-    0x7D, 0x20,
+    0x00,       // Event Type (21 bytes) offset 214
+    0xE1,       // Hook parameter object end marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x20,                                                             // Parameter value length 32 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (32 bytes) offset 199
-    0x7E, 0x03,
-    0x00, 0x00, 0x00, // MemoFormat (3 bytes) offset 233
-    0xE1, 0xF1,       // Memo array and object end markers
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 276
+    0xE1,                                                                   // Hook parameter object end marker
+    0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 238
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 310
 };
 
 #define CANDIDATE_REBATE_PAYMENT_TX_SIZE \
     sizeof(CANDIDATE_REBATE_PAYMENT)
-#define PREPARE_CANDIDATE_REBATE_PAYMENT_TX(evr_amount, to_address, memo_type, memo_data, memo_format) \
-    {                                                                                                  \
-        uint8_t *buf_out = CANDIDATE_REBATE_PAYMENT;                                                   \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                             \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                             \
-        SET_AMOUNT_OUT((buf_out + 35), EVR_TOKEN, issuer_accid, evr_amount);                           \
-        CANDIDATE_REBATE_COMMON((buf_out + 130), to_address, memo_type, memo_data, memo_format);       \
-        etxn_details((buf_out + 238), 116);                                                            \
-        int64_t fee = etxn_fee_base(buf_out, CANDIDATE_REBATE_PAYMENT_TX_SIZE);                        \
-        uint8_t *fee_ptr = buf_out + 84;                                                               \
-        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                                  \
+#define PREPARE_CANDIDATE_REBATE_PAYMENT_TX(evr_amount, to_address, param_1, param_2) \
+    {                                                                                 \
+        uint8_t *buf_out = CANDIDATE_REBATE_PAYMENT;                                  \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                            \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                            \
+        SET_AMOUNT_OUT((buf_out + 35), EVR_TOKEN, issuer_accid, evr_amount);          \
+        CANDIDATE_REBATE_COMMON((buf_out + 130), to_address, param_1, param_2);       \
+        etxn_details((buf_out + 310), 116);                                           \
+        int64_t fee = etxn_fee_base(buf_out, CANDIDATE_REBATE_PAYMENT_TX_SIZE);       \
+        uint8_t *fee_ptr = buf_out + 84;                                              \
+        CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                 \
     }
 
 // Simple XRP Payment with single memo.
-uint8_t HOOK_UPDATE_PAYMENT[306] = {
+uint8_t HOOK_UPDATE_PAYMENT[378] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -297,21 +320,33 @@ uint8_t HOOK_UPDATE_PAYMENT[306] = {
     0x00, 0x00, // account_source(20) - Added on prepare to offset 90
     0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, // account_destination(20) - Added on prepare to offset 112
-    0xF9, 0xEA, // Memo array and object start markers
-    0x7C, 0x0D,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoType (13 bytes) offset 136
-    0x7D, 0x20,
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,       // Parameter name
+    0x70,                                                                         // Blob start marker
+    0x19, 0x0D,                                                                   // Parameter value length 13 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (13 bytes) offset 174
+    0xE1,                                                                         // Hook parameter object end marker
+    0xE0, 0x17,                                                                   // Hook parameter object start marker
+    0x70,                                                                         // Blob start marker
+    0x18, 0x20,                                                                   // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x20,                                                             // Parameter value length 32 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (32 bytes) offset 151
-    0x7E, 0x03,
-    0x00, 0x00, 0x00, // MemoFormat (3 bytes) offset 185
-    0xE1, 0xF1,       // Memo array and object end markers
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 228
+    0xE1,                                                                   // Hook parameter object end marker
+    0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 190
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 262
 };
 
 #define HOOK_UPDATE_PAYMENT_TX_SIZE \
@@ -325,20 +360,18 @@ uint8_t HOOK_UPDATE_PAYMENT[306] = {
         _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                               \
         COPY_20BYTES((buf_out + 90), hook_accid);                                                                        \
         COPY_20BYTES((buf_out + 112), to_address);                                                                       \
-        COPY_8BYTES((buf_out + 136), HOOK_UPDATE);                                                                       \
-        COPY_4BYTES((buf_out + 136 + 8), HOOK_UPDATE + 8);                                                               \
-        COPY_BYTE((buf_out + 136 + 12), HOOK_UPDATE + 12);                                                               \
-        COPY_32BYTES((buf_out + 151), unique_id);                                                                        \
-        COPY_2BYTES((buf_out + 185), FORMAT_HEX);                                                                        \
-        COPY_BYTE((buf_out + 185 + 2), (FORMAT_HEX + 2));                                                                \
-        etxn_details((buf_out + 190), 116);                                                                              \
+        COPY_8BYTES((buf_out + 174), HOOK_UPDATE);                                                                       \
+        COPY_4BYTES((buf_out + 174 + 8), HOOK_UPDATE + 8);                                                               \
+        COPY_BYTE((buf_out + 174 + 12), HOOK_UPDATE + 12);                                                               \
+        COPY_32BYTES((buf_out + 228), unique_id);                                                                        \
+        etxn_details((buf_out + 262), 116);                                                                              \
         int64_t fee = etxn_fee_base(buf_out, HOOK_UPDATE_PAYMENT_TX_SIZE);                                               \
         buf_ptr = buf_out + 44;                                                                                          \
         _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to registry/governor hook.*/ \
     }
 
 // Simple XRP Payment with single memo.
-uint8_t DUD_HOST_REMOVE_TX[297] = {
+uint8_t DUD_HOST_REMOVE_TX[369] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -354,40 +387,50 @@ uint8_t DUD_HOST_REMOVE_TX[297] = {
     0x00, 0x00, // account_source(20) - Added on prepare to offset 90
     0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, // account_destination(20) - Added on prepare to offset 112
-    0xF9, 0xEA, // Memo array and object start markers
-    0x7C, 0x10,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoType (16 bytes) offset 136
-    0x7D, 0x14,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // MemoData (20 bytes) offset 154
-    0x7E, 0x03,
-    0x00, 0x00, 0x00, // MemoFormat (3 bytes) offset 176
-    0xE1, 0xF1,       // Memo array and object end markers
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                         // Parameter name
+    0x70,                                                                                           // Blob start marker
+    0x19, 0x10,                                                                                     // Parameter value length 16 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (16 bytes) offset 174
+    0xE1,                                                                                           // Hook parameter object end marker
+    0xE0, 0x17,                                                                                     // Hook parameter object start marker
+    0x70,                                                                                           // Blob start marker
+    0x18, 0x20,                                                                                     // Parameter name length 32 bytes
+    0x46, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03,                                                 // Parameter name
+    0x70,                                                                                                                   // Blob start marker
+    0x19, 0x14,                                                                                                             // Parameter value length 20 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (20 bytes) offset 231
+    0xE1,                                                                                                                   // Hook parameter object end marker
+    0xF1,                                                                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 181
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 253
 };
 
 #define DUD_HOST_REMOVE_TX_SIZE \
     sizeof(DUD_HOST_REMOVE_TX)
-#define PREPARE_DUD_HOST_REMOVE_TX(drops_amount, to_address, memo_type, memo_data, memo_format) \
-    {                                                                                           \
-        uint8_t *buf_out = DUD_HOST_REMOVE_TX;                                                  \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                      \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                      \
-        uint8_t *buf_ptr = (buf_out + 35);                                                      \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                      \
-        COPY_20BYTES((buf_out + 90), hook_accid);                                               \
-        COPY_20BYTES((buf_out + 112), to_address);                                              \
-        COPY_16BYTES((buf_out + 136), memo_type);                                               \
-        COPY_20BYTES((buf_out + 154), memo_data);                                               \
-        COPY_2BYTES((buf_out + 176), memo_format);                                              \
-        COPY_BYTE((buf_out + 176 + 2), (memo_format + 2));                                      \
-        etxn_details((buf_out + 181), 116);                                                     \
-        int64_t fee = etxn_fee_base(buf_out, DUD_HOST_REMOVE_TX_SIZE);                          \
-        buf_ptr = buf_out + 44;                                                                 \
-        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee);                                                  \
+#define PREPARE_DUD_HOST_REMOVE_TX(drops_amount, to_address, param_1, param_2) \
+    {                                                                          \
+        uint8_t *buf_out = DUD_HOST_REMOVE_TX;                                 \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                     \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                     \
+        uint8_t *buf_ptr = (buf_out + 35);                                     \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                     \
+        COPY_20BYTES((buf_out + 90), hook_accid);                              \
+        COPY_20BYTES((buf_out + 112), to_address);                             \
+        COPY_16BYTES((buf_out + 174), param_1);                                \
+        COPY_20BYTES((buf_out + 231), param_2);                                \
+        etxn_details((buf_out + 253), 116);                                    \
+        int64_t fee = etxn_fee_base(buf_out, DUD_HOST_REMOVE_TX_SIZE);         \
+        buf_ptr = buf_out + 44;                                                \
+        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee);                                 \
     }
 #endif

@@ -270,33 +270,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define SET_AMOUNT_OUT(amt_out, token, issuer, amount) \
     SET_AMOUNT_OUT_GUARDM(amt_out, token, issuer, amount, 1, 1)
 
-#define GET_MEMO(memo_lookup, memos, memos_len, memo_ptr, memo_len, type_ptr, type_len, format_ptr, format_len, data_ptr, data_len) \
-    {                                                                                                                               \
-        /* since our memos are in a buffer inside the hook (as opposed to being a slot) we use the sto api with it                  \
-        the sto apis probe into a serialized object returning offsets and lengths of subfields or array entries */                  \
-        memo_ptr = SUB_OFFSET(memo_lookup) + memos;                                                                                 \
-        memo_len = SUB_LENGTH(memo_lookup);                                                                                         \
-        /* memos are nested inside an actual memo object, so we need to subfield                                                    \
-        / equivalently in JSON this would look like memo_array[i]["Memo"] */                                                        \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemo);                                                                     \
-        memo_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
-        memo_len = SUB_LENGTH(memo_lookup);                                                                                         \
-        if (memo_lookup < 0)                                                                                                        \
-            accept(SBUF("Evernode: Incoming txn had a blank sfMemos."), 1);                                                         \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoType);                                                                 \
-        type_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
-        type_len = SUB_LENGTH(memo_lookup);                                                                                         \
-        /* trace(SBUF("type in hex: "), type_ptr, type_len, 1); */                                                                  \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoFormat);                                                               \
-        format_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                            \
-        format_len = SUB_LENGTH(memo_lookup);                                                                                       \
-        /* trace(SBUF("format in hex: "), format_ptr, format_len, 1); */                                                            \
-        memo_lookup = sto_subfield(memo_ptr, memo_len, sfMemoData);                                                                 \
-        data_ptr = SUB_OFFSET(memo_lookup) + memo_ptr;                                                                              \
-        data_len = SUB_LENGTH(memo_lookup);                                                                                         \
-        /* trace(SBUF("data in hex: "), data_ptr, data_len, 1); // Text data is in hex format. */                                   \
-    }
-
 #define GET_CONF_VALUE(value, key, error_buf)                                 \
     {                                                                         \
         if (state_foreign(&value, sizeof(value), SBUF(key), FOREIGN_REF) < 0) \
@@ -528,10 +501,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         if (state_foreign(SBUF(governance_game_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)                                                            \
             rollback(SBUF("Evernode: Could not get state governance_game info."), 1);                                                                         \
                                                                                                                                                               \
-        if (!BUFFER_EQUAL_32(data_ptr, &governance_game_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]))                                                             \
+        if (!BUFFER_EQUAL_32(event_data, &governance_game_info[ELECTED_PROPOSAL_UNIQUE_ID_OFFSET]))                                                           \
             rollback(SBUF("Evernode: Candidate unique id is invalid."), 1);                                                                                   \
                                                                                                                                                               \
-        CANDIDATE_ID_KEY(data_ptr);                                                                                                                           \
+        CANDIDATE_ID_KEY(event_data);                                                                                                                         \
         /* <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)> */                            \
         /* <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)> */                                                      \
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];                                                                                                          \
@@ -554,7 +527,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                            \
                                                                                                                                                               \
             int tx_size;                                                                                                                                      \
-            PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, data_ptr, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size);      \
+            PREPARE_SET_HOOK_TRANSACTION_TX(hash_arr, NAMESPACE, event_data, PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE, tx_size);    \
             uint8_t emithash[HASH_SIZE];                                                                                                                      \
             if (emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) < 0)                                                                                      \
                 rollback(SBUF("Evernode: Emitting set hook failed"), 1);                                                                                      \
@@ -566,7 +539,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         }                                                                                                                                                     \
         else if (reserved == AGAIN_HOOK)                                                                                                                      \
         {                                                                                                                                                     \
-            PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, data_ptr);                                                                                \
+            PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);                                                                              \
             uint8_t emithash[HASH_SIZE];                                                                                                                      \
             if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) < 0)                                                                                      \
                 rollback(SBUF("Evernode: Emitting txn failed"), 1);                                                                                           \
