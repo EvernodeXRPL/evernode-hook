@@ -187,6 +187,16 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      IS_BUFFER_EMPTY_8((buf + 16)) && \
      IS_BUFFER_EMPTY_8((buf + 24)))
 
+#define ASSERT(x) \
+    if (!x)       \
+        rollback(SBUF(__FILE__), __LINE__);
+
+#define ADMIT() \
+    accept(SBUF(__FILE__), __LINE__);
+
+#define ADMIT_M(str, x) \
+    accept((uint32_t)(str), sizeof(str), x);
+
 // Domain related comparer macros.
 
 #define EQUAL_FORMAT_HEX(buf, len)      \
