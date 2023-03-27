@@ -191,10 +191,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     if (!(cond))     \
         rollback(SBUF(__FILE__), __LINE__);
 
-#define ASSERT_M(cond, str) \
-    if (!(cond))            \
-        rollback(SBUF(str), 1);
-
 #define PERMIT() \
     accept(SBUF(__FILE__), __LINE__);
 

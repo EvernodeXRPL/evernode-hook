@@ -177,7 +177,7 @@ int64_t hook(uint32_t reserved)
             if (op_type == OP_HOST_DE_REG || op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE)
             {
                 // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
-                ASSERT((state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 &&
+                ASSERT(!(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
                         state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0));
 
                 epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];

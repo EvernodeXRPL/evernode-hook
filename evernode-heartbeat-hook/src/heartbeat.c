@@ -295,9 +295,9 @@ int64_t hook(uint32_t reserved)
 
                 const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
 
-                ASSERT_M((candidate_type != 0), "Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type.");
+                REQUIRE((candidate_type != 0), "Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type.");
 
-                ASSERT_M(!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]), "Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed.");
+                REQUIRE(!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]), "Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed.");
 
                 uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
                 const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
