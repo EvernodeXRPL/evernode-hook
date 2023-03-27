@@ -423,8 +423,8 @@ int64_t hook(uint32_t reserved)
                         // End : Moment size transition implementation.
                         ///////////////////////////////////////////////////////////////
 
-                        // ADMIT_MSG >> Initialization successful.
-                        ADMIT();
+                        // PERMIT_MSG >> Initialization successful.
+                        PERMIT();
                     }
                     else if (op_type == OP_PROPOSE)
                     {
@@ -474,8 +474,8 @@ int64_t hook(uint32_t reserved)
                         // ASSERT_FAILURE_MSG >> Could not set governance info state.
                         ASSERT(state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-                        // ADMIT_MSG >> Successfully accepted Hook candidate proposal.
-                        ADMIT();
+                        // PERMIT_MSG >> Successfully accepted Hook candidate proposal.
+                        PERMIT();
                     }
                     else if (op_type == OP_WITHDRAW)
                     {
@@ -515,23 +515,23 @@ int64_t hook(uint32_t reserved)
                         // ASSERT_FAILURE_MSG >> Could not delete the candidate states.
                         ASSERT(!(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0));
 
-                        // ADMIT-MSG >> Successfully withdrawn Hook candidate proposal.
-                        ADMIT();
+                        // PERMIT-MSG >> Successfully withdrawn Hook candidate proposal.
+                        PERMIT();
                     }
                     else if (op_type == OP_HOOK_UPDATE)
                     {
                         // ASSERT_FAILURE_MSG >> Could not get candidate owner state.
                         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0);
 
+                        // ASSERT_FAILURE_MSG >> Only heartbeat or registry are allowed to send hook update results.
+                        ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field));
+
                         uint8_t *hook_hash_ptr;
                         // We accept only the hook update transaction from hook heartbeat or registry accounts.
                         if (BUFFER_EQUAL_20(heartbeat_accid, account_field))
                             hook_hash_ptr = &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET];
-                        else if (BUFFER_EQUAL_20(registry_accid, account_field))
-                            hook_hash_ptr = &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET];
                         else
-                            // FAILURE_MSG >> Only heartbeat or registry are allowed to send hook update results.
-                            rollback(SBUF(__FILE__), __LINE__);
+                            hook_hash_ptr = &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET];
 
                         int is_applied = 0;
                         CHECK_RUNNING_HOOK(account_field, hook_hash_ptr, is_applied);
@@ -578,8 +578,8 @@ int64_t hook(uint32_t reserved)
                         // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
                         ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-                        // ADMIT_MSG >> Accepted the hook update response.
-                        ADMIT();
+                        // PERMIT_MSG >> Accepted the hook update response.
+                        PERMIT();
                     }
                     else if (op_type == OP_GOVERNANCE_MODE_CHANGE)
                     {
@@ -617,8 +617,8 @@ int64_t hook(uint32_t reserved)
                         // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
                         ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-                        // ADMIT_MSG >> Successfully accepted governance mode change.
-                        ADMIT();
+                        // PERMIT_MSG >> Successfully accepted governance mode change.
+                        PERMIT();
                     }
                     else if (op_type == OP_DUD_HOST_REPORT)
                     {
@@ -668,8 +668,8 @@ int64_t hook(uint32_t reserved)
                         // ASSERT_FAILURE_MSG >> Could not set governance info state.
                         ASSERT(state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-                        // ADMIT_MSG >> Successfully reported the dud host.
-                        ADMIT();
+                        // PERMIT_MSG >> Successfully reported the dud host.
+                        PERMIT();
                     }
                     if (op_type == OP_STATUS_CHANGE)
                     {
@@ -789,9 +789,9 @@ int64_t hook(uint32_t reserved)
                             }
 
                             if (candidate_type == NEW_HOOK_CANDIDATE)
-                                ADMIT_M("Evernode: New hook candidate status changed.", vote_status);
+                                PERMIT_M("Evernode: New hook candidate status changed.", vote_status);
 
-                            ADMIT_M("Evernode: Dud host candidate status changed.", vote_status);
+                            PERMIT_M("Evernode: Dud host candidate status changed.", vote_status);
                         }
                         else if (candidate_type == PILOTED_MODE_CANDIDATE && vote_status == CANDIDATE_ELECTED)
                         {
@@ -805,7 +805,7 @@ int64_t hook(uint32_t reserved)
                             // ASSERT_FAILURE_MSG >> Could not set state for piloted mode candidate.
                             ASSERT(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
 
-                            ADMIT_M("Evernode: Piloted mode candidate status changed.", vote_status);
+                            PERMIT_M("Evernode: Piloted mode candidate status changed.", vote_status);
                         }
                     }
                 }
@@ -813,8 +813,8 @@ int64_t hook(uint32_t reserved)
         }
     }
 
-    // ADMIT_MSG >> Transaction is not handled.
-    ADMIT();
+    // PERMIT_MSG >> Transaction is not handled.
+    PERMIT();
 
     _g(1, 1); // every hook needs to import guard function and use it at least once
     // unreachable

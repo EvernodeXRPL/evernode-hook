@@ -9,13 +9,15 @@ int64_t hook(uint32_t reserved)
 
     // Reading the hook governance account from hook params
     uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
-    if (hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK)) < ACCOUNT_ID_SIZE)
-        rollback(SBUF("Evernode: Error getting the state hook address from params."), 1);
+    // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
+    ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK)) == ACCOUNT_ID_SIZE);
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
-    if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
-        rollback(SBUF("Evernode: Could not get moment base info state."), 1);
+
+    // ASSERT_FAILURE_MSG >> Could not get moment base info state.
+    ASSERT(state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+
     uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
     uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
     // If state does not exist, take the moment type from default constant.
@@ -36,8 +38,9 @@ int64_t hook(uint32_t reserved)
         // Next fetch the sfAccount field from the originating transaction
         uint8_t account_field[ACCOUNT_ID_SIZE];
         int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
-        if (account_field_len < 20)
-            rollback(SBUF("Evernode: sfAccount field is missing."), 1);
+
+        // ASSERT_FAILURE_MSG >> sfAccount field is missing.
+        ASSERT(account_field_len == 20);
 
         // Accept any outgoing transactions without further processing.
         if (!BUFFER_EQUAL_20(hook_accid, account_field))
@@ -59,12 +62,12 @@ int64_t hook(uint32_t reserved)
 
                 uint8_t op_type = OP_NONE;
 
-                if (amt_slot < 0)
-                    rollback(SBUF("Evernode: Could not slot otxn.sfAmount"), 1);
+                // ASSERT_FAILURE_MSG >> Could not slot otxn.sfAmount.
+                ASSERT(amt_slot >= 0);
 
                 int64_t is_xrp = slot_type(amt_slot, 1);
-                if (is_xrp < 0)
-                    rollback(SBUF("Evernode: Could not determine sent amount type"), 1);
+                // ASSERT_FAILURE_MSG >> Could not determine sent amount type
+                ASSERT(is_xrp >= 0);
 
                 if (is_xrp)
                 {
@@ -82,24 +85,23 @@ int64_t hook(uint32_t reserved)
                 if (op_type != OP_NONE)
                 {
                     // Memo format validation.
-                    if (!EQUAL_FORMAT_HEX(format_ptr, format_len))
-                        rollback(SBUF("Evernode: Memo format should be hex."), 1);
+                    // ASSERT_FAILURE_MSG >> Memo format should be hex.
+                    ASSERT(EQUAL_FORMAT_HEX(format_ptr, format_len));
 
                     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
                     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-                    if (state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0)
-                        rollback(SBUF("Evernode: Could not get issuer or foundation account id."), 1);
+
+                    // ASSERT_FAILURE_MSG >> Could not get issuer or foundation account id.
+                    ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0));
 
                     uint8_t source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
                     const uint32_t cur_moment = GET_MOMENT(cur_idx);
 
                     uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
                     uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
-                    if (op_type == OP_HEARTBEAT || op_type == OP_VOTE)
-                    {
-                        if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0 || state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not get state governance_game info."), 1);
-                    }
+
+                    // ASSERT_FAILURE_MSG >> Could not get state governance_game info.
+                    ASSERT(!((op_type == OP_HEARTBEAT || op_type == OP_VOTE) && (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0 || state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)))
 
                     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
                     // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)>
@@ -113,19 +115,20 @@ int64_t hook(uint32_t reserved)
                         HOST_ADDR_KEY(account_field);
 
                         // Check for registration entry.
-                        if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST)
-                            rollback(SBUF("Evernode: This host is not registered."), 1);
+                        // ASSERT_FAILURE_MSG >> This host is not registered.
+                        ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
 
                         TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
                         // Check for token id entry.
-                        if (state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) == DOESNT_EXIST)
-                            rollback(SBUF("Evernode: This host is not registered."), 1);
+                        // ASSERT_FAILURE_MSG >> This host is not registered.
+                        ASSERT(state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST);
 
                         // Check the ownership of the token to this user before proceeding.
                         int token_exists;
                         IS_REG_TOKEN_EXIST(account_field, (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
-                        if (!token_exists)
-                            rollback(SBUF("Evernode: Registration token does not exist."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Registration token does not exist.
+                        ASSERT(token_exists);
 
                         const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
                         const int64_t last_heartbeat_idx = INT64_FROM_BUF_LE(heartbeat_ptr);
@@ -159,13 +162,15 @@ int64_t hook(uint32_t reserved)
                         {
                             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
                             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                            if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
+
+                            // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
+                            ASSERT(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
 
                             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-                            if (state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not get reward info state."), 1);
+
+                            // ASSERT_FAILURE_MSG >> Could not get reward info state.
+                            ASSERT(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
 
                             const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
                             const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
@@ -195,8 +200,10 @@ int64_t hook(uint32_t reserved)
                             {
                                 PREPARE_REWARD_PAYMENT_TX(accumulated_reward, account_field);
                                 uint8_t emithash[HASH_SIZE];
-                                if (emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) < 0)
-                                    rollback(SBUF("Evernode: Emitting txn failed"), 1);
+
+                                // ASSERT_FAILURE_MSG >> Emitting txn failed
+                                ASSERT(emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) >= 0);
+
                                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                                 // Make the accumulated reward 0 after sending the rewards.
@@ -204,16 +211,18 @@ int64_t hook(uint32_t reserved)
                             }
 
                             INT64_TO_BUF_LE(accumulated_reward_ptr, accumulated_reward);
-                            if (state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not set state for host token id."), 1);
 
-                            if (state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not set state for reward info."), 1);
+                            // ASSERT_FAILURE_MSG >> Could not set state for host token id.
+                            ASSERT(state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) >= 0);
+
+                            // ASSERT_FAILURE_MSG >> Could not set state for reward info.
+                            ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
                         }
 
                         const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
-                        if (state_foreign(foundation_accid, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not get state for foundation account."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Could not get state for foundation account.
+                        ASSERT(state_foreign(foundation_accid, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
 
                         uint8_t eligible_for_governance = 0;
                         uint8_t do_rollback = 0;
@@ -228,15 +237,16 @@ int64_t hook(uint32_t reserved)
                             voter_base_count = ((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1);
                             UINT32_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET], voter_base_count);
                             UINT64_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
-                            if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
-                                rollback(SBUF("Evernode: Could not set state governance_game info."), 1);
+
+                            // ASSERT_FAILURE_MSG >> Could not set state governance_game info.
+                            ASSERT(state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST);
                         }
 
                         // Handle votes if there's a vote.
                         if (data_len > 0)
                         {
-                            if (!eligible_for_governance)
-                                rollback(SBUF("Evernode: This host is not eligible for voting."), 1);
+                            // ASSERT_FAILURE_MSG >> This host is not eligible for voting.
+                            ASSERT(eligible_for_governance);
 
                             op_type = OP_VOTE;
                         }
@@ -244,16 +254,18 @@ int64_t hook(uint32_t reserved)
                         {
                             // Update the host address state.
                             // If this heartbeat contains vote host_addr will be updated from OP_VOTE section.
-                            if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                                rollback(SBUF("Evernode: Could not set state for heartbeat."), 1);
 
-                            accept(SBUF("Evernode: Host heartbeat successful."), 0);
+                            // ASSERT_FAILURE_MSG >> Could not set state for heartbeat.
+                            ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
+
+                            // PERMIT_MSG >> Host heartbeat successful.
+                            PERMIT();
                         }
                     }
                     else if (op_type == OP_VOTE)
                     {
-                        if (!source_is_foundation)
-                            rollback(SBUF("Evernode: Only foundation is allowed to vote in governance hook."), 1);
+                        // ASSERT_FAILURE_MSG >> Only foundation is allowed to vote in governance hook.
+                        ASSERT(source_is_foundation);
 
                         // Allocate vote triggers.
                         etxn_reserve(1);
@@ -268,18 +280,18 @@ int64_t hook(uint32_t reserved)
                         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)><negative_vote_count(4)>
                         // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
                         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
-                        if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Error getting a candidate for the given id."), 1);
+
+                        // ASSERT_FAILURE_MSG >> VOTE_VALIDATION_ERR - Error getting a candidate for the given id.
+                        ASSERT(state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
 
                         // As first 20 bytes of "candidate_id" represents owner address.
                         CANDIDATE_OWNER_KEY(candidate_id);
 
                         const uint8_t candidate_type = CANDIDATE_TYPE(data_ptr);
-                        if (candidate_type == 0)
-                            rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type."), 1);
 
-                        if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
-                            rollback(SBUF("Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed."), 1);
+                        ASSERT_M((candidate_type != 0), "Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type.");
+
+                        ASSERT_M(!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]), "Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed.");
 
                         uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
                         const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
@@ -377,8 +389,9 @@ int64_t hook(uint32_t reserved)
 
                             PREPARE_CANDIDATE_STATUS_CHANGE_MIN_PAYMENT(1, state_hook_accid, trigger_memo_data);
                             uint8_t emithash[HASH_SIZE];
-                            if (emit(SBUF(emithash), SBUF(CANDIDATE_STATUS_CHANGE_MIN_PAYMENT_TX)) < 0)
-                                rollback(SBUF("Evernode: Emitting txn failed"), 1);
+
+                            // ASSERT_FAILURE_MSG >> Emitting txn failed
+                            ASSERT(emit(SBUF(emithash), SBUF(CANDIDATE_STATUS_CHANGE_MIN_PAYMENT_TX)) >= 0);
                             trace(SBUF("emit hash: "), SBUF(emithash), 1);
                         }
                         else
@@ -407,13 +420,15 @@ int64_t hook(uint32_t reserved)
                             const uint8_t voted_flag = *support_vote_flag_ptr;
 
                             // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
-                            if (cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx)
-                                rollback(SBUF("Evernode: Voting for already voted candidate is not allowed."), 1);
+
+                            // ASSERT_FAILURE_MSG >> Voting for already voted candidate is not allowed.
+                            ASSERT(!(cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx));
+
                             // Only one support vote is allowed for new hook candidate per moment.
                             if (candidate_type == NEW_HOOK_CANDIDATE)
                             {
-                                if (cur_moment == voted_moment && *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED && voted_flag == 1)
-                                    rollback(SBUF("Evernode: Only one support vote is allowed per moment."), 1);
+                                // ASSERT_FAILURE_MSG >> Only one support vote is allowed per moment.
+                                ASSERT(!(cur_moment == voted_moment && *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED && voted_flag == 1));
 
                                 *support_vote_flag_ptr = *(data_ptr + CANDIDATE_VOTE_VALUE_MEMO_OFFSET) == CANDIDATE_SUPPORTED ? 1 : 0;
                             }
@@ -432,27 +447,25 @@ int64_t hook(uint32_t reserved)
                             // Update the last vote info.
                             UINT64_TO_BUF_LE(last_voted_timestamp_ptr, cur_ledger_timestamp);
                             UINT32_TO_BUF_LE(last_voted_candidate_idx_ptr, candidate_idx);
-                            if (source_is_foundation)
-                            {
-                                if (state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)
-                                    rollback(SBUF("Evernode: Could not set state for governance_game info."), 1);
-                            }
-                            else
-                            {
-                                if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                                    rollback(SBUF("Evernode: Could not set state for host."), 1);
-                            }
+
+                            // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
+                            ASSERT(!(source_is_foundation && state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0));
+
+                            // ASSERT_FAILURE_MSG >> Could not set state for host.
+                            ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
                         }
 
-                        if (state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for candidate id."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for candidate id.
+                        ASSERT(state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
 
                         // END : Apply the given votes for existing candidates.
 
                         if (source_is_foundation)
-                            accept(SBUF("Evernode: Successfully accepted foundation candidate vote."), 0);
-                        else
-                            accept(SBUF("Evernode: Successfully accepted host heartbeat candidate vote.."), 0);
+                            // PERMIT_MSG >> Successfully accepted foundation candidate vote.
+                            PERMIT();
+
+                        // PERMIT_MSG >> Successfully accepted host heartbeat candidate vote..
+                        PERMIT();
                     }
                     // Child hook update trigger.
                     else if (op_type == OP_HOOK_UPDATE)
@@ -462,7 +475,8 @@ int64_t hook(uint32_t reserved)
         }
     }
 
-    accept(SBUF("Evernode: Transaction is not handled."), 0);
+    // PERMIT_MSG >> Transaction is not handled.
+    PERMIT();
 
     _g(1, 1); // every hook needs to import guard function and use it at least once
     // unreachable
