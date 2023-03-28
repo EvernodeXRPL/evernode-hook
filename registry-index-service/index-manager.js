@@ -12,15 +12,14 @@ const codec = require('ripple-address-codec');
 const {
     XrplApi, XrplAccount, StateHelpers, TransactionHelper,
     GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys,
-    Defaults, EvernodeConstants
+    Defaults, EvernodeConstants, HookParamKeys
 } = require('evernode-js-client');
 const { Buffer } = require('buffer');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
 const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
 const MIN_XRP = "1";
-const INIT_MEMO_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
-const INIT_MEMO_FORMAT = "hex";
+const INIT_EVENT_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
 const NETWORK_ID = process.env.NETWORK_ID || 21338;
@@ -770,17 +769,27 @@ class IndexManager {
 
 async function initRegistryConfigs(initializerInfo, config, accountConfigPath, rippledServer) {
     // Get issuer and foundation cold wallet account ids.
-    let memoData = Buffer.allocUnsafe(80);
-    codec.decodeAccountID(config.issuer.address).copy(memoData);
-    codec.decodeAccountID(config.foundation.address).copy(memoData, 20);
-    codec.decodeAccountID(config.registry.address).copy(memoData, 40);
-    codec.decodeAccountID(config.heartbeat.address).copy(memoData, 60);
+    let paramData = Buffer.allocUnsafe(80);
+    codec.decodeAccountID(config.issuer.address).copy(paramData);
+    codec.decodeAccountID(config.foundation.address).copy(paramData, 20);
+    codec.decodeAccountID(config.registry.address).copy(paramData, 40);
+    codec.decodeAccountID(config.heartbeat.address).copy(paramData, 60);
 
     const xrplApi = new XrplApi(rippledServer);
     await xrplApi.connect();
     const initAccount = new XrplAccount(initializerInfo.address, initializerInfo.secret, { xrplApi: xrplApi });
-    const res = await initAccount.makePayment(config.governor.address, MIN_XRP, 'XRP', null,
-        [{ type: INIT_MEMO_TYPE, format: INIT_MEMO_FORMAT, data: memoData.toString('hex') }]);
+    const res = await initAccount.makePayment(
+        config.governor.address,
+        MIN_XRP,
+        'XRP',
+        null,
+        null,
+        {
+            hookParams: [
+                { name: HookParamKeys.PARAM_EVENT_TYPE_KEY, value: INIT_EVENT_TYPE },
+                { name: HookParamKeys.PARAM_EVENT_DATA1_KEY, value: paramData.toString('hex') }
+            ]
+        });
 
     if (res.code === 'tesSUCCESS') {
         // Listen for the transaction with tx hash.

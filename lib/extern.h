@@ -312,6 +312,14 @@ otxn_type (
     void
 );
 
+extern int64_t
+otxn_param (
+    uint32_t write_ptr,
+    uint32_t write_len,
+    uint32_t read_ptr,
+    uint32_t read_len
+);
+
 extern int64_t 
 rollback(
     uint32_t read_ptr,

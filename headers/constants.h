@@ -67,7 +67,10 @@
 #define OP_NONE 0
 #define OP_HOOK_UPDATE 10
 
-#define MAX_MEMO_SIZE 4096 // Maximum tx blob size.
+#define MAX_MEMO_SIZE 4096      // Maximum tx blob size.
+#define MAX_HOOK_PARAM_SIZE 128 // Maximum txn param length.
+#define MAX_EVENT_TYPE_SIZE 40  // Maximum string length of the event type.
+#define MAX_EVENT_DATA_SIZE 256 // Maximum size of the event data.
 
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
@@ -217,21 +220,24 @@ const uint8_t PILOTED = 1;
 const uint8_t CO_PILOTED = 2;
 const uint8_t AUTO_PILOTED = 3;
 
-// Memo Offsets
-// <unique_id(32)><short_name(20)><hook_keylets(34*3)>
+// Param Offsets
+// <hook_hashes(32*3)><hook_keylets(34*3)><unique_id(32)><short_name(20)>
 // PROPOSE
-const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_MEMO_OFFSET = 0;
-const uint32_t CANDIDATE_PROPOSE_SHORT_NAME_MEMO_OFFSET = 32;
-const uint32_t CANDIDATE_PROPOSE_KEYLETS_MEMO_OFFSET = 52;
-const uint32_t CANDIDATE_PROPOSE_MEMO_SIZE = 154;
+const uint32_t CANDIDATE_PROPOSE_HASHES_PARAM_OFFSET = 0;
+const uint32_t CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET = 96;
+const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET = 198;
+const uint32_t CANDIDATE_PROPOSE_SHORT_NAME_PARAM_OFFSET = 230;
 
 // <unique_id(32)><vote(1)>
 // VOTE
-const uint32_t CANDIDATE_VOTE_UNIQUE_ID_MEMO_OFFSET = 0;
-const uint32_t CANDIDATE_VOTE_VALUE_MEMO_OFFSET = 32;
+const uint32_t CANDIDATE_VOTE_UNIQUE_ID_PARAM_OFFSET = 0;
+const uint32_t CANDIDATE_VOTE_VALUE_PARAM_OFFSET = 32;
 
 // END : Governance Game related constants.
 // HOOK_PARAM_KEYS
-uint8_t PARAM_STATE_HOOK_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+const uint8_t PARAM_STATE_HOOK_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+const uint8_t PARAM_EVENT_TYPE_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
+const uint8_t PARAM_EVENT_DATA1_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
+const uint8_t PARAM_EVENT_DATA2_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
 
 #endif
