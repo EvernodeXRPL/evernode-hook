@@ -117,7 +117,6 @@ int64_t hook(uint32_t reserved)
             }
             // ASSERT_FAILURE_MSG >> Error getting the event type param.
             ASSERT(event_type_len >= 0);
-            rollback(SBUF("Evernode: Error getting the event type param."), 1);
 
             // specifically we're interested in the amount sent
             otxn_slot(1);
@@ -309,11 +308,9 @@ int64_t hook(uint32_t reserved)
                     // First check if the states are already initialized by checking lastly added state key for existence.
                     int already_initalized = 0; // For Beta test purposes
                     uint8_t host_count_buf[8];
-                    if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST)
-                    {
-                        already_initalized = 1;
-                        rollback(SBUF("Evernode: States are already initialized."), 1);
-                    }
+
+                    // ASSERT_FAILURE_MSG >> States are already initialized.
+                    ASSERT(!(state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST));
 
                     const uint64_t zero = 0;
                     // Initialize the state.
@@ -420,8 +417,9 @@ int64_t hook(uint32_t reserved)
                 {
                     // Continue loading data into the buffer from other params.
                     const int64_t event_data2_len = otxn_param(event_data + event_data_len, MAX_HOOK_PARAM_SIZE, SBUF(PARAM_EVENT_DATA2_KEY));
-                    if (event_data2_len < 0)
-                        rollback(SBUF("Evernode: Error getting the event data 2 param."), 1);
+
+                    // ASSERT_FAILURE_MSG >> Error getting the event data 2 param.
+                    ASSERT(event_data2_len >= 0);
                     event_data_len += event_data2_len;
 
                     int hooks_exists = 0;

@@ -12,18 +12,22 @@ int64_t hook(uint32_t reserved)
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
     uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
-    if (hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) < 0)
-        rollback(SBUF("Evernode: Error getting the state hook address from params."), 1);
+
+    // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
+    ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) >= 0);
 
     uint8_t txid[HASH_SIZE];
     const int32_t txid_len = otxn_id(SBUF(txid), 0);
-    if (txid_len < HASH_SIZE)
-        rollback(SBUF("Evernode: U transaction id missing."), 1);
+
+    // ASSERT_FAILURE_MSG >> U transaction id missing.
+    ASSERT(txid_len == HASH_SIZE);
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
-    if (state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) < 0)
-        rollback(SBUF("Evernode: Could not get moment base info state."), 1);
+
+    // ASSERT_FAILURE_MSG >> Could not get moment base info state.
+    ASSERT(state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+
     uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
     uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
     // If state does not exist, take the moment type from default constant.
@@ -40,9 +44,12 @@ int64_t hook(uint32_t reserved)
         uint8_t event_type[MAX_EVENT_TYPE_SIZE];
         const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
         if (event_type_len == DOESNT_EXIST)
-            accept(SBUF("Evernode: Transaction is not handled."), 1);
-        else if (event_type_len < 0)
-            rollback(SBUF("Evernode: Error getting the event type param."), 1);
+        {
+            // PERMIT_MSG >> Transaction is not handled.
+            PERMIT();
+        }
+        // ASSERT_FAILURE_MSG >> Error getting the event type param.
+        ASSERT(event_type_len >= 0);
 
         // Getting the hook account id.
         unsigned char hook_accid[20];
@@ -51,8 +58,9 @@ int64_t hook(uint32_t reserved)
         // Next fetch the sfAccount field from the originating transaction
         uint8_t account_field[ACCOUNT_ID_SIZE];
         int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
-        if (account_field_len < 20)
-            rollback(SBUF("Evernode: sfAccount field is missing."), 1);
+
+        // ASSERT_FAILURE_MSG >> sfAccount field is missing.
+        ASSERT(account_field_len >= 20);
 
         // Accept any outgoing transactions without further processing.
         if (!BUFFER_EQUAL_20(hook_accid, account_field))
@@ -66,12 +74,13 @@ int64_t hook(uint32_t reserved)
 
             if (txn_type == ttPAYMENT)
             {
-                if (amt_slot < 0)
-                    rollback(SBUF("Evernode: Could not slot otxn.sfAmount"), 1);
+                // ASSERT_FAILURE_MSG >> Could not slot otxn.sfAmount
+                ASSERT(amt_slot >= 0);
 
                 int64_t is_xrp = slot_type(amt_slot, 1);
-                if (is_xrp < 0)
-                    rollback(SBUF("Evernode: Could not determine sent amount type"), 1);
+
+                // ASSERT_FAILURE_MSG >> Could not determine sent amount type
+                ASSERT(is_xrp >= 0);
 
                 if (is_xrp)
                 {
@@ -114,8 +123,9 @@ int64_t hook(uint32_t reserved)
                 if (op_type != OP_HOST_REBATE)
                 {
                     event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA1_KEY));
-                    if (event_data_len < 0)
-                        rollback(SBUF("Evernode: Error getting the event data param."), 1);
+
+                    // ASSERT_FAILURE_MSG >> Error getting the event data param.
+                    ASSERT(event_data_len >= 0);
                 }
 
                 // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
@@ -139,19 +149,21 @@ int64_t hook(uint32_t reserved)
                         HOST_ADDR_KEY(event_data);
                     }
                     // Check for registration entry.
-                    if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: This host is not registered."), 1);
+
+                    // ASSERT_FAILURE_MSG >> This host is not registered.
+                    ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
 
                     TOKEN_ID_KEY((uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET)); // Generate token id key.
                     // Check for token id entry.
-                    if (state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) == DOESNT_EXIST)
-                        rollback(SBUF("Evernode: This host is not registered."), 1);
+                    // ASSERT_FAILURE_MSG >> This host is not registered.
+                    ASSERT(state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST);
 
                     // Check the ownership of the token to this user before proceeding.
                     int token_exists;
                     IS_REG_TOKEN_EXIST(((op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE) ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
-                    if (!token_exists)
-                        rollback(SBUF("Evernode: Registration URIToken does not exist."), 1);
+
+                    // ASSERT_FAILURE_MSG >> Registration URIToken does not exist.
+                    ASSERT(token_exists);
                 }
 
                 // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
@@ -163,9 +175,9 @@ int64_t hook(uint32_t reserved)
                 // Take the reward info if deregistration or prune.
                 if (op_type == OP_HOST_DE_REG || op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE)
                 {
-                    if (state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
-                        state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0)
-                        rollback(SBUF("Evernode: Could not get reward configuration or reward info states."), 1);
+                    // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
+                    ASSERT(!(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
+                             state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0));
 
                     epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
                     first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
@@ -176,30 +188,35 @@ int64_t hook(uint32_t reserved)
                 uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
                 uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
                 // States does not exists in initialize transaction.
-                if (state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
-                    state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
-                    state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0)
-                    rollback(SBUF("Evernode: Could not get issuer, foundation or heartbeat account id."), 1);
+
+                // ASSERT_FAILURE_MSG >> Could not get issuer, foundation or heartbeat account id.
+                ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
+                         state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
+                         state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0));
 
                 if (op_type == OP_HOST_REG)
                 {
                     // Get transaction hash(id).
                     uint8_t txid[HASH_SIZE];
                     const int32_t txid_len = otxn_id(SBUF(txid), 0);
-                    if (txid_len < HASH_SIZE)
-                        rollback(SBUF("Evernode: transaction id missing."), 1);
+
+                    // ASSERT_FAILURE_MSG >> transaction id missing.
+                    ASSERT(txid_len == HASH_SIZE)
 
                     uint8_t amount_buffer[AMOUNT_BUF_SIZE];
                     const int64_t result = slot(SBUF(amount_buffer), amt_slot);
-                    if (result != AMOUNT_BUF_SIZE)
-                        rollback(SBUF("Evernode: Could not dump sfAmount"), 1);
+
+                    // ASSERT_FAILURE_MSG >> Could not dump sfAmount
+                    ASSERT(result == AMOUNT_BUF_SIZE);
+
                     const int64_t float_amt = slot_float(amt_slot);
-                    if (float_amt < 0)
-                        rollback(SBUF("Evernode: Could not parse amount."), 1);
+
+                    // ASSERT_FAILURE_MSG >> Could not parse amount.
+                    ASSERT(float_amt >= 0);
 
                     // Currency should be EVR.
-                    if (!IS_EVR(amount_buffer, issuer_accid))
-                        rollback(SBUF("Evernode: Currency should be EVR for host registration."), 1);
+                    // ASSERT_FAILURE_MSG >> Currency should be EVR for host registration.
+                    ASSERT(IS_EVR(amount_buffer, issuer_accid));
 
                     // Checking whether this host has an initiated transfer to continue.
                     TRANSFEREE_ADDR_KEY(account_field);
@@ -214,14 +231,14 @@ int64_t hook(uint32_t reserved)
 
                     const int64_t comparison_status = (has_initiated_transfer == 0) ? float_compare(float_amt, float_set(0, host_reg_fee), COMPARE_LESS) : float_compare(float_amt, float_set(0, NOW_IN_EVRS), COMPARE_LESS);
 
-                    if (comparison_status == 1)
-                        rollback(SBUF("Evernode: Amount sent is less than the minimum fee for host registration."), 1);
+                    // ASSERT_FAILURE_MSG >> Amount sent is less than the minimum fee for host registration.
+                    ASSERT(comparison_status != 1);
 
                     // Checking whether this host is already registered.
                     HOST_ADDR_KEY(account_field);
 
-                    if ((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
-                        rollback(SBUF("Evernode: Host already registered."), 1);
+                    // ASSERT_FAILURE_MSG >> Host already registered.
+                    ASSERT(!((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST));
 
                     // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
                     // Populate values to the state address buffer and set state.
@@ -241,12 +258,14 @@ int64_t hook(uint32_t reserved)
 
                         // Take the account token sequence from keylet.
                         uint8_t keylet[34];
-                        if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) != 34)
-                            rollback(SBUF("Evernode: Could not generate the keylet for KEYLET_ACCOUNT."), 10);
+
+                        // ASSERT_FAILURE_MSG >> Could not generate the keylet for KEYLET_ACCOUNT.
+                        ASSERT(util_keylet(SBUF(keylet), KEYLET_ACCOUNT, SBUF(hook_accid), 0, 0, 0, 0) == 34);
 
                         const int64_t slot_no = slot_set(SBUF(keylet), 0);
-                        if (slot_no < 0)
-                            rollback(SBUF("Evernode: Could not set keylet in slot"), 10);
+
+                        // ASSERT_FAILURE_MSG >> Could not set keylet in slot
+                        ASSERT(slot_no >= 0);
 
                         // Access registry hook account txn sequence.
                         uint8_t txid_ref_buf[16];
@@ -262,8 +281,8 @@ int64_t hook(uint32_t reserved)
 
                         COPY_32BYTES(host_addr, uri_token_id);
 
-                        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for host_addr.
+                        ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
 
                         // Populate the values to the token id buffer and set state.
                         COPY_20BYTES((token_id + HOST_ADDRESS_OFFSET), account_field);
@@ -276,8 +295,8 @@ int64_t hook(uint32_t reserved)
                         COPY_40BYTES((token_id + HOST_EMAIL_ADDRESS_OFFSET), (event_data + HOST_EMAIL_ADDRESS_PARAM_OFFSET));
                         TOKEN_ID_KEY(uri_token_id);
 
-                        if (state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for token_id."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for token_id.
+                        ASSERT(state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) >= 0);
 
                         uint32_t host_count;
                         GET_HOST_COUNT(host_count);
@@ -299,21 +318,25 @@ int64_t hook(uint32_t reserved)
                         // Create the outgoing hosting token txn.
                         PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee), foundation_accid);
 
-                        if (emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) < 0)
-                            rollback(SBUF("Evernode: Emitting EVR forward txn failed"), 1);
+                        // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
+                        ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // Mint the uri token.
                         PREPARE_URI_TOKEN_MINT_TX(txid_ref_buf);
-                        if (emit(SBUF(emithash), SBUF(REG_URI_TOKEN_MINT_TX)) < 0)
-                            rollback(SBUF("Evernode: Emitting URIToken mint txn failed"), 1);
+
+                        // ASSERT_FAILURE_MSG >> Emitting URIToken mint txn failed
+                        ASSERT(emit(SBUF(emithash), SBUF(REG_URI_TOKEN_MINT_TX)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // Amount will be 1.
                         PREPARE_URI_TOKEN_SELL_OFFER_TX(1, account_field, uri_token_id);
 
-                        if (emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) < 0)
-                            rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
+                        // ASSERT_FAILURE_MSG >> Emitting offer txn failed
+                        ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // If maximum theoretical host count reached, halve the registration fee.
@@ -325,7 +348,8 @@ int64_t hook(uint32_t reserved)
                             SET_UINT_STATE_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
                         }
 
-                        accept(SBUF("Host registration successful."), 0);
+                        // PERMIT_MSG >> Host registration successful.
+                        PERMIT();
                     }
                     else
                     {
@@ -333,13 +357,15 @@ int64_t hook(uint32_t reserved)
 
                         uint8_t prev_host_addr[HOST_ADDR_VAL_SIZE];
                         HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
-                        if (state_foreign(SBUF(prev_host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Previous host address state not found."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Previous host address state not found.
+                        ASSERT(state_foreign(SBUF(prev_host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
 
                         uint8_t prev_token_id[TOKEN_ID_VAL_SIZE];
                         TOKEN_ID_KEY((uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
-                        if (state_foreign(SBUF(prev_token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Previous host token id state not found."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Previous host token id state not found.
+                        ASSERT(state_foreign(SBUF(prev_token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) >= 0);
 
                         // Use the previous NFToken id for this re-reg flow.
                         COPY_32BYTES(host_addr, (prev_host_addr + HOST_TOKEN_ID_OFFSET));
@@ -353,8 +379,8 @@ int64_t hook(uint32_t reserved)
                         // Set the STP_HOST_ADDR with corresponding new state's key.
                         HOST_ADDR_KEY(account_field);
 
-                        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for host_addr.
+                        ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
 
                         // Update previous TOKEN_ID state entry with the new attributes.
                         COPY_20BYTES((prev_token_id + HOST_ADDRESS_OFFSET), account_field);
@@ -366,16 +392,18 @@ int64_t hook(uint32_t reserved)
                         COPY_4BYTES((prev_token_id + HOST_DISK_MB_OFFSET), (event_data + HOST_DISK_MB_PARAM_OFFSET));
                         COPY_40BYTES((prev_token_id + HOST_EMAIL_ADDRESS_OFFSET), (event_data + HOST_EMAIL_ADDRESS_PARAM_OFFSET));
 
-                        if (state_foreign_set(SBUF(prev_token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for token_id."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for token_id.
+                        ASSERT(state_foreign_set(SBUF(prev_token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) >= 0)
 
                         etxn_reserve(1);
                         // Amount will be 0 (new 1).
                         // Create a sell offer for the transferring URIToken.
                         PREPARE_URI_TOKEN_SELL_OFFER_TX(1, account_field, (uint8_t *)(prev_host_addr + HOST_TOKEN_ID_OFFSET));
                         uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) < 0)
-                            rollback(SBUF("Evernode: Emitting offer txn failed"), 1);
+
+                        // ASSERT_FAILURE_MSG >> Emitting offer txn failed
+                        ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                         // Set the STP_HOST_ADDR correctly of the deleting state.
@@ -383,13 +411,14 @@ int64_t hook(uint32_t reserved)
 
                         // Delete previous HOST_ADDR state and the relevant TRANSFEREE_ADDR state entries accordingly.
 
-                        if (!parties_are_similar && (state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0))
-                            rollback(SBUF("Evernode: Could not delete the previous host state entry."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not delete the previous host state entry.
+                        ASSERT(parties_are_similar || (state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0))
 
-                        if (state_foreign_set(0, 0, SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not delete state related to transfer."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not delete state related to transfer.
+                        ASSERT(state_foreign_set(0, 0, SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) >= 0)
 
-                        accept(SBUF("Host re-registration successful."), 0);
+                        // PERMIT_MSG >> Host re-registration successful.
+                        PERMIT();
                     }
                 }
                 else if (op_type == OP_HOST_UPDATE_REG)
@@ -437,13 +466,11 @@ int64_t hook(uint32_t reserved)
                         is_updated = 1;
                     }
 
-                    if (is_updated)
-                    {
-                        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0 || state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for info update."), 1);
-                    }
+                    // ASSERT_FAILURE_MSG >> Could not set state for info update.
+                    ASSERT(!(is_updated && (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0 || state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)));
 
-                    accept(SBUF("Evernode: Update host info successful."), 0);
+                    // PERMIT_MSG >> Update host info successful.
+                    PERMIT();
                 }
                 else if (op_type == OP_HOST_REBATE)
                 {
@@ -452,27 +479,29 @@ int64_t hook(uint32_t reserved)
                     uint64_t host_reg_fee;
                     GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-                    if (reg_fee > host_reg_fee)
-                    {
-                        // Reserve for a transaction emission.
-                        etxn_reserve(1);
+                    // ASSERT_FAILURE_MSG >> Rollback as there are no pending rebates for the host.
+                    ASSERT(reg_fee > host_reg_fee);
 
-                        // Create the outgoing hosting token txn.
-                        PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)), account_field);
-                        uint8_t emithash[32];
-                        if (emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) < 0)
-                            rollback(SBUF("Evernode: Emitting EVR rebate txn failed"), 1);
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                    // Reserve for a transaction emission.
+                    etxn_reserve(1);
 
-                        // Updating the current reg fee in the host state.
-                        UINT64_TO_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
-                        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not update host address state."), 1);
-                    }
-                    else
-                        rollback(SBUF("Evernode: No pending rebates for the host."), 1);
+                    // Create the outgoing hosting token txn.
+                    PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, (reg_fee - host_reg_fee)), account_field);
+                    uint8_t emithash[32];
 
-                    accept(SBUF("Evernode: Host rebate successful."), 0);
+                    // ASSERT_FAILURE_MSG >> Emitting EVR rebate txn failed
+                    ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+                    // Updating the current reg fee in the host state.
+                    UINT64_TO_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
+
+                    // ASSERT_FAILURE_MSG >> Could not update host address state.
+                    ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
+
+                    // PERMIT_MSG >> Host rebate successful.
+                    PERMIT();
                 }
                 else if (op_type == OP_HOST_TRANSFER)
                 {
@@ -483,45 +512,48 @@ int64_t hook(uint32_t reserved)
                         {
                             HOST_ADDR_KEY(event_data); // Generate account key for transferee.
                             uint8_t reg_entry_buf[HOST_ADDR_VAL_SIZE];
-                            if (state_foreign(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
-                                rollback(SBUF("Evernode: New transferee also a registered host."), 1);
+
+                            // ASSERT_FAILURE_MSG >> New transferee also a registered host.
+                            ASSERT(state_foreign(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST);
                         }
 
                         // Check whether this host has an initiated transfer.
                         uint8_t host_transfer_flag = host_addr[HOST_TRANSFER_FLAG_OFFSET];
-                        if (host_transfer_flag == PENDING_TRANSFER)
-                            rollback(SBUF("Evernode: Host has a pending transfer."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Host has a pending transfer.
+                        ASSERT(host_transfer_flag != PENDING_TRANSFER)
 
                         // Check whether there is an already initiated transfer for the transferee
                         TRANSFEREE_ADDR_KEY(event_data);
                         // <transferring_host_address(20)><registration_ledger(8)><token_id(32)>
                         uint8_t transferee_addr[TRANSFEREE_ADDR_VAL_SIZE];
 
-                        if (state_foreign(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) != DOESNT_EXIST)
-                            rollback(SBUF("Evernode: There is a previously initiated transfer for this transferee."), 1);
+                        // ASSERT_FAILURE_MSG >> There is a previously initiated transfer for this transferee.
+                        ASSERT(state_foreign(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) == DOESNT_EXIST);
 
                         // Saving the Pending transfer in Hook States.
                         COPY_20BYTES((transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET), account_field);
                         INT64_TO_BUF_LE(&transferee_addr[TRANSFER_HOST_LEDGER_OFFSET], cur_ledger_seq);
                         COPY_32BYTES((transferee_addr + TRANSFER_HOST_TOKEN_ID_OFFSET), (host_addr + HOST_TOKEN_ID_OFFSET));
 
-                        if (state_foreign_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for transferee_addr."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for transferee_addr.
+                        ASSERT(state_foreign_set(SBUF(transferee_addr), SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) >= 0);
 
                         // Add transfer in progress flag to existing registration record.
                         HOST_ADDR_KEY(account_field);
                         host_addr[HOST_TRANSFER_FLAG_OFFSET] = TRANSFER_FLAG;
 
-                        if (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                            rollback(SBUF("Evernode: Could not set state for host_addr."), 1);
+                        // ASSERT_FAILURE_MSG >> Could not set state for host_addr.
+                        ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0)
 
                         // Buying the sell offer created by host.
                         // This will be bought on a hook_again since this sell offer is not yet validated.
 
-                        if (hook_again() != 1)
-                            rollback(SBUF("Evernode: Hook again failed on update hook."), 1);
+                        // ASSERT_FAILURE_MSG >> Hook again failed on update hook.
+                        ASSERT(hook_again() == 1);
 
-                        accept(SBUF("Evernode: Successfully updated the transfer data."), 0);
+                        // PERMIT_MSG >> Successfully updated the transfer data.
+                        PERMIT();
                     }
                     else if (reserved == AGAIN_HOOK)
                     {
@@ -531,17 +563,20 @@ int64_t hook(uint32_t reserved)
                         PREPARE_URI_TOKEN_BUY_TX(1, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
 
                         uint8_t emithash[HASH_SIZE];
-                        if (emit(SBUF(emithash), SBUF(URI_TOKEN_BUY_TX)) < 0)
-                            rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Emitting buying offer to NFT failed.
+                        ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BUY_TX)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-                        accept(SBUF("Evernode: Host transfer initiated successfully."), 0);
+                        // PERMIT_MSG >> Host transfer initiated successfully.
+                        PERMIT();
                     }
                 }
                 else if (op_type == OP_DUD_HOST_REMOVE)
                 {
-                    if (!BUFFER_EQUAL_20(state_hook_accid, account_field))
-                        rollback(SBUF("Evernode: Only governor is allowed to send dud host remove request."), 1);
+                    // ASSERT_FAILURE_MSG >> Only governor is allowed to send dud host remove request.
+                    ASSERT(BUFFER_EQUAL_20(state_hook_accid, account_field));
 
                     uint8_t unique_id[HASH_SIZE] = {0};
                     GET_DUD_HOST_CANDIDATE_ID(event_data, unique_id);
@@ -549,15 +584,16 @@ int64_t hook(uint32_t reserved)
                     // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
                     uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
                     CANDIDATE_ID_KEY(unique_id);
-                    if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                        rollback(SBUF("Evernode: Error getting a candidate for the given id."), 1);
 
-                    if (candidate_id[CANDIDATE_STATUS_OFFSET] != CANDIDATE_ELECTED)
-                        rollback(SBUF("Evernode: Trying to remove un-elected dud host."), 1);
+                    // ASSERT_FAILURE_MSG >> Error getting a candidate for the given id.
+                    ASSERT(state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0)
+
+                    // ASSERT_FAILURE_MSG >> Trying to remove un-elected dud host.
+                    ASSERT(candidate_id[CANDIDATE_STATUS_OFFSET] == CANDIDATE_ELECTED)
 
                     // Remove dud host candidate after validation.
-                    if (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                        rollback(SBUF("Evernode: Could not remove dud host candidate."), 1);
+                    // ASSERT_FAILURE_MSG >> Could not remove dud host candidate.
+                    ASSERT(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0)
 
                     redirect_op_type = OP_HOST_REMOVE;
                 }
@@ -565,15 +601,16 @@ int64_t hook(uint32_t reserved)
                 {
                     int is_prunable = 0;
                     IS_HOST_PRUNABLE(host_addr, is_prunable);
-                    if (is_prunable == 0)
-                        rollback(SBUF("Evernode: This host is not eligible for forceful removal based on inactiveness."), 1);
+
+                    // ASSERT_FAILURE_MSG >> This host is not eligible for forceful removal based on inactiveness.
+                    ASSERT(is_prunable != 0);
 
                     redirect_op_type = OP_HOST_REMOVE;
                 }
                 if (op_type == OP_HOST_DE_REG)
                 {
-                    if (!BUFFER_EQUAL_32(event_data, (host_addr + HOST_TOKEN_ID_OFFSET)))
-                        rollback(SBUF("Evernode: Token id sent doesn't match with the registered token."), 1);
+                    // ASSERT_FAILURE_MSG >> Token id sent doesn't match with the registered token.
+                    ASSERT(BUFFER_EQUAL_32(event_data, (host_addr + HOST_TOKEN_ID_OFFSET)));
 
                     redirect_op_type = OP_HOST_REMOVE;
                 }
@@ -621,50 +658,68 @@ int64_t hook(uint32_t reserved)
                         ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount_float);
 
                         PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount_float, heartbeat_hook_accid, txid);
-                        if (emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) < 0)
-                            rollback(SBUF("Evernode: EVR funding to heartbeat hook account failed."), 1);
+
+                        // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
+                        ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     }
-
                     if (total_rebate_amount > 0)
                     {
                         // Prepare transaction to send 50% of reg fee and pending rebates to host account.
                         PREPARE_REMOVED_HOST_RES_PAYMENT_TX(float_set(0, total_rebate_amount), host_addr_ptr, memo_type_ptr, txid);
-                        if (emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_PAYMENT)) < 0)
-                            rollback(SBUF("Evernode: Rebating 1/2 reg fee and pending rebates to host account failed."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Rebating 1/2 reg fee and pending rebates to host account failed.
+                        ASSERT(emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_PAYMENT)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     }
                     else
                     {
                         // Prepare MIN XRP transaction to host about pruning.
                         PREPARE_REMOVED_HOST_RES_MIN_PAYMENT_TX(1, host_addr_ptr, memo_type_ptr, txid);
-                        if (emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_MIN_PAYMENT)) < 0)
-                            rollback(SBUF("Evernode: Minimum XRP to host account failed."), 1);
+
+                        // ASSERT_FAILURE_MSG >> Minimum XRP to host account failed.
+                        ASSERT(emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_MIN_PAYMENT)) >= 0);
+
                         trace(SBUF("emit hash: "), SBUF(emithash), 1);
                     }
 
                     // Burn Registration URI token.
                     PREPARE_URI_TOKEN_BURN_TX(&host_addr[HOST_TOKEN_ID_OFFSET]);
-                    if (emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) < 0)
-                        rollback(SBUF("Evernode: Emitting URI token burn txn failed"), 1);
+
+                    // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
+                    ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
+
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                     // Delete registration entries.
-                    if (state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0)
-                        rollback(SBUF("Evernode: Could not delete host registration entry."), 1);
+                    // ASSERT_FAILURE_MSG >> Could not delete host registration entry.
+                    ASSERT(!(state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
 
+                    // Here the PERMIT Macro __LINE__ param. differs in each block. Hence we have to call them separately to figure the scenario.
                     if (op_type == OP_HOST_DE_REG)
-                        accept(SBUF("Evernode: Host de-registration successful."), 0);
+                    {
+                        // PERMIT_MSG >> Host de-registration successful.
+                        PERMIT();
+                    }
                     else if (op_type == DEAD_HOST_PRUNE)
-                        accept(SBUF("Evernode: Dead host prune successful."), 0);
+                    {
+                        // PERMIT_MSG >> Dead host prune successful.
+                        PERMIT();
+                    }
                     else
-                        accept(SBUF("Evernode: Defected Host remove successful."), 0);
+                    {
+                        // PERMIT_MSG >> Defected Host remove successful.
+                        PERMIT();
+                    }
                 }
             }
         }
     }
 
-    accept(SBUF("Evernode: Transaction is not handled."), 0);
+    // PERMIT_MSG >> Transaction is not handled.
+    PERMIT();
 
     _g(1, 1); // every hook needs to import guard function and use it at least once
     // unreachable

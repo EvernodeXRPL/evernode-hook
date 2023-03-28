@@ -34,9 +34,12 @@ int64_t hook(uint32_t reserved)
         uint8_t event_type[MAX_EVENT_TYPE_SIZE];
         const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
         if (event_type_len == DOESNT_EXIST)
-            accept(SBUF("Evernode: Transaction is not handled."), 1);
-        else if (event_type_len < 0)
-            rollback(SBUF("Evernode: Error getting the event type param."), 1);
+        {
+            // PERMIT_MSG >> Transaction is not handled.
+            PERMIT();
+        }
+        // ASSERT_FAILURE_MSG >> Error getting the event type param.
+        ASSERT(event_type_len >= 0);
 
         // Getting the hook account id.
         unsigned char hook_accid[20];
@@ -45,8 +48,9 @@ int64_t hook(uint32_t reserved)
         // Next fetch the sfAccount field from the originating transaction
         uint8_t account_field[ACCOUNT_ID_SIZE];
         int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
-        if (account_field_len < 20)
-            rollback(SBUF("Evernode: sfAccount field is missing."), 1);
+
+        // ASSERT_FAILURE_MSG >> sfAccount field is missing.
+        ASSERT(account_field_len == 20);
 
         // Accept any outgoing transactions without further processing.
         if (!BUFFER_EQUAL_20(hook_accid, account_field))
@@ -452,8 +456,8 @@ int64_t hook(uint32_t reserved)
                         ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
                     }
 
-                    if (state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-                        rollback(SBUF("Evernode: Could not set state for candidate id."), 1);
+                    // ASSERT_FAILURE_MSG >> Could not set state for candidate id.
+                    ASSERT(state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
 
                     // END : Apply the given votes for existing candidates.
 
