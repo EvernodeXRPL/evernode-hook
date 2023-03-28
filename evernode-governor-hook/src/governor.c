@@ -3,30 +3,6 @@
 // Executed whenever a transaction comes into or leaves from the account the Hook is set on.
 int64_t hook(uint32_t reserved)
 {
-
-    // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
-
-    // Next fetch the sfAccount field from the originating transaction
-    uint8_t account_field[ACCOUNT_ID_SIZE];
-    int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
-
-    // ASSERT_FAILURE_MSG >> sfAccount field is missing.
-    ASSERT(account_field_len >= 20);
-
-    /**
-     * Accept
-     * - any transaction that is not a payment.
-     * - any outgoing transactions without further processing.
-     */
-    int64_t txn_type = otxn_type();
-    if (txn_type != ttPAYMENT || BUFFER_EQUAL_20(hook_accid, account_field))
-    {
-        // PERMIT_MSG >> Transaction is not handled.
-        PERMIT();
-    }
-
     int64_t cur_ledger_seq = ledger_seq();
     /**
      * Calculate corresponding XRPL timestamp.
@@ -108,6 +84,7 @@ int64_t hook(uint32_t reserved)
 
     ///////////////////////////////////////////////////////////////
 
+    int64_t txn_type = otxn_type();
     if (txn_type == ttPAYMENT)
     {
         // Getting the hook account id.
