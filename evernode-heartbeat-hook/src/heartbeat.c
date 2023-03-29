@@ -58,7 +58,7 @@ int64_t hook(uint32_t reserved)
         // PERMIT_MSG >> Transaction is not handled.
         PERMIT();
     }
-    
+
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
     ASSERT(!(event_type_len < 0));
 
@@ -457,11 +457,16 @@ int64_t hook(uint32_t reserved)
                 UINT64_TO_BUF_LE(last_voted_timestamp_ptr, cur_ledger_timestamp);
                 UINT32_TO_BUF_LE(last_voted_candidate_idx_ptr, candidate_idx);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
-                ASSERT(!(source_is_foundation && state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0));
-
-                // ASSERT_FAILURE_MSG >> Could not set state for host.
-                ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
+                if (source_is_foundation)
+                {
+                    // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
+                    ASSERT(state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
+                }
+                else
+                {
+                    // ASSERT_FAILURE_MSG >> Could not set state for host.
+                    ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
+                }
             }
 
             // ASSERT_FAILURE_MSG >> Could not set state for candidate id.
