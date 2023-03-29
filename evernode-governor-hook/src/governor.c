@@ -590,7 +590,7 @@ int64_t hook(uint32_t reserved)
             ASSERT(source_is_foundation);
 
             // ASSERT_FAILURE_MSG >> Downgrading the governance mode is not allowed.
-            ASSERT(*(event_data) <= governance_info[GOVERNANCE_MODE_OFFSET]);
+            ASSERT(*(event_data) > governance_info[GOVERNANCE_MODE_OFFSET]);
 
             if (*(event_data) == PILOTED)
                 governance_info[GOVERNANCE_MODE_OFFSET] = PILOTED;
