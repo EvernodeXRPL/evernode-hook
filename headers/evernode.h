@@ -187,6 +187,16 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      IS_BUFFER_EMPTY_8((buf + 16)) && \
      IS_BUFFER_EMPTY_8((buf + 24)))
 
+#define ASSERT(cond) \
+    if (!(cond))     \
+        rollback(SBUF(__FILE__), __LINE__);
+
+#define PERMIT() \
+    accept(SBUF(__FILE__), __LINE__);
+
+#define PERMIT_M(str, var) \
+    accept(SBUF(str), var);
+
 // Domain related comparer macros.
 
 #define EQUAL_FORMAT_HEX(buf, len)      \
@@ -241,10 +251,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_2(buf + 8, DUD_HOST_CAND_PREFIX + 8) && \
      BUFFER_EQUAL_1(buf + 10, DUD_HOST_CAND_PREFIX + 10))
 
-#define SET_UINT_STATE_VALUE(value, key, error_buf)          \
-    {                                                        \
-        if (state_set(&value, sizeof(value), SBUF(key)) < 0) \
-            rollback(SBUF(error_buf), 1);                    \
+#define SET_UINT_STATE_VALUE(value, key, error_buf)                               \
+    {                                                                             \
+        if (state_foreign_set(&value, sizeof(value), SBUF(key), FOREIGN_REF) < 0) \
+            rollback(SBUF(error_buf), 1);                                         \
     }
 
 // Provide m >= 1 to indicate in which code line macro will hit.
