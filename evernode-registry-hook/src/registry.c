@@ -638,7 +638,7 @@ int64_t hook(uint32_t reserved)
             GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
             const uint64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
-            const uint64_t reward_amount = (amount_half - fixed_reg_fee);
+            const uint64_t reward_amount = amount_half > fixed_reg_fee ? (amount_half - fixed_reg_fee) : 0;
             const uint64_t pending_rebate_amount = reg_fee > host_reg_fee ? reg_fee - host_reg_fee : 0;
 
             const uint64_t total_rebate_amount = amount_half + pending_rebate_amount;
