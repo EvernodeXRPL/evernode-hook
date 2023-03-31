@@ -141,11 +141,12 @@ async function main() {
         console.log(`${REWARD_EVRS} EVRs were transferred to Heartbeat by the Foundation`);
         // END - Transfer Currency
 
-        // ISSUER Blackholing
-        await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
-        await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster: true } });
+        // TODO: Uncomment blackholing section when system is ready to move out of beta
+        // // ISSUER Blackholing
+        // await newAccounts[0].xrplAcc.setRegularKey(BLACKHOLE_ADDRESS);
+        // await newAccounts[0].xrplAcc.setAccountFields({ Flags: { asfDisableMaster: true } });
 
-        console.log("Blackholed ISSUER");
+        // console.log("Blackholed ISSUER");
 
         // BEGIN - Log Account Details
         console.log('\nAccount Details -------------------------------------------------------');
