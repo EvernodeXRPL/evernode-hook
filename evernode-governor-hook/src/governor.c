@@ -488,11 +488,11 @@ int64_t hook(uint32_t reserved)
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
-            // ASSERT_FAILURE_MSG >> Withdrawing an an invalid candidate type.
-            ASSERT(!(candidate_type != DUD_HOST_CANDIDATE && candidate_type != NEW_HOOK_CANDIDATE));
-
             // ASSERT_FAILURE_MSG >> Piloted mode candidate cannot be withdrawn.
             ASSERT(candidate_type != PILOTED_MODE_CANDIDATE);
+
+            // ASSERT_FAILURE_MSG >> Withdrawing an an invalid candidate type.
+            ASSERT(candidate_type == DUD_HOST_CANDIDATE || candidate_type == NEW_HOOK_CANDIDATE);
 
             const uint32_t life_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
             const uint64_t created_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
