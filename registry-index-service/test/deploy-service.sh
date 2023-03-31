@@ -3,6 +3,7 @@
 dev_path="/root/dev-test"
 beta_path="/root/beta1"
 v3_dev_path="/root/v3-dev-test"
+v3_beta_path="/root/v3-beta"
 build_path="../dist"
 bundle="registry-index.tar.gz"
 
@@ -22,6 +23,10 @@ elif [[ $mode = "v3-dev" ]]; then
     governor_address="rao1FoQ9SPhjyxVayMVNeyh9wsWZ6jF3L"
 # elif [[ $mode = "beta" ]]; then
 #     to_path="$beta_path"
+#     index_path="$to_path/registry-index"
+#     governor_address=""
+# elif [[ $mode = "v3-beta" ]]; then
+#     to_path="$v3_beta_path"
 #     index_path="$to_path/registry-index"
 #     governor_address=""
 else
