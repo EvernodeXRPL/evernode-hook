@@ -33,7 +33,7 @@ const HOOK_DATA_DIR = ACCOUNT_DATA_DIR + '/data'
 const accounts = ["ISSUER", "FOUNDATION", "GOVERNOR", "REGISTRY", "HEARTBEAT"];
 
 // XRP Pre-defined Special Address -> Blackhole
-const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
+// const BLACKHOLE_ADDRESS = "rrrrrrrrrrrrrrrrrrrn5RM1rHd";
 
 function httpPost(url) {
     return new Promise((resolve, reject) => {
