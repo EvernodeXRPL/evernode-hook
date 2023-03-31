@@ -201,7 +201,7 @@ int64_t hook(uint32_t reserved)
         }
 
         // Validation check for participants other than the foundation address
-        if ((op_type == OP_PROPOSE || op_type == DUD_HOST_REPORT) && !source_is_foundation)
+        if ((op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT) && !source_is_foundation)
         {
             const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
