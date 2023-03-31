@@ -25,10 +25,10 @@ elif [[ $mode = "v3-dev" ]]; then
 #     to_path="$beta_path"
 #     index_path="$to_path/registry-index"
 #     governor_address=""
-# elif [[ $mode = "v3-beta" ]]; then
-#     to_path="$v3_beta_path"
-#     index_path="$to_path/registry-index"
-#     governor_address=""
+elif [[ $mode = "v3-beta" ]]; then
+    to_path="$v3_beta_path"
+    index_path="$to_path/registry-index"
+    governor_address="rGVHr1PrfL93UAjyw3DWZoi9adz2sLp2yL"
 else
     echo "Invalid mode"
     echo "Usage: deploy-service.sh <Mode (dev|beta)>"
