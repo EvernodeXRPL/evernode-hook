@@ -67,6 +67,7 @@ int64_t hook(uint32_t reserved)
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
     uint8_t op_type = OP_NONE;
+    uint8_t redirect_op_type = OP_NONE;
 
     // ASSERT_FAILURE_MSG >> Could not slot otxn.sfAmount.
     ASSERT(amt_slot >= 0);
@@ -87,6 +88,10 @@ int64_t hook(uint32_t reserved)
         else if (EQUAL_HOOK_UPDATE(event_type, event_type_len))
             op_type = OP_HOOK_UPDATE;
     }
+
+    // Pending reward request.
+    if (EQUAL_PENDING_REWARDS_REQUEST(event_type, event_type_len))
+        op_type = OP_REWARD_REQUEST;
 
     if (op_type != OP_NONE)
     {
@@ -115,14 +120,17 @@ int64_t hook(uint32_t reserved)
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-        // Host heartbeat.
-        if (op_type == OP_HEARTBEAT)
+        // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><accumulated_reward_amount(8)>
+        uint8_t token_id[TOKEN_ID_VAL_SIZE];
+
+        int64_t pending_rewards = 0;
+        int has_pending_rewards = 0;
+        uint8_t *host_accid_ptr;
+
+        if (op_type == OP_HEARTBEAT || op_type == OP_REWARD_REQUEST)
         {
-            // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><accumulated_reward_amount(8)>
-            uint8_t token_id[TOKEN_ID_VAL_SIZE];
-
-            HOST_ADDR_KEY(account_field);
-
+            host_accid_ptr = (uint8_t *)((op_type == OP_HEARTBEAT) ? account_field : (event_data + REWARD_REQ_HOST_PARAM_OFFSET));
+            HOST_ADDR_KEY(host_accid_ptr);
             // Check for registration entry.
             // ASSERT_FAILURE_MSG >> This host is not registered.
             ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
@@ -131,7 +139,11 @@ int64_t hook(uint32_t reserved)
             // Check for token id entry.
             // ASSERT_FAILURE_MSG >> This host is not registered.
             ASSERT(state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST);
+        }
 
+        // Host heartbeat.
+        if (op_type == OP_HEARTBEAT)
+        {
             // Check the ownership of the token to this user before proceeding.
             int token_exists;
             IS_REG_TOKEN_EXIST(account_field, (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
@@ -207,14 +219,9 @@ int64_t hook(uint32_t reserved)
                 const uint16_t accumulated_reward_freq = UINT16_FROM_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET]);
                 if (cur_moment % accumulated_reward_freq == 0 && float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
                 {
-                    PREPARE_REWARD_PAYMENT_TX(accumulated_reward, account_field);
-                    uint8_t emithash[HASH_SIZE];
-
-                    // ASSERT_FAILURE_MSG >> Emitting txn failed
-                    ASSERT(emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) >= 0);
-
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
+                    // Keep pending rewards to sent.
+                    pending_rewards = accumulated_reward;
+                    has_pending_rewards = 1;
                     // Make the accumulated reward 0 after sending the rewards.
                     accumulated_reward = float_set(0, 0);
                 }
@@ -257,7 +264,7 @@ int64_t hook(uint32_t reserved)
                 // ASSERT_FAILURE_MSG >> This host is not eligible for voting.
                 ASSERT(eligible_for_governance);
 
-                op_type = OP_VOTE;
+                redirect_op_type = OP_VOTE;
             }
             else
             {
@@ -267,8 +274,12 @@ int64_t hook(uint32_t reserved)
                 // ASSERT_FAILURE_MSG >> Could not set state for heartbeat.
                 ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0);
 
-                // PERMIT_MSG >> Host heartbeat successful.
-                PERMIT();
+                // Accept if there're no pending rewards.
+                if (!has_pending_rewards)
+                {
+                    // PERMIT_MSG >> Host heartbeat successful.
+                    PERMIT();
+                }
             }
         }
         else if (op_type == OP_VOTE)
@@ -278,9 +289,66 @@ int64_t hook(uint32_t reserved)
 
             // Allocate vote triggers.
             etxn_reserve(1);
+
+            redirect_op_type = OP_VOTE;
+        }
+        else if (op_type == OP_REWARD_REQUEST)
+        {
+            uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
+            // ASSERT_FAILURE_MSG >> Could not get registry account id.
+            ASSERT(!(state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
+
+            // ASSERT_FAILURE_MSG >> Only registry is allowed to send reward requests.
+            ASSERT(BUFFER_EQUAL_20(registry_accid, account_field))
+
+            // ASSERT_FAILURE_MSG >> Reward request should include reward reference.
+            ASSERT(!IS_BUFFER_EMPTY_20(event_data + REWARD_REQ_HOST_PARAM_OFFSET) && !IS_BUFFER_EMPTY_8(event_data + REWARD_REQ_AMOUNT_PARAM_OFFSET));
+
+            const uint8_t *pending_rewards_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
+            pending_rewards = INT64_FROM_BUF_LE(pending_rewards_ptr);
+
+            const uint8_t *pending_rewards_sent_ptr = &event_data[REWARD_REQ_AMOUNT_PARAM_OFFSET];
+            const int64_t pending_rewards_sent = INT64_FROM_BUF(pending_rewards_sent_ptr);
+
+            // ASSERT_FAILURE_MSG >> Host does not have pending rewards.
+            ASSERT(float_compare(pending_rewards, float_set(0, 0), COMPARE_GREATER) == 1 && float_compare(pending_rewards, pending_rewards_sent, COMPARE_EQUAL) == 1);
+
+            has_pending_rewards = 1;
+
+            // Remove the host after pending rewards are determined.
+            // ASSERT_FAILURE_MSG >> Could not delete host registration entry.
+            ASSERT(!(state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
+
+            // Allocate reward payment.
+            etxn_reserve(1);
+        }
+        // Child hook update trigger.
+        else if (op_type == OP_HOOK_UPDATE)
+            HANDLE_HOOK_UPDATE(CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET);
+
+        // Send accumulated rewards on heartbeat and reward request if there's any.
+        if ((op_type == OP_HEARTBEAT || op_type == OP_REWARD_REQUEST) && has_pending_rewards)
+        {
+            PREPARE_REWARD_PAYMENT_TX(pending_rewards, host_accid_ptr);
+            uint8_t emithash[HASH_SIZE];
+            // ASSERT_FAILURE_MSG >> Emitting txn failed
+            ASSERT(emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) >= 0);
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+            if (redirect_op_type != OP_VOTE)
+            {
+                if (op_type == OP_HEARTBEAT)
+                {
+                    // PERMIT_MSG >> Successfully accepted host heartbeat..
+                    PERMIT();
+                }
+
+                // PERMIT_MSG >> Successfully accepted reward request..
+                PERMIT();
+            }
         }
 
-        if (op_type == OP_VOTE)
+        if (redirect_op_type == OP_VOTE)
         {
             // BEGIN : Apply the given votes for existing candidates.
 
@@ -481,9 +549,6 @@ int64_t hook(uint32_t reserved)
             // PERMIT_MSG >> Successfully accepted host heartbeat candidate vote..
             PERMIT();
         }
-        // Child hook update trigger.
-        else if (op_type == OP_HOOK_UPDATE)
-            HANDLE_HOOK_UPDATE(CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET);
     }
 
     // PERMIT_MSG >> Transaction is not handled.

@@ -23,6 +23,7 @@
 #define CANDIDATE_STATUS_CHANGE "evnCandidateStatusChange"
 #define CHANGE_GOVERNANCE_MODE "evnGovernanceModeChange"
 #define UPDATE_REWARD_POOL "evnRewardPoolUpdate"
+#define PENDING_REWARDS_REQUEST "evnPendingRewardReq"
 #define HOOK_UPDATE_RES "evnHookUpdateRes"
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"

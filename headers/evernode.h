@@ -251,6 +251,13 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_2(buf + 8, DUD_HOST_CAND_PREFIX + 8) && \
      BUFFER_EQUAL_1(buf + 10, DUD_HOST_CAND_PREFIX + 10))
 
+#define EQUAL_PENDING_REWARDS_REQUEST(buf, len)                    \
+    (sizeof(PENDING_REWARDS_REQUEST) == (len + 1) &&               \
+     BUFFER_EQUAL_8(buf, PENDING_REWARDS_REQUEST) &&               \
+     BUFFER_EQUAL_8(buf + 8, PENDING_REWARDS_REQUEST + 8) &&       \
+     BUFFER_EQUAL_2((buf + 16), (PENDING_REWARDS_REQUEST + 16)) && \
+     BUFFER_EQUAL_1((buf + 18), (PENDING_REWARDS_REQUEST + 18)))
+
 #define SET_UINT_STATE_VALUE(value, key, error_buf)                               \
     {                                                                             \
         if (state_foreign_set(&value, sizeof(value), SBUF(key), FOREIGN_REF) < 0) \
