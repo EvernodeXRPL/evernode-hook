@@ -430,6 +430,73 @@ uint8_t URI_TOKEN_BUY_TX[250] = {
         CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                \
     }
 
+// Simple XRP Payment with single memo (To inform a De-reg or pruning of a reported dud host to governor).
+uint8_t REMOVE_LINKED_CANDIDATE_MIN_PAYMENT[389] = {
+    0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
+    0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
+    0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
+    0x24, 0x00, 0x00, 0x00, 0x00,                         // sequence(0)
+    0x2E, 0x00, 0x00, 0x00, 0x00,                         // TAG DESTINATION
+    0x20, 0x1A, 0x00, 0x00, 0x00, 0x00,                   // first_ledger_sequence(ledger_seq + 1) - Added on prepare to offset 25
+    0x20, 0x1B, 0x00, 0x00, 0x00, 0x00,                   // last_ledger_sequence(ledger_seq + 5) - Added on prepare to offset 31
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // amount(<type(1)><amount(8)>) - Added on prepare to offset 35
+    0x68, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // fee Added on prepare to offset 44
+    0x73, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Signing Public Key (NULL offset 55)
+    0x81, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, // account_source(20) - Added on prepare to offset 90
+    0x83, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, // account_destination(20) - Added on prepare to offset 112
+    0xF0, 0x13, // Hook parameter array start marker
+    0xE0, 0x17, // Hook parameter object start marker
+    0x70,       // Blob start marker
+    0x18, 0x20, // Parameter name length 32 bytes
+    0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                                                                         // Parameter name
+    0x70,                                                                                                                                           // Blob start marker
+    0x19, 0x18,                                                                                                                                     // Parameter value length 24 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (24 bytes) offset 174
+    0xE1,                                                                                                                                           // Hook parameter object end marker
+    0xE0, 0x17,                                                                                                                                     // Hook parameter object start marker
+    0x70,                                                                                                                                           // Blob start marker
+    0x18, 0x20,                                                                                                                                     // Parameter name length 32 bytes
+    0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
+    0x70,                                                                   // Blob start marker
+    0x19, 0x20,                                                             // Parameter value length 32 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 236
+    0xE1,                                                                   // Hook parameter object end marker
+    0xF1,                                                                   // Hook parameter array end marker
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 273
+};
+
+#define REMOVE_LINKED_CANDIDATE_MIN_PAYMENT_SIZE \
+    sizeof(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)
+#define PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(drops_amount, to_address, candidate_id)                              \
+    {                                                                                                                    \
+        uint8_t *buf_out = REMOVE_LINKED_CANDIDATE_MIN_PAYMENT;                                                          \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                                               \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                                               \
+        uint8_t *buf_ptr = (buf_out + 35);                                                                               \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                               \
+        COPY_20BYTES((buf_out + 90), hook_accid);                                                                        \
+        COPY_20BYTES((buf_out + 112), to_address);                                                                       \
+        COPY_8BYTES((buf_out + 174), LINKED_CANDIDATE_REMOVE);                                                           \
+        COPY_8BYTES((buf_out + 174 + 8), LINKED_CANDIDATE_REMOVE + 8);                                                   \
+        COPY_8BYTES((buf_out + 174 + 16), LINKED_CANDIDATE_REMOVE + 16);                                                 \
+        COPY_32BYTES((buf_out + 239), candidate_id);                                                                     \
+        etxn_details((buf_out + 273), 116);                                                                              \
+        int64_t fee = etxn_fee_base(buf_out, REMOVE_LINKED_CANDIDATE_MIN_PAYMENT_SIZE);                                  \
+        buf_ptr = buf_out + 44;                                                                                          \
+        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to governor/registry hook.*/ \
+    }
+
 #define CAST_4BYTES_TO_HEXSTR(hexstr_ptr, byte_ptr)                                                       \
     {                                                                                                     \
         char hexmap[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'}; \

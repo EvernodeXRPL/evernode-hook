@@ -653,8 +653,22 @@ int64_t hook(uint32_t reserved)
                 // TODO: Send reward trigger to the heartbeat.
             }
 
+            uint32_t additional_reserve = 0;
+            uint8_t unique_id[HASH_SIZE] = {0};
+            TRACEVAR(op_type);
+            if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DE_REG)
+            {
+                uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
+
+                GET_DUD_HOST_CANDIDATE_ID(host_addr_ptr, unique_id);
+                CANDIDATE_ID_KEY(unique_id);
+
+                if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0)
+                    additional_reserve += 1;
+            }
+
             uint8_t emithash[HASH_SIZE];
-            etxn_reserve(reward_amount > 0 ? 3 : 2);
+            etxn_reserve((reward_amount > 0 ? 3 : 2) + additional_reserve);
             // Add amount_half - 5 to the epoch's reward pool.
             if (reward_amount > 0)
             {
@@ -697,6 +711,17 @@ int64_t hook(uint32_t reserved)
             ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
 
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+            if (additional_reserve > 0)
+            {
+                // Prepare MIN XRP transaction to governor about removing the dud host candidate.
+                PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, unique_id);
+
+                // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
+                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)) >= 0);
+
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+            }
 
             // Delete registration entries.
             // ASSERT_FAILURE_MSG >> Could not delete host registration entry.
