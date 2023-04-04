@@ -129,6 +129,8 @@ int64_t hook(uint32_t reserved)
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
     uint8_t op_type = OP_NONE;
+    uint8_t redirect_op_type = OP_NONE;
+
     uint8_t source_is_foundation = 0;
     const uint64_t zero = 0;
 
@@ -157,6 +159,8 @@ int64_t hook(uint32_t reserved)
         // Child hook update results.
         else if (EQUAL_HOOK_UPDATE_RES(event_type, event_type_len))
             op_type = OP_HOOK_UPDATE;
+        else if (EQUAL_LINKED_CANDIDATE_REMOVE(event_type, event_type_len))
+            op_type = OP_REMOVE_LINKED_CANDIDATE;
     }
     else // IOU payments.
     {
@@ -186,7 +190,7 @@ int64_t hook(uint32_t reserved)
         uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
         uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE)
+        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get governance configuration state.
             ASSERT(state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
@@ -231,7 +235,7 @@ int64_t hook(uint32_t reserved)
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
         // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)>
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
-        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW)
+        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
             ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
@@ -500,24 +504,15 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Trying to withdraw an already expired proposal.
             ASSERT(cur_ledger_timestamp - created_timestamp <= life_period);
 
-            const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
-            const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
+            redirect_op_type = OP_REMOVE;
+        }
 
-            // Send the proposal fee to the owner.
-            etxn_reserve(1);
-            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, account_field);
-            uint8_t emithash[32];
+        else if (op_type == OP_REMOVE_LINKED_CANDIDATE)
+        {
+            // ASSERT_FAILURE_MSG >> Candidate removal request trx has not being initiated via registry.
+            ASSERT(BUFFER_EQUAL_20(registry_accid, account_field));
 
-            // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
-            ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-            // Clear the proposal states.
-            // ASSERT_FAILURE_MSG >> Could not delete the candidate states.
-            ASSERT(!(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0));
-
-            // PERMIT-MSG >> Successfully withdrawn Hook candidate proposal.
-            PERMIT();
+            redirect_op_type = OP_REMOVE;
         }
         else if (op_type == OP_HOOK_UPDATE)
         {
@@ -673,6 +668,29 @@ int64_t hook(uint32_t reserved)
             // PERMIT_MSG >> Successfully reported the dud host.
             PERMIT();
         }
+
+        if (redirect_op_type == OP_REMOVE)
+        {
+            const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
+            const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
+
+            // Send the proposal fee to the owner.
+            etxn_reserve(1);
+            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET));
+            uint8_t emithash[32];
+
+            // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
+            ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
+            // Clear the proposal states.
+            // ASSERT_FAILURE_MSG >> Could not delete the candidate states.
+            ASSERT(!(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0));
+
+            // PERMIT-MSG >> Successfully removed candidate proposal.
+            PERMIT();
+        }
+
         if (op_type == OP_STATUS_CHANGE)
         {
             // We accept only the status change transaction from hook heartbeat account.

@@ -14,6 +14,8 @@
 #define OP_STATUS_CHANGE 4
 #define OP_WITHDRAW 5
 #define OP_DUD_HOST_REPORT 6
+#define OP_REMOVE_LINKED_CANDIDATE 7
+#define OP_REMOVE 8
 
 #define FOREIGN_REF 0, 0, 0, 0
 
@@ -67,14 +69,20 @@
      BUFFER_EQUAL_8(buf, DUD_HOST_REPORT) && \
      BUFFER_EQUAL_8((buf + 8), (DUD_HOST_REPORT + 8)))
 
+#define EQUAL_LINKED_CANDIDATE_REMOVE(buf, len)                         \
+    (sizeof(LINKED_CANDIDATE_REMOVE) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, LINKED_CANDIDATE_REMOVE) &&             \
+     BUFFER_EQUAL_8((buf + 8), (LINKED_CANDIDATE_REMOVE + 8)) && \
+     BUFFER_EQUAL_8((buf + 16), (LINKED_CANDIDATE_REMOVE + 16)))
+
 #define COPY_CANDIDATE_HASHES(lhsbuf, rhsbuf)   \
     COPY_32BYTES(lhsbuf, rhsbuf);               \
     COPY_32BYTES((lhsbuf + 32), (rhsbuf + 32)); \
     COPY_32BYTES((lhsbuf + 64), (rhsbuf + 64));
 
 // Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rGnsxB6rwDhXQeGKojgB7meoXMwsAGxeaH";
-const uint16_t DEF_MOMENT_SIZE = 3600;
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rMhUhCXnqk4wfeqNh7YBa89YtQGiRaimwZ";
+const uint16_t DEF_MOMENT_SIZE = 120;
 const uint16_t DEF_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
