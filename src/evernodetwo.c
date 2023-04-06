@@ -216,9 +216,13 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
-        int64_t amount_half = reg_fee > fixed_reg_fee ? reg_fee / 2 : 0;
+        uint64_t host_reg_fee;
+        GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        if (reg_fee > fixed_reg_fee)
+        int64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
+        int64_t pending_rebate_amount = reg_fee - host_reg_fee;
+
+        if (amount_half > 0)
         {
             // Take the moment size from config.
             uint16_t moment_size;
@@ -252,8 +256,8 @@ int64_t hook(uint32_t reserved)
         // Sending nft buy offer to the host.
         etxn_reserve(1);
 
-        // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. If not, for 0 EVR.
-        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, amount_half), account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
+        // Creating the NFT buying offer. If he has paid more than fixed reg fee, we create buy offer to reg_fee/2. We add pending rebates too if there is any. If not, for 0 EVR.
+        PREPARE_NFT_BUY_OFFER_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, amount_half + pending_rebate_amount), account_field, (uint8_t *)(host_addr + HOST_TOKEN_ID_OFFSET));
         uint8_t emithash[HASH_SIZE];
         if (emit(SBUF(emithash), SBUF(NFT_BUY_OFFER_TRUSTLINE)) < 0)
             rollback(SBUF("Evernode: Emitting buying offer to NFT failed."), 1);
@@ -475,41 +479,48 @@ int64_t hook(uint32_t reserved)
         uint64_t fixed_reg_fee;
         GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
-        if (reg_fee > fixed_reg_fee)
+        uint64_t host_reg_fee;
+        GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
+
+        const int64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
+        const int64_t pending_rebate_amount = reg_fee - host_reg_fee;
+
+        if (host_reg_fee > fixed_reg_fee || pending_rebate_amount > 0)
         {
-            // Sending 50% reg fee to Host account and to the epoch Reward pool.
-            const int64_t amount_half = reg_fee / 2;
-            // Prepare transaction to send 50% of reg fee to host account.
-            PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half), memo_params);
+            // Prepare transaction to send 50% of reg fee and pending rebates to host account.
+            PREPARE_PRUNED_HOST_REBATE_PAYMENT_TX(float_set(0, amount_half + pending_rebate_amount), memo_params);
             if (emit(SBUF(emithash), SBUF(PRUNED_HOST_REBATE_PAYMENT)) < 0)
-                rollback(SBUF("Evernode: Rebating 1/2 reg fee to host account failed."), 1);
+                rollback(SBUF("Evernode: Rebating 1/2 reg fee and pending rebates to host account failed."), 1);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-            // BEGIN: Update the epoch Reward pool.
+            if (amount_half > 0)
+            {
+                // BEGIN: Update the epoch Reward pool.
 
-            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
-            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-            if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
-                rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
+                // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)>
+                uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+                if (state(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION)) < 0)
+                    rollback(SBUF("Evernode: Could not get reward configuration state."), 1);
 
-            // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-            uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-            if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
-                rollback(SBUF("Evernode: Could not get reward info state."), 1);
+                // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+                uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+                if (state(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+                    rollback(SBUF("Evernode: Could not get reward info state."), 1);
 
-            const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-            const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+                const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+                const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                const uint32_t epoch_reward_amount = UINT32_FROM_BUF(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
-            // Add amount_half - 5 to the epoch's reward pool.
-            const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];
-            INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount_half - 5)));
-            // Prepare reward info to update host counts and epoch.
-            int64_t reward_pool_amount, reward_amount;
-            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
+                // Add amount_half - 5 to the epoch's reward pool.
+                const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];
+                INT64_TO_BUF(pool_ptr, float_sum(INT64_FROM_BUF(pool_ptr), float_set(0, amount_half - 5)));
+                // Prepare reward info to update host counts and epoch.
+                int64_t reward_pool_amount, reward_amount;
+                PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, moment_size, 0, reward_pool_amount, reward_amount);
 
-            if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
-                rollback(SBUF("Evernode: Could not set state for reward info."), 1);
+                if (state_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO)) < 0)
+                    rollback(SBUF("Evernode: Could not set state for reward info."), 1);
+            }
         }
         else
         {
