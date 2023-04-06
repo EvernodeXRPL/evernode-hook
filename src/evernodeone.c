@@ -46,6 +46,8 @@ int64_t hook(uint32_t reserved)
 
     if (op_type == OP_HOST_REG)
     {
+        rollback(SBUF("Evernode: Registration on Beta V2 is now disabled."), 1);
+
         int64_t amt_drops = float_int(float_amt, 6, 0);
         if (amt_drops < 0)
             rollback(SBUF("Evernode: Could not parse amount."), 1);
