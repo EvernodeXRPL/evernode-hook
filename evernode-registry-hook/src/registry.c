@@ -429,49 +429,29 @@ int64_t hook(uint32_t reserved)
         {
             // Msg format.
             // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
-            // All data fields are optional in update info transaction. Update state only if an information update is detected.
-            int is_updated = 0;
+
+            // Active instance count is required, If 0 it means there're no active instances.
+            COPY_4BYTES((host_addr + HOST_ACT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET));
 
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_CPU_MICROSEC_PARAM_OFFSET)))
-            {
                 COPY_4BYTES((token_id + HOST_CPU_MICROSEC_OFFSET), (event_data + HOST_UPDATE_CPU_MICROSEC_PARAM_OFFSET));
-                is_updated = 1;
-            }
-
+            
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_RAM_MB_PARAM_OFFSET)))
-            {
                 COPY_4BYTES((token_id + HOST_RAM_MB_OFFSET), (event_data + HOST_UPDATE_RAM_MB_PARAM_OFFSET));
-                is_updated = 1;
-            }
-
+            
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET)))
-            {
                 COPY_4BYTES((token_id + HOST_DISK_MB_OFFSET), (event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET));
-                is_updated = 1;
-            }
-
+            
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET)))
-            {
                 COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET));
-                is_updated = 1;
-            }
-
-            if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET)))
-            {
-                COPY_4BYTES((host_addr + HOST_ACT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET));
-                is_updated = 1;
-            }
-
+            
             if (!IS_VERSION_EMPTY((event_data + HOST_UPDATE_VERSION_PARAM_OFFSET)))
-            {
                 COPY_BYTE((host_addr + HOST_VERSION_OFFSET), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET));
                 COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 1), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET + 1));
                 COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 2), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET + 2));
-                is_updated = 1;
-            }
-
+            
             // ASSERT_FAILURE_MSG >> Could not set state for info update.
-            ASSERT(!(is_updated && (state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0 || state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0)));
+            ASSERT(!(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0 || state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0));
 
             // PERMIT_MSG >> Update host info successful.
             PERMIT();
