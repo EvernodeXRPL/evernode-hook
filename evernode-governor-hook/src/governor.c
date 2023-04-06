@@ -316,7 +316,6 @@ int64_t hook(uint32_t reserved)
             uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
 
             // First check if the states are already initialized by checking lastly added state key for existence.
-            int already_initalized = 0; // For Beta test purposes
             uint8_t host_count_buf[8];
 
             // ASSERT_FAILURE_MSG >> States are already initialized.
@@ -324,80 +323,77 @@ int64_t hook(uint32_t reserved)
 
             const uint64_t zero = 0;
             // Initialize the state.
-            if (!already_initalized)
-            {
-                //// Configuration states. ////
+            //// Configuration states. ////
 
-                // ASSERT_FAILURE_MSG >> Could not set state for issuer account.
-                ASSERT(state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for issuer account.
+            ASSERT(state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for foundation account.
-                ASSERT(state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for foundation account.
+            ASSERT(state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for heartbeat hook account.
-                ASSERT(state_foreign_set(heartbeat_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for heartbeat hook account.
+            ASSERT(state_foreign_set(heartbeat_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
-                ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
+            ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
 
-                SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
-                moment_size = DEF_MOMENT_SIZE;
-                SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
-                SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
+            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+            moment_size = DEF_MOMENT_SIZE;
+            SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
+            SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
 
-                // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
-                uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-                reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
-                UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
-                UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
-                UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
-                UINT16_TO_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
+            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
+            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+            reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
+            UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
+            UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
+            UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+            UINT16_TO_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for reward configuration.
-                ASSERT(state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for reward configuration.
+            ASSERT(state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
 
-                SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
-                SET_UINT_STATE_VALUE(DEF_LEASE_ACQUIRE_WINDOW, CONF_LEASE_ACQUIRE_WINDOW, "Evernode: Could not initialize state for lease acquire window.");
-                SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
-                SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
+            SET_UINT_STATE_VALUE(DEF_HOST_HEARTBEAT_FREQ, CONF_HOST_HEARTBEAT_FREQ, "Evernode: Could not initialize state for heartbeat frequency.");
+            SET_UINT_STATE_VALUE(DEF_LEASE_ACQUIRE_WINDOW, CONF_LEASE_ACQUIRE_WINDOW, "Evernode: Could not initialize state for lease acquire window.");
+            SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
+            SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
 
-                UINT32_TO_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
-                UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
-                UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
-                UINT16_TO_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
+            UINT32_TO_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
+            UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
+            UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
+            UINT16_TO_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
-                ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
+            ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
 
-                // Singleton states. ////
+            // Singleton states. ////
 
-                SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-                SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
-                SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+            SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
+            SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
+            SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
-                moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
-                UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
-                moment_base_idx = cur_idx;
+            moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
+            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
+            moment_base_idx = cur_idx;
 
-                // ASSERT_FAILURE_MSG >> Could not initialize state for moment base info.
-                ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not initialize state for moment base info.
+            ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
 
-                const uint32_t cur_moment = GET_MOMENT(cur_idx);
-                reward_info[EPOCH_OFFSET] = 1;
-                UINT32_TO_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
-                UINT32_TO_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-                const int64_t epoch_pool = float_set(0, DEF_EPOCH_REWARD_AMOUNT);
-                INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], epoch_pool);
+            const uint32_t cur_moment = GET_MOMENT(cur_idx);
+            reward_info[EPOCH_OFFSET] = 1;
+            UINT32_TO_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
+            UINT32_TO_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+            UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+            const int64_t epoch_pool = float_set(0, DEF_EPOCH_REWARD_AMOUNT);
+            INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], epoch_pool);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for reward info.
-                ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for reward info.
+            ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
 
-                governance_info[EPOCH_OFFSET] = PILOTED;
+            governance_info[EPOCH_OFFSET] = PILOTED;
 
-                // ASSERT_FAILURE_MSG >> Could not set state for governance info.
-                ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
-            }
+            // ASSERT_FAILURE_MSG >> Could not set state for governance info.
+            ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
             ///////////////////////////////////////////////////////////////
             // Begin : Moment size transition implementation.
