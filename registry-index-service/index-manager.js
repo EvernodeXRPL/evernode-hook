@@ -33,7 +33,7 @@ const CONFIG_FILE = 'index-manager.json';
 const HOOK_DATA_DIR = DATA_DIR + '/data';
 const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
 
-const NFT_WAIT_TIMEOUT = 80;
+const TOKEN_WAIT_TIMEOUT = 80;
 const MAX_BATCH_SIZE = 500;
 const PROCESS_INTERVAL = 20000; // in milliseconds.
 let PROCESS_LOCK = false;
@@ -445,12 +445,12 @@ class IndexManager {
                     let regToken = null;
                     const hostXrplAcc = new XrplAccount(trx.Account);
                     let attempts = 0;
-                    while (attempts < NFT_WAIT_TIMEOUT) {
+                    while (attempts < TOKEN_WAIT_TIMEOUT) {
                         // Check in Registry.
-                        regToken = (await this.#xrplAcc.getURITokens()).find(n => (n.URI === uri || n.index == transferredTokenId));
+                        regToken = (await this.#registryClient.xrplAcc.getURITokens()).find(n => (n.URI === uri || n.index == transferredTokenId));
                         if (!regToken) {
                             // Check in Host.
-                            regToken = (await hostXrplAcc.getURITokens()).find(n => (n.URI === uri));
+                            regToken = (await hostXrplAcc.getURITokens()).find(n => (n.URI === uri || n.index == transferredTokenId));
                         }
 
                         if (regToken) {
