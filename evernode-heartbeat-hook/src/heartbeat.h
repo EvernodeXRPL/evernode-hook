@@ -5,6 +5,14 @@
 
 #define OP_HEARTBEAT 1
 #define OP_VOTE 2
+#define OP_REWARD_REQUEST 3
+
+// Param Offsets
+// <hook_hashes(32*3)><hook_keylets(34*3)><unique_id(32)><short_name(20)>
+// PENDING_REWARDS_REQUEST
+const uint32_t REWARD_REQ_REF_PARAM_OFFSET = 0;
+const uint32_t REWARD_REQ_HOST_PARAM_OFFSET = 32;
+const uint32_t REWARD_REQ_AMOUNT_PARAM_OFFSET = 52;
 
 // IOU Payment with single memo (Reward).
 uint8_t REWARD_PAYMENT[345] = {
