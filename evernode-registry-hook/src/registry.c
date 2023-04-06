@@ -435,21 +435,23 @@ int64_t hook(uint32_t reserved)
 
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_CPU_MICROSEC_PARAM_OFFSET)))
                 COPY_4BYTES((token_id + HOST_CPU_MICROSEC_OFFSET), (event_data + HOST_UPDATE_CPU_MICROSEC_PARAM_OFFSET));
-            
+
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_RAM_MB_PARAM_OFFSET)))
                 COPY_4BYTES((token_id + HOST_RAM_MB_OFFSET), (event_data + HOST_UPDATE_RAM_MB_PARAM_OFFSET));
-            
+
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET)))
                 COPY_4BYTES((token_id + HOST_DISK_MB_OFFSET), (event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET));
-            
+
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET)))
                 COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET));
-            
+
             if (!IS_VERSION_EMPTY((event_data + HOST_UPDATE_VERSION_PARAM_OFFSET)))
+            {
                 COPY_BYTE((host_addr + HOST_VERSION_OFFSET), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET));
                 COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 1), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET + 1));
                 COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 2), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET + 2));
-            
+            }
+
             // ASSERT_FAILURE_MSG >> Could not set state for info update.
             ASSERT(!(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0 || state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0));
 
