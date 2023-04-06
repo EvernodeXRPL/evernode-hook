@@ -512,6 +512,15 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Candidate removal request trx has not being initiated via registry.
             ASSERT(BUFFER_EQUAL_20(registry_accid, account_field));
 
+            const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
+            // ASSERT_FAILURE_MSG >> Provided candidate is not a dud host candidate.
+            ASSERT(candidate_type == DUD_HOST_CANDIDATE);
+
+            // Check whether registration entry is removed or not.
+            HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
+            // ASSERT_FAILURE_MSG >> This host's state entry is not removed.
+            ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST);
+
             redirect_op_type = OP_REMOVE;
         }
         else if (op_type == OP_HOOK_UPDATE)
