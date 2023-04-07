@@ -607,7 +607,7 @@ int64_t hook(uint32_t reserved)
         if (redirect_op_type == OP_HOST_REMOVE)
         {
             // Reduce host count by 1.
-            uint64_t host_count;
+            uint32_t host_count;
             GET_HOST_COUNT(host_count);
             host_count -= 1;
             SET_HOST_COUNT(host_count);
