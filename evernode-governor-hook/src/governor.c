@@ -1,6 +1,24 @@
 #include "governor.h"
 
-// Executed whenever a transaction comes into or leaves from the account the Hook is set on.
+/**
+ * Only the incoming transactions are handled. Outgoing transactions are accepted directly.
+ * Manages governance related operations for Evernode.
+ * Handles hook state initialization, Hook candidate / Dud host candidate / Piloted mode candidate management and
+ * Applying new hooks and triggering other hooks to update themselves.
+ * Contains all the states. Foreign state access is granted to other accounts which contains registry and heartbeat hooks.
+ * Supported transaction types: Payment(IOU|XRP)
+ * Transaction Params:
+ * Key: 4556520100000000000000000000000000000000000000000000000000000002
+ * Value: <Predefined evernode operation identifier>
+ * Key: 4556520100000000000000000000000000000000000000000000000000000003
+ * Value: <Required data to invoke the respective operation {sliced[0:128]}>
+ * Key: 4556520100000000000000000000000000000000000000000000000000000004
+ * Value: <Required data to invoke the respective operation {sliced[128:]}>
+ * If param 4556520100000000000000000000000000000000000000000000000000000002 does not contain a predefined identifier,
+ * transaction is accepted directly.
+ * If it contains a predefined identifier but the rest of the params contains invalid data or does not contain required data to invoke the operation,
+ * transaction is rejected.
+ */
 int64_t hook(uint32_t reserved)
 {
     // Getting the hook account id.
