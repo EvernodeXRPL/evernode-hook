@@ -316,8 +316,6 @@ int64_t hook(uint32_t reserved)
             uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
 
             // First check if the states are already initialized by checking lastly added state key for existence.
-            uint8_t host_count_buf[8];
-
             // ASSERT_FAILURE_MSG >> States are already initialized.
             ASSERT(!(state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST));
 
