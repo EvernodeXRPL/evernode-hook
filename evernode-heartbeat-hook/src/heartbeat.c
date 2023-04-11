@@ -2,7 +2,7 @@
 
 /**
  * Only the incoming transactions are handled. Outgoing transactions are accepted directly.
- * Manages frequent evernode operations related to hosts and foundations
+ * Manages frequent evernode operations related to hosts and foundation
  * Handles host activeness tracking (heartbeat), Host rewards, Governance votes by hosts and foundation and Applying self hook updates.
  * Does not have states. Accesses governance states in as foreign.
  * Supported transaction types: Payment(IOU|XRP)
