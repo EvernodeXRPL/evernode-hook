@@ -623,24 +623,24 @@ uint8_t REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT[390] = {
 
 #define REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT_SIZE \
     sizeof(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)
-#define PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(drops_amount, to_address, candidate_id, candidate_status, event_type) \
-    {                                                                                                                      \
-        uint8_t *buf_out = REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT;                                                           \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                                                 \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                                                 \
-        uint8_t *buf_ptr = (buf_out + 35);                                                                                 \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                                 \
-        COPY_20BYTES((buf_out + 90), hook_accid);                                                                          \
-        COPY_20BYTES((buf_out + 112), to_address);                                                                         \
-        COPY_8BYTES((buf_out + 174), event_type);                                                                          \
-        COPY_8BYTES((buf_out + 174 + 8), event_type + 8);                                                                  \
-        COPY_8BYTES((buf_out + 174 + 16), event_type + 16);                                                                \
-        COPY_32BYTES((buf_out + 239), candidate_id);                                                                       \
-        COPY_BYTE((buf_out + 239 + 32), candidate_status);                                                                 \
-        etxn_details((buf_out + 274), 116);                                                                                \
-        int64_t fee = etxn_fee_base(buf_out, REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT_SIZE);                                   \
-        buf_ptr = buf_out + 44;                                                                                            \
-        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to governor/registry hook.*/   \
+#define PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(drops_amount, to_address, candidate_id, removal_condition, event_type) \
+    {                                                                                                                       \
+        uint8_t *buf_out = REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT;                                                            \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                                                  \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                                                  \
+        uint8_t *buf_ptr = (buf_out + 35);                                                                                  \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                                  \
+        COPY_20BYTES((buf_out + 90), hook_accid);                                                                           \
+        COPY_20BYTES((buf_out + 112), to_address);                                                                          \
+        COPY_8BYTES((buf_out + 174), event_type);                                                                           \
+        COPY_8BYTES((buf_out + 174 + 8), event_type + 8);                                                                   \
+        COPY_8BYTES((buf_out + 174 + 16), event_type + 16);                                                                 \
+        COPY_32BYTES((buf_out + 239), candidate_id);                                                                        \
+        COPY_BYTE((buf_out + 239 + 32), removal_condition);                                                                 \
+        etxn_details((buf_out + 274), 116);                                                                                 \
+        int64_t fee = etxn_fee_base(buf_out, REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT_SIZE);                                    \
+        buf_ptr = buf_out + 44;                                                                                             \
+        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to governor/registry hook.*/    \
     }
 
 #define CAST_4BYTES_TO_HEXSTR(hexstr_ptr, byte_ptr)                                                       \

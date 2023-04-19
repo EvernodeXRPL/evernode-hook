@@ -657,11 +657,12 @@ int64_t hook(uint32_t reserved)
                 INT64_TO_BUF(&reward_req[ACCOUNT_ID_SIZE], accumulated_reward);
             }
 
+            uint8_t unique_id[HASH_SIZE] = {0};
+
             uint32_t linked_candidate_removal_reserve = 0;
 
-            // Here we consider only new hook candidates those owners are going to be removed from.
+            // Here we consider only new hook candidates of the removing owners.
             uint32_t orphan_candidate_removal_reserve = 0;
-            uint8_t unique_id[HASH_SIZE] = {0};
             uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE] = {0};
 
             // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
