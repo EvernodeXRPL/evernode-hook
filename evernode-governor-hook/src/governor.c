@@ -147,6 +147,7 @@ int64_t hook(uint32_t reserved)
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
     uint8_t op_type = OP_NONE;
+    uint8_t op_sub_type = OP_NONE;
     uint8_t redirect_op_type = OP_NONE;
 
     uint8_t source_is_foundation = 0;
@@ -179,6 +180,11 @@ int64_t hook(uint32_t reserved)
             op_type = OP_HOOK_UPDATE;
         else if (EQUAL_LINKED_CANDIDATE_REMOVE(event_type, event_type_len))
             op_type = OP_REMOVE_LINKED_CANDIDATE;
+        else if (EQUAL_ORPHAN_CANDIDATE_REMOVE(event_type, event_type_len))
+        {
+            op_type = OP_STATUS_CHANGE;
+            op_sub_type = OP_REMOVE_ORPHAN_CANDIDATE;
+        }
     }
     else // IOU payments.
     {
@@ -716,8 +722,8 @@ int64_t hook(uint32_t reserved)
         {
             // We accept only the status change transaction from hook heartbeat account.
 
-            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account.
-            ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field));
+            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or registry account (due to paternal host removal).
+            ASSERT((BUFFER_EQUAL_20(heartbeat_accid, account_field) || (op_sub_type == OP_REMOVE_ORPHAN_CANDIDATE && BUFFER_EQUAL_20(registry_accid, account_field))));
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
@@ -726,7 +732,7 @@ int64_t hook(uint32_t reserved)
 
             const uint8_t vote_status = *(event_data + HASH_SIZE);
 
-            // ASSERT_FAILURE_MSG >> Invalid status sent with the memo.
+            // ASSERT_FAILURE_MSG >> Invalid status sent with the hook_params.
             ASSERT(candidate_id[CANDIDATE_STATUS_OFFSET] == vote_status);
 
             // For each candidate type we treat differently.

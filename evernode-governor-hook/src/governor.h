@@ -15,7 +15,8 @@
 #define OP_WITHDRAW 5
 #define OP_DUD_HOST_REPORT 6
 #define OP_REMOVE_LINKED_CANDIDATE 7
-#define OP_REMOVE 8
+#define OP_REMOVE_ORPHAN_CANDIDATE 8
+#define OP_REMOVE 9
 
 #define FOREIGN_REF 0, 0, 0, 0
 
@@ -69,11 +70,17 @@
      BUFFER_EQUAL_8(buf, DUD_HOST_REPORT) && \
      BUFFER_EQUAL_8((buf + 8), (DUD_HOST_REPORT + 8)))
 
-#define EQUAL_LINKED_CANDIDATE_REMOVE(buf, len)                         \
+#define EQUAL_LINKED_CANDIDATE_REMOVE(buf, len)                  \
     (sizeof(LINKED_CANDIDATE_REMOVE) == (len + 1) &&             \
      BUFFER_EQUAL_8(buf, LINKED_CANDIDATE_REMOVE) &&             \
      BUFFER_EQUAL_8((buf + 8), (LINKED_CANDIDATE_REMOVE + 8)) && \
      BUFFER_EQUAL_8((buf + 16), (LINKED_CANDIDATE_REMOVE + 16)))
+
+#define EQUAL_ORPHAN_CANDIDATE_REMOVE(buf, len)                  \
+    (sizeof(ORPHAN_CANDIDATE_REMOVE) == (len + 1) &&             \
+     BUFFER_EQUAL_8(buf, ORPHAN_CANDIDATE_REMOVE) &&             \
+     BUFFER_EQUAL_8((buf + 8), (ORPHAN_CANDIDATE_REMOVE + 8)) && \
+     BUFFER_EQUAL_8((buf + 16), (ORPHAN_CANDIDATE_REMOVE + 16)))
 
 #define COPY_CANDIDATE_HASHES(lhsbuf, rhsbuf)   \
     COPY_32BYTES(lhsbuf, rhsbuf);               \
