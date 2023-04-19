@@ -147,7 +147,6 @@ int64_t hook(uint32_t reserved)
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
     uint8_t op_type = OP_NONE;
-    uint8_t op_sub_type = OP_NONE;
     uint8_t redirect_op_type = OP_NONE;
 
     uint8_t source_is_foundation = 0;
@@ -178,13 +177,12 @@ int64_t hook(uint32_t reserved)
         // Child hook update results.
         else if (EQUAL_HOOK_UPDATE_RES(event_type, event_type_len))
             op_type = OP_HOOK_UPDATE;
+        // Invoke Governor on a removal of host who is linked to a dud host candidate.
         else if (EQUAL_LINKED_CANDIDATE_REMOVE(event_type, event_type_len))
             op_type = OP_REMOVE_LINKED_CANDIDATE;
+        // Invoke Governor on a removal of a owner of candidates
         else if (EQUAL_ORPHAN_CANDIDATE_REMOVE(event_type, event_type_len))
-        {
-            op_type = OP_STATUS_CHANGE;
-            op_sub_type = OP_REMOVE_ORPHAN_CANDIDATE;
-        }
+            op_type = OP_REMOVE_ORPHAN_CANDIDATE;
     }
     else // IOU payments.
     {
@@ -214,7 +212,7 @@ int64_t hook(uint32_t reserved)
         uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
         uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_REMOVE_LINKED_CANDIDATE)
+        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_REMOVE_LINKED_CANDIDATE || op_type == OP_REMOVE_ORPHAN_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get governance configuration state.
             ASSERT(state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
@@ -259,7 +257,7 @@ int64_t hook(uint32_t reserved)
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
         // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)>
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
-        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE)
+        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE || op_type == OP_REMOVE_ORPHAN_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
             ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
@@ -525,17 +523,25 @@ int64_t hook(uint32_t reserved)
             redirect_op_type = OP_REMOVE;
         }
 
-        else if (op_type == OP_REMOVE_LINKED_CANDIDATE)
+        else if (op_type == OP_REMOVE_LINKED_CANDIDATE || op_type == OP_REMOVE_ORPHAN_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Candidate removal request trx has not being initiated via registry.
             ASSERT(BUFFER_EQUAL_20(registry_accid, account_field));
 
-            const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
-            // ASSERT_FAILURE_MSG >> Provided candidate is not a dud host candidate.
-            ASSERT(candidate_type == DUD_HOST_CANDIDATE);
+            if (op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+            {
+                // Check whether registration entry is removed or not.
+                HOST_ADDR_KEY(candidate_id);
+            }
+            else
+            {
+                const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
+                // ASSERT_FAILURE_MSG >> Provided candidate is not a dud h            const uint8_t removal_condition = *(event_data + HASH_SIZE);ost candidate.
+                ASSERT(candidate_type == DUD_HOST_CANDIDATE);
+                // Check whether registration entry is removed or not.
+                HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
+            }
 
-            // Check whether registration entry is removed or not.
-            HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
             // ASSERT_FAILURE_MSG >> This host's state entry is not removed.
             ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST);
 
@@ -701,9 +707,9 @@ int64_t hook(uint32_t reserved)
             const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
             const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
 
-            // Send the proposal fee to the owner.
+            // Send the proposal fee to the relevant party (proposal owner of the heartbeat hook).
             etxn_reserve(1);
-            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET));
+            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (op_type == OP_REMOVE_ORPHAN_CANDIDATE ? heartbeat_accid : (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET)));
             uint8_t emithash[32];
 
             // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
@@ -722,8 +728,8 @@ int64_t hook(uint32_t reserved)
         {
             // We accept only the status change transaction from hook heartbeat account.
 
-            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or registry account (due to paternal host removal).
-            ASSERT((BUFFER_EQUAL_20(heartbeat_accid, account_field) || (op_sub_type == OP_REMOVE_ORPHAN_CANDIDATE && BUFFER_EQUAL_20(registry_accid, account_field))));
+            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account.
+            ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field));
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
