@@ -18,6 +18,10 @@ const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 #define OP_DUD_HOST_REMOVE 7
 #define OP_HOST_REMOVE 8
 
+// Special status handling candidate when deleing with orphan candidates
+const uint8_t CONSIDER_AS_VETOED = 3;
+const uint8_t CONSIDER_AS_ELECTED = 4; // NOTE : Can be utilized for the host transfer scenario.
+
 // Param Offsets
 // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
 // HOST_REG
@@ -571,8 +575,8 @@ uint8_t URI_TOKEN_BUY_TX[250] = {
         CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                \
     }
 
-// Simple XRP Payment with single memo (To inform a De-reg or pruning of a reported dud host to governor).
-uint8_t REMOVE_LINKED_CANDIDATE_MIN_PAYMENT[389] = {
+// Simple XRP Payment with single memo (To inform governor about cascade candidate removal).
+uint8_t REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT[390] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -606,36 +610,37 @@ uint8_t REMOVE_LINKED_CANDIDATE_MIN_PAYMENT[389] = {
     0x70,                                                                   // Blob start marker
     0x19, 0x20,                                                             // Parameter value length 32 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 236
-    0xE1,                                                                   // Hook parameter object end marker
-    0xF1,                                                                   // Hook parameter array end marker
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (33 bytes) offset 236
+    0xE1,                                                                         // Hook parameter object end marker
+    0xF1,                                                                         // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 273
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 274
 };
 
-#define REMOVE_LINKED_CANDIDATE_MIN_PAYMENT_SIZE \
-    sizeof(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)
-#define PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(drops_amount, to_address, candidate_id)                              \
-    {                                                                                                                    \
-        uint8_t *buf_out = REMOVE_LINKED_CANDIDATE_MIN_PAYMENT;                                                          \
-        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                                               \
-        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                                               \
-        uint8_t *buf_ptr = (buf_out + 35);                                                                               \
-        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                               \
-        COPY_20BYTES((buf_out + 90), hook_accid);                                                                        \
-        COPY_20BYTES((buf_out + 112), to_address);                                                                       \
-        COPY_8BYTES((buf_out + 174), LINKED_CANDIDATE_REMOVE);                                                           \
-        COPY_8BYTES((buf_out + 174 + 8), LINKED_CANDIDATE_REMOVE + 8);                                                   \
-        COPY_8BYTES((buf_out + 174 + 16), LINKED_CANDIDATE_REMOVE + 16);                                                 \
-        COPY_32BYTES((buf_out + 239), candidate_id);                                                                     \
-        etxn_details((buf_out + 273), 116);                                                                              \
-        int64_t fee = etxn_fee_base(buf_out, REMOVE_LINKED_CANDIDATE_MIN_PAYMENT_SIZE);                                  \
-        buf_ptr = buf_out + 44;                                                                                          \
-        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to governor/registry hook.*/ \
+#define REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT_SIZE \
+    sizeof(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)
+#define PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(drops_amount, to_address, candidate_id, candidate_status, event_type) \
+    {                                                                                                                      \
+        uint8_t *buf_out = REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT;                                                           \
+        UINT32_TO_BUF((buf_out + 25), cur_ledger_seq + 1);                                                                 \
+        UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                                                                 \
+        uint8_t *buf_ptr = (buf_out + 35);                                                                                 \
+        _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                                                 \
+        COPY_20BYTES((buf_out + 90), hook_accid);                                                                          \
+        COPY_20BYTES((buf_out + 112), to_address);                                                                         \
+        COPY_8BYTES((buf_out + 174), event_type);                                                                          \
+        COPY_8BYTES((buf_out + 174 + 8), event_type + 8);                                                                  \
+        COPY_8BYTES((buf_out + 174 + 16), event_type + 16);                                                                \
+        COPY_32BYTES((buf_out + 239), candidate_id);                                                                       \
+        COPY_BYTE((buf_out + 239 + 32), candidate_status);                                                                 \
+        etxn_details((buf_out + 274), 116);                                                                                \
+        int64_t fee = etxn_fee_base(buf_out, REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT_SIZE);                                   \
+        buf_ptr = buf_out + 44;                                                                                            \
+        _06_08_ENCODE_DROPS_FEE(buf_ptr, fee); /** Skip the fee check since this tx is sent to governor/registry hook.*/   \
     }
 
 #define CAST_4BYTES_TO_HEXSTR(hexstr_ptr, byte_ptr)                                                       \
