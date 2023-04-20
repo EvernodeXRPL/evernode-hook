@@ -707,13 +707,25 @@ int64_t hook(uint32_t reserved)
             const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
             const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
 
-            // Send the proposal fee to the relevant party (proposal owner of the heartbeat hook).
+            // Send the proposal fee to the relevant party (proposal owner or the heartbeat hook).
             etxn_reserve(1);
-            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (op_type == OP_REMOVE_ORPHAN_CANDIDATE ? heartbeat_accid : (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET)));
             uint8_t emithash[32];
 
-            // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
-            ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+            if (op_type == OP_REMOVE_LINKED_CANDIDATE)
+            {
+                PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET));
+
+                // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
+                ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+            }
+            else if (op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+            {
+                PREPARE_HEARTBEAT_FUND_PAYMENT_TX(proposal_fee, heartbeat_accid, txid);
+
+                // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
+                ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
+            }
+
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Clear the proposal states.
