@@ -657,13 +657,11 @@ int64_t hook(uint32_t reserved)
                 INT64_TO_BUF(&reward_req[ACCOUNT_ID_SIZE], accumulated_reward);
             }
 
+            uint32_t linked_candidate_removal_reserve = 0;
             uint8_t unique_id[HASH_SIZE] = {0};
 
-            uint32_t linked_candidate_removal_reserve = 0;
-
-            // Here we consider only new hook candidates of the removing owners.
             uint32_t orphan_candidate_removal_reserve = 0;
-            uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE] = {0};
+            uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
             // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
             if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DE_REG)
@@ -677,14 +675,10 @@ int64_t hook(uint32_t reserved)
                     linked_candidate_removal_reserve += 1;
             }
 
-            // Add an additional emission reservation to trigger the governor to remove the new hook candidate owned by this account.
-            if (redirect_op_type = OP_HOST_REMOVE)
-            {
-                CANDIDATE_OWNER_KEY(host_addr_ptr);
-
-                if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)
-                    orphan_candidate_removal_reserve += 1;
-            }
+            // Add an additional emission reservation to trigger the governor to remove the new hook candidate owned by this account (if such exists).
+            CANDIDATE_OWNER_KEY(host_addr_ptr);
+            if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0)
+                orphan_candidate_removal_reserve += 1;
 
             uint8_t emithash[HASH_SIZE];
 

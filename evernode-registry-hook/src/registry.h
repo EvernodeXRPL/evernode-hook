@@ -633,8 +633,8 @@ uint8_t REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT[390] = {
         COPY_20BYTES((buf_out + 90), hook_accid);                                                                           \
         COPY_20BYTES((buf_out + 112), to_address);                                                                          \
         COPY_8BYTES((buf_out + 174), event_type);                                                                           \
-        COPY_8BYTES((buf_out + 174 + 8), event_type + 8);                                                                   \
-        COPY_8BYTES((buf_out + 174 + 16), event_type + 16);                                                                 \
+        COPY_8BYTES((buf_out + 174 + 8), (event_type + 8));                                                                 \
+        COPY_8BYTES((buf_out + 174 + 16), (event_type + 16));                                                               \
         COPY_32BYTES((buf_out + 239), candidate_id);                                                                        \
         COPY_BYTE((buf_out + 239 + 32), removal_condition);                                                                 \
         etxn_details((buf_out + 274), 116);                                                                                 \
