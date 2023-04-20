@@ -728,16 +728,16 @@ int64_t hook(uint32_t reserved)
             // Burn Registration URI token.
             PREPARE_URI_TOKEN_BURN_TX(&host_addr[HOST_TOKEN_ID_OFFSET]);
 
+            // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
+            ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
+            trace(SBUF("emit hash: "), SBUF(emithash), 1);
+
             // Delete registration entries. If there are pending rewards heartbeat hook will delete the states
             if (request_reward != 1)
             {
                 // ASSERT_FAILURE_MSG >> Could not delete host registration entry.
                 ASSERT(!(state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
             }
-
-            // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
-            ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             if (linked_candidate_removal_reserve > 0)
             {
@@ -759,11 +759,7 @@ int64_t hook(uint32_t reserved)
                 PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, orphan_candidate_id, CONSIDER_AS_VETOED, ORPHAN_CANDIDATE_REMOVE);
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
-                TRACEHEX(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT);
-                int64_t x = emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT));
-                TRACEVAR(x);
-
-                ASSERT(x >= 0);
+                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
 
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }

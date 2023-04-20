@@ -542,8 +542,16 @@ int64_t hook(uint32_t reserved)
                 HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
             }
 
-            // ASSERT_FAILURE_MSG >> This host's state entry is not removed.
-            ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST);
+            // Check whether the relevant host is removed or not.
+            if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
+            {
+                // Check the ownership of the token to this user before proceeding.
+                int token_exists;
+                IS_REG_TOKEN_EXIST((STP_HOST_ADDR + 12), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
+
+                // ASSERT_FAILURE_MSG >> Registration URIToken still exists.
+                ASSERT(token_exists == 0);
+            }
 
             redirect_op_type = OP_REMOVE;
         }
