@@ -739,10 +739,16 @@ int64_t hook(uint32_t reserved)
                 ASSERT(!(state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
             }
 
+            // Invoke Governor to trigger on this condition.
+            uint8_t trigger_event_data[33];
+
             if (linked_candidate_removal_reserve > 0)
             {
+                COPY_32BYTES(trigger_event_data, unique_id);
+                trigger_event_data[32] = 0;
+
                 // Prepare MIN XRP trigger transaction to governor about removing the dud host candidate.
-                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, unique_id, 0, LINKED_CANDIDATE_REMOVE);
+                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, LINKED_CANDIDATE_REMOVE, trigger_event_data);
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
                 ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
@@ -755,8 +761,11 @@ int64_t hook(uint32_t reserved)
                 uint8_t orphan_candidate_id[HASH_SIZE] = {0};
                 GET_NEW_HOOK_CANDIDATE_ID(candidate_owner, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, orphan_candidate_id);
 
+                COPY_32BYTES(trigger_event_data, orphan_candidate_id);
+                trigger_event_data[32] = CONSIDER_AS_VETOED;
+
                 // Prepare MIN XRP trigger transaction to governor about removing the new hook candidate.
-                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, orphan_candidate_id, CONSIDER_AS_VETOED, ORPHAN_CANDIDATE_REMOVE);
+                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, ORPHAN_CANDIDATE_REMOVE, trigger_event_data);
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
                 ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);

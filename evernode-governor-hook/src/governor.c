@@ -168,8 +168,8 @@ int64_t hook(uint32_t reserved)
         // Change Governance Mode.
         else if (EQUAL_CHANGE_GOVERNANCE_MODE(event_type, event_type_len))
             op_type = OP_GOVERNANCE_MODE_CHANGE;
-        // Invoke Governor on host heartbeat.
-        else if (EQUAL_CANDIDATE_STATUS_CHANGE(event_type, event_type_len))
+        // Invoke Governor on host heartbeat as well as on a host removal.
+        else if (EQUAL_CANDIDATE_STATUS_CHANGE(event_type, event_type_len) || EQUAL_ORPHAN_CANDIDATE_REMOVE(event_type, event_type_len))
             op_type = OP_STATUS_CHANGE;
         // Hook candidate withdraw request.
         else if (EQUAL_CANDIDATE_WITHDRAW(event_type, event_type_len))
@@ -180,9 +180,6 @@ int64_t hook(uint32_t reserved)
         // Invoke Governor on a removal of host who is linked to a dud host candidate.
         else if (EQUAL_LINKED_CANDIDATE_REMOVE(event_type, event_type_len))
             op_type = OP_REMOVE_LINKED_CANDIDATE;
-        // Invoke Governor on a removal of a owner of candidates
-        else if (EQUAL_ORPHAN_CANDIDATE_REMOVE(event_type, event_type_len))
-            op_type = OP_REMOVE_ORPHAN_CANDIDATE;
     }
     else // IOU payments.
     {
@@ -212,7 +209,7 @@ int64_t hook(uint32_t reserved)
         uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
         uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_REMOVE_LINKED_CANDIDATE || op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get governance configuration state.
             ASSERT(state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
@@ -257,7 +254,7 @@ int64_t hook(uint32_t reserved)
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
         // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)>
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
-        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE || op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
             ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
@@ -523,35 +520,19 @@ int64_t hook(uint32_t reserved)
             redirect_op_type = OP_REMOVE;
         }
 
-        else if (op_type == OP_REMOVE_LINKED_CANDIDATE || op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+        else if (op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
             // ASSERT_FAILURE_MSG >> Candidate removal request trx has not being initiated via registry.
             ASSERT(BUFFER_EQUAL_20(registry_accid, account_field));
 
-            if (op_type == OP_REMOVE_ORPHAN_CANDIDATE)
-            {
-                // Check whether registration entry is removed or not.
-                HOST_ADDR_KEY(candidate_id);
-            }
-            else
-            {
-                const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
-                // ASSERT_FAILURE_MSG >> Provided candidate is not a dud h            const uint8_t removal_condition = *(event_data + HASH_SIZE);ost candidate.
-                ASSERT(candidate_type == DUD_HOST_CANDIDATE);
-                // Check whether registration entry is removed or not.
-                HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
-            }
+            const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
+            // ASSERT_FAILURE_MSG >> Provided candidate is not a dud host candidate.
+            ASSERT(candidate_type == DUD_HOST_CANDIDATE);
 
-            // Check whether the relevant host is removed or not.
-            if (state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST)
-            {
-                // Check the ownership of the token to this user before proceeding.
-                int token_exists;
-                IS_REG_TOKEN_EXIST((STP_HOST_ADDR + 12), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
-
-                // ASSERT_FAILURE_MSG >> Registration URIToken still exists.
-                ASSERT(token_exists == 0);
-            }
+            // Check whether registration entry is removed or not.
+            HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
+            // ASSERT_FAILURE_MSG >> This host's state entry is not removed.
+            ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST);
 
             redirect_op_type = OP_REMOVE;
         }
@@ -715,25 +696,13 @@ int64_t hook(uint32_t reserved)
             const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
             const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
 
-            // Send the proposal fee to the relevant party (proposal owner or the heartbeat hook).
+            // Send the proposal fee to the owner.
             etxn_reserve(1);
+            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET));
             uint8_t emithash[32];
 
-            if (op_type == OP_REMOVE_LINKED_CANDIDATE)
-            {
-                PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET));
-
-                // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
-                ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
-            }
-            else if (op_type == OP_REMOVE_ORPHAN_CANDIDATE)
-            {
-                PREPARE_HEARTBEAT_FUND_PAYMENT_TX(proposal_fee, heartbeat_accid, txid);
-
-                // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
-                ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
-            }
-
+            // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
+            ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Clear the proposal states.
@@ -748,8 +717,8 @@ int64_t hook(uint32_t reserved)
         {
             // We accept only the status change transaction from hook heartbeat account.
 
-            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account.
-            ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field));
+            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or the registry account (when removing hosts).
+            ASSERT((BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field)));
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
@@ -758,8 +727,11 @@ int64_t hook(uint32_t reserved)
 
             const uint8_t vote_status = *(event_data + HASH_SIZE);
 
-            // ASSERT_FAILURE_MSG >> Invalid status sent with the hook_params.
-            ASSERT(candidate_id[CANDIDATE_STATUS_OFFSET] == vote_status);
+            if (BUFFER_EQUAL_20(heartbeat_accid, account_field))
+            {
+                // ASSERT_FAILURE_MSG >> Invalid status sent with the hook_params.
+                ASSERT(candidate_id[CANDIDATE_STATUS_OFFSET] == vote_status);
+            }
 
             // For each candidate type we treat differently.
             if (candidate_type == NEW_HOOK_CANDIDATE || candidate_type == DUD_HOST_CANDIDATE)
