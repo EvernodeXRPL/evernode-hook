@@ -356,7 +356,6 @@ int64_t hook(uint32_t reserved)
             // Take the moment size from config.
             uint16_t moment_size = 0;
             GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
-            TRACEVAR(moment_size);
 
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
             UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
@@ -836,11 +835,6 @@ int64_t hook(uint32_t reserved)
             SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
             SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
             SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
-
-             // Take the moment size from config.
-            uint16_t moment_size = 0;
-            GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
-            TRACEVAR(moment_size);
             
             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
