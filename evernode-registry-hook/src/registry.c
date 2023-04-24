@@ -532,12 +532,12 @@ int64_t hook(uint32_t reserved)
                 {
                     etxn_reserve(1);
 
-                    // Creating the buy offer for 1 XRP drop
+                    // Prepare MIN XRP trigger transaction to governor about transfering the host linked to a dud host candidate.
                     PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, unique_id);
 
                     uint8_t emithash[HASH_SIZE];
 
-                    // ASSERT_FAILURE_MSG >> Emitting buying offer to token failed.
+                    // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
                     ASSERT(emit(SBUF(emithash), SBUF(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)) >= 0);
 
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
