@@ -6,9 +6,6 @@
 #include "../../headers/statekeys.h"
 #include "../../headers/transactions.h"
 
-// Transfer process related definitions
-const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
-
 #define OP_HOST_REG 1
 #define OP_HOST_DE_REG 2
 #define OP_HOST_UPDATE_REG 3

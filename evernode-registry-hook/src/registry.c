@@ -522,6 +522,27 @@ int64_t hook(uint32_t reserved)
                     ASSERT(state_foreign(SBUF(reg_entry_buf), SBUF(STP_HOST_ADDR), FOREIGN_REF) == DOESNT_EXIST);
                 }
 
+                uint8_t unique_id[HASH_SIZE] = {0};
+                // Check if there is dud host removal request
+                uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
+                GET_DUD_HOST_CANDIDATE_ID(account_field, unique_id);
+                CANDIDATE_ID_KEY(unique_id);
+
+                if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0)
+                {
+                    etxn_reserve(1);
+
+                    // Creating the buy offer for 1 XRP drop
+                    PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, unique_id);
+
+                    uint8_t emithash[HASH_SIZE];
+
+                    // ASSERT_FAILURE_MSG >> Emitting buying offer to token failed.
+                    ASSERT(emit(SBUF(emithash), SBUF(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)) >= 0);
+
+                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
+                }
+
                 // Check whether this host has an initiated transfer.
                 uint8_t host_transfer_flag = host_addr[HOST_TRANSFER_FLAG_OFFSET];
 
