@@ -17,7 +17,7 @@
 
 // Special status handling candidate when deleing with orphan candidates
 const uint8_t CONSIDER_AS_VETOED = 3;
-const uint8_t CONSIDER_AS_ELECTED = 4; // NOTE : Can be utilized for the host transfer scenario.
+const uint8_t CONSIDER_AS_ELECTED = 4;
 
 // Param Offsets
 // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
