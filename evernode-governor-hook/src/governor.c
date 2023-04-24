@@ -531,8 +531,9 @@ int64_t hook(uint32_t reserved)
 
             // Check whether registration entry is removed or not.
             HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
-            // ASSERT_FAILURE_MSG >> This host's state entry is not removed.
-            ASSERT((state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) <= 0 || host_addr[HOST_TRANSFER_FLAG_OFFSET] == TRANSFER_FLAG)) ;
+
+            // ASSERT_FAILURE_MSG >> This host's state entry is not removed or it has not been transferred correctly.
+            ASSERT((state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) <= 0 || host_addr[HOST_TRANSFER_FLAG_OFFSET] == TRANSFER_FLAG));
 
             redirect_op_type = OP_REMOVE;
         }
