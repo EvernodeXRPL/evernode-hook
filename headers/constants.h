@@ -75,6 +75,9 @@
 #define MAX_EVENT_TYPE_SIZE 40  // Maximum string length of the event type.
 #define MAX_EVENT_DATA_SIZE 256 // Maximum size of the event data.
 
+// Transfer process related definitions
+const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
+
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
 const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0x54,
