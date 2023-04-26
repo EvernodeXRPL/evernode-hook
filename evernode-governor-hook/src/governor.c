@@ -108,6 +108,7 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Could not set state for moment base info.
             ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
 
+            moment_size = UINT16_FROM_BUF_LE(moment_size_ptr);
             // Assign the transition state values with zeros.
             CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info);
 
@@ -118,7 +119,6 @@ int64_t hook(uint32_t reserved)
             prev_transition_moment = transition_moment;
             cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
             cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
-            moment_size = UINT16_FROM_BUF_LE(moment_size_ptr);
         }
         // End : Moment size transition implementation.
     }
@@ -270,7 +270,7 @@ int64_t hook(uint32_t reserved)
         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-        if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE)
+        if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE)
         {
             // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
             ASSERT(!(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
@@ -354,13 +354,13 @@ int64_t hook(uint32_t reserved)
             ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
 
             // Take the moment size from config.
-            uint16_t moment_size = 0;
-            GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
+            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+            moment_size = DEF_MOMENT_SIZE;
 
-            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+            reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
+            UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
             UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
-            // ASSERT_FAILURE_MSG >> Could not set state for reward configuration.
-            ASSERT(state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+            UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
 
             // Singleton states. ////
 
@@ -510,7 +510,7 @@ int64_t hook(uint32_t reserved)
             // Check whether registration entry is removed or not.
             HOST_ADDR_KEY(event_data + DUD_HOST_CANDID_ADDRESS_OFFSET);
             // ASSERT_FAILURE_MSG >> This host's state entry is not removed.
-            ASSERT((state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) <= 0 || host_addr[HOST_TRANSFER_FLAG_OFFSET] == TRANSFER_FLAG)) ;
+            ASSERT((state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) <= 0 || host_addr[HOST_TRANSFER_FLAG_OFFSET] == TRANSFER_FLAG));
 
             redirect_op_type = OP_REMOVE;
         }
@@ -574,7 +574,13 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
             ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-            redirect_op_type = OP_CHANGE_CONFIGURATION;
+            if (updated_hook_count == 1)
+                redirect_op_type = OP_CHANGE_CONFIGURATION;
+            else
+            {
+                // PERMIT_MSG >> Accepted the hook update response.
+                PERMIT();
+            }
         }
         else if (op_type == OP_GOVERNANCE_MODE_CHANGE)
         {
@@ -832,15 +838,30 @@ int64_t hook(uint32_t reserved)
 
         if (redirect_op_type == OP_CHANGE_CONFIGURATION)
         {
-            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+            ///////////////////////////////////////////////////////////////
+            // Begin : Moment size transition implementation.
+            // Do the moment size transition. If new moment size is specified.
+            // Set Moment transition info with the configured value;
+            if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
+            {
+                // ASSERT_FAILURE_MSG >> There is an already scheduled moment size transition.
+                ASSERT(IS_MOMENT_TRANSIT_INFO_EMPTY(moment_transition_info));
+
+                const uint64_t next_moment_start_idx = GET_NEXT_MOMENT_START_INDEX(cur_idx);
+
+                UINT64_TO_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET], next_moment_start_idx);
+                UINT16_TO_BUF_LE(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
+                moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
+
+                // ASSERT_FAILURE_MSG >> Could not set state for moment transition info.
+                ASSERT(state_foreign_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) >= 0);
+            }
+            // End : Moment size transition implementation.
+            ///////////////////////////////////////////////////////////////
+
             SET_UINT_STATE_VALUE(DEF_MINT_LIMIT, CONF_MINT_LIMIT, "Evernode: Could not initialize state for mint limit.");
             SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
-            
-            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
-            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-            reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
-            UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
-            UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+
             UINT16_TO_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
 
             // ASSERT_FAILURE_MSG >> Could not set state for reward configuration.
@@ -861,7 +882,7 @@ int64_t hook(uint32_t reserved)
 
             // PERMIT_MSG >> Assign/ Change configurations successfully.
             PERMIT();
-        }    
+        }
     }
 
     // PERMIT_MSG >> Transaction is not handled.
