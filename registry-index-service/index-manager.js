@@ -119,7 +119,8 @@ const AFFECTED_HOOK_STATE_MAP = {
     ],
     CHILD_HOOK_UPDATE: [
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
-        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_CONFIGURATION },
+        { operation: 'UPDATE', key: HookStateKeys.MOMENT_TRANSIT_INFO },
         
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_SIZE },
         { operation: 'UPDATE', key: HookStateKeys.MINT_LIMIT },
