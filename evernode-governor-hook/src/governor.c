@@ -353,7 +353,6 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
             ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
 
-            // Take the moment size from config.
             SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
             moment_size = DEF_MOMENT_SIZE;
 
