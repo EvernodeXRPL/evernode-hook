@@ -118,8 +118,21 @@ const AFFECTED_HOOK_STATE_MAP = {
         // HookStateKeys.PREFIX_CANDIDATE_ID
     ],
     CHILD_HOOK_UPDATE: [
-        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
-
+        // Singleton
+        { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
+        
+        // Configs
+        { operation: 'UPDATE', key: HookStateKeys.MOMENT_SIZE },
+        { operation: 'UPDATE', key: HookStateKeys.MINT_LIMIT },
+        { operation: 'UPDATE', key: HookStateKeys.FIXED_REG_FEE },
+        { operation: 'UPDATE', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
+        { operation: 'UPDATE', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
+        { operation: 'UPDATE', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
+        { operation: 'UPDATE', key: HookStateKeys.EMIT_FEE_THRESHOLD },
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_CONFIGURATION },
+        { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
+        { operation: 'UPDATE', key: HookStateKeys.MOMENT_TRANSIT_INFO },
+        
         // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_CANDIDATE_ID
     ],
