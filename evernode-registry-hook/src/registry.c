@@ -98,8 +98,6 @@ int64_t hook(uint32_t reserved)
     uint8_t op_type = OP_NONE;
     uint8_t redirect_op_type = OP_NONE;
 
-    uint8_t trigger_event_data[33];
-
     if (txn_type == ttPAYMENT)
     {
         // ASSERT_FAILURE_MSG >> Could not slot otxn.sfAmount
@@ -218,6 +216,8 @@ int64_t hook(uint32_t reserved)
         ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
                  state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
                  state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0));
+
+        uint8_t candidate_remove_data[33];
 
         if (op_type == OP_HOST_REG)
         {
@@ -534,11 +534,11 @@ int64_t hook(uint32_t reserved)
                 {
                     etxn_reserve(1);
 
-                    COPY_32BYTES(trigger_event_data, unique_id);
-                    trigger_event_data[32] = CONSIDER_AS_ELECTED;
+                    COPY_32BYTES(candidate_remove_data, unique_id);
+                    candidate_remove_data[32] = CANDIDATE_ELECTED;
 
                     // Prepare MIN XRP trigger transaction to governor about transferring the host linked to a dud host candidate.
-                    PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, LINKED_CANDIDATE_REMOVE, trigger_event_data);
+                    PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, LINKED_CANDIDATE_REMOVE, candidate_remove_data);
 
                     uint8_t emithash[HASH_SIZE];
 
@@ -758,44 +758,34 @@ int64_t hook(uint32_t reserved)
             ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
+            // Invoke Governor to trigger on this condition.
+            if (linked_candidate_removal_reserve > 0 || orphan_candidate_removal_reserve > 0)
+            {
+                if (linked_candidate_removal_reserve > 0)
+                {
+                    COPY_32BYTES(candidate_remove_data, unique_id);
+                    candidate_remove_data[32] = CANDIDATE_ELECTED;
+                }
+                else
+                {
+                    GET_NEW_HOOK_CANDIDATE_ID(candidate_owner, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, candidate_remove_data);
+                    candidate_remove_data[32] = CANDIDATE_VETOED;
+                }
+
+                // Prepare MIN XRP trigger transaction to governor about removing the dud host or new hook candidate.
+                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, (linked_candidate_removal_reserve > 0 ? LINKED_CANDIDATE_REMOVE : ORPHAN_CANDIDATE_REMOVE), candidate_remove_data);
+
+                // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
+                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
+
+                trace(SBUF("emit hash: "), SBUF(emithash), 1);
+            }
+
             // Delete registration entries. If there are pending rewards heartbeat hook will delete the states
             if (request_reward != 1)
             {
                 // ASSERT_FAILURE_MSG >> Could not delete host registration entry.
                 ASSERT(!(state_foreign_set(0, 0, SBUF(STP_TOKEN_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
-            }
-
-            // Invoke Governor to trigger on this condition.
-
-            if (linked_candidate_removal_reserve > 0)
-            {
-                COPY_32BYTES(trigger_event_data, unique_id);
-                trigger_event_data[32] = 0;
-
-                // Prepare MIN XRP trigger transaction to governor about removing the dud host candidate.
-                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, LINKED_CANDIDATE_REMOVE, trigger_event_data);
-
-                // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
-                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-            }
-
-            if (orphan_candidate_removal_reserve > 0)
-            {
-                uint8_t orphan_candidate_id[HASH_SIZE] = {0};
-                GET_NEW_HOOK_CANDIDATE_ID(candidate_owner, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, orphan_candidate_id);
-
-                COPY_32BYTES(trigger_event_data, orphan_candidate_id);
-                trigger_event_data[32] = CONSIDER_AS_VETOED;
-
-                // Prepare MIN XRP trigger transaction to governor about removing the new hook candidate.
-                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, ORPHAN_CANDIDATE_REMOVE, trigger_event_data);
-
-                // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
-                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
 
             // Here the PERMIT Macro __LINE__ param. differs in each block. Hence we have to call them separately to figure the scenario.

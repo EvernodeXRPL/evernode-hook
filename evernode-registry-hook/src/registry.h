@@ -15,10 +15,6 @@
 #define OP_DUD_HOST_REMOVE 7
 #define OP_HOST_REMOVE 8
 
-// Special status handling candidate when deleing with orphan candidates
-const uint8_t CONSIDER_AS_VETOED = 3;
-const uint8_t CONSIDER_AS_ELECTED = 4;
-
 // Param Offsets
 // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
 // HOST_REG
