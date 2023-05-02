@@ -700,8 +700,12 @@ int64_t hook(uint32_t reserved)
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Clear the proposal states.
-            // ASSERT_FAILURE_MSG >> Could not delete the candidate states.
-            ASSERT(!(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0));
+            // ASSERT_FAILURE_MSG >> Could not delete the candidate id state.
+            ASSERT(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
+
+            // Dud host candidate does not have a owner state.
+            // ASSERT_FAILURE_MSG >> Could not delete the candidate owner state.
+            ASSERT(!(CANDIDATE_TYPE(event_data) == NEW_HOOK_CANDIDATE && (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)));
 
             // PERMIT-MSG >> Successfully removed candidate proposal.
             PERMIT();
@@ -712,19 +716,23 @@ int64_t hook(uint32_t reserved)
             // We accept only the status change transaction from hook heartbeat account.
 
             // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or the registry account (for orphan candidates).
-            ASSERT(BUFFER_EQUAL_20((origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE) ? registry_accid : heartbeat_accid, account_field));
+            ASSERT(BUFFER_EQUAL_20(((origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE) ? registry_accid : heartbeat_accid), account_field));
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
             // ASSERT_FAILURE_MSG >> Invalid candidate type.
             ASSERT(candidate_type != 0);
 
-            const uint8_t vote_status = *(event_data + HASH_SIZE);
+            uint8_t vote_status = *(event_data + HASH_SIZE);
 
             if (origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE)
             {
                 // ASSERT_FAILURE_MSG >> Invalid orphan candidate.
                 ASSERT((candidate_type == NEW_HOOK_CANDIDATE && vote_status == CANDIDATE_VETOED));
+
+                // If voting is already completed for this candidate handle accordingly
+                if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
+                    vote_status = candidate_id[CANDIDATE_STATUS_OFFSET];
             }
             // If this is from heartbeat account, Candidate status should be equal to the the status sent.
             else
