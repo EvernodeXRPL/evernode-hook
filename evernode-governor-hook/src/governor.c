@@ -146,6 +146,7 @@ int64_t hook(uint32_t reserved)
     otxn_slot(1);
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
+    uint8_t origin_op_type = OP_NONE;
     uint8_t op_type = OP_NONE;
     uint8_t redirect_op_type = OP_NONE;
 
@@ -168,9 +169,12 @@ int64_t hook(uint32_t reserved)
         // Change Governance Mode.
         else if (EQUAL_CHANGE_GOVERNANCE_MODE(event_type, event_type_len))
             op_type = OP_GOVERNANCE_MODE_CHANGE;
-        // Invoke Governor on host heartbeat as well as on a host removal.
-        else if (EQUAL_CANDIDATE_STATUS_CHANGE(event_type, event_type_len) || EQUAL_ORPHAN_CANDIDATE_REMOVE(event_type, event_type_len))
+        // Invoke Governor on host heartbeat.
+        else if (EQUAL_CANDIDATE_STATUS_CHANGE(event_type, event_type_len))
             op_type = OP_STATUS_CHANGE;
+        // Invoke Governor on host removal.
+        else if (EQUAL_ORPHAN_CANDIDATE_REMOVE(event_type, event_type_len))
+            op_type = OP_REMOVE_ORPHAN_CANDIDATE;
         // Hook candidate withdraw request.
         else if (EQUAL_CANDIDATE_WITHDRAW(event_type, event_type_len))
             op_type = OP_WITHDRAW;
@@ -199,6 +203,12 @@ int64_t hook(uint32_t reserved)
 
         // ASSERT_FAILURE_MSG >> Error getting the event data param.
         ASSERT(event_data_len >= 0);
+
+        if (op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+        {
+            origin_op_type = OP_REMOVE_ORPHAN_CANDIDATE;
+            op_type = OP_STATUS_CHANGE;
+        }
 
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
         // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
@@ -701,8 +711,8 @@ int64_t hook(uint32_t reserved)
         {
             // We accept only the status change transaction from hook heartbeat account.
 
-            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or the registry account (when removing hosts).
-            ASSERT((BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field)));
+            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or the registry account (for orphan candidates).
+            ASSERT(BUFFER_EQUAL_20((origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE) ? registry_accid : heartbeat_accid, account_field));
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
@@ -711,7 +721,13 @@ int64_t hook(uint32_t reserved)
 
             const uint8_t vote_status = *(event_data + HASH_SIZE);
 
-            if (BUFFER_EQUAL_20(heartbeat_accid, account_field))
+            if (origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE)
+            {
+                // ASSERT_FAILURE_MSG >> Invalid orphan candidate.
+                ASSERT((candidate_type == NEW_HOOK_CANDIDATE && vote_status == CANDIDATE_VETOED));
+            }
+            // If this is from heartbeat account, Candidate status should be equal to the the status sent.
+            else
             {
                 // ASSERT_FAILURE_MSG >> Invalid status sent with the hook_params.
                 ASSERT(candidate_id[CANDIDATE_STATUS_OFFSET] == vote_status);
