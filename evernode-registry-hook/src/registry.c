@@ -217,6 +217,8 @@ int64_t hook(uint32_t reserved)
                  state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
                  state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0));
 
+        uint8_t candidate_remove_data[33];
+
         if (op_type == OP_HOST_REG)
         {
             // Get transaction hash(id).
@@ -532,13 +534,16 @@ int64_t hook(uint32_t reserved)
                 {
                     etxn_reserve(1);
 
-                    // Prepare MIN XRP trigger transaction to governor about transfering the host linked to a dud host candidate.
-                    PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, unique_id);
+                    COPY_32BYTES(candidate_remove_data, unique_id);
+                    candidate_remove_data[32] = CANDIDATE_ELECTED;
+
+                    // Prepare MIN XRP trigger transaction to governor about transferring the host linked to a dud host candidate.
+                    PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, LINKED_CANDIDATE_REMOVE, candidate_remove_data);
 
                     uint8_t emithash[HASH_SIZE];
 
                     // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
-                    ASSERT(emit(SBUF(emithash), SBUF(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)) >= 0);
+                    ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
 
                     trace(SBUF("emit hash: "), SBUF(emithash), 1);
                 }
@@ -678,10 +683,13 @@ int64_t hook(uint32_t reserved)
                 INT64_TO_BUF(&reward_req[ACCOUNT_ID_SIZE], accumulated_reward);
             }
 
-            uint32_t additional_reserve = 0;
+            uint32_t linked_candidate_removal_reserve = 0;
             uint8_t unique_id[HASH_SIZE] = {0};
 
-            // Add a additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
+            uint32_t orphan_candidate_removal_reserve = 0;
+            uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
+
+            // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
             if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DE_REG)
             {
                 uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
@@ -690,12 +698,17 @@ int64_t hook(uint32_t reserved)
                 CANDIDATE_ID_KEY(unique_id);
 
                 if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0)
-                    additional_reserve += 1;
+                    linked_candidate_removal_reserve += 1;
             }
+
+            // Add an additional emission reservation to trigger the governor to remove the new hook candidate owned by this account (if such exists).
+            CANDIDATE_OWNER_KEY(host_addr_ptr);
+            if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0)
+                orphan_candidate_removal_reserve += 1;
 
             uint8_t emithash[HASH_SIZE];
 
-            etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + additional_reserve);
+            etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + (linked_candidate_removal_reserve + orphan_candidate_removal_reserve));
 
             // Add amount_half - 5 to the epoch's reward pool. If there are pending rewards reward request will be sent to the heartbeat.
             if (reward_amount > 0)
@@ -745,13 +758,25 @@ int64_t hook(uint32_t reserved)
             ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
             trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
-            if (additional_reserve > 0)
+            // Invoke Governor to trigger on this condition.
+            if (linked_candidate_removal_reserve > 0 || orphan_candidate_removal_reserve > 0)
             {
-                // Prepare MIN XRP trigger transaction to governor about removing the dud host candidate.
-                PREPARE_REMOVE_LINKED_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, unique_id);
+                if (linked_candidate_removal_reserve > 0)
+                {
+                    COPY_32BYTES(candidate_remove_data, unique_id);
+                    candidate_remove_data[32] = CANDIDATE_ELECTED;
+                }
+                else
+                {
+                    GET_NEW_HOOK_CANDIDATE_ID(candidate_owner, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, candidate_remove_data);
+                    candidate_remove_data[32] = CANDIDATE_VETOED;
+                }
+
+                // Prepare MIN XRP trigger transaction to governor about removing the dud host or new hook candidate.
+                PREPARE_REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT(1, state_hook_accid, (linked_candidate_removal_reserve > 0 ? LINKED_CANDIDATE_REMOVE : ORPHAN_CANDIDATE_REMOVE), candidate_remove_data);
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
-                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_LINKED_CANDIDATE_MIN_PAYMENT)) >= 0);
+                ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
 
                 trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }

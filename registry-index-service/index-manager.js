@@ -486,6 +486,17 @@ class IndexManager {
                 case RegistryEvents.HostDeregistered:
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_DEREG.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
+
+                    // Remove new hook candidate created by that host.
+                    try {
+                        const orphanCandidate = await this.#governorClient.getCandidateByOwner(trx.Account);
+                        if (orphanCandidate) {
+                            const candidateIdStateKey = StateHelpers.generateCandidateIdStateKey(orphanCandidate.uniqueId);
+                            affectedStates.push({ operation: 'DELETE', key: candidateIdStateKey });
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
                     break;
                 case RegistryEvents.HostRegUpdated: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.HOST_UPDATE_REG.slice();
@@ -518,6 +529,17 @@ class IndexManager {
                 case RegistryEvents.DeadHostPrune: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DEAD_HOST_PRUNE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
+
+                    // Remove new hook candidate created by that host.
+                    try {
+                        const orphanCandidate = await this.#governorClient.getCandidateByOwner(data.host);
+                        if (orphanCandidate) {
+                            const candidateIdStateKey = StateHelpers.generateCandidateIdStateKey(orphanCandidate.uniqueId);
+                            affectedStates.push({ operation: 'DELETE', key: candidateIdStateKey });
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
                     break;
                 }
                 case RegistryEvents.HostRebate: {
@@ -548,6 +570,17 @@ class IndexManager {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.DUD_HOST_REMOVE.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyHostAddrId });
                     affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
+
+                    // Remove new hook candidate created by that host.
+                    try {
+                        const orphanCandidate = await this.#governorClient.getCandidateByOwner(data.host);
+                        if (orphanCandidate) {
+                            const candidateIdStateKey = StateHelpers.generateCandidateIdStateKey(orphanCandidate.uniqueId);
+                            affectedStates.push({ operation: 'DELETE', key: candidateIdStateKey });
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
                     break;
                 }
                 case GovernorEvents.DudHostStatusChanged: {

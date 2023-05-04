@@ -30,6 +30,7 @@
 #define DUD_HOST_REMOVE "evnDudHostRemove"
 #define DUD_HOST_REMOVE_RES "evnDudHostRmRes"
 #define LINKED_CANDIDATE_REMOVE "evnRemoveLinkedCandidate"
+#define ORPHAN_CANDIDATE_REMOVE "evnRemoveOrphanCandidate"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
