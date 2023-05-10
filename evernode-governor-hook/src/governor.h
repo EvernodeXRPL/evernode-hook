@@ -113,13 +113,6 @@ const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 24;
 const uint16_t NEW_MOMENT_SIZE = 3600;
 const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 
-// Domain related clear macros.
-
-#define CLEAR_MOMENT_TRANSIT_INFO(buf) \
-    CLEAR_8BYTES(buf);                 \
-    CLEAR_2BYTES((buf + 8));           \
-    CLEAR_BYTE((buf + 10))
-
 // Domain related empty check macros.
 
 #define IS_MOMENT_TRANSIT_INFO_EMPTY(buf) \

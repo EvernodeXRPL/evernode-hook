@@ -14,6 +14,13 @@ const uint32_t REWARD_REQ_REF_PARAM_OFFSET = 0;
 const uint32_t REWARD_REQ_HOST_PARAM_OFFSET = 32;
 const uint32_t REWARD_REQ_AMOUNT_PARAM_OFFSET = 52;
 
+// Domain related clear macros.
+
+#define CLEAR_MOMENT_TRANSIT_INFO(buf) \
+    CLEAR_8BYTES(buf);                 \
+    CLEAR_2BYTES((buf + 8));           \
+    CLEAR_BYTE((buf + 10))
+
 // IOU Payment with single memo (Reward).
 uint8_t REWARD_PAYMENT[345] = {
     0x12, 0x00, 0x00,                   // transaction_type(ttPAYMENT)
