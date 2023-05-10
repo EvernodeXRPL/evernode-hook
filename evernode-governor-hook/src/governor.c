@@ -72,58 +72,15 @@ int64_t hook(uint32_t reserved)
     // ASSERT_FAILURE_MSG >> Could not get moment size.
     ASSERT(!(moment_size_res < 0 && moment_size_res != DOESNT_EXIST));
 
-    ///////////////////////////////////////////////////////////////
-    /////// Moment transition related logic is handled here ///////
+    // <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>
+    uint8_t trx_fee_base_info[TRX_FEE_BASE_INFO_VAL_SIZE] = {0};
+    int fee_base_info_state_res = state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF);
 
-    // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
-    uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
-    int transition_state_res = state_foreign(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
+    // ASSERT_FAILURE_MSG >> Error getting transaction fee base info state.
+    ASSERT(!(fee_base_info_state_res < 0 && fee_base_info_state_res != DOESNT_EXIST));
 
-    // ASSERT_FAILURE_MSG >> Error getting moment size transaction info state.
-    ASSERT(!(transition_state_res < 0 && transition_state_res != DOESNT_EXIST));
-
-    if (transition_state_res >= 0)
-    {
-        // Begin : Moment size transition implementation.
-        // If there is a transition, transition_idx specifies a index value to perform that.
-        uint64_t transition_idx = UINT64_FROM_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET]);
-        if (transition_idx > 0 && cur_idx >= transition_idx)
-        {
-            uint8_t transit_moment_type = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
-
-            // Take the transition moment
-            const uint32_t transition_moment = GET_MOMENT(transition_idx);
-
-            // Add new moment size to the state.
-            const uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
-
-            // ASSERT_FAILURE_MSG >> Could not update the state for moment size.
-            ASSERT(state_foreign_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE), FOREIGN_REF) >= 0);
-
-            // Update the moment base info.
-            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], transition_idx);
-            UINT32_TO_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
-            moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
-
-            // ASSERT_FAILURE_MSG >> Could not set state for moment base info.
-            ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
-
-            moment_size = UINT16_FROM_BUF_LE(moment_size_ptr);
-            // Assign the transition state values with zeros.
-            CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for moment transition info.
-            ASSERT(state_foreign_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) >= 0);
-
-            moment_base_idx = transition_idx;
-            prev_transition_moment = transition_moment;
-            cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
-            cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
-        }
-        // End : Moment size transition implementation.
-    }
-
-    ///////////////////////////////////////////////////////////////
+    const int64_t cur_fee_base = fee_base();
+    const uint32_t fee_avg = (fee_base_info_state_res >= 0) ? UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET]) : cur_fee_base;
 
     // Get transaction hash(id).
     uint8_t txid[HASH_SIZE];
@@ -400,27 +357,6 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for governance info.
             ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
-
-            ///////////////////////////////////////////////////////////////
-            // Begin : Moment size transition implementation.
-            // Do the moment size transition. If new moment size is specified.
-            // Set Moment transition info with the configured value;
-            if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
-            {
-                // ASSERT_FAILURE_MSG >> There is an already scheduled moment size transition.
-                ASSERT(IS_MOMENT_TRANSIT_INFO_EMPTY(moment_transition_info));
-
-                const uint64_t next_moment_start_idx = GET_NEXT_MOMENT_START_INDEX(cur_idx);
-
-                UINT64_TO_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET], next_moment_start_idx);
-                UINT16_TO_BUF_LE(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
-                moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
-
-                // ASSERT_FAILURE_MSG >> Could not set state for moment transition info.
-                ASSERT(state_foreign_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) >= 0);
-            }
-            // End : Moment size transition implementation.
-            ///////////////////////////////////////////////////////////////
 
             redirect_op_type = OP_CHANGE_CONFIGURATION;
         }
@@ -872,6 +808,13 @@ int64_t hook(uint32_t reserved)
             // Set Moment transition info with the configured value;
             if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
             {
+                // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
+                uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
+                int transition_state_res = state_foreign(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
+
+                // ASSERT_FAILURE_MSG >> Error getting moment size transaction info state.
+                ASSERT(!(transition_state_res < 0 && transition_state_res != DOESNT_EXIST));
+
                 // ASSERT_FAILURE_MSG >> There is an already scheduled moment size transition.
                 ASSERT(IS_MOMENT_TRANSIT_INFO_EMPTY(moment_transition_info));
 
@@ -907,6 +850,17 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
             ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
+
+            if (fee_base_info_state_res == DOESNT_EXIST)
+            {
+                UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+                UINT16_TO_BUF_LE(trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
+                UINT64_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
+                UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
+
+                // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
+                ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+            }
 
             // PERMIT_MSG >> Assign/ Change configurations successfully.
             PERMIT();

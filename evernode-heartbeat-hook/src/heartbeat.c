@@ -69,6 +69,102 @@ int64_t hook(uint32_t reserved)
     uint16_t moment_size = 0;
     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
 
+    ///////////////////////////////////////////////////////////////
+    /////// Moment transition related logic is handled here ///////
+
+    // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
+    uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
+    int transition_state_res = state_foreign(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
+
+    // ASSERT_FAILURE_MSG >> Error getting moment size transaction info state.
+    ASSERT(!(transition_state_res < 0 && transition_state_res != DOESNT_EXIST));
+
+    if (transition_state_res >= 0)
+    {
+        // Begin : Moment size transition implementation.
+        // If there is a transition, transition_idx specifies a index value to perform that.
+        uint64_t transition_idx = UINT64_FROM_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET]);
+        if (transition_idx > 0 && cur_idx >= transition_idx)
+        {
+            uint8_t transit_moment_type = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
+
+            // Take the transition moment
+            const uint32_t transition_moment = GET_MOMENT(transition_idx);
+
+            // Add new moment size to the state.
+            const uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
+
+            // ASSERT_FAILURE_MSG >> Could not update the state for moment size.
+            ASSERT(state_foreign_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE), FOREIGN_REF) >= 0);
+
+            // Update the moment base info.
+            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], transition_idx);
+            UINT32_TO_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
+            moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
+
+            // ASSERT_FAILURE_MSG >> Could not set state for moment base info.
+            ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+
+            moment_size = UINT16_FROM_BUF_LE(moment_size_ptr);
+            // Assign the transition state values with zeros.
+            CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info);
+
+            // ASSERT_FAILURE_MSG >> Could not set state for moment transition info.
+            ASSERT(state_foreign_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) >= 0);
+
+            moment_base_idx = transition_idx;
+            prev_transition_moment = transition_moment;
+            cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+            cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
+        }
+        // End : Moment size transition implementation.
+    }
+
+    ///////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////
+    /////// Transaction fee base related logic handled here ///////
+
+    // <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>
+    uint8_t trx_fee_base_info[TRX_FEE_BASE_INFO_VAL_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Error getting transaction fee base info state.
+    ASSERT(state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+
+    const int64_t cur_fee_base = fee_base();
+    uint32_t fee_avg = UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
+    uint16_t counter = UINT16_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_COUNTER_OFFSET]);
+    uint64_t avg_changed_idx = UINT64_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET]);
+    uint32_t avg_accumulator = UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET]);
+
+    if (cur_fee_base > (1.5 * fee_avg) || cur_fee_base < (0.5 * fee_avg))
+    {
+        if (counter == 0)
+        {
+            avg_changed_idx = cur_idx;
+        }
+
+        avg_accumulator += cur_fee_base;
+        counter++;
+
+        if ((cur_idx - avg_changed_idx) > 3600 * 24)
+        {
+            fee_avg = avg_accumulator / counter;
+            avg_changed_idx = 0;
+            avg_accumulator = 0;
+            counter = 0;
+        }
+
+        UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+        UINT16_TO_BUF_LE(trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], counter);
+        UINT64_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], avg_changed_idx);
+        UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], avg_accumulator);
+
+        // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
+        ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+    }
+
+    ///////////////////////////////////////////////////////////////
+
     uint8_t event_type[MAX_EVENT_TYPE_SIZE];
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
     if (event_type_len == DOESNT_EXIST)
