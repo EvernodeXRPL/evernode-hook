@@ -851,6 +851,14 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
             ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
 
+            // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+            uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+            UINT32_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_PERIOD);
+            UINT16_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_AVERAGE);
+
+            // ASSERT_FAILURE_MSG >> Could not set state for network configuration.
+            ASSERT(state_foreign_set(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
+
             if (fee_base_info_state_res == DOESNT_EXIST)
             {
                 UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);

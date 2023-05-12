@@ -136,19 +136,27 @@ int64_t hook(uint32_t reserved)
     uint64_t avg_changed_idx = UINT64_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET]);
     uint32_t avg_accumulator = UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET]);
 
-    if (cur_fee_base > (1.5 * fee_avg) || cur_fee_base < (0.5 * fee_avg))
+    // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+    uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Error getting network configuration state.
+    ASSERT(state_foreign(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
+    const uint32_t network_busyness_detect_period = UINT32_FROM_BUF_LE(network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET]);
+    const uint16_t network_busyness_detect_average = UINT16_FROM_BUF_LE(network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]);
+
+    // Check whether the current fee base is increased or decreased to detect network changes
+    if ((100 * cur_fee_base) > ((100 + network_busyness_detect_average) * fee_avg) ||
+        (100 * cur_fee_base) < (network_busyness_detect_average * fee_avg))
     {
         if (counter == 0)
-        {
             avg_changed_idx = cur_idx;
-        }
 
         avg_accumulator += cur_fee_base;
         counter++;
 
-        if ((cur_idx - avg_changed_idx) > 3600 * 24)
+        // If fee stayed for threshold period adjust the average fee.
+        if ((cur_idx - avg_changed_idx) > network_busyness_detect_period)
         {
-            fee_avg = avg_accumulator / counter;
+            fee_avg = avg_accumulator / counter; // Average will be recorded in non xfl format.
             avg_changed_idx = 0;
             avg_accumulator = 0;
             counter = 0;
@@ -542,7 +550,7 @@ int64_t hook(uint32_t reserved)
                             supported_count++;
                     }
 
-                    if (voter_base_count > 0 && ((supported_count * 100) / voter_base_count > support_average))
+                    if (voter_base_count > 0 && ((supported_count * 100) > (voter_base_count * support_average)))
                         status = CANDIDATE_SUPPORTED;
 
                     // In co-piloted mode if foundation is not supported, we do not consider other participants' status.
