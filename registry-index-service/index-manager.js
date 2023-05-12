@@ -44,7 +44,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_BASE_INFO },
         { operation: 'UPDATE', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'UPDATE', key: HookStateKeys.MAX_REG },
-        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO }
+        { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO },
+        { operation: 'INSERT', key: HookStateKeys.TRX_FEE_BASE_INFO }
     ],
     INIT: [
         // Configs
@@ -63,6 +64,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.REGISTRY_ADDR },
         { operation: 'INSERT', key: HookStateKeys.HEARTBEAT_ADDR },
         { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
+        { operation: 'INSERT', key: HookStateKeys.NETWORK_CONFIGURATION },
 
         // Singleton
         { operation: 'INSERT', key: HookStateKeys.HOST_COUNT },
@@ -70,7 +72,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'INSERT', key: HookStateKeys.HOST_REG_FEE },
         { operation: 'INSERT', key: HookStateKeys.MAX_REG },
         { operation: 'INSERT', key: HookStateKeys.REWARD_INFO },
-        { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_INFO }
+        { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_INFO },
+        { operation: 'INSERT', key: HookStateKeys.TRX_FEE_BASE_INFO }
     ],
     CANDIDATE_PROPOSE: [
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
@@ -132,6 +135,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_TRANSIT_INFO },
+        { operation: 'INSERT', key: HookStateKeys.NETWORK_CONFIGURATION },
         
         // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_CANDIDATE_ID

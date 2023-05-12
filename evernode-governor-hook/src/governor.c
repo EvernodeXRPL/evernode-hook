@@ -80,7 +80,7 @@ int64_t hook(uint32_t reserved)
     ASSERT(!(fee_base_info_state_res < 0 && fee_base_info_state_res != DOESNT_EXIST));
 
     const int64_t cur_fee_base = fee_base();
-    const uint32_t fee_avg = (fee_base_info_state_res >= 0) ? UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET]) : cur_fee_base;
+    const uint32_t fee_avg = (fee_base_info_state_res >= 0) ? UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]) : (uint32_t)cur_fee_base;
 
     // Get transaction hash(id).
     uint8_t txid[HASH_SIZE];
@@ -861,10 +861,10 @@ int64_t hook(uint32_t reserved)
 
             if (fee_base_info_state_res == DOESNT_EXIST)
             {
-                UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
-                UINT16_TO_BUF_LE(trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
-                UINT64_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
-                UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
+                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+                UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
+                UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
+                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
 
                 // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
                 ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);

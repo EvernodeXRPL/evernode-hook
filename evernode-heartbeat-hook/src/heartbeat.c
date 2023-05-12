@@ -131,17 +131,17 @@ int64_t hook(uint32_t reserved)
     ASSERT(state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
 
     const int64_t cur_fee_base = fee_base();
-    uint32_t fee_avg = UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
-    uint16_t counter = UINT16_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_COUNTER_OFFSET]);
-    uint64_t avg_changed_idx = UINT64_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET]);
-    uint32_t avg_accumulator = UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET]);
+    uint32_t fee_avg = UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
+    uint16_t counter = UINT16_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET]);
+    uint64_t avg_changed_idx = UINT64_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET]);
+    uint32_t avg_accumulator = UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET]);
 
     // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
     uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
     // ASSERT_FAILURE_MSG >> Error getting network configuration state.
     ASSERT(state_foreign(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
-    const uint32_t network_busyness_detect_period = UINT32_FROM_BUF_LE(network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET]);
-    const uint16_t network_busyness_detect_average = UINT16_FROM_BUF_LE(network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]);
+    const uint32_t network_busyness_detect_period = UINT32_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET]);
+    const uint16_t network_busyness_detect_average = UINT16_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]);
 
     // Check whether the current fee base is increased or decreased to detect network changes
     if ((100 * cur_fee_base) > ((100 + network_busyness_detect_average) * fee_avg) ||
@@ -162,10 +162,10 @@ int64_t hook(uint32_t reserved)
             counter = 0;
         }
 
-        UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
-        UINT16_TO_BUF_LE(trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], counter);
-        UINT64_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], avg_changed_idx);
-        UINT32_TO_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], avg_accumulator);
+        UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+        UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], counter);
+        UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], avg_changed_idx);
+        UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], avg_accumulator);
 
         // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
         ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);

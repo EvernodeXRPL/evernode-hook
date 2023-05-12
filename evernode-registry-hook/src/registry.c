@@ -81,7 +81,7 @@ int64_t hook(uint32_t reserved)
     // ASSERT_FAILURE_MSG >> Could not get transaction fee base info state.
     ASSERT(state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
     const int64_t cur_fee_base = fee_base();
-    const uint32_t fee_avg = UINT32_FROM_BUF_LE(trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
+    const uint32_t fee_avg = UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
 
     // Take the moment size from config.
     uint16_t moment_size = 0;
