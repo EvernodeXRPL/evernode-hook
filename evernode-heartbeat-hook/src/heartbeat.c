@@ -145,7 +145,7 @@ int64_t hook(uint32_t reserved)
 
     // Check whether the current fee base is increased or decreased to detect network changes
     if ((100 * cur_fee_base) > ((100 + network_busyness_detect_average) * fee_avg) ||
-        (100 * cur_fee_base) < (network_busyness_detect_average * fee_avg))
+        ((100 + network_busyness_detect_average) * cur_fee_base) < (100 * fee_avg))
     {
         if (counter == 0)
             avg_changed_idx = cur_idx;
