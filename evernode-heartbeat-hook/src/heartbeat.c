@@ -143,6 +143,7 @@ int64_t hook(uint32_t reserved)
     const uint32_t network_busyness_detect_period = UINT32_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET]);
     const uint16_t network_busyness_detect_average = UINT16_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]);
 
+    int fee_base_info_changed = 0;
     // Check whether the current fee base is increased or decreased to detect network changes
     if ((100 * cur_fee_base) > ((100 + network_busyness_detect_average) * fee_avg) ||
         ((100 + network_busyness_detect_average) * cur_fee_base) < (100 * fee_avg))
@@ -163,6 +164,19 @@ int64_t hook(uint32_t reserved)
         }
 
         UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+        fee_base_info_changed = 1;
+    }
+    // If current fee base recovered, Reset the fee base info.
+    else if (counter != 0 || avg_changed_idx != 0 || avg_accumulator != 0)
+    {
+        counter = 0;
+        avg_changed_idx = 0;
+        avg_accumulator = 0;
+        fee_base_info_changed = 1;
+    }
+
+    if (fee_base_info_changed == 1)
+    {
         UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], counter);
         UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], avg_changed_idx);
         UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], avg_accumulator);
