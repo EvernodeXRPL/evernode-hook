@@ -74,13 +74,22 @@ int64_t hook(uint32_t reserved)
 
     // <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>
     uint8_t trx_fee_base_info[TRX_FEE_BASE_INFO_VAL_SIZE] = {0};
-    int fee_base_info_state_res = state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF);
+    const int fee_base_info_state_res = state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF);
 
     // ASSERT_FAILURE_MSG >> Error getting transaction fee base info state.
     ASSERT(!(fee_base_info_state_res < 0 && fee_base_info_state_res != DOESNT_EXIST));
 
     const int64_t cur_fee_base = fee_base();
     const uint32_t fee_avg = (fee_base_info_state_res >= 0) ? UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]) : (uint32_t)cur_fee_base;
+
+    // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+    uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+    const int net_config_state_res = state_foreign(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF);
+
+    // ASSERT_FAILURE_MSG >> Error getting network configuration state.
+    ASSERT(!(net_config_state_res < 0 && net_config_state_res != DOESNT_EXIST));
+
+    uint16_t network_busyness_detect_average = (net_config_state_res >= 0) ? UINT16_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]) : 0;
 
     // Get transaction hash(id).
     uint8_t txid[HASH_SIZE];
@@ -855,6 +864,7 @@ int64_t hook(uint32_t reserved)
             uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
             UINT32_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_PERIOD);
             UINT16_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_AVERAGE);
+            network_busyness_detect_average = DEF_NETWORK_BUSYNESS_DETECT_AVERAGE;
 
             // ASSERT_FAILURE_MSG >> Could not set state for network configuration.
             ASSERT(state_foreign_set(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);

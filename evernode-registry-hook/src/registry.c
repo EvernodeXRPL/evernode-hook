@@ -83,6 +83,12 @@ int64_t hook(uint32_t reserved)
     const int64_t cur_fee_base = fee_base();
     const uint32_t fee_avg = UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
 
+    // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+    uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Error getting network configuration state.
+    ASSERT(state_foreign(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
+    const uint16_t network_busyness_detect_average = UINT16_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]);
+
     // Take the moment size from config.
     uint16_t moment_size = 0;
     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
