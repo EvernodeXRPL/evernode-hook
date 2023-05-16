@@ -16,7 +16,8 @@
     "hookInitializer": {
         "address": "<Initializer xrpl account address>",
         "secret": "<Initializer xrpl account secret>"
-    }
+    },
+    "stateIndexId": "<Evernode firestore index id>"
   }
   ```
 

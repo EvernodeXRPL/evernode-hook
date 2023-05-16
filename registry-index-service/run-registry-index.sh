@@ -58,6 +58,7 @@ function create_service() {
                 WorkingDirectory=$(pwd)
                 Environment=\"DATA_DIR=$data_dir\"
                 Environment=\"ACTION=recover\"
+                Environment=\"MODE=vm\"
                 ExecStart=$(which node) $index $arg1
                 Restart=on-failure
                 RestartSec=5
@@ -125,6 +126,6 @@ elif [ ! -z "$arg2" ]; then # If 2nd param is given.
     exit 0
 fi
 
-DATA_DIR=$data_dir $(which node) $index $arg1
+MODE=$MODE DATA_DIR=$data_dir $(which node) $index $arg1
 
 exit 0
