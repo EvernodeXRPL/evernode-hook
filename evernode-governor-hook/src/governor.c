@@ -114,7 +114,6 @@ int64_t hook(uint32_t reserved)
 
     uint8_t origin_op_type = OP_NONE;
     uint8_t op_type = OP_NONE;
-    uint8_t redirect_op_type = OP_NONE;
 
     uint8_t source_is_foundation = 0;
     const uint64_t zero = 0;
@@ -378,7 +377,8 @@ int64_t hook(uint32_t reserved)
                 ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
             }
 
-            redirect_op_type = OP_CHANGE_CONFIGURATION;
+            origin_op_type = OP_INITIALIZE;
+            op_type = OP_CHANGE_CONFIGURATION;
         }
         else if (op_type == OP_PROPOSE)
         {
@@ -461,7 +461,9 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Trying to withdraw an already expired proposal.
             ASSERT(cur_ledger_timestamp - created_timestamp <= life_period);
 
-            redirect_op_type = OP_REMOVE;
+            event_data[HASH_SIZE] = CANDIDATE_WITHDRAWN;
+            origin_op_type = OP_WITHDRAW;
+            op_type = OP_STATUS_CHANGE;
         }
 
         else if (op_type == OP_REMOVE_LINKED_CANDIDATE)
@@ -479,7 +481,9 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> This host's state entry is not removed or it has not been transferred correctly.
             ASSERT((state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) <= 0 || host_addr[HOST_TRANSFER_FLAG_OFFSET] == TRANSFER_FLAG));
 
-            redirect_op_type = OP_REMOVE;
+            event_data[HASH_SIZE] = CANDIDATE_ELECTED;
+            origin_op_type = OP_REMOVE_LINKED_CANDIDATE;
+            op_type = OP_STATUS_CHANGE;
         }
         else if (op_type == OP_HOOK_UPDATE)
         {
@@ -527,7 +531,6 @@ int64_t hook(uint32_t reserved)
                 uint8_t emithash[HASH_SIZE];
                 // ASSERT_FAILURE_MSG >> Emitting set hook failed
                 ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) >= 0);
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 // Clear the proposal states.
                 governance_info[UPDATED_HOOK_COUNT_OFFSET] = 0;
@@ -542,7 +545,10 @@ int64_t hook(uint32_t reserved)
             ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
             if (updated_hook_count == 1)
-                redirect_op_type = OP_CHANGE_CONFIGURATION;
+            {
+                origin_op_type = OP_HOOK_UPDATE;
+                op_type = OP_CHANGE_CONFIGURATION;
+            }
             else
             {
                 // PERMIT_MSG >> Accepted the hook update response.
@@ -641,32 +647,6 @@ int64_t hook(uint32_t reserved)
             PERMIT();
         }
 
-        if (redirect_op_type == OP_REMOVE)
-        {
-            const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
-            const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
-
-            // Send the proposal fee to the owner.
-            etxn_reserve(1);
-            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, proposal_fee, (uint8_t *)(candidate_id + CANDIDATE_OWNER_ADDRESS_OFFSET));
-            uint8_t emithash[32];
-
-            // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
-            ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
-            // Clear the proposal states.
-            // ASSERT_FAILURE_MSG >> Could not delete the candidate id state.
-            ASSERT(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
-
-            // Dud host candidate does not have a owner state.
-            // ASSERT_FAILURE_MSG >> Could not delete the candidate owner state.
-            ASSERT(!(CANDIDATE_TYPE(event_data) == NEW_HOOK_CANDIDATE && (state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)));
-
-            // PERMIT-MSG >> Successfully removed candidate proposal.
-            PERMIT();
-        }
-
         if (op_type == OP_STATUS_CHANGE)
         {
             // We accept only the status change transaction from hook heartbeat account.
@@ -684,14 +664,14 @@ int64_t hook(uint32_t reserved)
             if (origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE)
             {
                 // ASSERT_FAILURE_MSG >> Invalid orphan candidate.
-                ASSERT((candidate_type == NEW_HOOK_CANDIDATE && vote_status == CANDIDATE_VETOED));
+                ASSERT((candidate_type == NEW_HOOK_CANDIDATE && vote_status == CANDIDATE_PURGED));
 
                 // If voting is already completed for this candidate handle accordingly
                 if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
                     vote_status = candidate_id[CANDIDATE_STATUS_OFFSET];
             }
             // If this is from heartbeat account, Candidate status should be equal to the the status sent.
-            else
+            else if (origin_op_type != OP_REMOVE_LINKED_CANDIDATE && origin_op_type != OP_WITHDRAW)
             {
                 // ASSERT_FAILURE_MSG >> Invalid status sent with the hook_params.
                 ASSERT(candidate_id[CANDIDATE_STATUS_OFFSET] == vote_status);
@@ -707,32 +687,16 @@ int64_t hook(uint32_t reserved)
                 const uint8_t *proposal_fee_ptr = &candidate_id[CANDIDATE_PROPOSAL_FEE_OFFSET];
                 const int64_t proposal_fee = INT64_FROM_BUF_LE(proposal_fee_ptr);
 
-                // If proposal expired 50% of proposal fee will be rebated to owner.
-                const int64_t reward_amount = (vote_status == CANDIDATE_ELECTED) ? 0 : (vote_status == CANDIDATE_EXPIRED) ? float_multiply(proposal_fee, float_set(-1, 5))
-                                                                                                                          : proposal_fee;
+                int64_t reward_amount = 0;
                 const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_idx);
 
                 uint8_t emithash[HASH_SIZE];
-                if (vote_status == CANDIDATE_VETOED || vote_status == CANDIDATE_EXPIRED)
+                if (vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAW)
                 {
-                    etxn_reserve(reward_amount > 0 ? 2 : 1);
-
-                    if (reward_amount > 0)
-                    {
-                        ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount);
-                        // Reading the heartbeat-hook account from states (Not yet set to states)
-                        uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
-
-                        // ASSERT_FAILURE_MSG >> Error getting heartbeat hook address from states.
-                        ASSERT(state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
-
-                        PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount, heartbeat_hook_accid, txid);
-
-                        // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
-                        ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
-
-                        trace(SBUF("emit hash: "), SBUF(emithash), 1);
-                    }
+                    // If proposal is purged proposal fee will be added to the reward pool.
+                    // If proposal is withdrawn 50% of proposal fee will be rebated to owner.
+                    reward_amount = (vote_status == CANDIDATE_PURGED) ? proposal_fee : float_multiply(proposal_fee, float_set(-1, 5));
+                    etxn_reserve(2);
 
                     // Clear the proposal states.
                     // ASSERT_FAILURE_MSG >> Could not delete the candidate id state.
@@ -744,7 +708,10 @@ int64_t hook(uint32_t reserved)
                 }
                 else if (vote_status == CANDIDATE_ELECTED)
                 {
-                    etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 3 : 2);
+                    // If proposal is withdrawn proposal fee will be rebated to owner.
+                    reward_amount = 0;
+                    etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 3 : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
+                                                                                                                         : 2);
 
                     if (candidate_type == NEW_HOOK_CANDIDATE)
                     {
@@ -768,18 +735,43 @@ int64_t hook(uint32_t reserved)
                     }
                     else
                     {
-                        PREPARE_DUD_HOST_REMOVE_TX(1, registry_accid, DUD_HOST_REMOVE, (uint8_t *)(STP_CANDIDATE_ID + DUD_HOST_CANDID_ADDRESS_OFFSET));
-                        // ASSERT_FAILURE_MSG >> Emitting registry dud host removal trigger failed.
-                        ASSERT(emit(SBUF(emithash), SBUF(DUD_HOST_REMOVE_TX)) >= 0);
+                        if (origin_op_type == OP_REMOVE_LINKED_CANDIDATE)
+                        {
+                            // Clear the proposal states.
+                            // Dud host candidate does not have a owner state.
+                            // ASSERT_FAILURE_MSG >> Could not delete the candidate id state.
+                            ASSERT(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
+                        }
+                        else
+                        {
+                            PREPARE_DUD_HOST_REMOVE_TX(1, registry_accid, DUD_HOST_REMOVE, (uint8_t *)(STP_CANDIDATE_ID + DUD_HOST_CANDID_ADDRESS_OFFSET));
+                            // ASSERT_FAILURE_MSG >> Emitting registry dud host removal trigger failed.
+                            ASSERT(emit(SBUF(emithash), SBUF(DUD_HOST_REMOVE_TX)) >= 0);
+                        }
                     }
                 }
 
-                if (vote_status == CANDIDATE_ELECTED || vote_status == CANDIDATE_VETOED || vote_status == CANDIDATE_EXPIRED)
+                if (reward_amount > 0)
+                {
+                    ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount);
+                    // Reading the heartbeat-hook account from states (Not yet set to states)
+                    uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
+
+                    // ASSERT_FAILURE_MSG >> Error getting heartbeat hook address from states.
+                    ASSERT(state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
+
+                    PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount, heartbeat_hook_accid, txid);
+
+                    // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
+                    ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
+                }
+
+                if (vote_status == CANDIDATE_ELECTED || vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAWN)
                 {
                     const int64_t rebate_amount = float_sum(proposal_fee, float_negate(reward_amount));
                     uint8_t *tx_ptr;
                     uint32_t tx_size;
-                    const uint8_t *res_event_data_ptr = ((vote_status == CANDIDATE_VETOED) ? CANDIDATE_VETOED_RES : ((vote_status == CANDIDATE_ELECTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_EXPIRY_RES));
+                    const uint8_t *res_event_data_ptr = ((vote_status == CANDIDATE_PURGED) ? CANDIDATE_PURGED_RES : ((vote_status == CANDIDATE_ELECTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_REMOVE_RES));
                     if (float_compare(rebate_amount, float_set(0, 0), COMPARE_GREATER) == 1)
                     {
                         PREPARE_CANDIDATE_REBATE_PAYMENT_TX(rebate_amount, candidate_id, res_event_data_ptr, event_data);
@@ -794,15 +786,9 @@ int64_t hook(uint32_t reserved)
                     }
                     // ASSERT_FAILURE_MSG >> EVR funding to candidate account failed.
                     ASSERT(emit(SBUF(emithash), tx_ptr, tx_size) >= 0);
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
                 }
 
-                if (candidate_type == NEW_HOOK_CANDIDATE)
-                {
-                    PERMIT_M("Evernode: New hook candidate status changed.", vote_status);
-                }
-
-                PERMIT_M("Evernode: Dud host candidate status changed.", vote_status);
+                PERMIT_M((candidate_type == NEW_HOOK_CANDIDATE ? "Evernode: New hook candidate status changed." : "Evernode: Dud host candidate status changed."), vote_status);
             }
             else if (candidate_type == PILOTED_MODE_CANDIDATE && vote_status == CANDIDATE_ELECTED)
             {
@@ -820,7 +806,7 @@ int64_t hook(uint32_t reserved)
             }
         }
 
-        if (redirect_op_type == OP_CHANGE_CONFIGURATION)
+        if (op_type == OP_CHANGE_CONFIGURATION)
         {
             ///////////////////////////////////////////////////////////////
             // Begin : Moment size transition implementation.

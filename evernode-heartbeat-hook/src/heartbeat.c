@@ -469,7 +469,6 @@ int64_t hook(uint32_t reserved)
             uint8_t emithash[HASH_SIZE];
             // ASSERT_FAILURE_MSG >> Emitting txn failed
             ASSERT(emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) >= 0);
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             if (redirect_op_type != OP_VOTE)
             {
@@ -521,19 +520,12 @@ int64_t hook(uint32_t reserved)
             uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];
             uint64_t status_changed_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);
 
-            // If this is piloted mode candidate we treat differently, we do not expire or reject event if there's already elected candidate.
-            // If there is a recently closed election. This voted candidate will be vetoed. (If that candidate was created before the election completion timestamp)
+            // If this is piloted mode candidate we treat differently.
+            // If there is a recently closed election or if the candidate's life period is passed. This voted candidate will be purged.
             if ((candidate_type != PILOTED_MODE_CANDIDATE) &&
-                (last_election_completed_timestamp > created_timestamp) &&
-                (last_election_completed_timestamp < (created_timestamp + life_period)))
+                (last_election_completed_timestamp > created_timestamp || cur_ledger_timestamp - created_timestamp > life_period))
             {
-                status = CANDIDATE_VETOED;
-            }
-            // If the candidate is older than the life period destroy the candidate and rebate the half of staked EVRs.
-            else if ((candidate_type != PILOTED_MODE_CANDIDATE) &&
-                     (cur_ledger_timestamp - created_timestamp > life_period))
-            {
-                status = CANDIDATE_EXPIRED;
+                status = CANDIDATE_PURGED;
             }
             // If this is a new moment, Evaluate the votes and vote statuses. Then reset the votes for the next moment.
             else if (cur_moment > last_vote_moment)
@@ -587,9 +579,9 @@ int64_t hook(uint32_t reserved)
                 supported_count = 0;
             }
 
-            // If the candidate is not vetoed and expired and it fulfils the time period to get elected or vetoed.
-            if (status != CANDIDATE_VETOED && status != CANDIDATE_EXPIRED && (cur_ledger_timestamp - status_changed_timestamp) > election_period)
-                status = (cur_status == CANDIDATE_SUPPORTED) ? CANDIDATE_ELECTED : CANDIDATE_VETOED;
+            // If the candidate is not purged and it fulfils the time period to get elected.
+            if (status != CANDIDATE_PURGED && (cur_ledger_timestamp - status_changed_timestamp) > election_period && cur_status == CANDIDATE_SUPPORTED)
+                status = CANDIDATE_ELECTED;
 
             if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(status) : (status == CANDIDATE_ELECTED))
             {
@@ -605,7 +597,6 @@ int64_t hook(uint32_t reserved)
 
                 // ASSERT_FAILURE_MSG >> Emitting txn failed
                 ASSERT(emit(SBUF(emithash), SBUF(CANDIDATE_STATUS_CHANGE_MIN_PAYMENT_TX)) >= 0);
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
             else
             {
