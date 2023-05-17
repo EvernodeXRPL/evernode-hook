@@ -2,13 +2,13 @@
 #define CONSTANTS_INCLUDED 1
 
 #define HOST_REG "evnHostReg"
-#define HOST_DE_REG "evnHostDereg"
-#define HOST_DE_REG_RES "evnHostDeregRes"
+#define HOST_DEREG "evnHostDereg"
+#define HOST_DEREG_SELF_RES "evnHostDeregSelfRes"
 #define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
-#define DEAD_HOST_PRUNE_RES "evnHostPruneRes"
+#define DEAD_HOST_PRUNE_RES "evnDeadHostPruneRes"
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
@@ -28,7 +28,7 @@
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
 #define DUD_HOST_REMOVE "evnDudHostRemove"
-#define DUD_HOST_REMOVE_RES "evnDudHostRmRes"
+#define DUD_HOST_REMOVE_RES "evnDudHostRemoveRes"
 #define LINKED_CANDIDATE_REMOVE "evnRemoveLinkedCandidate"
 #define ORPHAN_CANDIDATE_REMOVE "evnRemoveOrphanCandidate"
 

@@ -7,7 +7,7 @@
 #include "../../headers/transactions.h"
 
 #define OP_HOST_REG 1
-#define OP_HOST_DE_REG 2
+#define OP_HOST_DEREG 2
 #define OP_HOST_UPDATE_REG 3
 #define OP_DEAD_HOST_PRUNE 4
 #define OP_HOST_REBATE 5
@@ -52,10 +52,10 @@ const uint32_t HOST_UPDATE_VERSION_PARAM_OFFSET = 80;
      BUFFER_EQUAL_8(buf, HOST_REG) && \
      BUFFER_EQUAL_2((buf + 8), (HOST_REG + 8)))
 
-#define EQUAL_HOST_DE_REG(buf, len)      \
-    (sizeof(HOST_DE_REG) == (len + 1) && \
-     BUFFER_EQUAL_8(buf, HOST_DE_REG) && \
-     BUFFER_EQUAL_4((buf + 8), (HOST_DE_REG + 8)))
+#define EQUAL_HOST_DEREG(buf, len)      \
+    (sizeof(HOST_DEREG) == (len + 1) && \
+     BUFFER_EQUAL_8(buf, HOST_DEREG) && \
+     BUFFER_EQUAL_4((buf + 8), (HOST_DEREG + 8)))
 
 #define EQUAL_HOST_UPDATE_REG(buf, len)      \
     (sizeof(HOST_UPDATE_REG) == (len + 1) && \
@@ -129,7 +129,7 @@ const uint32_t HOST_UPDATE_VERSION_PARAM_OFFSET = 80;
 /**************************************************************************/
 
 // Simple XRP Payment with single memo (De reg/Prune/Dud Host).
-uint8_t REMOVED_HOST_RES_MIN_PAYMENT[380] = {
+uint8_t REMOVED_HOST_RES_MIN_PAYMENT[384] = {
     0x12, 0x00, 0x00,                                     // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,                         // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,                         // TAG_SOURCE
@@ -150,20 +150,20 @@ uint8_t REMOVED_HOST_RES_MIN_PAYMENT[380] = {
     0x70,       // Blob start marker
     0x18, 0x20, // Parameter name length 32 bytes
     0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                   // Parameter name
-    0x70,                                                                                     // Blob start marker
-    0x19, 0x0F,                                                                               // Parameter value length 15 bytes
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (15 bytes) offset 174
-    0xE1,                                                                                     // Hook parameter object end marker
-    0xE0, 0x17,                                                                               // Hook parameter object start marker
-    0x70,                                                                                     // Blob start marker
-    0x18, 0x20,                                                                               // Parameter name length 32 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                                           // Parameter name
+    0x70,                                                                                                             // Blob start marker
+    0x19, 0x13,                                                                                                       // Parameter value length 19 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (19 bytes) offset 174
+    0xE1,                                                                                                             // Hook parameter object end marker
+    0xE0, 0x17,                                                                                                       // Hook parameter object start marker
+    0x70,                                                                                                             // Blob start marker
+    0x18, 0x20,                                                                                                       // Parameter name length 32 bytes
     0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
     0x70,                                                                   // Blob start marker
     0x19, 0x20,                                                             // Parameter value length 32 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 230
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 234
     0xE1,                                                                   // Hook parameter object end marker
     0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -171,7 +171,7 @@ uint8_t REMOVED_HOST_RES_MIN_PAYMENT[380] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 264
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 268
 };
 
 #define REMOVED_HOST_RES_COMMON(buf_out, to_address, param_1, param_2) \
@@ -179,10 +179,10 @@ uint8_t REMOVED_HOST_RES_MIN_PAYMENT[380] = {
         COPY_20BYTES((buf_out), hook_accid);                           \
         COPY_20BYTES((buf_out + 22), to_address);                      \
         COPY_8BYTES((buf_out + 84), param_1);                          \
-        COPY_4BYTES((buf_out + 84 + 8), param_1 + 8);                  \
-        COPY_2BYTES((buf_out + 84 + 12), param_1 + 12);                \
-        COPY_BYTE((buf_out + 84 + 14), param_1 + 14);                  \
-        COPY_32BYTES((buf_out + 140), param_2);                        \
+        COPY_8BYTES((buf_out + 84 + 8), param_1 + 8);                  \
+        COPY_2BYTES((buf_out + 84 + 16), param_1 + 16);                \
+        COPY_BYTE((buf_out + 84 + 18), param_1 + 18);                  \
+        COPY_32BYTES((buf_out + 144), param_2);                        \
     }
 
 #define REMOVED_HOST_RES_MIN_PAYMENT_TX_SIZE \
@@ -195,14 +195,14 @@ uint8_t REMOVED_HOST_RES_MIN_PAYMENT[380] = {
         uint8_t *buf_ptr = (buf_out + 35);                                                  \
         _06_01_ENCODE_DROPS_AMOUNT(buf_ptr, drops_amount);                                  \
         REMOVED_HOST_RES_COMMON((buf_out + 90), to_address, param_1, param_2);              \
-        etxn_details((buf_out + 264), 116);                                                 \
+        etxn_details((buf_out + 268), 116);                                                 \
         int64_t fee = etxn_fee_base(buf_out, REMOVED_HOST_RES_MIN_PAYMENT_TX_SIZE);         \
         buf_ptr = buf_out + 44;                                                             \
         CHECK_AND_ENCODE_FINAL_TRX_FEE(buf_ptr, fee);                                       \
     }
 
 // IOU Payment with single memo (De reg/Prune/Dud Host).
-uint8_t REMOVED_HOST_RES_PAYMENT[420] = {
+uint8_t REMOVED_HOST_RES_PAYMENT[424] = {
     0x12, 0x00, 0x00,                   // transaction_type(ttPAYMENT)
     0x22, 0x80, 0x00, 0x00, 0x00,       // flags(tfCANONICAL)
     0x23, 0x00, 0x00, 0x00, 0x00,       // TAG_SOURCE
@@ -225,20 +225,20 @@ uint8_t REMOVED_HOST_RES_PAYMENT[420] = {
     0x70,       // Blob start marker
     0x18, 0x20, // Parameter name length 32 bytes
     0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                   // Parameter name
-    0x70,                                                                                     // Blob start marker
-    0x19, 0x0F,                                                                               // Parameter value length 15 bytes
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (15 bytes) offset 214
-    0xE1,                                                                                     // Hook parameter object end marker
-    0xE0, 0x17,                                                                               // Hook parameter object start marker
-    0x70,                                                                                     // Blob start marker
-    0x18, 0x20,                                                                               // Parameter name length 32 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                                           // Parameter name
+    0x70,                                                                                                             // Blob start marker
+    0x19, 0x13,                                                                                                       // Parameter value length 19 bytes
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (19 bytes) offset 214
+    0xE1,                                                                                                             // Hook parameter object end marker
+    0xE0, 0x17,                                                                                                       // Hook parameter object start marker
+    0x70,                                                                                                             // Blob start marker
+    0x18, 0x20,                                                                                                       // Parameter name length 32 bytes
     0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // Parameter name
     0x70,                                                                   // Blob start marker
     0x19, 0x20,                                                             // Parameter value length 32 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 270
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Data (32 bytes) offset 274
     0xE1,                                                                   // Hook parameter object end marker
     0xF1,                                                                   // Hook parameter array end marker
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -246,7 +246,7 @@ uint8_t REMOVED_HOST_RES_PAYMENT[420] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 304
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // emit_details(116) - Added on prepare to offset 308
 };
 
 #define REMOVED_HOST_RES_PAYMENT_TX_SIZE \
@@ -258,7 +258,7 @@ uint8_t REMOVED_HOST_RES_PAYMENT[420] = {
         UINT32_TO_BUF((buf_out + 31), cur_ledger_seq + 5);                            \
         SET_AMOUNT_OUT((buf_out + 35), EVR_TOKEN, issuer_accid, evr_amount);          \
         REMOVED_HOST_RES_COMMON((buf_out + 130), to_address, param_1, param_2);       \
-        etxn_details((buf_out + 304), 116);                                           \
+        etxn_details((buf_out + 308), 116);                                           \
         int64_t fee = etxn_fee_base(buf_out, REMOVED_HOST_RES_PAYMENT_TX_SIZE);       \
         uint8_t *fee_ptr = buf_out + 84;                                              \
         CHECK_AND_ENCODE_FINAL_TRX_FEE(fee_ptr, fee);                                 \
