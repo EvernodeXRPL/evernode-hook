@@ -10,7 +10,8 @@
         "build:hook": "npm --prefix ../ i && npm run --prefix ../ build && cp -r ../dist/* dist/",
         "build:self": "npm i && npm run lint && ncc build index-manager.js --minify -o dist",
         "build": "npm run build:self && npm run build:accsetup && npm run build:hook",
-        "bundle": "rm -rf dist && npm run build && cp -r dist registry-index && cp index-manager.json registry-index/ && cp -r service-acc registry-index/ && cp run-registry-index.sh registry-index/ && tar cfz dist/registry-index.tar.gz registry-index && rm -r registry-index"
+        "bundle": "rm -rf dist && npm run build && cp -r dist registry-index && cp index-manager.json$([ -z $npm_config_mode ] || [ $npm_config_mode = 'dev' ] || echo .$npm_config_mode) registry-index/ && mkdir registry-index/service-acc && cp -r service-acc/firebase-sa-key.json$([ -z $npm_config_mode ] || [ $npm_config_mode = 'dev' ] || echo .$npm_config_mode) registry-index/service-acc && cp run-registry-index.sh registry-index/ && ([ -z $npm_config_mode ] || [ $npm_config_mode = 'dev' ] || echo $npm_config_mode > registry-index/.env) && tar cfz dist/registry-index.tar.gz registry-index && rm -r registry-index",
+        "bundle:beta": "npm run bundle --mode=beta"
     },
     "keywords": [],
     "author": "",
