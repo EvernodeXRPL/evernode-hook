@@ -310,33 +310,41 @@ int64_t hook(uint32_t reserved)
             uint8_t *registry_hook_ptr = event_data + (2 * ACCOUNT_ID_SIZE);
             uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
 
+            int already_initialized = 0; // For Beta test purposes
+
             // First check if the states are already initialized by checking lastly added state key for existence.
-            if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
+            if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST)
             {
+                already_initialized = 1;
+
                 const uint64_t zero = 0;
                 // Initialize the state.
-                //// Configuration states. ////
+            }
 
-                // ASSERT_FAILURE_MSG >> Could not set state for issuer account.
-                ASSERT(state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
+            //// Configuration states. ////
 
-                // ASSERT_FAILURE_MSG >> Could not set state for foundation account.
-                ASSERT(state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for issuer account.
+            ASSERT(state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for heartbeat hook account.
-                ASSERT(state_foreign_set(heartbeat_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for foundation account.
+            ASSERT(state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
-                ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not set state for heartbeat hook account.
+            ASSERT(state_foreign_set(heartbeat_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
 
-                SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
-                moment_size = DEF_MOMENT_SIZE;
+            // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
+            ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
 
-                reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
-                UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
-                UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
-                UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+            moment_size = DEF_MOMENT_SIZE;
 
+            reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
+            UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
+            UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
+            UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+
+            if (already_initialized == 0)
+            {
                 // Singleton states. ////
 
                 SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
@@ -367,15 +375,16 @@ int64_t hook(uint32_t reserved)
                 ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
             }
 
-            if (fee_base_info_state_res == DOESNT_EXIST)
+            if (already_initialized == 1)
             {
-                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
-                UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
-                UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
-                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
+                // goverannce flow
+                UINT32_TO_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
+                UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
+                UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
+                UINT16_TO_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
-                ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+                // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
+                ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
             }
 
             redirect_op_type = OP_CHANGE_CONFIGURATION;
@@ -863,14 +872,6 @@ int64_t hook(uint32_t reserved)
             SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
             SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
 
-            UINT32_TO_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
-            UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
-            UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
-            UINT16_TO_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET], DEF_CANDIDATE_SUPPORT_AVERAGE);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
-            ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
-
             // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
             uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
             UINT32_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_PERIOD);
@@ -879,6 +880,17 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for network configuration.
             ASSERT(state_foreign_set(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
+
+            if (fee_base_info_state_res == DOESNT_EXIST)
+            {
+                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+                UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
+                UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
+                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
+
+                // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
+                ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+            }
 
             // PERMIT_MSG >> Assign/ Change configurations successfully.
             PERMIT();
