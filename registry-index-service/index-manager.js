@@ -22,15 +22,15 @@ const INIT_EVENT_TYPE = "evnInitialize"; // This is kept only here as a constant
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
 const NETWORK_ID = process.env.NETWORK_ID || 21338;
-const MODE = process.env.MODE || 'dev';
+const ENV = process.env.ENV || 'dev';
 const ACTION = process.env.ACTION || 'run';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
 const ACCOUNT_CONFIG_FILE = 'accounts.json';
-const CONFIG_FILE = `index-manager.json${MODE == 'dev' ? '.dev' : ''}`;
+const CONFIG_FILE = `index-manager.json${ENV === 'dev' ? '' : `.${ENV}`}`;
 const HOOK_DATA_DIR = DATA_DIR + '/data';
-const FIREBASE_SEC_KEY_PATH = DATA_DIR + `/service-acc/firebase-sa-key.json${MODE == 'dev' ? '.dev' : ''}`;
+const FIREBASE_SEC_KEY_PATH = DATA_DIR + `/service-acc/firebase-sa-key.json${ENV === 'dev' ? '' : `.${ENV}`}`;
 
 const TOKEN_WAIT_TIMEOUT = 80;
 const MAX_BATCH_SIZE = 500;
