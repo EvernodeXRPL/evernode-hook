@@ -439,7 +439,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             last_active_idx = registration_timestamp;                                                                                                  \
         const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;                                                                     \
                                                                                                                                                        \
-        /* Take the maximun tolerable downtime from config. */                                                                                         \
+        /* Take the maximum tolerable downtime from config. */                                                                                         \
         uint16_t max_tolerable_downtime;                                                                                                               \
         GET_CONF_VALUE(max_tolerable_downtime, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state."); \
                                                                                                                                                        \

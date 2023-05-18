@@ -130,7 +130,6 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
         { operation: 'UPDATE', key: HookStateKeys.LEASE_ACQUIRE_WINDOW },
         { operation: 'UPDATE', key: HookStateKeys.MAX_TOLERABLE_DOWNTIME },
-        { operation: 'UPDATE', key: HookStateKeys.EMIT_FEE_THRESHOLD },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_TRANSIT_INFO },
@@ -414,7 +413,7 @@ class IndexManager {
 
         const candidateEvents = [
             GovernorEvents.CandidateProposed,
-            GovernorEvents.CandidateWithdrew,
+            GovernorEvents.CandidateWithdrawn,
             GovernorEvents.ChildHookUpdated,
             GovernorEvents.DudHostReported,
             GovernorEvents.DudHostRemoved,
@@ -564,7 +563,7 @@ class IndexManager {
                     affectedStates.push({ operation: 'UPDATE', key: stateKeyCandidateOwner });
                     break;
                 }
-                case GovernorEvents.CandidateWithdrew: {
+                case GovernorEvents.CandidateWithdrawn: {
                     affectedStates = AFFECTED_HOOK_STATE_MAP.CANDIDATE_WITHDRAW.slice();
                     affectedStates.push({ operation: 'DELETE', key: stateKeyCandidateId });
                     break;

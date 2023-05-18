@@ -246,7 +246,7 @@ int64_t hook(uint32_t reserved)
         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-        if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE)
+        if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW)
         {
             // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
             ASSERT(!(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
@@ -468,9 +468,6 @@ int64_t hook(uint32_t reserved)
 
         else if (op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
-            // ASSERT_FAILURE_MSG >> Candidate removal request trx has not being initiated via registry.
-            ASSERT(BUFFER_EQUAL_20(registry_accid, account_field));
-
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
             // ASSERT_FAILURE_MSG >> Provided candidate is not a dud host candidate.
             ASSERT(candidate_type == DUD_HOST_CANDIDATE);
@@ -649,10 +646,13 @@ int64_t hook(uint32_t reserved)
 
         if (op_type == OP_STATUS_CHANGE)
         {
-            // We accept only the status change transaction from hook heartbeat account.
-
-            // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or the registry account (for orphan candidates).
-            ASSERT(BUFFER_EQUAL_20(((origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE) ? registry_accid : heartbeat_accid), account_field));
+            // If this operation is redirected from withdraw ownership check is already done.
+            if (origin_op_type != OP_WITHDRAW)
+            {
+                // We accept only the status change transaction from hook heartbeat account or registry account.
+                // ASSERT_FAILURE_MSG >> Status change is only allowed from heartbeat account or the registry account (for orphan candidates).
+                ASSERT(BUFFER_EQUAL_20(((origin_op_type == OP_NONE) ? heartbeat_accid : registry_accid), account_field));
+            }
 
             const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
@@ -691,7 +691,7 @@ int64_t hook(uint32_t reserved)
                 const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_idx);
 
                 uint8_t emithash[HASH_SIZE];
-                if (vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAW)
+                if (vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAWN)
                 {
                     // If proposal is purged proposal fee will be added to the reward pool.
                     // If proposal is withdrawn 50% of proposal fee will be rebated to owner.
