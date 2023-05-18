@@ -72,58 +72,24 @@ int64_t hook(uint32_t reserved)
     // ASSERT_FAILURE_MSG >> Could not get moment size.
     ASSERT(!(moment_size_res < 0 && moment_size_res != DOESNT_EXIST));
 
-    ///////////////////////////////////////////////////////////////
-    /////// Moment transition related logic is handled here ///////
+    // <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>
+    uint8_t trx_fee_base_info[TRX_FEE_BASE_INFO_VAL_SIZE] = {0};
+    const int fee_base_info_state_res = state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF);
 
-    // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
-    uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
-    int transition_state_res = state_foreign(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
+    // ASSERT_FAILURE_MSG >> Error getting transaction fee base info state.
+    ASSERT(!(fee_base_info_state_res < 0 && fee_base_info_state_res != DOESNT_EXIST));
 
-    // ASSERT_FAILURE_MSG >> Error getting moment size transaction info state.
-    ASSERT(!(transition_state_res < 0 && transition_state_res != DOESNT_EXIST));
+    const int64_t cur_fee_base = fee_base();
+    const uint32_t fee_avg = (fee_base_info_state_res >= 0) ? UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]) : (uint32_t)cur_fee_base;
 
-    if (transition_state_res >= 0)
-    {
-        // Begin : Moment size transition implementation.
-        // If there is a transition, transition_idx specifies a index value to perform that.
-        uint64_t transition_idx = UINT64_FROM_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET]);
-        if (transition_idx > 0 && cur_idx >= transition_idx)
-        {
-            uint8_t transit_moment_type = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
+    // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+    uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+    const int net_config_state_res = state_foreign(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF);
 
-            // Take the transition moment
-            const uint32_t transition_moment = GET_MOMENT(transition_idx);
+    // ASSERT_FAILURE_MSG >> Error getting network configuration state.
+    ASSERT(!(net_config_state_res < 0 && net_config_state_res != DOESNT_EXIST));
 
-            // Add new moment size to the state.
-            const uint8_t *moment_size_ptr = &moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET];
-
-            // ASSERT_FAILURE_MSG >> Could not update the state for moment size.
-            ASSERT(state_foreign_set(moment_size_ptr, 2, SBUF(CONF_MOMENT_SIZE), FOREIGN_REF) >= 0);
-
-            // Update the moment base info.
-            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], transition_idx);
-            UINT32_TO_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET], transition_moment);
-            moment_base_info[MOMENT_TYPE_OFFSET] = moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET];
-
-            // ASSERT_FAILURE_MSG >> Could not set state for moment base info.
-            ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
-
-            moment_size = UINT16_FROM_BUF_LE(moment_size_ptr);
-            // Assign the transition state values with zeros.
-            CLEAR_MOMENT_TRANSIT_INFO(moment_transition_info);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for moment transition info.
-            ASSERT(state_foreign_set(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) >= 0);
-
-            moment_base_idx = transition_idx;
-            prev_transition_moment = transition_moment;
-            cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
-            cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
-        }
-        // End : Moment size transition implementation.
-    }
-
-    ///////////////////////////////////////////////////////////////
+    uint16_t network_busyness_detect_average = (net_config_state_res >= 0) ? UINT16_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]) : 0;
 
     // Get transaction hash(id).
     uint8_t txid[HASH_SIZE];
@@ -345,82 +311,72 @@ int64_t hook(uint32_t reserved)
             uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
 
             // First check if the states are already initialized by checking lastly added state key for existence.
-            // ASSERT_FAILURE_MSG >> States are already initialized.
-            ASSERT(!(state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST));
-
-            const uint64_t zero = 0;
-            // Initialize the state.
-            //// Configuration states. ////
-
-            // ASSERT_FAILURE_MSG >> Could not set state for issuer account.
-            ASSERT(state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for foundation account.
-            ASSERT(state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for heartbeat hook account.
-            ASSERT(state_foreign_set(heartbeat_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
-            ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
-
-            SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
-            moment_size = DEF_MOMENT_SIZE;
-
-            reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
-            UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
-            UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
-            UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
-
-            // Singleton states. ////
-
-            SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
-            SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
-            SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
-
-            moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
-            UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
-            moment_base_idx = cur_idx;
-
-            // ASSERT_FAILURE_MSG >> Could not initialize state for moment base info.
-            ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
-
-            const uint32_t cur_moment = GET_MOMENT(cur_idx);
-            reward_info[EPOCH_OFFSET] = 1;
-            UINT32_TO_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
-            UINT32_TO_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-            UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
-            const int64_t epoch_pool = float_set(0, DEF_EPOCH_REWARD_AMOUNT);
-            INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], epoch_pool);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for reward info.
-            ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
-
-            governance_info[EPOCH_OFFSET] = PILOTED;
-
-            // ASSERT_FAILURE_MSG >> Could not set state for governance info.
-            ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
-
-            ///////////////////////////////////////////////////////////////
-            // Begin : Moment size transition implementation.
-            // Do the moment size transition. If new moment size is specified.
-            // Set Moment transition info with the configured value;
-            if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
+            if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
             {
-                // ASSERT_FAILURE_MSG >> There is an already scheduled moment size transition.
-                ASSERT(IS_MOMENT_TRANSIT_INFO_EMPTY(moment_transition_info));
+                const uint64_t zero = 0;
+                // Initialize the state.
+                //// Configuration states. ////
 
-                const uint64_t next_moment_start_idx = GET_NEXT_MOMENT_START_INDEX(cur_idx);
+                // ASSERT_FAILURE_MSG >> Could not set state for issuer account.
+                ASSERT(state_foreign_set(issuer_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
 
-                UINT64_TO_BUF_LE(&moment_transition_info[TRANSIT_IDX_OFFSET], next_moment_start_idx);
-                UINT16_TO_BUF_LE(&moment_transition_info[TRANSIT_MOMENT_SIZE_OFFSET], NEW_MOMENT_SIZE);
-                moment_transition_info[TRANSIT_MOMENT_TYPE_OFFSET] = NEW_MOMENT_TYPE;
+                // ASSERT_FAILURE_MSG >> Could not set state for foundation account.
+                ASSERT(state_foreign_set(foundation_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
 
-                // ASSERT_FAILURE_MSG >> Could not set state for moment transition info.
-                ASSERT(state_foreign_set(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF) >= 0);
+                // ASSERT_FAILURE_MSG >> Could not set state for heartbeat hook account.
+                ASSERT(state_foreign_set(heartbeat_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
+
+                // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
+                ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
+
+                SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
+                moment_size = DEF_MOMENT_SIZE;
+
+                reward_configuration[EPOCH_COUNT_OFFSET] = DEF_EPOCH_COUNT;
+                UINT32_TO_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET], DEF_FIRST_EPOCH_REWARD_QUOTA);
+                UINT32_TO_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET], DEF_EPOCH_REWARD_AMOUNT);
+                UINT32_TO_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET], DEF_REWARD_START_MOMENT);
+
+                // Singleton states. ////
+
+                SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
+                SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
+                SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
+
+                moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
+                UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);
+                moment_base_idx = cur_idx;
+
+                // ASSERT_FAILURE_MSG >> Could not initialize state for moment base info.
+                ASSERT(state_foreign_set(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+
+                const uint32_t cur_moment = GET_MOMENT(cur_idx);
+                reward_info[EPOCH_OFFSET] = 1;
+                UINT32_TO_BUF_LE(&reward_info[SAVED_MOMENT_OFFSET], cur_moment);
+                UINT32_TO_BUF_LE(&reward_info[PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+                UINT32_TO_BUF_LE(&reward_info[CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET], zero);
+                const int64_t epoch_pool = float_set(0, DEF_EPOCH_REWARD_AMOUNT);
+                INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], epoch_pool);
+
+                // ASSERT_FAILURE_MSG >> Could not set state for reward info.
+                ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+
+                governance_info[EPOCH_OFFSET] = PILOTED;
+
+                // ASSERT_FAILURE_MSG >> Could not set state for governance info.
+                ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
             }
-            // End : Moment size transition implementation.
-            ///////////////////////////////////////////////////////////////
+
+            if (fee_base_info_state_res == DOESNT_EXIST)
+            {
+                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
+                UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
+                UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
+                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
+
+                // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
+                ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+            }
 
             redirect_op_type = OP_CHANGE_CONFIGURATION;
         }
@@ -872,6 +828,13 @@ int64_t hook(uint32_t reserved)
             // Set Moment transition info with the configured value;
             if (NEW_MOMENT_SIZE > 0 && moment_size != NEW_MOMENT_SIZE)
             {
+                // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
+                uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
+                int transition_state_res = state_foreign(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
+
+                // ASSERT_FAILURE_MSG >> Error getting moment size transaction info state.
+                ASSERT(!(transition_state_res < 0 && transition_state_res != DOESNT_EXIST));
+
                 // ASSERT_FAILURE_MSG >> There is an already scheduled moment size transition.
                 ASSERT(IS_MOMENT_TRANSIT_INFO_EMPTY(moment_transition_info));
 
@@ -907,6 +870,15 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for governance configuration.
             ASSERT(state_foreign_set(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
+
+            // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+            uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+            UINT32_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_PERIOD);
+            UINT16_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_AVERAGE);
+            network_busyness_detect_average = DEF_NETWORK_BUSYNESS_DETECT_AVERAGE;
+
+            // ASSERT_FAILURE_MSG >> Could not set state for network configuration.
+            ASSERT(state_foreign_set(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
 
             // PERMIT_MSG >> Assign/ Change configurations successfully.
             PERMIT();

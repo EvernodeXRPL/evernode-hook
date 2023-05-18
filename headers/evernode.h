@@ -419,8 +419,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         {                                                                                                            \
             uint64_t max_trx_fee;                                                                                    \
             GET_CONF_VALUE(max_trx_fee, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not get the maximum trx emit fee."); \
-            if (fee >= max_trx_fee)                                                                                  \
-                rollback(SBUF("Evernode: Too large transaction fee."), 1);                                           \
+            if ((100 * cur_fee_base) > ((100 + network_busyness_detect_average) * fee_avg))                          \
+                rollback(SBUF("Evernode: Too large fee base."), 1);                                                  \
+            else if ((fee - cur_fee_base) > max_trx_fee)                                                             \
+                rollback(SBUF("Evernode: Too large execution fee."), 1);                                             \
         }                                                                                                            \
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                                                       \
     }

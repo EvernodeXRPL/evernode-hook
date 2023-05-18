@@ -20,8 +20,12 @@ const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Epoch reward info <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>.
 const uint8_t STK_REWARD_INFO[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Governance info <governance_mode(uint8_t)><elected_proposal_unique_id(uint32_t)><proposal_elected_timestamp(uint64_t)><<updated_hook_count(uint8_t)>
+// Governance info <governance_mode(uint8_t)><elected_proposal_unique_id(uint32_t)><proposal_elected_timestamp(uint64_t)><updated_hook_count(uint8_t)>
 const uint8_t STK_GOVERNANCE_INFO[32] = {'E', 'V', 'R', 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// Transaction fee base info <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>
+const uint8_t STK_TRX_FEE_BASE_INFO[32] = {'E', 'V', 'R', 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 /////////// Repetitive state keys. ///////////
 
 // Token id keys (Host registration entries for token id-based lookup).
@@ -72,6 +76,8 @@ const uint8_t CONF_REGISTRY_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0
 // Governance configuration for proposing/voting <eligibility_period(uint32_t)><candidate_life_period(uint32_t)><candidate_election_period(uint32_t)>
 // <candidate_support_average(uint16_t)>.
 const uint8_t CONF_GOVERNANCE_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
+// Network configuration <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>.
+const uint8_t CONF_NETWORK_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15};
 
 #define HOST_ADDR_KEY(host_addr) \
     COPY_20BYTES((STP_HOST_ADDR + 12), host_addr)

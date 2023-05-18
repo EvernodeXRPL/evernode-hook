@@ -76,6 +76,19 @@ int64_t hook(uint32_t reserved)
     uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
     uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
 
+    // <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>
+    uint8_t trx_fee_base_info[TRX_FEE_BASE_INFO_VAL_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Could not get transaction fee base info state.
+    ASSERT(state_foreign(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
+    const int64_t cur_fee_base = fee_base();
+    const uint32_t fee_avg = UINT32_FROM_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET]);
+
+    // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
+    uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Error getting network configuration state.
+    ASSERT(state_foreign(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
+    const uint16_t network_busyness_detect_average = UINT16_FROM_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET]);
+
     // Take the moment size from config.
     uint16_t moment_size = 0;
     GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
