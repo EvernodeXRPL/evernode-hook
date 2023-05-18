@@ -17,21 +17,20 @@ const {
 const { Buffer } = require('buffer');
 const { FirestoreManager } = require('./lib/firestore-manager');
 
-const BETA_STATE_INDEX = ""; // This constant will be populated when beta firebase project is created.
 const MIN_XRP = "1";
 const INIT_EVENT_TYPE = "evnInitialize"; // This is kept only here as a constant, since we don't want to expose this event to public.
 
 const RIPPLED_URL = process.env.RIPPLED_URL || "wss://hooks-testnet-v3.xrpl-labs.com";
 const NETWORK_ID = process.env.NETWORK_ID || 21338;
-const MODE = process.env.MODE || 'dev';
+const ENV = process.env.ENV || 'dev';
 const ACTION = process.env.ACTION || 'run';
 
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
 const ACCOUNT_CONFIG_FILE = 'accounts.json';
-const CONFIG_FILE = 'index-manager.json';
+const CONFIG_FILE = `index-manager.json${ENV === 'dev' ? '' : `.${ENV}`}`;
 const HOOK_DATA_DIR = DATA_DIR + '/data';
-const FIREBASE_SEC_KEY_PATH = DATA_DIR + '/service-acc/firebase-sa-key.json';
+const FIREBASE_SEC_KEY_PATH = DATA_DIR + `/service-acc/firebase-sa-key.json${ENV === 'dev' ? '' : `.${ENV}`}`;
 
 const TOKEN_WAIT_TIMEOUT = 80;
 const MAX_BATCH_SIZE = 500;
@@ -123,7 +122,7 @@ const AFFECTED_HOOK_STATE_MAP = {
     CHILD_HOOK_UPDATE: [
         // Singleton
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
-        
+
         // Configs
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_SIZE },
         { operation: 'UPDATE', key: HookStateKeys.MINT_LIMIT },
@@ -135,8 +134,8 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_TRANSIT_INFO },
-        { operation: 'INSERT', key: HookStateKeys.NETWORK_CONFIGURATION },
-        
+        { operation: 'INSERT', key: HookStateKeys.NETWORK_CONFIGURATION }
+
         // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_CANDIDATE_ID
     ],
@@ -911,7 +910,7 @@ async function main() {
     }
 
     // Start the Index Manager.
-    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.governor.address, MODE === 'beta' ? BETA_STATE_INDEX : null);
+    const indexManager = new IndexManager(RIPPLED_URL, accountConfig.governor.address, config.stateIndexId || null);
     await indexManager.init(FIREBASE_SEC_KEY_PATH);
 }
 
