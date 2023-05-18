@@ -184,18 +184,37 @@ int64_t hook(uint32_t reserved)
         uint8_t governance_configuration[GOVERNANCE_CONFIGURATION_VAL_SIZE] = {0};
         uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-        if (op_type == OP_PROPOSE || op_type == OP_STATUS_CHANGE || op_type == OP_WITHDRAW || op_type == OP_DUD_HOST_REPORT || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_REMOVE_LINKED_CANDIDATE)
+        uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
+        uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
+
+        // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)>
+        // <proposal_elected_timestamp(8)><updated_hook_count(1)><foundation_vote_flag(1)>
+        uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
+
+        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
+        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+
+        if (op_type != OP_INITIALIZE)
         {
-            // ASSERT_FAILURE_MSG >> Could not get governance configuration state.
-            ASSERT(state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) >= 0);
-
-            // ASSERT_FAILURE_MSG >> Could not get issuer account id.
-            ASSERT(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) >= 0);
-
-            // ASSERT_FAILURE_MSG >> Could not get state for foundation account.
-            ASSERT(state_foreign(foundation_accid, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
+            // ASSERT_FAILURE_MSG >> Could not get issuer or foundation account id.
+            ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
+                     state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0));
 
             source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
+
+            // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
+            ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
+                     state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
+
+            // ASSERT_FAILURE_MSG >> Could not get governance configuration or governance info states.
+            ASSERT(!(state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0 ||
+                     state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0));
+
+            // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
+            ASSERT(!(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
+                     state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0));
         }
 
         // Validation check for participants other than the foundation address
@@ -213,17 +232,6 @@ int64_t hook(uint32_t reserved)
             VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);
         }
 
-        // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)>
-        // <proposal_elected_timestamp(8)><updated_hook_count(1)><foundation_vote_flag(1)>
-        uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
-        if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_GOVERNANCE_MODE_CHANGE || op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT)
-        {
-            // ASSERT_FAILURE_MSG >> Could not get state governance_game info.
-            ASSERT(state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST);
-        }
-
-        uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
-        uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
         // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
@@ -231,26 +239,12 @@ int64_t hook(uint32_t reserved)
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
         if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE)
         {
-            // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
-            ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 || state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
-
             CANDIDATE_ID_KEY(event_data);
 
             // ASSERT_FAILURE_MSG >> Error getting a candidate for the given id.
             ASSERT(state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
             // As first 20 bytes of "candidate_id" represents owner address.
             CANDIDATE_OWNER_KEY(candidate_id);
-        }
-
-        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
-        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-        if (op_type == OP_PROPOSE || op_type == OP_DUD_HOST_REPORT || op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW)
-        {
-            // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
-            ASSERT(!(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
-                     state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0));
         }
 
         int64_t proposal_fee;

@@ -373,9 +373,6 @@ int64_t hook(uint32_t reserved)
 
             const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
-            // ASSERT_FAILURE_MSG >> Could not get state for foundation account.
-            ASSERT(state_foreign(foundation_accid, ACCOUNT_ID_SIZE, SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) >= 0);
-
             uint8_t eligible_for_governance = 0;
             uint8_t do_rollback = 0;
             VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);

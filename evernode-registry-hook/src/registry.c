@@ -206,24 +206,17 @@ int64_t hook(uint32_t reserved)
         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-        uint8_t epoch_count = 0;
-        uint32_t first_epoch_reward_quota, epoch_reward_amount = 0;
-        // Take the reward info if deregistration or prune.
-        if (op_type == OP_HOST_DEREG || op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE)
-        {
-            // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
-            ASSERT(!(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
-                     state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0));
+        // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
+        ASSERT(!(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
+                 state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0));
 
-            epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-            first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-            epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
-        }
+        const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+        const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
         uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
-        // States does not exists in initialize transaction.
 
         // ASSERT_FAILURE_MSG >> Could not get issuer, foundation or heartbeat account id.
         ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
