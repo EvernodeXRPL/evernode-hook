@@ -782,7 +782,10 @@ int64_t hook(uint32_t reserved)
                     ASSERT(emit(SBUF(emithash), tx_ptr, tx_size) >= 0);
                 }
 
-                PERMIT_M((candidate_type == NEW_HOOK_CANDIDATE ? "Evernode: New hook candidate status changed." : "Evernode: Dud host candidate status changed."), vote_status);
+                if (candidate_type == NEW_HOOK_CANDIDATE)
+                    PERMIT_M("Evernode: New hook candidate status changed.", vote_status);
+
+                PERMIT_M("Evernode: Dud host candidate status changed.", vote_status);
             }
             else if (candidate_type == PILOTED_MODE_CANDIDATE && vote_status == CANDIDATE_ELECTED)
             {
