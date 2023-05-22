@@ -366,6 +366,11 @@ int64_t hook(uint32_t reserved)
                 // ASSERT_FAILURE_MSG >> Could not set state for governance info.
                 ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
             }
+            else
+            {
+                // ASSERT_FAILURE_MSG >> Could not get reward configuration states.
+                ASSERT(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+            }
 
             if (fee_base_info_state_res == DOESNT_EXIST)
             {

@@ -134,7 +134,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.REWARD_CONFIGURATION },
         { operation: 'INSERT', key: HookStateKeys.GOVERNANCE_CONFIGURATION },
         { operation: 'UPDATE', key: HookStateKeys.MOMENT_TRANSIT_INFO },
-        { operation: 'INSERT', key: HookStateKeys.NETWORK_CONFIGURATION },
+        { operation: 'INSERT', key: HookStateKeys.NETWORK_CONFIGURATION }
 
         // NOTE: Repetitive State keys
         // HookStateKeys.PREFIX_CANDIDATE_ID
