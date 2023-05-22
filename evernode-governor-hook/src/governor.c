@@ -310,10 +310,10 @@ int64_t hook(uint32_t reserved)
             uint8_t *registry_hook_ptr = event_data + (2 * ACCOUNT_ID_SIZE);
             uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
 
-            const uint64_t zero = 0;
             // First check if the states are already initialized by checking lastly added state key for existence.
             if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
             {
+                const uint64_t zero = 0;
                 // Initialize the state.
                 //// Configuration states. ////
 
@@ -868,7 +868,6 @@ int64_t hook(uint32_t reserved)
             SET_UINT_STATE_VALUE(DEF_MAX_TOLERABLE_DOWNTIME, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not initialize maximum tolerable downtime.");
             SET_UINT_STATE_VALUE(DEF_EMIT_FEE_THRESHOLD, CONF_MAX_EMIT_TRX_FEE, "Evernode: Could not initialize maximum transaction fee for an emission.");
 
-            // Goverannce flow
             UINT32_TO_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET], DEF_GOVERNANCE_ELIGIBILITY_PERIOD);
             UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET], DEF_CANDIDATE_LIFE_PERIOD);
             UINT32_TO_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET], DEF_CANDIDATE_ELECTION_PERIOD);
@@ -879,25 +878,6 @@ int64_t hook(uint32_t reserved)
 
             // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
             uint8_t network_configuration[NETWORK_CONFIGURATION_VAL_SIZE] = {0};
-            UINT32_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_PERIOD);
-            UINT16_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_AVERAGE);
-            network_busyness_detect_average = DEF_NETWORK_BUSYNESS_DETECT_AVERAGE;
-
-            // ASSERT_FAILURE_MSG >> Could not set state for network configuration.
-            ASSERT(state_foreign_set(SBUF(network_configuration), SBUF(CONF_NETWORK_CONFIGURATION), FOREIGN_REF) >= 0);
-
-            if (fee_base_info_state_res == DOESNT_EXIST)
-            {
-                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_OFFSET], fee_avg);
-                UINT16_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_COUNTER_OFFSET], zero);
-                UINT64_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_CHANGED_IDX_OFFSET], zero);
-                UINT32_TO_BUF_LE(&trx_fee_base_info[FEE_BASE_AVG_ACCUMULATOR_OFFSET], zero);
-
-                // ASSERT_FAILURE_MSG >> Could not set state for transaction fee base info.
-                ASSERT(state_foreign_set(SBUF(trx_fee_base_info), SBUF(STK_TRX_FEE_BASE_INFO), FOREIGN_REF) >= 0);
-            }
-
-            // <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>
             UINT32_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_PERIOD_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_PERIOD);
             UINT16_TO_BUF_LE(&network_configuration[NETWORK_BUSYNESS_DETECT_AVERAGE_OFFSET], DEF_NETWORK_BUSYNESS_DETECT_AVERAGE);
             network_busyness_detect_average = DEF_NETWORK_BUSYNESS_DETECT_AVERAGE;
