@@ -439,7 +439,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             last_active_idx = registration_timestamp;                                                                                                  \
         const int64_t heartbeat_delay = (cur_idx - last_active_idx) / moment_size;                                                                     \
                                                                                                                                                        \
-        /* Take the maximun tolerable downtime from config. */                                                                                         \
+        /* Take the maximum tolerable downtime from config. */                                                                                         \
         uint16_t max_tolerable_downtime;                                                                                                               \
         GET_CONF_VALUE(max_tolerable_downtime, CONF_MAX_TOLERABLE_DOWNTIME, "Evernode: Could not get the maximum tolerable downtime from the state."); \
                                                                                                                                                        \
@@ -550,7 +550,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             uint8_t emithash[HASH_SIZE];                                                                                                                      \
             if (emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) < 0)                                                                                      \
                 rollback(SBUF("Evernode: Emitting set hook failed"), 1);                                                                                      \
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                    \
                                                                                                                                                               \
             if (hook_again() != 1)                                                                                                                            \
                 rollback(SBUF("Evernode: Hook again failed on update hook."), 1);                                                                             \
@@ -562,7 +561,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             uint8_t emithash[HASH_SIZE];                                                                                                                      \
             if (emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) < 0)                                                                                      \
                 rollback(SBUF("Evernode: Emitting txn failed"), 1);                                                                                           \
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);                                                                                                    \
             accept(SBUF("Evernode: Hook update results sent successfully."), 0);                                                                              \
         }                                                                                                                                                     \
     }
