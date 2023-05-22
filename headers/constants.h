@@ -2,13 +2,13 @@
 #define CONSTANTS_INCLUDED 1
 
 #define HOST_REG "evnHostReg"
-#define HOST_DE_REG "evnHostDereg"
-#define HOST_DE_REG_RES "evnHostDeregRes"
+#define HOST_DEREG "evnHostDereg"
+#define HOST_DEREG_SELF_RES "evnHostDeregSelfRes"
 #define HOST_UPDATE_REG "evnHostUpdateReg"
 #define HEARTBEAT "evnHeartbeat"
 #define INITIALIZE "evnInitialize"
 #define DEAD_HOST_PRUNE "evnDeadHostPrune"
-#define DEAD_HOST_PRUNE_RES "evnHostPruneRes"
+#define DEAD_HOST_PRUNE_RES "evnDeadHostPruneRes"
 #define HOST_REWARD "evnHostReward"
 #define HOST_TRANSFER "evnTransfer"
 #define HOST_REBATE "evnHostRebate"
@@ -16,9 +16,9 @@
 #define CANDIDATE_PROPOSE "evnCandidatePropose"
 #define CANDIDATE_PROPOSE_REF "evnCandidateProposeRef"
 #define CANDIDATE_VOTE "evnCandidateVote"
-#define CANDIDATE_VETOED_RES "evnCandidateVetoedRes"
-#define CANDIDATE_EXPIRY_RES "evnCandidateExpiryRes"
+#define CANDIDATE_PURGED_RES "evnCandidatePurgedRes"
 #define CANDIDATE_ACCEPT_RES "evnCandidateAcceptRes"
+#define CANDIDATE_REMOVE_RES "evnCandidateRemoveRes"
 #define CANDIDATE_WITHDRAW "evnCandidateWithdraw"
 #define CANDIDATE_STATUS_CHANGE "evnCandidateStatusChange"
 #define CHANGE_GOVERNANCE_MODE "evnGovernanceModeChange"
@@ -28,7 +28,7 @@
 #define SET_HOOK "evnSetHook"
 #define DUD_HOST_REPORT "evnDudHostReport"
 #define DUD_HOST_REMOVE "evnDudHostRemove"
-#define DUD_HOST_REMOVE_RES "evnDudHostRmRes"
+#define DUD_HOST_REMOVE_RES "evnDudHostRemoveRes"
 #define LINKED_CANDIDATE_REMOVE "evnRemoveLinkedCandidate"
 #define ORPHAN_CANDIDATE_REMOVE "evnRemoveOrphanCandidate"
 
@@ -228,8 +228,8 @@ const uint32_t DUD_HOST_CANDID_ADDRESS_OFFSET = 12;
 const uint8_t CANDIDATE_REJECTED = 0;
 const uint8_t CANDIDATE_SUPPORTED = 1;
 const uint8_t CANDIDATE_ELECTED = 2;
-const uint8_t CANDIDATE_VETOED = 3;
-const uint8_t CANDIDATE_EXPIRED = 4;
+const uint8_t CANDIDATE_PURGED = 3;
+const uint8_t CANDIDATE_WITHDRAWN = 4;
 
 #define VOTING_COMPLETED(status) \
     (status > CANDIDATE_SUPPORTED)

@@ -123,8 +123,8 @@ int64_t hook(uint32_t reserved)
 
         if (is_xrp)
         {
-            if (EQUAL_HOST_DE_REG(event_type, event_type_len))
-                op_type = OP_HOST_DE_REG;
+            if (EQUAL_HOST_DEREG(event_type, event_type_len))
+                op_type = OP_HOST_DEREG;
             else if (EQUAL_HOST_UPDATE_REG(event_type, event_type_len))
                 op_type = OP_HOST_UPDATE_REG;
             // Dead Host Prune.
@@ -172,7 +172,7 @@ int64_t hook(uint32_t reserved)
         // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
         if (op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE ||
             op_type == OP_HOST_TRANSFER || op_type == OP_DEAD_HOST_PRUNE ||
-            op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_DE_REG)
+            op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_DEREG)
         {
             // Generate host account key.
             if (op_type != OP_DEAD_HOST_PRUNE && op_type != OP_DUD_HOST_REMOVE)
@@ -206,24 +206,17 @@ int64_t hook(uint32_t reserved)
         uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-        uint8_t epoch_count = 0;
-        uint32_t first_epoch_reward_quota, epoch_reward_amount = 0;
-        // Take the reward info if deregistration or prune.
-        if (op_type == OP_HOST_DE_REG || op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE)
-        {
-            // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
-            ASSERT(!(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
-                     state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0));
+        // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
+        ASSERT(!(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
+                 state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0));
 
-            epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-            first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-            epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
-        }
+        const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+        const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+        const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
         uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
-        // States does not exists in initialize transaction.
 
         // ASSERT_FAILURE_MSG >> Could not get issuer, foundation or heartbeat account id.
         ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
@@ -359,23 +352,17 @@ int64_t hook(uint32_t reserved)
                 // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
                 ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
 
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
                 // Mint the uri token.
                 PREPARE_URI_TOKEN_MINT_TX(txid_ref_buf);
 
                 // ASSERT_FAILURE_MSG >> Emitting URIToken mint txn failed
                 ASSERT(emit(SBUF(emithash), SBUF(REG_URI_TOKEN_MINT_TX)) >= 0);
 
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
                 // Amount will be 1.
                 PREPARE_URI_TOKEN_SELL_OFFER_TX(1, account_field, uri_token_id);
 
                 // ASSERT_FAILURE_MSG >> Emitting offer txn failed
                 ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 // If maximum theoretical host count reached, halve the registration fee.
                 if (host_reg_fee > conf_fixed_reg_fee && host_count >= (conf_max_reg / 2))
@@ -441,8 +428,6 @@ int64_t hook(uint32_t reserved)
 
                 // ASSERT_FAILURE_MSG >> Emitting offer txn failed
                 ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
                 // Set the STP_HOST_ADDR correctly of the deleting state.
                 HOST_ADDR_KEY((uint8_t *)(transferee_addr + TRANSFER_HOST_ADDRESS_OFFSET));
@@ -512,8 +497,6 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Emitting EVR rebate txn failed
             ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
 
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
             // Updating the current reg fee in the host state.
             UINT64_TO_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
 
@@ -557,8 +540,6 @@ int64_t hook(uint32_t reserved)
 
                     // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
                     ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
-
-                    trace(SBUF("emit hash: "), SBUF(emithash), 1);
                 }
 
                 // Check whether this host has an initiated transfer.
@@ -611,8 +592,6 @@ int64_t hook(uint32_t reserved)
                 // ASSERT_FAILURE_MSG >> Emitting buying offer to NFT failed.
                 ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BUY_TX)) >= 0);
 
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
-
                 // PERMIT_MSG >> Host transfer initiated successfully.
                 PERMIT();
             }
@@ -651,7 +630,7 @@ int64_t hook(uint32_t reserved)
 
             redirect_op_type = OP_HOST_REMOVE;
         }
-        if (op_type == OP_HOST_DE_REG)
+        if (op_type == OP_HOST_DEREG)
         {
             // ASSERT_FAILURE_MSG >> Token id sent doesn't match with the registered token.
             ASSERT(BUFFER_EQUAL_32(event_data, (host_addr + HOST_TOKEN_ID_OFFSET)));
@@ -683,8 +662,8 @@ int64_t hook(uint32_t reserved)
 
             const uint64_t total_rebate_amount = amount_half + pending_rebate_amount;
 
-            const uint8_t *memo_type_ptr = op_type == OP_HOST_DE_REG ? HOST_DE_REG_RES : (op_type == OP_DEAD_HOST_PRUNE ? DEAD_HOST_PRUNE_RES : DUD_HOST_REMOVE_RES);
-            const uint8_t *host_addr_ptr = op_type == OP_HOST_DE_REG ? account_field : event_data;
+            const uint8_t *event_type_ptr = op_type == OP_HOST_DEREG ? HOST_DEREG_SELF_RES : (op_type == OP_DEAD_HOST_PRUNE ? DEAD_HOST_PRUNE_RES : DUD_HOST_REMOVE_RES);
+            const uint8_t *host_addr_ptr = op_type == OP_HOST_DEREG ? account_field : event_data;
 
             const uint8_t *host_accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             const int64_t accumulated_reward = INT64_FROM_BUF_LE(host_accumulated_reward_ptr);
@@ -703,7 +682,7 @@ int64_t hook(uint32_t reserved)
             uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
             // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
-            if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DE_REG)
+            if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DEREG)
             {
                 uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
 
@@ -733,35 +712,29 @@ int64_t hook(uint32_t reserved)
                                                      txid, reward_req);
                 // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
                 ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_TRIGGER_PAYMENT)) >= 0);
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
             else if (request_reward == 1)
             {
                 PREPARE_HEARTBEAT_TRIGGER_MIN_PAYMENT_TX(0, heartbeat_hook_accid, PENDING_REWARDS_REQUEST, txid, reward_req);
                 // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
                 ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_TRIGGER_MIN_PAYMENT)) >= 0);
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
 
             if (total_rebate_amount > 0)
             {
                 // Prepare transaction to send 50% of reg fee and pending rebates to host account.
-                PREPARE_REMOVED_HOST_RES_PAYMENT_TX(float_set(0, total_rebate_amount), host_addr_ptr, memo_type_ptr, txid);
+                PREPARE_REMOVED_HOST_RES_PAYMENT_TX(float_set(0, total_rebate_amount), host_addr_ptr, event_type_ptr, txid);
 
                 // ASSERT_FAILURE_MSG >> Rebating 1/2 reg fee and pending rebates to host account failed.
                 ASSERT(emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_PAYMENT)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
             else
             {
                 // Prepare MIN XRP transaction to host about pruning.
-                PREPARE_REMOVED_HOST_RES_MIN_PAYMENT_TX(1, host_addr_ptr, memo_type_ptr, txid);
+                PREPARE_REMOVED_HOST_RES_MIN_PAYMENT_TX(1, host_addr_ptr, event_type_ptr, txid);
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to host account failed.
                 ASSERT(emit(SBUF(emithash), SBUF(REMOVED_HOST_RES_MIN_PAYMENT)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
 
             // Burn Registration URI token.
@@ -769,7 +742,6 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
             ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
-            trace(SBUF("emit hash: "), SBUF(emithash), 1);
 
             // Invoke Governor to trigger on this condition.
             if (linked_candidate_removal_reserve > 0 || orphan_candidate_removal_reserve > 0)
@@ -782,7 +754,7 @@ int64_t hook(uint32_t reserved)
                 else
                 {
                     GET_NEW_HOOK_CANDIDATE_ID(candidate_owner, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, candidate_remove_data);
-                    candidate_remove_data[32] = CANDIDATE_VETOED;
+                    candidate_remove_data[32] = CANDIDATE_PURGED;
                 }
 
                 // Prepare MIN XRP trigger transaction to governor about removing the dud host or new hook candidate.
@@ -790,8 +762,6 @@ int64_t hook(uint32_t reserved)
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
                 ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
-
-                trace(SBUF("emit hash: "), SBUF(emithash), 1);
             }
 
             // Delete registration entries. If there are pending rewards heartbeat hook will delete the states
@@ -802,7 +772,7 @@ int64_t hook(uint32_t reserved)
             }
 
             // Here the PERMIT Macro __LINE__ param. differs in each block. Hence we have to call them separately to figure the scenario.
-            if (op_type == OP_HOST_DE_REG)
+            if (op_type == OP_HOST_DEREG)
             {
                 // PERMIT_MSG >> Host de-registration successful.
                 PERMIT();
