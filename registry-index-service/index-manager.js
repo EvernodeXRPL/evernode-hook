@@ -215,12 +215,15 @@ class IndexManager {
 
     constructor(rippledServer, governorAddress, stateIndexId = null) {
         this.#xrplApi = new XrplApi(rippledServer);
-        Defaults.set({
+        const defaultValues = {
             governorAddress: governorAddress,
             rippledServer: rippledServer,
             xrplApi: this.#xrplApi,
             networkID: NETWORK_ID
-        })
+        };
+        Defaults.set(
+            (stateIndexId) ? { ...defaultValues, stateIndexId: stateIndexId } : defaultValues
+        );
         this.#xrplAcc = new XrplAccount(governorAddress);
         this.#firestoreManager = new FirestoreManager(stateIndexId ? { stateIndexId: stateIndexId } : {});
         this.#queuedStates = [];

@@ -517,6 +517,8 @@ int64_t hook(uint32_t reserved)
             uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];
             uint64_t status_changed_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);
 
+            int is_foundation_driven = (governance_mode == PILOTED && source_is_foundation) ? 1 : 0;
+
             // If this is piloted mode candidate we treat differently.
             // If there is a recently closed election or if the candidate's life period is passed. This voted candidate will be purged.
             if ((candidate_type != PILOTED_MODE_CANDIDATE) &&
@@ -532,7 +534,6 @@ int64_t hook(uint32_t reserved)
                 if (cur_moment - 1 > last_vote_moment)
                 {
                     supported_count = 0;
-                    foundation_vote_status = CANDIDATE_REJECTED;
                     election_timestamp = GET_NEXT_MOMENT_START_INDEX(last_vote_timestamp + (2 * moment_size));
                 }
 
@@ -570,8 +571,6 @@ int64_t hook(uint32_t reserved)
                     status_changed_timestamp = election_timestamp;
                 }
 
-                // Reset the foundation vote.
-                candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = (uint8_t)CANDIDATE_REJECTED;
                 // Update the vote counts.
                 supported_count = 0;
             }
@@ -579,6 +578,15 @@ int64_t hook(uint32_t reserved)
             // If the candidate is not purged and it fulfils the time period to get elected.
             if (status != CANDIDATE_PURGED && (cur_ledger_timestamp - status_changed_timestamp) > election_period && cur_status == CANDIDATE_SUPPORTED)
                 status = CANDIDATE_ELECTED;
+
+            // Also a candidate will be elected
+            // * If it is supported by the foundation in the piloted mode and
+            // * If there are no other candidates elected after the creation of that.
+            if (is_foundation_driven)
+                status = (*(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED &&
+                          (created_timestamp >= last_election_completed_timestamp))
+                             ? CANDIDATE_ELECTED
+                             : CANDIDATE_PURGED;
 
             if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(status) : (status == CANDIDATE_ELECTED))
             {
@@ -597,48 +605,48 @@ int64_t hook(uint32_t reserved)
             }
             else
             {
-                uint8_t *last_voted_candidate_idx_ptr, *last_voted_timestamp_ptr, *support_vote_flag_ptr;
+                uint8_t *last_voted_candidate_idx_ptr, *last_voted_timestamp_ptr;
+                const uint32_t candidate_idx = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_IDX_OFFSET]);
+
                 if (source_is_foundation)
                 {
                     last_voted_candidate_idx_ptr = &governance_info[FOUNDATION_LAST_VOTED_CANDIDATE_IDX];
                     last_voted_timestamp_ptr = &governance_info[FOUNDATION_LAST_VOTED_TIMESTAMP_OFFSET];
-                    support_vote_flag_ptr = &governance_info[FOUNDATION_SUPPORT_VOTE_FLAG_OFFSET];
+                    candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET);
                 }
                 else
                 {
                     last_voted_candidate_idx_ptr = &host_addr[HOST_LAST_VOTE_CANDIDATE_IDX_OFFSET];
                     last_voted_timestamp_ptr = &host_addr[HOST_LAST_VOTE_TIMESTAMP_OFFSET];
-                    support_vote_flag_ptr = &host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET];
+                    uint8_t *support_vote_flag_ptr = &host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET];
+
+                    const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF_LE(last_voted_candidate_idx_ptr);
+                    const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF_LE(last_voted_timestamp_ptr));
+
+                    // Change the vote flag in a vote of a new moment.
+                    if (cur_moment != voted_moment)
+                        *support_vote_flag_ptr = 0;
+
+                    const uint8_t voted_flag = *support_vote_flag_ptr;
+
+                    // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
+
+                    // ASSERT_FAILURE_MSG >> Voting for already voted candidate is not allowed.
+                    ASSERT((cur_moment != voted_moment || candidate_idx > last_vote_candidate_idx));
+
+                    // Only one support vote is allowed for new hook candidate per moment.
+                    if (candidate_type == NEW_HOOK_CANDIDATE)
+                    {
+                        // ASSERT_FAILURE_MSG >> Only one support vote is allowed per moment.
+                        ASSERT((cur_moment != voted_moment || *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) != CANDIDATE_SUPPORTED || voted_flag != 1));
+
+                        *support_vote_flag_ptr = *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED ? 1 : 0;
+                    }
+
+                    // Increase vote count if this is a vote from a host.
+                    if (*(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED)
+                        supported_count++;
                 }
-                const uint32_t candidate_idx = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_IDX_OFFSET]);
-                const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF_LE(last_voted_candidate_idx_ptr);
-                const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF_LE(last_voted_timestamp_ptr));
-
-                // Change the vote flag in a vote of a new moment.
-                if (cur_moment != voted_moment)
-                    *support_vote_flag_ptr = 0;
-
-                const uint8_t voted_flag = *support_vote_flag_ptr;
-
-                // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
-
-                // ASSERT_FAILURE_MSG >> Voting for already voted candidate is not allowed.
-                ASSERT(!(cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx));
-
-                // Only one support vote is allowed for new hook candidate per moment.
-                if (candidate_type == NEW_HOOK_CANDIDATE)
-                {
-                    // ASSERT_FAILURE_MSG >> Only one support vote is allowed per moment.
-                    ASSERT(!(cur_moment == voted_moment && *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED && voted_flag == 1));
-
-                    *support_vote_flag_ptr = *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED ? 1 : 0;
-                }
-
-                // Increase vote count if this is a vote from a host.
-                if (source_is_foundation)
-                    candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET);
-                else if (*(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED)
-                    supported_count++;
 
                 UINT32_TO_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET], supported_count);
 
