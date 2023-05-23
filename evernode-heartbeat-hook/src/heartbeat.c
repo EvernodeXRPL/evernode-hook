@@ -616,10 +616,9 @@ int64_t hook(uint32_t reserved)
                 }
                 else
                 {
-                    uint8_t *support_vote_flag_ptr;
                     last_voted_candidate_idx_ptr = &host_addr[HOST_LAST_VOTE_CANDIDATE_IDX_OFFSET];
                     last_voted_timestamp_ptr = &host_addr[HOST_LAST_VOTE_TIMESTAMP_OFFSET];
-                    support_vote_flag_ptr = &host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET];
+                    uint8_t *support_vote_flag_ptr = &host_addr[HOST_SUPPORT_VOTE_FLAG_OFFSET];
 
                     const uint32_t last_vote_candidate_idx = UINT32_FROM_BUF_LE(last_voted_candidate_idx_ptr);
                     const uint32_t voted_moment = GET_MOMENT(UINT64_FROM_BUF_LE(last_voted_timestamp_ptr));
@@ -633,13 +632,13 @@ int64_t hook(uint32_t reserved)
                     // If this is a new moment last_vote_candidate_idx needed to be reset. So skip this check.
 
                     // ASSERT_FAILURE_MSG >> Voting for already voted candidate is not allowed.
-                    ASSERT(!(cur_moment == voted_moment && candidate_idx <= last_vote_candidate_idx));
+                    ASSERT((cur_moment != voted_moment || candidate_idx > last_vote_candidate_idx));
 
                     // Only one support vote is allowed for new hook candidate per moment.
                     if (candidate_type == NEW_HOOK_CANDIDATE)
                     {
                         // ASSERT_FAILURE_MSG >> Only one support vote is allowed per moment.
-                        ASSERT(!(cur_moment == voted_moment && *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED && voted_flag == 1));
+                        ASSERT((cur_moment != voted_moment || *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) != CANDIDATE_SUPPORTED || voted_flag != 1));
 
                         *support_vote_flag_ptr = *(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED ? 1 : 0;
                     }
