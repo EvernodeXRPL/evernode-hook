@@ -253,6 +253,9 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Could not get state governance_game info.
         ASSERT(!((op_type == OP_HEARTBEAT || op_type == OP_VOTE) && (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0 || state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0)))
 
+        // We should always refer to the previous moment's voter base count, So take it here and keep it global.
+        const uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
+
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)>
         // <no_of_total_instances(4)><no_of_active_instances(4)><last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
@@ -380,11 +383,10 @@ int64_t hook(uint32_t reserved)
             // Increase the voter base count if this host haven't send heartbeat before and host is eligible for voting.
             if (accept_heartbeat && eligible_for_governance)
             {
-                uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
                 const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
                 // Reset the count if this is a new moment.
-                voter_base_count = ((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1);
-                UINT32_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET], voter_base_count);
+                const uint32_t voter_base_count_updated = ((cur_moment > voter_base_count_moment ? 0 : voter_base_count) + 1);
+                UINT32_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET], voter_base_count_updated);
                 UINT64_TO_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
                 // ASSERT_FAILURE_MSG >> Could not set state governance_game info.
@@ -502,7 +504,6 @@ int64_t hook(uint32_t reserved)
 
             REQUIRE(!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]), "Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed.");
 
-            uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
             const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
             const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
             uint32_t supported_count = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
@@ -544,17 +545,18 @@ int64_t hook(uint32_t reserved)
                     status = foundation_vote_status;
                 else
                 {
+                    uint32_t prev_voter_base_count = voter_base_count;
                     const uint16_t support_average = UINT16_FROM_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);
 
                     // If auto-piloted standard voting rules applies for foundation.
                     if (governance_mode == AUTO_PILOTED)
                     {
-                        voter_base_count++;
+                        prev_voter_base_count++;
                         if (foundation_vote_status == CANDIDATE_SUPPORTED)
                             supported_count++;
                     }
 
-                    if (voter_base_count > 0 && ((supported_count * 100) > (voter_base_count * support_average)))
+                    if (prev_voter_base_count > 0 && ((supported_count * 100) > (prev_voter_base_count * support_average)))
                         status = CANDIDATE_SUPPORTED;
 
                     // In co-piloted mode if foundation is not supported, we do not consider other participants' status.
