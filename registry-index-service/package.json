@@ -17,7 +17,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "evernode-js-client": "0.6.7",
+        "evernode-js-client": "0.6.8",
         "jsonwebtoken": "8.5.1",
         "fs": "0.0.1-security"
     },
