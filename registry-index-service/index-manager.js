@@ -9,6 +9,8 @@ const fs = require('fs');
 const process = require('process');
 const path = require('path');
 const codec = require('ripple-address-codec');
+const dns = require('node:dns');
+const https = require('node:https');
 const {
     XrplApi, XrplAccount, StateHelpers, TransactionHelper,
     GovernorEvents, HeartbeatEvents, RegistryEvents, HookClientFactory, HookTypes, HookStateKeys,
@@ -360,9 +362,9 @@ class IndexManager {
             const candidates = await this.#governorClient.getAllCandidates();
 
             const itemsInIndex = configs.concat(hosts).concat(candidates);
-            const stateKeyList = itemsInIndex.map(item => item.id);
+            const stateList = itemsInIndex;
 
-            await this.#recoveryIndexUpdate(stateKeyList);
+            await this.#recoveryIndexUpdate(stateList);
         } catch (e) {
             console.error(e);
         }
@@ -699,8 +701,20 @@ class IndexManager {
                 await this.#firestoreManager.setConfig(decoded);
             else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_OWNER || decoded.type == StateHelpers.StateTypes.CANDIDATE_ID)
                 await this.#firestoreManager.setCandidate(this.#prepareCandidateObject(decoded));
-            else
-                await this.#firestoreManager.setHost(this.#prepareHostObject(decoded));
+            else {
+                const type = decoded.type;
+                let prepared = this.#prepareHostObject(decoded);
+
+                // Fetch location from ip when inserting the host record.
+                if (type == StateHelpers.StateTypes.HOST_ADDR) {
+                    const location = await getHostLocation(prepared.address).catch(console.error);
+                    if (location)
+                        prepared.location = location;
+                }
+                ////////////////////////////
+
+                await this.#firestoreManager.setHost(prepared);
+            }
         }));
 
         await Promise.all(updates.map(async ps => {
@@ -734,7 +748,7 @@ class IndexManager {
 
         // To find removed states.
         const hookStateKeys = hookStates.map(s => s.key);
-        const removedStates = (affectedStates.filter(s => !(hookStateKeys.includes(s)))).map(st => { return { key: st } });
+        const removedStates = (affectedStates.filter(s => !(hookStateKeys.includes(s.id)))).map(st => { return { key: st.id } });
 
         let indexUpdates = {
             set: {
@@ -749,16 +763,28 @@ class IndexManager {
             }
         };
 
-        const updateIndexSet = (key, value) => {
+        const updateIndexSet = async (key, value) => {
             const decoded = StateHelpers.decodeStateData(key, value);
             // If the object already exists we override it.
             // We combine host address and token objects.
             if (decoded.type == StateHelpers.StateTypes.HOST_ADDR || decoded.type == StateHelpers.StateTypes.TOKEN_ID || decoded.type == StateHelpers.StateTypes.TRANSFEREE_ADDR) {
+                const type = decoded.type;
                 const prepared = this.#prepareHostObject(decoded);
                 indexUpdates.set.hosts[prepared.key] = {
                     ...(indexUpdates.set.hosts[prepared.key] ? indexUpdates.set.hosts[prepared.key] : {}),
                     ...prepared
                 }
+
+                // Fetch location from ip if there's no location data.
+                if (type == StateHelpers.StateTypes.HOST_ADDR) {
+                    const existing = affectedStates.find(s => s.id === prepared.key);
+                    if (!existing || !existing.location || existing.countryCode !== prepared.countryCode) {
+                        const location = await getHostLocation(prepared.address).catch(console.error);
+                        if (location)
+                            indexUpdates.set.hosts[prepared.key].location = location;
+                    }
+                }
+                ////////////////////////////
             }
             else if (decoded.type == StateHelpers.StateTypes.CANDIDATE_OWNER || decoded.type == StateHelpers.StateTypes.CANDIDATE_ID) {
                 const prepared = this.#prepareCandidateObject(decoded);
@@ -811,20 +837,80 @@ class IndexManager {
         }
 
         // Prepare for inset and update.
-        hookStates.forEach(state => {
+        for (const state of hookStates) {
             const keyBuf = Buffer.from(state.key, 'hex');
             const valueBuf = Buffer.from(state.data, 'hex');
-            updateIndexSet(keyBuf, valueBuf);
-        });
+            await updateIndexSet(keyBuf, valueBuf);
+        }
 
         // Prepare for delete.
-        removedStates.forEach(state => {
+        for (const state of removedStates) {
             const keyBuf = Buffer.from(state.key, 'hex');
             deleteIndexSet(keyBuf);
-        });
+        };
 
         await persistIndex();
     }
+}
+
+// Get geo location from host address.
+async function getHostLocation(address) {
+    const configPath = path.resolve(DATA_DIR, CONFIG_FILE);
+
+    // If configs doesn't exist, return null.
+    if (!fs.existsSync(configPath))
+        return null;
+
+    const config = JSON.parse(fs.readFileSync(configPath).toString());
+
+    // If maxmindAuth config doesn't exist, return null.
+    if (!config.maxmindAuth)
+        return null;
+
+    const regexExp = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/gi;
+    const domain = await (new XrplAccount(address)).getDomain();
+
+    // Feth ip from domain.
+    const ip = regexExp.test(domain) ? domain : await (new Promise(resolve => {
+        dns.lookup(domain, (err, ip) => {
+            if (err)
+                resolve(null);
+            resolve(ip);
+        });
+    }));
+
+    if (ip) {
+        var options = {
+            host: 'geolite.info',
+            port: 443,
+            path: `/geoip/v2.1/city/${ip}?pretty`,
+            headers: {
+                'Authorization': 'Basic ' + Buffer.from(config.maxmindAuth).toString('base64')
+            }
+        };
+
+        // Get location data.
+        const json = await (new Promise((resolve) => {
+            let data = ''
+            https.get(options, res => {
+                res.on('data', chunk => { data += chunk; });
+                res.on('end', () => {
+                    try { resolve(JSON.parse(data)); }
+                    catch (e) { resolve(null); }
+                });
+                res.on('error', (e) => { resolve(null); })
+            })
+        }));
+
+        // If location exists in the json return.
+        return (json && json.location) ? {
+            accuracyRadius: json.location.accuracy_radius,
+            latitude: json.location.latitude.toString(),
+            longitude: json.location.longitude.toString()
+        } : null;
+    }
+
+    return null;
 }
 
 async function initRegistryConfigs(initializerInfo, config, accountConfigPath, rippledServer) {

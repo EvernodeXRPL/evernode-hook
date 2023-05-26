@@ -456,11 +456,10 @@ int64_t hook(uint32_t reserved)
 
             const uint32_t life_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
             const uint64_t created_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
+            const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF_LE(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
 
-            // ASSERT_FAILURE_MSG >> Trying to withdraw an already expired proposal.
-            ASSERT(cur_ledger_timestamp - created_timestamp <= life_period);
-
-            event_data[HASH_SIZE] = CANDIDATE_WITHDRAWN;
+            // If candidate purge condition fulfilled purge instead of withdraw.
+            event_data[HASH_SIZE] = (last_election_completed_timestamp > created_timestamp || cur_ledger_timestamp - created_timestamp > life_period) ? CANDIDATE_PURGED : CANDIDATE_WITHDRAWN;
             origin_op_type = OP_WITHDRAW;
             op_type = OP_STATUS_CHANGE;
         }
