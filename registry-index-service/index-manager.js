@@ -124,7 +124,6 @@ const AFFECTED_HOOK_STATE_MAP = {
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO },
 
         // Configs
-        { operation: 'UPDATE', key: HookStateKeys.MOMENT_SIZE },
         { operation: 'UPDATE', key: HookStateKeys.MINT_LIMIT },
         { operation: 'UPDATE', key: HookStateKeys.FIXED_REG_FEE },
         { operation: 'UPDATE', key: HookStateKeys.HOST_HEARTBEAT_FREQ },
@@ -151,6 +150,7 @@ const AFFECTED_HOOK_STATE_MAP = {
         // HookStateKeys.PREFIX_CANDIDATE_ID
     ],
     HEARTBEAT: [
+        { operation: 'UPDATE', key: HookStateKeys.MOMENT_SIZE },
         { operation: 'UPDATE', key: HookStateKeys.REWARD_INFO },
         { operation: 'UPDATE', key: HookStateKeys.GOVERNANCE_INFO }
 
