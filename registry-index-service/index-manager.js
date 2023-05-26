@@ -847,7 +847,7 @@ class IndexManager {
         for (const state of removedStates) {
             const keyBuf = Buffer.from(state.key, 'hex');
             deleteIndexSet(keyBuf);
-        };
+        }
 
         await persistIndex();
     }
@@ -898,7 +898,7 @@ async function getHostLocation(address) {
                     try { resolve(JSON.parse(data)); }
                     catch (e) { resolve(null); }
                 });
-                res.on('error', (e) => { resolve(null); })
+                res.on('error', (e) => { console.log(e); resolve(null); })
             })
         }));
 
