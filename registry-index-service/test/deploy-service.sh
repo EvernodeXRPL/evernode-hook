@@ -32,7 +32,7 @@ elif [[ $mode = "v3-dev" ]]; then
 #     governor_address=""
 else
     echo "Invalid mode"
-    echo "Usage: deploy-service.sh <mode (dev|beta)> [arguments (--set-hook)]"
+    echo "Usage: deploy-service.sh <mode (v3-dev|v3-beta)> [arguments (--set-hook)]"
     exit 1
 fi
 index_data_path="$index_path/data"
