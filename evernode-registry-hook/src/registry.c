@@ -461,8 +461,8 @@ int64_t hook(uint32_t reserved)
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET)))
                 COPY_4BYTES((token_id + HOST_DISK_MB_OFFSET), (event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET));
 
-            if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET)))
-                COPY_4BYTES((token_id + HOST_EMAIL_ADDRESS_OFFSET), (event_data + HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET));
+            if (!IS_EMAIL_ADDRESS_EMPTY((event_data + HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET)))
+                COPY_40BYTES((token_id + HOST_EMAIL_ADDRESS_OFFSET), (event_data + HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET));
 
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET)))
                 COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET));

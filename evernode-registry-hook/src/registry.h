@@ -113,6 +113,10 @@ const uint32_t HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET = 83;
     (IS_BUFFER_EMPTY_10(buf) &&   \
      IS_BUFFER_EMPTY_16((buf + 10)))
 
+#define IS_EMAIL_ADDRESS_EMPTY(buf) \
+    (IS_BUFFER_EMPTY_32(buf) &&     \
+     IS_BUFFER_EMPTY_8((buf + 32)))
+
 // Domain operations
 
 #define GENERATE_URI_TOKEN_ID(token_id, accid, hex_uri)                                          \
