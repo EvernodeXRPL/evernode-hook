@@ -8,6 +8,7 @@ build_path="../dist"
 bundle="registry-index.tar.gz"
 
 mode=$1
+set_hook=$2
 
 # Resolve dev and beta paths.
 to_path=""
@@ -31,7 +32,7 @@ elif [[ $mode = "v3-dev" ]]; then
 #     governor_address=""
 else
     echo "Invalid mode"
-    echo "Usage: deploy-service.sh <Mode (dev|beta)>"
+    echo "Usage: deploy-service.sh <mode (v3-dev|v3-beta)> [arguments (--set-hook)]"
     exit 1
 fi
 index_data_path="$index_path/data"
@@ -55,8 +56,10 @@ tar -xf $bundle_path --strip-components=1 -C $index_path
 
 pushd $index_path
 
-echo 'Performing set-hook.'
-./run-registry-index.sh $governor_address set-hook
+if [[ '$set_hook' == '--set-hook' ]]; then
+    echo 'Performing set-hook.'
+    ./run-registry-index.sh $governor_address set-hook
+fi
 
 echo 'Re-configuring the service'
 ./run-registry-index.sh $governor_address service-reconfig
