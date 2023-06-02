@@ -166,7 +166,7 @@ int64_t hook(uint32_t reserved)
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
         // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-        // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><accumulated_reward_amount(8)>
+        // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
         uint8_t token_id[TOKEN_ID_VAL_SIZE];
 
         // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
@@ -447,7 +447,7 @@ int64_t hook(uint32_t reserved)
         else if (op_type == OP_HOST_UPDATE_REG)
         {
             // Msg format.
-            // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
+            // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)><email(40)>
 
             // Active instance count is required, If 0 it means there're no active instances.
             COPY_4BYTES((host_addr + HOST_ACT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET));
@@ -461,8 +461,20 @@ int64_t hook(uint32_t reserved)
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET)))
                 COPY_4BYTES((token_id + HOST_DISK_MB_OFFSET), (event_data + HOST_UPDATE_DISK_MB_PARAM_OFFSET));
 
+            if (!IS_EMAIL_ADDRESS_EMPTY((event_data + HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET)))
+                COPY_40BYTES((token_id + HOST_EMAIL_ADDRESS_OFFSET), (event_data + HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET));
+
             if (!IS_BUFFER_EMPTY_4((event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET)))
                 COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET));
+
+            if (!IS_BUFFER_EMPTY_2((event_data + HOST_UPDATE_COUNTRY_CODE_PARAM_OFFSET)))
+                COPY_4BYTES((host_addr + HOST_COUNTRY_CODE_OFFSET), (event_data + HOST_UPDATE_COUNTRY_CODE_PARAM_OFFSET));
+
+            if (!IS_DESCRIPTION_EMPTY((event_data + HOST_UPDATE_DESCRIPTION_PARAM_OFFSET)))
+            {
+                COPY_10BYTES((host_addr + HOST_DESCRIPTION_OFFSET), (event_data + HOST_UPDATE_DESCRIPTION_PARAM_OFFSET));
+                COPY_16BYTES((host_addr + HOST_DESCRIPTION_OFFSET + 10), (event_data + HOST_UPDATE_DESCRIPTION_PARAM_OFFSET + 10));
+            }
 
             if (!IS_VERSION_EMPTY((event_data + HOST_UPDATE_VERSION_PARAM_OFFSET)))
             {

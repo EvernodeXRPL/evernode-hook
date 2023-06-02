@@ -176,6 +176,14 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define IS_BUFFER_EMPTY_8(buf) \
     (*(uint64_t *)(buf) == 0)
 
+#define IS_BUFFER_EMPTY_10(buf) \
+    (IS_BUFFER_EMPTY_8(buf) &&  \
+     IS_BUFFER_EMPTY_2((buf + 8)))
+
+#define IS_BUFFER_EMPTY_16(buf) \
+    (IS_BUFFER_EMPTY_8(buf) &&  \
+     IS_BUFFER_EMPTY_8((buf + 8)))
+
 #define IS_BUFFER_EMPTY_20(buf)      \
     (IS_BUFFER_EMPTY_8(buf) &&       \
      IS_BUFFER_EMPTY_8((buf + 8)) && \

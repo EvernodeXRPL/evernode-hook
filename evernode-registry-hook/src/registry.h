@@ -29,7 +29,7 @@ const uint32_t HOST_CPU_SPEED_PARAM_OFFSET = 60;
 const uint32_t HOST_DESCRIPTION_PARAM_OFFSET = 62;
 const uint32_t HOST_EMAIL_ADDRESS_PARAM_OFFSET = 88;
 
-// <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)>
+// <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)><email(40)>
 // HOST_UPDATE_REG
 const uint32_t HOST_UPDATE_TOKEN_ID_PARAM_OFFSET = 0;
 const uint32_t HOST_UPDATE_COUNTRY_CODE_PARAM_OFFSET = 32;
@@ -40,6 +40,7 @@ const uint32_t HOST_UPDATE_TOT_INS_COUNT_PARAM_OFFSET = 46;
 const uint32_t HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET = 50;
 const uint32_t HOST_UPDATE_DESCRIPTION_PARAM_OFFSET = 54;
 const uint32_t HOST_UPDATE_VERSION_PARAM_OFFSET = 80;
+const uint32_t HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET = 83;
 
 #define FOREIGN_REF SBUF(NAMESPACE), state_hook_accid, ACCOUNT_ID_SIZE
 
@@ -107,6 +108,14 @@ const uint32_t HOST_UPDATE_VERSION_PARAM_OFFSET = 80;
 #define IS_VERSION_EMPTY(buf)  \
     (IS_BUFFER_EMPTY_2(buf) && \
      IS_BUFFER_EMPTY_1((buf + 2)))
+
+#define IS_DESCRIPTION_EMPTY(buf) \
+    (IS_BUFFER_EMPTY_10(buf) &&   \
+     IS_BUFFER_EMPTY_16((buf + 10)))
+
+#define IS_EMAIL_ADDRESS_EMPTY(buf) \
+    (IS_BUFFER_EMPTY_32(buf) &&     \
+     IS_BUFFER_EMPTY_8((buf + 32)))
 
 // Domain operations
 
