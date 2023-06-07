@@ -12,7 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "evernode-js-client": "0.6.9"
+    "evernode-js-client": "0.6.10"
   },
   "devDependencies": {
     "eslint": "8.3.0"
