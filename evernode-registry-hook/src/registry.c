@@ -194,12 +194,18 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> This host is not registered.
             ASSERT(state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST);
 
-            // Check the ownership of the token to this user before proceeding.
-            int token_exists;
-            IS_REG_TOKEN_EXIST(((op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE) ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
+            // If host is a transferer it does not own a token.
+            // Check whether this host has an initiated transfer.
+            const int is_force_remove = (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE);
+            if (!is_force_remove || host_addr[HOST_TRANSFER_FLAG_OFFSET] != PENDING_TRANSFER)
+            {
+                // Check the ownership of the token to this user before proceeding.
+                int token_exists;
+                IS_REG_TOKEN_EXIST((is_force_remove ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
 
-            // ASSERT_FAILURE_MSG >> Registration URIToken does not exist.
-            ASSERT(token_exists);
+                // ASSERT_FAILURE_MSG >> Registration URIToken does not exist.
+                ASSERT(token_exists);
+            }
         }
 
         // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
@@ -786,6 +792,14 @@ int64_t hook(uint32_t reserved)
 
                 // ASSERT_FAILURE_MSG >> Minimum XRP to governor hook failed.
                 ASSERT(emit(SBUF(emithash), SBUF(REMOVE_CASCADE_CANDIDATE_MIN_PAYMENT)) >= 0);
+            }
+
+            // If this is a transferer remove the transferee state.
+            if (host_addr[HOST_TRANSFER_FLAG_OFFSET] == PENDING_TRANSFER)
+            {
+                TRANSFEREE_ADDR_KEY(host_addr_ptr);
+                // ASSERT_FAILURE_MSG >> Could not delete host transferee entry.
+                ASSERT(state_foreign_set(0, 0, SBUF(STP_TRANSFEREE_ADDR), FOREIGN_REF) >= 0);
             }
 
             // Delete registration entries. If there are pending rewards heartbeat hook will delete the states
