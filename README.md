@@ -7,20 +7,21 @@ XRPL hook for Evernode.
 - Create hook account configuration file with following format and populate the accounts.
 ```
     {
-    "governor": {
-        "address": "",
-        "secret": ""
-    },
-    "registry": {
-        "address": "",
-        "secret": ""
-    },
-    "heartbeat": {
-        "address": "",
-        "secret": ""
-    }
+        "governor": {
+            "address": "",
+            "secret": ""
+        },
+        "registry": {
+            "address": "",
+            "secret": ""
+        },
+        "heartbeat": {
+            "address": "",
+            "secret": ""
+        }
     }
 ```
+- XRPL.js npm library will not support the server definitions on `hooks-testnet-v3`, So you need to replace the server definitions in `xrpl-binary-codec`.
 
 ## Build
 - Run `make build` to build the hook binaries.
