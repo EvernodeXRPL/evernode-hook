@@ -90,7 +90,7 @@
 // Default values.
 const uint8_t HOOK_INITIALIZER_ADDR[35] = "rGnsxB6rwDhXQeGKojgB7meoXMwsAGxeaH";
 const uint16_t DEF_MOMENT_SIZE = 3600;
-const uint16_t DEF_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
+const uint8_t DEF_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 5120;
 const uint64_t DEF_FIXED_REG_FEE = 5;
