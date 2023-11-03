@@ -176,7 +176,7 @@ int64_t hook(uint32_t reserved)
         }
 
         // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
-        // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><support_vote_sent(1)>
+        // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)>
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
         // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
         uint8_t token_id[TOKEN_ID_VAL_SIZE];
@@ -187,8 +187,8 @@ int64_t hook(uint32_t reserved)
         uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
         uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
 
-        // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><elected_proposal_unique_id(32)>
-        // <proposal_elected_timestamp(8)><updated_hook_count(1)><foundation_vote_flag(1)>
+        // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><foundation_last_voted_timestamp(8)><elected_proposal_unique_id(32)>
+        // <proposal_elected_timestamp(8)><updated_hook_count(1)>
         uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
 
         // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
@@ -354,7 +354,7 @@ int64_t hook(uint32_t reserved)
                 // ASSERT_FAILURE_MSG >> Could not set state for reward info.
                 ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
 
-                governance_info[EPOCH_OFFSET] = PILOTED;
+                governance_info[GOVERNANCE_MODE_OFFSET] = PILOTED;
 
                 // ASSERT_FAILURE_MSG >> Could not set state for governance info.
                 ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
@@ -381,8 +381,11 @@ int64_t hook(uint32_t reserved)
         }
         else if (op_type == OP_PROPOSE)
         {
+            // ASSERT_FAILURE_MSG >> There are no enough space to read second param in whole.
+            ASSERT((MAX_EVENT_DATA_SIZE - event_data_len) >= MAX_HOOK_PARAM_SIZE);
+
             // Continue loading data into the buffer from other params.
-            const int64_t event_data2_len = otxn_param(event_data + event_data_len, MAX_HOOK_PARAM_SIZE, SBUF(PARAM_EVENT_DATA2_KEY));
+            const int64_t event_data2_len = otxn_param(event_data + event_data_len, (MAX_EVENT_DATA_SIZE - event_data_len), SBUF(PARAM_EVENT_DATA2_KEY));
 
             // ASSERT_FAILURE_MSG >> Error getting the event data 2 param.
             ASSERT(event_data2_len >= 0);

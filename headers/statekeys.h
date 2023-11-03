@@ -20,7 +20,8 @@ const uint8_t STK_MAX_REG[32] = {'E', 'V', 'R', 53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // Epoch reward info <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>.
 const uint8_t STK_REWARD_INFO[32] = {'E', 'V', 'R', 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-// Governance info <governance_mode(uint8_t)><elected_proposal_unique_id(uint32_t)><proposal_elected_timestamp(uint64_t)><updated_hook_count(uint8_t)>
+// Governance info <governance_mode(unit8_t)><last_candidate_idx(unit32_t)><voter_base_count(unit32_t)><voter_base_count_changed_timestamp(unit64_t)>
+// <foundation_last_voted_candidate_idx(unit32_t)><foundation_last_voted_timestamp(unit64_t)><elected_proposal_unique_id(32)><proposal_elected_timestamp(unit64_t)><updated_hook_count(unit8_t)>
 const uint8_t STK_GOVERNANCE_INFO[32] = {'E', 'V', 'R', 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Transaction fee base info <fee_base_avg(uint32_t)><avg_changed_idx(uint64_t)><avg_accumulator(uint32_t)><counter(uint16_t)>

@@ -74,7 +74,10 @@
 #define MAX_MEMO_SIZE 4096      // Maximum tx blob size.
 #define MAX_HOOK_PARAM_SIZE 128 // Maximum txn param length.
 #define MAX_EVENT_TYPE_SIZE 40  // Maximum string length of the event type.
-#define MAX_EVENT_DATA_SIZE 256 // Maximum size of the event data.
+
+// Maximum size of the event data.
+#define MAX_EVENT_DATA_SIZE \
+    MAX_HOOK_PARAM_SIZE * 2
 
 // Transfer process related definitions
 const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
@@ -98,7 +101,7 @@ const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
-const uint32_t GOVERNANCE_INFO_VAL_SIZE = 71;
+const uint32_t GOVERNANCE_INFO_VAL_SIZE = 70;
 const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 15;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
