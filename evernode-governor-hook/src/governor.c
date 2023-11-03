@@ -54,7 +54,7 @@ int64_t hook(uint32_t reserved)
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
-    int moment_base_info_state_res = state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF);
+    int moment_base_info_state_res = state_foreign(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF);
 
     // ASSERT_FAILURE_MSG >> Could not get moment base info state.
     ASSERT(!(moment_base_info_state_res < 0 && moment_base_info_state_res != DOESNT_EXIST));
@@ -213,8 +213,8 @@ int64_t hook(uint32_t reserved)
                      state_foreign(SBUF(governance_configuration), SBUF(CONF_GOVERNANCE_CONFIGURATION), FOREIGN_REF) < 0));
 
             // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
-            ASSERT(!(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
-                     state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0));
+            ASSERT(!(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) < 0 ||
+                     state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0));
         }
 
         // Validation check for participants other than the foundation address
@@ -304,7 +304,7 @@ int64_t hook(uint32_t reserved)
             uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
 
             // First check if the states are already initialized by checking lastly added state key for existence.
-            if (state_foreign(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
+            if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
             {
                 const uint64_t zero = 0;
                 // Initialize the state.
@@ -362,7 +362,7 @@ int64_t hook(uint32_t reserved)
             else
             {
                 // ASSERT_FAILURE_MSG >> Could not get reward configuration states.
-                ASSERT(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+                ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
             }
 
             if (fee_base_info_state_res == DOESNT_EXIST)

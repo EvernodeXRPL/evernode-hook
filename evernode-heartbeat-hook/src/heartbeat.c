@@ -57,7 +57,7 @@ int64_t hook(uint32_t reserved)
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
 
     // ASSERT_FAILURE_MSG >> Could not get moment base info state.
-    ASSERT(state_foreign(moment_base_info, MOMENT_BASE_INFO_VAL_SIZE, SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+    ASSERT(state_foreign(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
 
     uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
     uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
@@ -74,7 +74,7 @@ int64_t hook(uint32_t reserved)
 
     // <transition_index(uint64_t)><moment_size(uint16_t)><index_type(uint8_t)>
     uint8_t moment_transition_info[MOMENT_TRANSIT_INFO_VAL_SIZE] = {0};
-    int transition_state_res = state_foreign(moment_transition_info, MOMENT_TRANSIT_INFO_VAL_SIZE, SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
+    int transition_state_res = state_foreign(SBUF(moment_transition_info), SBUF(CONF_MOMENT_TRANSIT_INFO), FOREIGN_REF);
 
     // ASSERT_FAILURE_MSG >> Error getting moment size transaction info state.
     ASSERT(!(transition_state_res < 0 && transition_state_res != DOESNT_EXIST));
@@ -324,13 +324,13 @@ int64_t hook(uint32_t reserved)
                 uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
 
                 // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
-                ASSERT(state_foreign(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+                ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
 
                 // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
                 uint8_t reward_info[REWARD_INFO_VAL_SIZE];
 
                 // ASSERT_FAILURE_MSG >> Could not get reward info state.
-                ASSERT(state_foreign(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+                ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
 
                 const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
                 const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
