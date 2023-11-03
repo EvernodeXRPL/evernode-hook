@@ -8,16 +8,6 @@
 #define PILOTED_MODE_CAND_SHORTNAME "piloted_mode"
 #define DUD_HOST_CAND_SHORTNAME "dud_host"
 
-#define OP_INITIALIZE 1
-#define OP_PROPOSE 2
-#define OP_GOVERNANCE_MODE_CHANGE 3
-#define OP_STATUS_CHANGE 4
-#define OP_WITHDRAW 5
-#define OP_DUD_HOST_REPORT 6
-#define OP_REMOVE_LINKED_CANDIDATE 7
-#define OP_REMOVE 8
-#define OP_REMOVE_ORPHAN_CANDIDATE 9
-
 #define FOREIGN_REF 0, 0, 0, 0
 
 #define EQUAL_INITIALIZE(buf, len)                  \

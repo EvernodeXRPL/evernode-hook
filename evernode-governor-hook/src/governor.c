@@ -112,8 +112,8 @@ int64_t hook(uint32_t reserved)
     otxn_slot(1);
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
-    uint8_t origin_op_type = OP_NONE;
-    uint8_t op_type = OP_NONE;
+    enum OPERATION origin_op_type = OP_NONE;
+    enum OPERATION op_type = OP_NONE;
 
     uint8_t source_is_foundation = 0;
     const uint64_t zero = 0;

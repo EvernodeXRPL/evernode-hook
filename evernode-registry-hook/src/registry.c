@@ -108,8 +108,8 @@ int64_t hook(uint32_t reserved)
     otxn_slot(1);
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
-    uint8_t op_type = OP_NONE;
-    uint8_t redirect_op_type = OP_NONE;
+    enum OPERATION op_type = OP_NONE;
+    enum OPERATION redirect_op_type = OP_NONE;
 
     if (txn_type == ttPAYMENT)
     {
@@ -815,7 +815,7 @@ int64_t hook(uint32_t reserved)
                 // PERMIT_MSG >> Host de-registration successful.
                 PERMIT();
             }
-            else if (op_type == DEAD_HOST_PRUNE)
+            else if (op_type == OP_DEAD_HOST_PRUNE)
             {
                 // PERMIT_MSG >> Dead host prune successful.
                 PERMIT();

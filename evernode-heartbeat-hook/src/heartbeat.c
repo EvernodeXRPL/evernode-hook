@@ -202,8 +202,8 @@ int64_t hook(uint32_t reserved)
     otxn_slot(1);
     int64_t amt_slot = slot_subfield(1, sfAmount, 0);
 
-    uint8_t op_type = OP_NONE;
-    uint8_t redirect_op_type = OP_NONE;
+    enum OPERATION op_type = OP_NONE;
+    enum OPERATION redirect_op_type = OP_NONE;
 
     // ASSERT_FAILURE_MSG >> Could not slot otxn.sfAmount.
     ASSERT(amt_slot >= 0);

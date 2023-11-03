@@ -6,15 +6,6 @@
 #include "../../headers/statekeys.h"
 #include "../../headers/transactions.h"
 
-#define OP_HOST_REG 1
-#define OP_HOST_DEREG 2
-#define OP_HOST_UPDATE_REG 3
-#define OP_DEAD_HOST_PRUNE 4
-#define OP_HOST_REBATE 5
-#define OP_HOST_TRANSFER 6
-#define OP_DUD_HOST_REMOVE 7
-#define OP_HOST_REMOVE 8
-
 // Param Offsets
 // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
 // HOST_REG

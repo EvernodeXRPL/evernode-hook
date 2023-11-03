@@ -3,10 +3,6 @@
 #include "../../headers/statekeys.h"
 #include "../../headers/transactions.h"
 
-#define OP_HEARTBEAT 1
-#define OP_VOTE 2
-#define OP_REWARD_REQUEST 3
-
 // Param Offsets
 // <hook_hashes(32*3)><hook_keylets(34*3)><unique_id(32)><short_name(20)>
 // PENDING_REWARDS_REQUEST
