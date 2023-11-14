@@ -261,7 +261,7 @@ int64_t hook(uint32_t reserved)
     const uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
-    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)>
+    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)>
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
     uint8_t token_id[TOKEN_ID_VAL_SIZE];
@@ -319,17 +319,21 @@ int64_t hook(uint32_t reserved)
                 accept_heartbeat = 1;
         }
 
+        const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
+
+        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_reputation_threshold(uint8_t)>
+        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
+
+        // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
+        ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+
+        const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+
         // Allocate for both rewards trx + vote triggers.
-        etxn_reserve(accept_heartbeat ? 2 : 1);
+        etxn_reserve((accept_heartbeat && host_reputation > reputation_threshold) ? 2 : 1);
 
-        if (accept_heartbeat)
+        if (accept_heartbeat && host_reputation > reputation_threshold)
         {
-            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
-            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-
-            // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
-            ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
-
             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
 

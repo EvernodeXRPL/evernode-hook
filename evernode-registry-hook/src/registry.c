@@ -139,6 +139,9 @@ int64_t hook(uint32_t reserved)
             // Dud host remove.
             else if (EQUAL_DUD_HOST_REMOVE(event_type, event_type_len))
                 op_type = OP_DUD_HOST_REMOVE;
+            // Host reputation update.
+            else if (EQUAL_HOST_UPDATE_REPUTATION(event_type, event_type_len))
+                op_type = OP_HOST_UPDATE_REPUTATION;
         }
         else // IOU payment.
         {
@@ -168,18 +171,18 @@ int64_t hook(uint32_t reserved)
     ASSERT(!(op_type != OP_HOST_REBATE && event_data_len < 0));
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
-    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)>
+    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)>
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
     uint8_t token_id[TOKEN_ID_VAL_SIZE];
 
     // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
-    if (op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE ||
-        op_type == OP_HOST_TRANSFER || op_type == OP_DEAD_HOST_PRUNE ||
-        op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_DEREG)
+    if (op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER ||
+        op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_DEREG ||
+        op_type == OP_HOST_UPDATE_REPUTATION)
     {
         // Generate host account key.
-        if (op_type != OP_DEAD_HOST_PRUNE && op_type != OP_DUD_HOST_REMOVE)
+        if (op_type != OP_DEAD_HOST_PRUNE && op_type != OP_DUD_HOST_REMOVE && op_type != OP_HOST_UPDATE_REPUTATION)
         {
             HOST_ADDR_KEY(account_field);
         }
@@ -212,7 +215,7 @@ int64_t hook(uint32_t reserved)
         }
     }
 
-    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
+    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)>
     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
@@ -629,6 +632,20 @@ int64_t hook(uint32_t reserved)
             // PERMIT_MSG >> Host transfer initiated successfully.
             PERMIT();
         }
+    }
+    else if (op_type == OP_HOST_UPDATE_REPUTATION)
+    {
+        // ASSERT_FAILURE_MSG >> Only foundation is allowed to send host reputation update.
+        ASSERT(BUFFER_EQUAL_20(foundation_accid, account_field));
+
+        host_addr[HOST_REPUTATION_OFFSET] = event_data[REPUTATION_VALUE_PARAM_OFFSET];
+
+        // ASSERT_FAILURE_MSG >> Could not set state for reputation update.
+        ASSERT(!(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
+
+        // PERMIT_MSG >> Update host reputation successful.
+        PERMIT();
+
     }
     else if (op_type == OP_DUD_HOST_REMOVE)
     {

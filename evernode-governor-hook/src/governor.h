@@ -100,6 +100,7 @@ const uint16_t DEF_CANDIDATE_SUPPORT_AVERAGE = 80;
 const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 24;
 const uint32_t DEF_NETWORK_BUSYNESS_DETECT_PERIOD = 604800; // 1 week in seconds.
 const uint16_t DEF_NETWORK_BUSYNESS_DETECT_AVERAGE = 50;
+const uint8_t DEF_HOST_REPUTATION_THRESHOLD = 200;
 
 // Transition related definitions. Transition state is added on the init transaction if this has >0 value
 const uint16_t NEW_MOMENT_SIZE = 3600;
