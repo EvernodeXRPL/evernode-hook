@@ -330,9 +330,9 @@ int64_t hook(uint32_t reserved)
         const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
         // Allocate for both rewards trx + vote triggers.
-        etxn_reserve((accept_heartbeat && host_reputation > reputation_threshold) ? 2 : 1);
+        etxn_reserve((accept_heartbeat && host_reputation >= reputation_threshold) ? 2 : 1);
 
-        if (accept_heartbeat && host_reputation > reputation_threshold)
+        if (accept_heartbeat && host_reputation >= reputation_threshold)
         {
             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
