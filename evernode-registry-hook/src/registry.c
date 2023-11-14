@@ -203,12 +203,12 @@ int64_t hook(uint32_t reserved)
 
         // If host is a transferer it does not own a token.
         // Check whether this host has an initiated transfer.
-        const int is_force_remove = (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE);
-        if (!is_force_remove || host_addr[HOST_TRANSFER_FLAG_OFFSET] != PENDING_TRANSFER)
+        const int is_controlled_op = (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_UPDATE_REPUTATION);
+        if (!is_controlled_op || host_addr[HOST_TRANSFER_FLAG_OFFSET] != PENDING_TRANSFER)
         {
             // Check the ownership of the token to this user before proceeding.
             int token_exists;
-            IS_REG_TOKEN_EXIST((is_force_remove ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
+            IS_REG_TOKEN_EXIST((is_controlled_op ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
 
             // ASSERT_FAILURE_MSG >> Registration URIToken does not exist.
             ASSERT(token_exists);
@@ -645,7 +645,6 @@ int64_t hook(uint32_t reserved)
 
         // PERMIT_MSG >> Update host reputation successful.
         PERMIT();
-
     }
     else if (op_type == OP_DUD_HOST_REMOVE)
     {
