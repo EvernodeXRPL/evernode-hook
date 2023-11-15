@@ -338,20 +338,18 @@ int64_t hook(uint32_t reserved)
             const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
             const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
 
-            const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
-            const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
-
-            const int is_reputed = (host_reputation >= reputation_threshold) ? 1 : 0;
-
             int64_t reward_pool_amount, reward_amount;
-            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, is_reputed, reward_pool_amount, reward_amount);
+            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
 
+            const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
+            const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+
             // Reward if host is reputed and reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
             // the reward quota is not 0.
-            if (is_reputed && (reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
+            if (host_reputation >= reputation_threshold && (reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
                 last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
             {
