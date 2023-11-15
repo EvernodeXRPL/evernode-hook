@@ -319,47 +319,50 @@ int64_t hook(uint32_t reserved)
                 accept_heartbeat = 1;
         }
 
-        const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
-
-        // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_reputation_threshold(uint8_t)>
-        uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-
-        // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
-        ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
-
-        const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
-
-        // Allocate for both rewards trx + vote triggers.
-        etxn_reserve((accept_heartbeat && host_reputation >= reputation_threshold) ? 2 : 1);
-
-        if (accept_heartbeat && host_reputation >= reputation_threshold)
+        if (accept_heartbeat)
         {
-            // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-            uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_reputation_threshold(uint8_t)>
+            uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
 
-            // ASSERT_FAILURE_MSG >> Could not get reward info state.
-            ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
-
-            const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-            const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
-            const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
-
-            int64_t reward_pool_amount, reward_amount;
-            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
+            // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
+            ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
 
-            // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
-            // the reward quota is not 0.
-            if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
-                last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
-                (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
+            const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
+            const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+
+            // Consider rewarding only if reputed.
+            if (host_reputation >= reputation_threshold)
             {
-                accumulated_reward = float_sum(accumulated_reward, reward_amount);
-                reward_pool_amount = float_sum(reward_pool_amount, float_negate(reward_amount));
-                INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], reward_pool_amount);
+                // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+                uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+
+                // ASSERT_FAILURE_MSG >> Could not get reward info state.
+                ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+
+                const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+                const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+                const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+                const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
+
+                int64_t reward_pool_amount, reward_amount;
+                PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
+
+                // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
+                // the reward quota is not 0.
+                if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
+                    last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
+                    (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
+                {
+                    accumulated_reward = float_sum(accumulated_reward, reward_amount);
+                    reward_pool_amount = float_sum(reward_pool_amount, float_negate(reward_amount));
+                    INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], reward_pool_amount);
+                }
+
+                // ASSERT_FAILURE_MSG >> Could not set state for reward info.
+                ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
             }
 
             // Send the accumulated rewards if there's any.
@@ -377,10 +380,10 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for host token id.
             ASSERT(state_foreign_set(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) >= 0);
-
-            // ASSERT_FAILURE_MSG >> Could not set state for reward info.
-            ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
         }
+
+        // Allocate for both rewards trx + vote triggers.
+        etxn_reserve(has_pending_rewards ? 2 : 1);
 
         const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
