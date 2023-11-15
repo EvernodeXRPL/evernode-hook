@@ -327,29 +327,31 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
             ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
 
-            const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
-            int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
+            // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+            uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+
+            // ASSERT_FAILURE_MSG >> Could not get reward info state.
+            ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+
+            const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
+            const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
+            const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
+            const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
 
             const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
             const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
+            const int is_reputed = (host_reputation >= reputation_threshold) ? 1 : 0;
+
+            int64_t reward_pool_amount, reward_amount;
+            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, is_reputed, reward_pool_amount, reward_amount);
+
+            const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
+            int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
+
             // Consider rewarding only if reputed.
-            if (host_reputation >= reputation_threshold)
+            if (is_reputed)
             {
-                // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
-                uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-
-                // ASSERT_FAILURE_MSG >> Could not get reward info state.
-                ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
-
-                const uint8_t epoch_count = reward_configuration[EPOCH_COUNT_OFFSET];
-                const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
-                const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
-                const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
-
-                int64_t reward_pool_amount, reward_amount;
-                PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
-
                 // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
                 // the reward quota is not 0.
                 if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
