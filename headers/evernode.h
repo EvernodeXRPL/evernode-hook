@@ -276,7 +276,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
     (data & flag)
 
 #define REMOVE_FLAG(data, flag) \
-    (data ^ flag)
+    (data ^= flag)
 
 #define ADD_FLAG(data, flag) \
     (data |= flag)
