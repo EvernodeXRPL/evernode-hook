@@ -272,14 +272,14 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             rollback(SBUF(error_buf), 1);                                         \
     }
 
-#define CHECK_FLAG(data, flag) \
-    (data & flag)
+#define CHECK_FLAG(lvalue, flag) \
+    (lvalue & flag)
 
-#define REMOVE_FLAG(data, flag) \
-    (data ^= flag)
+#define REMOVE_FLAG(lvalue, flag) \
+    (lvalue &= ~flag)
 
-#define ADD_FLAG(data, flag) \
-    (data |= flag)
+#define ADD_FLAG(lvalue, flag) \
+    (lvalue |= flag)
 
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
