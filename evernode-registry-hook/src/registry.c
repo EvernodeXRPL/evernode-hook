@@ -294,6 +294,9 @@ int64_t hook(uint32_t reserved)
         COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (event_data + HOST_TOT_INS_COUNT_PARAM_OFFSET));
         UINT64_TO_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
+        // Set host reputation to the default threshold.
+        COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET]);
+
         if (has_initiated_transfer == 0)
         {
             // Continuation of normal registration flow...
@@ -409,10 +412,13 @@ int64_t hook(uint32_t reserved)
             COPY_32BYTES(host_addr, (prev_host_addr + HOST_TOKEN_ID_OFFSET));
 
             // Copy some of the previous host state figures to the new HOST_ADDR state.
-            const uint8_t *heartbeat_ptr = &prev_host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
             COPY_8BYTES(&host_addr[HOST_REG_LEDGER_OFFSET], &prev_host_addr[HOST_REG_LEDGER_OFFSET]);
             COPY_8BYTES(&host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET], &prev_host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET]);
             COPY_8BYTES(&host_addr[HOST_REG_TIMESTAMP_OFFSET], &prev_host_addr[HOST_REG_TIMESTAMP_OFFSET]);
+
+            // Host reputation and flags will be copied from previous state.
+            COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &prev_host_addr[HOST_REPUTATION_OFFSET]);
+            COPY_BYTE(&host_addr[HOST_FLAGS_OFFSET], &prev_host_addr[HOST_FLAGS_OFFSET]);
 
             // Set the STP_HOST_ADDR with corresponding new state's key.
             HOST_ADDR_KEY(account_field);
