@@ -33,6 +33,11 @@ const uint32_t HOST_UPDATE_DESCRIPTION_PARAM_OFFSET = 54;
 const uint32_t HOST_UPDATE_VERSION_PARAM_OFFSET = 80;
 const uint32_t HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET = 83;
 
+// <host_address(20)><host_reputation(1)>
+// HOST_UPDATE_REPUTATION
+const uint32_t REPUTATION_HOST_ADDRESS_PARAM_OFFSET = 0;
+const uint32_t REPUTATION_VALUE_PARAM_OFFSET = 20;
+
 #define FOREIGN_REF SBUF(NAMESPACE), state_hook_accid, ACCOUNT_ID_SIZE
 
 ///// Operational macros /////
@@ -85,6 +90,14 @@ const uint32_t HOST_UPDATE_EMAIL_ADDRESS_PARAM_OFFSET = 83;
     (sizeof(DUD_HOST_REMOVE) == (len + 1) && \
      BUFFER_EQUAL_8(buf, DUD_HOST_REMOVE) && \
      BUFFER_EQUAL_8((buf + 8), (DUD_HOST_REMOVE + 8)))
+
+#define EQUAL_HOST_UPDATE_REPUTATION(buf, len)                    \
+    (sizeof(HOST_UPDATE_REPUTATION) == (len + 1) &&               \
+     BUFFER_EQUAL_8(buf, HOST_UPDATE_REPUTATION) &&               \
+     BUFFER_EQUAL_8((buf + 8), (HOST_UPDATE_REPUTATION + 8)) &&   \
+     BUFFER_EQUAL_4((buf + 16), (HOST_UPDATE_REPUTATION + 16)) && \
+     BUFFER_EQUAL_2((buf + 20), (HOST_UPDATE_REPUTATION + 20)) && \
+     BUFFER_EQUAL_1((buf + 22), (HOST_UPDATE_REPUTATION + 22)))
 
 // Copy operations
 

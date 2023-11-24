@@ -180,7 +180,7 @@ int64_t hook(uint32_t reserved)
     }
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
-    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)>
+    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)><flags(1)>
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
     uint8_t token_id[TOKEN_ID_VAL_SIZE];
@@ -197,7 +197,7 @@ int64_t hook(uint32_t reserved)
 
     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
+    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)>
     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
 
     if (op_type != OP_INITIALIZE)
@@ -848,6 +848,7 @@ int64_t hook(uint32_t reserved)
         SET_UINT_STATE_VALUE(DEF_FIXED_REG_FEE, CONF_FIXED_REG_FEE, "Evernode: Could not initialize state for fixed reg fee.");
 
         UINT16_TO_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
+        reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET] = DEF_HOST_REPUTATION_THRESHOLD;
 
         // ASSERT_FAILURE_MSG >> Could not set state for reward configuration.
         ASSERT(state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);

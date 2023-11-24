@@ -261,7 +261,7 @@ int64_t hook(uint32_t reserved)
     const uint32_t voter_base_count = UINT32_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_OFFSET]);
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
-    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)>
+    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)><flags(1)>
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
     uint8_t token_id[TOKEN_ID_VAL_SIZE];
@@ -319,16 +319,23 @@ int64_t hook(uint32_t reserved)
                 accept_heartbeat = 1;
         }
 
-        // Allocate for both rewards trx + vote triggers.
-        etxn_reserve(accept_heartbeat ? 2 : 1);
-
         if (accept_heartbeat)
         {
-            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)>
+            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_reputation_threshold(uint8_t)>
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
 
             // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
             ASSERT(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+
+            // Update the reputed flag if host is reputed.
+            const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
+            const uint8_t host_flags = host_addr[HOST_FLAGS_OFFSET];
+            const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+            int host_reputed = (host_reputation >= reputation_threshold) ? 1 : 0;
+            if (host_reputed)
+                ADD_FLAG(host_addr[HOST_FLAGS_OFFSET], REPUTED_ON_HEARTBEAT);
+            else
+                REMOVE_FLAG(host_addr[HOST_FLAGS_OFFSET], REPUTED_ON_HEARTBEAT);
 
             // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
@@ -342,15 +349,16 @@ int64_t hook(uint32_t reserved)
             const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
 
             int64_t reward_pool_amount, reward_amount;
-            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, 1, reward_pool_amount, reward_amount);
+            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, host_reputed, reward_pool_amount, reward_amount);
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
 
-            // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active in the previous moment AND
+            // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active and reputed in the previous moment AND
             // the reward quota is not 0.
             if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
                 last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
+                CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) &&
                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
             {
                 accumulated_reward = float_sum(accumulated_reward, reward_amount);
@@ -377,6 +385,9 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Could not set state for reward info.
             ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
         }
+
+        // Allocate for both rewards trx + vote triggers.
+        etxn_reserve(has_pending_rewards ? 2 : 1);
 
         const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 

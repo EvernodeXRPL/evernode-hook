@@ -31,6 +31,7 @@
 #define DUD_HOST_REMOVE_RES "evnDudHostRemoveRes"
 #define LINKED_CANDIDATE_REMOVE "evnRemoveLinkedCandidate"
 #define ORPHAN_CANDIDATE_REMOVE "evnRemoveOrphanCandidate"
+#define HOST_UPDATE_REPUTATION "evnHostUpdateReputation"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -91,7 +92,8 @@ enum OPERATION
     OP_HOST_REBATE,
     OP_HOST_TRANSFER,
     OP_DUD_HOST_REMOVE,
-    OP_HOST_REMOVE
+    OP_HOST_REMOVE,
+    OP_HOST_UPDATE_REPUTATION
 };
 
 #define MAX_MEMO_SIZE 4096      // Maximum tx blob size.
@@ -105,6 +107,10 @@ enum OPERATION
 // Transfer process related definitions
 const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
 
+// Host flags
+// <reputed_on_heartbeat>
+const uint8_t REPUTED_ON_HEARTBEAT = 1;
+
 const int64_t XRPL_TIMESTAMP_OFFSET = 946684800;
 const int64_t NOW_IN_EVRS = 0.00000001;
 const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0x54,
@@ -113,7 +119,7 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 125;
+const uint32_t HOST_ADDR_VAL_SIZE = 127;
 const uint32_t TOKEN_ID_VAL_SIZE = 124;
 const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
@@ -125,7 +131,7 @@ const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
 const uint32_t REWARD_INFO_VAL_SIZE = 21;
 const uint32_t GOVERNANCE_INFO_VAL_SIZE = 70;
-const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 15;
+const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 16;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
@@ -152,6 +158,7 @@ const uint32_t FIRST_EPOCH_REWARD_QUOTA_OFFSET = 1;
 const uint32_t EPOCH_REWARD_AMOUNT_OFFSET = 5;
 const uint32_t REWARD_START_MOMENT_OFFSET = 9;
 const uint32_t ACCUMULATED_REWARD_FREQUENCY_OFFSET = 13;
+const uint32_t HOST_REPUTATION_THRESHOLD_OFFSET = 15;
 
 // GOVERNANCE_CONFIGURATION
 const uint32_t ELIGIBILITY_PERIOD_OFFSET = 0;
@@ -192,6 +199,8 @@ const uint32_t HOST_TRANSFER_FLAG_OFFSET = 111;
 const uint32_t HOST_LAST_VOTE_CANDIDATE_IDX_OFFSET = 112;
 const uint32_t HOST_LAST_VOTE_TIMESTAMP_OFFSET = 116;
 const uint32_t HOST_SUPPORT_VOTE_FLAG_OFFSET = 124;
+const uint32_t HOST_REPUTATION_OFFSET = 125;
+const uint32_t HOST_FLAGS_OFFSET = 126;
 
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;
