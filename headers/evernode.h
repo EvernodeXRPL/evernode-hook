@@ -281,6 +281,18 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define ADD_FLAG(lvalue, flag) \
     (lvalue |= flag)
 
+#define CHECK_PARTIAL_PAYMENT(otxn_type)                               \
+    {                                                                  \
+        uint8_t flags[4] = {0};                                        \
+        const int32_t flags_len = otxn_field(SBUF(flags), sfFlags);    \
+        flags[0] &= (tfPartialPayment >> 24) & 0xFFU;                  \
+        flags[1] &= (tfPartialPayment >> 16) & 0xFFU;                  \
+        flags[2] &= (tfPartialPayment >> 8) & 0xFFU;                   \
+        flags[3] &= (tfPartialPayment >> 0) & 0xFFU;                   \
+        /* ASSERT_FAILURE_MSG >> Partial payments are not accepted.*/  \
+        ASSERT(((txn_type != ttPAYMENT) || IS_BUFFER_EMPTY_4(flags))); \
+    }
+
 // Provide m >= 1 to indicate in which code line macro will hit.
 // Provide n >= 1 to indicate how many times the macro will be hit on the line of code.
 // e.g. if it is in a loop that loops 10 times n = 10

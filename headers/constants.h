@@ -64,6 +64,7 @@
 #define tfBuyToken 0x00000000
 #define tfOnlyXRP 0x00000002
 #define tfHookOverride 0x00000001
+#define tfPartialPayment 0x00020000
 #define ltHOOK 'H'
 
 #define ltURI_TOKEN 'U'

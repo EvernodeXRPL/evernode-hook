@@ -39,6 +39,9 @@ int64_t hook(uint32_t reserved)
      * - any outgoing transactions without further processing.
      */
     int64_t txn_type = otxn_type();
+
+    CHECK_PARTIAL_PAYMENT(txn_type);
+
     if ((!(txn_type == ttPAYMENT || txn_type == ttURI_TOKEN_CREATE_SELL_OFFER)) || BUFFER_EQUAL_20(hook_accid, account_field))
     {
         // PERMIT_MSG >> Transaction is not handled.
