@@ -281,11 +281,13 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define ADD_FLAG(lvalue, flag) \
     (lvalue |= flag)
 
-#define CHECK_PARTIAL_PAYMENT(otxn_type)                                    \
-    {                                                                       \
-        uint32_t flags = 0;                                                 \
-        const int32_t flags_len = otxn_field(&flags, 4, sfFlags);           \
-        ASSERT(((txn_type != ttPAYMENT) || !(flags & tfPartialPaymentLE))); \
+// check if the otxn is a partial payment. note: this does not check it is an incoming txn
+#define CHECK_PARTIAL_PAYMENT()                                                        \
+    {                                                                                  \
+        uint32_t flags = 0;                                                            \
+        otxn_field(&flags, 4, sfFlags);                                                \
+        if ((otxn_type() == ttPAYMENT) && (flags & 0x00000200 /*tfPartialPaymentLE*/)) \
+            rollback("Rejected partial payment", 24, __LINE__);                        \
     }
 
 // Provide m >= 1 to indicate in which code line macro will hit.
