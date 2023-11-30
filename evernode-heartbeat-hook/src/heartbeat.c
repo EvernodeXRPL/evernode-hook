@@ -21,6 +21,8 @@
  */
 int64_t hook(uint32_t reserved)
 {
+    CHECK_PARTIAL_PAYMENT();
+
     // Getting the hook account id.
     unsigned char hook_accid[20];
     hook_account((uint32_t)hook_accid, 20);

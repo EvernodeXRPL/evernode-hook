@@ -22,6 +22,8 @@
  */
 int64_t hook(uint32_t reserved)
 {
+    CHECK_PARTIAL_PAYMENT();
+
     // Getting the hook account id.
     unsigned char hook_accid[20];
     hook_account((uint32_t)hook_accid, 20);
@@ -771,13 +773,17 @@ int64_t hook(uint32_t reserved)
         }
         else if (request_reward == 1)
         {
-            PREPARE_HEARTBEAT_TRIGGER_MIN_PAYMENT_TX(0, heartbeat_hook_accid, PENDING_REWARDS_REQUEST, txid, reward_req);
+            PREPARE_HEARTBEAT_TRIGGER_MIN_PAYMENT_TX(1, heartbeat_hook_accid, PENDING_REWARDS_REQUEST, txid, reward_req);
             // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
             ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_TRIGGER_MIN_PAYMENT)) >= 0);
         }
 
         if (total_rebate_amount > 0)
         {
+            // We should rollback if calculated rebate amount is greater than the received registration fee.
+            // ASSERT_FAILURE_MSG >> Rebate amount is greater than received.
+            ASSERT(total_rebate_amount <= reg_fee);
+
             // Prepare transaction to send 50% of reg fee and pending rebates to host account.
             PREPARE_REMOVED_HOST_RES_PAYMENT_TX(float_set(0, total_rebate_amount), host_addr_ptr, event_type_ptr, txid);
 

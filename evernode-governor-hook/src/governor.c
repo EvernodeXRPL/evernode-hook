@@ -21,6 +21,8 @@
  */
 int64_t hook(uint32_t reserved)
 {
+    CHECK_PARTIAL_PAYMENT();
+
     // Getting the hook account id.
     unsigned char hook_accid[20];
     hook_account((uint32_t)hook_accid, 20);
@@ -779,6 +781,10 @@ int64_t hook(uint32_t reserved)
                 const uint8_t *res_event_data_ptr = ((vote_status == CANDIDATE_PURGED) ? CANDIDATE_PURGED_RES : ((vote_status == CANDIDATE_ELECTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_REMOVE_RES));
                 if (float_compare(rebate_amount, float_set(0, 0), COMPARE_GREATER) == 1)
                 {
+                    // We should rollback if calculated rebate amount is greater than the received proposal fee.
+                    // ASSERT_FAILURE_MSG >> Rebate amount is greater than received.
+                    ASSERT(float_compare(rebate_amount, proposal_fee, COMPARE_GREATER) != 1);
+
                     PREPARE_CANDIDATE_REBATE_PAYMENT_TX(rebate_amount, candidate_id, res_event_data_ptr, event_data);
                     tx_ptr = CANDIDATE_REBATE_PAYMENT;
                     tx_size = CANDIDATE_REBATE_PAYMENT_TX_SIZE;
