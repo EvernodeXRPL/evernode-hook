@@ -518,13 +518,15 @@ int64_t hook(uint32_t reserved)
 
         const uint8_t updated_hook_count = governance_info[UPDATED_HOOK_COUNT_OFFSET];
 
+        if (updated_hook_count == 0)
+            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 1;
         // Update the hook and the grants if one update hook result is already received.
         if (updated_hook_count == 1)
         {
             uint8_t hash_arr[HASH_SIZE * 4];
             COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET]);
 
-            etxn_reserve(1);
+            etxn_reserve(2);
             int tx_size;
             PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, NAMESPACE, event_data,
                                                        registry_accid,
@@ -536,19 +538,27 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Emitting set hook failed
             ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) >= 0);
 
-            // Clear the proposal states.
+            PREPARE_HOOK_UPDATE_PAYMENT_TX(1, registry_accid, event_data);
+
+            // ASSERT_FAILURE_MSG >> Emitting registry hook post update trigger failed.
+            ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) >= 0);
+
+            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 2;
+        }
+        // Clean states and update configs if all hooks are updated
+        else if (updated_hook_count == 2)
+        {
+            // Clean the update state.
             governance_info[UPDATED_HOOK_COUNT_OFFSET] = 0;
 
             // ASSERT_FAILURE_MSG >> Could not delete the candidate states.
             ASSERT(!(state_foreign_set(0, 0, SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0 || state_foreign_set(0, 0, SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0));
         }
-        else
-            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 1;
 
         // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
         ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-        if (updated_hook_count == 1)
+        if (updated_hook_count == 2)
         {
             origin_op_type = OP_HOOK_UPDATE;
             op_type = OP_CHANGE_CONFIGURATION;
@@ -738,7 +748,7 @@ int64_t hook(uint32_t reserved)
                     UINT64_TO_BUF_LE(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET], cur_moment_start_timestamp);
 
                     // ASSERT_FAILURE_MSG >> Could not set state for governance info.
-                    ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
+                    ASSERT(state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
                 }
                 else
                 {

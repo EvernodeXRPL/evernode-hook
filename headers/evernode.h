@@ -565,8 +565,10 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)                                                                 \
             rollback(SBUF("Evernode: Could not get candidate owner state."), 1);                                                                              \
                                                                                                                                                               \
+        const uint8_t updated_hook_count = governance_game_info[UPDATED_HOOK_COUNT_OFFSET];                                                                   \
+                                                                                                                                                              \
         etxn_reserve(1);                                                                                                                                      \
-        if (reserved == STRONG_HOOK)                                                                                                                          \
+        if (reserved == STRONG_HOOK && updated_hook_count != 2)                                                                                               \
         {                                                                                                                                                     \
             uint8_t hash_arr[HASH_SIZE * 4];                                                                                                                  \
             COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                            \
@@ -581,7 +583,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                 rollback(SBUF("Evernode: Hook again failed on update hook."), 1);                                                                             \
             accept(SBUF("Evernode: Successfully applied the hook update."), 0);                                                                               \
         }                                                                                                                                                     \
-        else if (reserved == AGAIN_HOOK)                                                                                                                      \
+        else if (reserved == AGAIN_HOOK || updated_hook_count == 2)                                                                                           \
         {                                                                                                                                                     \
             PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);                                                                              \
             uint8_t emithash[HASH_SIZE];                                                                                                                      \
