@@ -521,7 +521,7 @@ int64_t hook(uint32_t reserved)
         if (updated_hook_count == 0)
             governance_info[UPDATED_HOOK_COUNT_OFFSET] = 1;
         // Update the hook and the grants if one update hook result is already received.
-        if (updated_hook_count == 1)
+        else if (updated_hook_count == 1)
         {
             uint8_t hash_arr[HASH_SIZE * 4];
             COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET]);
