@@ -78,7 +78,7 @@
     COPY_32BYTES((lhsbuf + 64), (rhsbuf + 64));
 
 // Default values.
-const uint8_t HOOK_INITIALIZER_ADDR[35] = "rfiH16w88YHbdPTSokGibEm2bBR4MZbEVS";
+const uint8_t HOOK_INITIALIZER_ADDR[35] = "rfQhDoCjcVzp14MLhSryTTsyU2VESZ5nAt";
 const uint16_t DEF_MOMENT_SIZE = 3600;
 const uint8_t DEF_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;
