@@ -1,7 +1,7 @@
 const fs = require('fs');
 const process = require('process');
 const xrpljs = require('xrpl-hooks');
-const { submitTxn, getHookHashes, appenv } = require('./common');
+const { submitTxn, getHookHashes, appenv, init } = require('./common');
 
 const CONFIG_PATH = appenv.CONFIG_PATH;
 
@@ -20,7 +20,8 @@ if (!fs.existsSync(CONFIG_PATH)) {
         "heartbeat": {
             "address": "",
             "secret": ""
-        }
+        },
+        "network": ""
     }
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
@@ -37,32 +38,34 @@ if (!registryAddress || !governorSecret) {
     process.exit(1);
 }
 else {
-    const account = xrpljs.Wallet.fromSeed(governorSecret);
-    getHookHashes(account.classicAddress).then(async hookHashes => {
-        let hook2Hashes = await getHookHashes(registryAddress);
-        let hook3Hashes = await getHookHashes(heartbeatAddress);
+    init(cfg.network).then(() => {
+        const account = xrpljs.Wallet.fromSeed(governorSecret);
+        getHookHashes(account.classicAddress).then(async hookHashes => {
+            let hook2Hashes = await getHookHashes(registryAddress);
+            let hook3Hashes = await getHookHashes(heartbeatAddress);
 
-        if (hookHashes && hookHashes.length && hook2Hashes && hook2Hashes.length && hook3Hashes && hook3Hashes.length) {
-            const hookTx = {
-                Account: account.classicAddress,
-                TransactionType: "SetHook",
-                NetworkID: appenv.NETWORK_ID,
-                Hooks: hookHashes.map(() => {
-                    return {
-                        Hook: {
-                            HookGrants: [
-                                ...hook2Hashes.map(h => ({ HookGrant: { Authorize: registryAddress, HookHash: h } })),
-                                ...hook3Hashes.map(h => ({ HookGrant: { Authorize: heartbeatAddress, HookHash: h } }))
-                            ]
-                        }
-                    };
-                })
-            };
+            if (hookHashes && hookHashes.length && hook2Hashes && hook2Hashes.length && hook3Hashes && hook3Hashes.length) {
+                const hookTx = {
+                    Account: account.classicAddress,
+                    TransactionType: "SetHook",
+                    NetworkID: appenv.NETWORK_ID,
+                    Hooks: hookHashes.map(() => {
+                        return {
+                            Hook: {
+                                HookGrants: [
+                                    ...hook2Hashes.map(h => ({ HookGrant: { Authorize: registryAddress, HookHash: h } })),
+                                    ...hook3Hashes.map(h => ({ HookGrant: { Authorize: heartbeatAddress, HookHash: h } }))
+                                ]
+                            }
+                        };
+                    })
+                };
 
-            submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
-        } else {
-            console.error("Error in fetching hook hashes.");
-            process.exit(1);
-        }
+                submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
+            } else {
+                console.error("Error in fetching hook hashes.");
+                process.exit(1);
+            }
+        });
     });
 }
