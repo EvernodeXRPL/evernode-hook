@@ -1,7 +1,7 @@
 const fs = require('fs');
 const process = require('process');
 const xrpljs = require('xrpl-hooks');
-const { submitTxn, appenv } = require('../common');
+const { submitTxn, appenv, init } = require('../common');
 
 const hsfOVERRIDE = appenv.hsfOVERRIDE;
 const hsfNSDELETE = appenv.hsfNSDELETE;
@@ -21,7 +21,8 @@ if (!fs.existsSync(CONFIG_PATH)) {
         "governor": {
             "address": "",
             "secret": ""
-        }
+        },
+        "network": ""
     }
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
@@ -36,27 +37,29 @@ if (!governorSecret) {
     process.exit(1);
 }
 else {
-    const account = xrpljs.Wallet.fromSeed(governorSecret)
-    const binary = fs.readFileSync(WASM_PATH_GOVERNOR).toString('hex').toUpperCase();
+    init(cfg.network).then(() => {
+        const account = xrpljs.Wallet.fromSeed(governorSecret)
+        const binary = fs.readFileSync(WASM_PATH_GOVERNOR).toString('hex').toUpperCase();
 
-    let hookTx = {
-        Account: account.classicAddress,
-        TransactionType: "SetHook",
-        NetworkID: appenv.NETWORK_ID,
-        Hooks:
-            [{
-                Hook: {
-                    CreateCode: binary,
-                    HookOn: '0000000000000000000000000000000000000000000000000000000000000000',
-                    HookNamespace: NAMESPACE,
-                    HookApiVersion: 0,
-                    Flags: hsfOVERRIDE
-                }
-            },
-            { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
-            { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
-            { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } }]
-    };
+        let hookTx = {
+            Account: account.classicAddress,
+            TransactionType: "SetHook",
+            NetworkID: appenv.NETWORK_ID,
+            Hooks:
+                [{
+                    Hook: {
+                        CreateCode: binary,
+                        HookOn: '0000000000000000000000000000000000000000000000000000000000000000',
+                        HookNamespace: NAMESPACE,
+                        HookApiVersion: 0,
+                        Flags: hsfOVERRIDE
+                    }
+                },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } }]
+        };
 
-    submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+        submitTxn(governorSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+    });
 }

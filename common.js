@@ -1,5 +1,6 @@
 const xrpljs = require('xrpl-hooks');
 const rbc = require('xrpl-binary-codec');
+const https = require('https');
 
 const appenv = {
     hsfOVERRIDE: 1,
@@ -7,14 +8,43 @@ const appenv = {
     hfsOVERRIDE: 1,
     hfsNSDELETE: 2,
     NAMESPACE: '01EAF09326B4911554384121FF56FA8FECC215FDDE2EC35D9E59F2C53EC665A0',  // sha256('evernode.org|registry')
-    SERVER: 'wss://hooks-testnet-v3.xrpl-labs.com',
     CONFIG_PATH: process.env.CONFIG_PATH || 'hook.json',
     WASM_DIR_PATH: process.env.WASM_PATH || "build",
     PARAM_STATE_HOOK_KEY: '4556520100000000000000000000000000000000000000000000000000000001',
-    NETWORK_ID: 21338
+    NETWORK_ID: 21338,
+    DEFINITIONS_URL: 'https://raw.githubusercontent.com/EvernodeXRPL/evernode-resources/main/definitions/definitions.json',
+    NETWORK: 'mainnet'
 }
 
-const api = new xrpljs.Client(appenv.SERVER);
+let api = {};
+
+const init = async (network = null) => {
+    const definitions = await getDefinitions();
+    network = network ?? appenv.NETWORK;
+    const def = definitions[network];
+    if (!def)
+        throw `Invalid network: ${network}`;
+
+    api = new xrpljs.Client(def.rippledServer);
+}
+
+const getDefinitions = async () => {
+    return new Promise((resolve, reject) => {
+        https.get(appenv.DEFINITIONS_URL, res => {
+            let data = [];
+            if (res.statusCode != 200)
+                reject(`Error: ${res.statusMessage}`);
+            res.on('data', chunk => {
+                data.push(chunk);
+            });
+            res.on('end', () => {
+                resolve(JSON.parse(data));
+            });
+        }).on('error', err => {
+            reject(`Error: ${err.message}`);
+        });
+    });
+}
 
 const fee = (txBlob) => {
     return new Promise((resolve, reject) => {
@@ -94,6 +124,7 @@ const getHookHashes = (account) => {
 };
 
 module.exports = {
+    init,
     submitTxn,
     getHookHashes,
     appenv

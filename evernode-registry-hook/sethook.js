@@ -2,7 +2,7 @@ const fs = require('fs');
 const process = require('process');
 const xrpljs = require('xrpl-hooks');
 const codec = require('ripple-address-codec');
-const { submitTxn, appenv } = require('../common');
+const { submitTxn, appenv, init } = require('../common');
 
 const hsfOVERRIDE = appenv.hsfOVERRIDE;
 const hsfNSDELETE = appenv.hsfNSDELETE;
@@ -26,7 +26,8 @@ if (!fs.existsSync(CONFIG_PATH)) {
         },
         "governor": {
             "address": ""
-        }
+        },
+        "network": ""
     }
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
@@ -42,36 +43,38 @@ if (!registrySecret || !governorAddress) {
     process.exit(1);
 }
 else {
-    const account = xrpljs.Wallet.fromSeed(registrySecret)
-    const binary = fs.readFileSync(WASM_PATH).toString('hex').toUpperCase();
-    const governorAccId = codec.decodeAccountID(governorAddress).toString('hex').toUpperCase();
+    init(cfg.network).then(() => {
+        const account = xrpljs.Wallet.fromSeed(registrySecret)
+        const binary = fs.readFileSync(WASM_PATH).toString('hex').toUpperCase();
+        const governorAccId = codec.decodeAccountID(governorAddress).toString('hex').toUpperCase();
 
-    const hookTx = {
-        Account: account.classicAddress,
-        TransactionType: "SetHook",
-        NetworkID: appenv.NETWORK_ID,
-        Hooks:
-            [{
-                Hook: {
-                    CreateCode: binary,
-                    HookOn: '0000000000000000000000000000000000000000000000000000000000000000',
-                    HookNamespace: NAMESPACE,
-                    HookApiVersion: 0,
-                    Flags: hsfOVERRIDE,
-                    HookParameters:
-                        [{
-                            HookParameter:
-                            {
-                                HookParameterName: PARAM_STATE_HOOK_KEY,
-                                HookParameterValue: governorAccId
-                            }
-                        }]
-                }
-            },
-            { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
-            { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
-            { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } }]
-    };
+        const hookTx = {
+            Account: account.classicAddress,
+            TransactionType: "SetHook",
+            NetworkID: appenv.NETWORK_ID,
+            Hooks:
+                [{
+                    Hook: {
+                        CreateCode: binary,
+                        HookOn: '0000000000000000000000000000000000000000000000000000000000000000',
+                        HookNamespace: NAMESPACE,
+                        HookApiVersion: 0,
+                        Flags: hsfOVERRIDE,
+                        HookParameters:
+                            [{
+                                HookParameter:
+                                {
+                                    HookParameterName: PARAM_STATE_HOOK_KEY,
+                                    HookParameterValue: governorAccId
+                                }
+                            }]
+                    }
+                },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } },
+                { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } }]
+        };
 
-    submitTxn(registrySecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+        submitTxn(registrySecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+    });
 }
