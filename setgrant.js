@@ -67,5 +67,5 @@ else {
                 process.exit(1);
             }
         });
-    });
+    }).catch(console.error);
 }
