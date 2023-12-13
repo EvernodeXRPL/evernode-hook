@@ -20,7 +20,7 @@ let api = {};
 
 const init = async (network = null) => {
     const definitions = await getDefinitions();
-    network = network ?? appenv.NETWORK;
+    network = network ? network : appenv.NETWORK;
     const def = definitions[network];
     if (!def)
         throw `Invalid network: ${network}`;
@@ -35,7 +35,7 @@ const getDefinitions = async () => {
         https.get(appenv.DEFINITIONS_URL, res => {
             let data = [];
             if (res.statusCode != 200)
-                reject(`Error: ${res.statusMessage}`);
+                reject(`Error: ${res}`);
             res.on('data', chunk => {
                 data.push(chunk);
             });
@@ -43,7 +43,7 @@ const getDefinitions = async () => {
                 resolve(JSON.parse(data));
             });
         }).on('error', err => {
-            reject(`Error: ${err.message}`);
+            reject(`Error: ${err}`);
         });
     });
 }
