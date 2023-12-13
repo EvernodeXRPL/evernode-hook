@@ -11,9 +11,9 @@ const appenv = {
     CONFIG_PATH: process.env.CONFIG_PATH || 'hook.json',
     WASM_DIR_PATH: process.env.WASM_PATH || "build",
     PARAM_STATE_HOOK_KEY: '4556520100000000000000000000000000000000000000000000000000000001',
-    NETWORK_ID: 21338,
     DEFINITIONS_URL: 'https://raw.githubusercontent.com/EvernodeXRPL/evernode-resources/main/definitions/definitions.json',
-    NETWORK: 'mainnet'
+    NETWORK: 'mainnet',
+    NETWORK_ID: null
 }
 
 let api = {};
@@ -24,6 +24,8 @@ const init = async (network = null) => {
     const def = definitions[network];
     if (!def)
         throw `Invalid network: ${network}`;
+
+    appenv.NETWORK_ID = def.networkID;
 
     api = new xrpljs.Client(def.rippledServer);
 }
