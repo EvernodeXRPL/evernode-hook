@@ -22,6 +22,9 @@
  */
 int64_t hook(uint32_t reserved)
 {
+    if (!ACTIVE(ACTIVATION_UNIXTIME))
+        rollback(SBUF("Not active yet."), __LINE__);
+
     CHECK_PARTIAL_PAYMENT();
 
     // Getting the hook account id.

@@ -1,6 +1,9 @@
 #ifndef TRANSACTIONS_INCLUDED
 #define TRANSACTIONS_INCLUDED 1
 
+#define ACTIVATION_UNIXTIME 1705302000ULL // 2024-01-15 700 GMT
+#define ACTIVE(x) (ledger_last_time() + 946684800ULL > (x))
+
 /**************************************************************************/
 /*************Pre-populated templates of Payment Transactions**************/
 /**************************************************************************/
