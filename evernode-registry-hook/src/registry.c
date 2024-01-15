@@ -717,11 +717,20 @@ int64_t hook(uint32_t reserved)
         uint64_t host_reg_fee;
         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        const uint64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
-        const uint64_t reward_amount = amount_half > fixed_reg_fee ? (amount_half - fixed_reg_fee) : 0;
+        uint64_t host_rebate_amount = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
+        uint64_t reward_amount = host_rebate_amount > fixed_reg_fee ? (host_rebate_amount - fixed_reg_fee) : 0;
+
+        // If full refund.
+        if (op_type == OP_HOST_DEREG &&
+            event_data_len > HOST_DEREG_ERROR_PARAM_OFFSET && event_data[HOST_DEREG_ERROR_PARAM_OFFSET] == 1)
+        {
+            host_rebate_amount = host_reg_fee - fixed_reg_fee;
+            reward_amount = 0;
+        }
+
         const uint64_t pending_rebate_amount = reg_fee > host_reg_fee ? reg_fee - host_reg_fee : 0;
 
-        const uint64_t total_rebate_amount = amount_half + pending_rebate_amount;
+        const uint64_t total_rebate_amount = host_rebate_amount + pending_rebate_amount;
 
         const uint8_t *event_type_ptr = op_type == OP_HOST_DEREG ? HOST_DEREG_SELF_RES : (op_type == OP_DEAD_HOST_PRUNE ? DEAD_HOST_PRUNE_RES : DUD_HOST_REMOVE_RES);
         const uint8_t *host_addr_ptr = op_type == OP_HOST_DEREG ? account_field : event_data;
