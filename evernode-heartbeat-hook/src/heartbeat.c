@@ -43,7 +43,7 @@ int64_t hook(uint32_t reserved)
      * - any outgoing transactions without further processing.
      */
     int64_t txn_type = otxn_type();
-    if (txn_type != ttPAYMENT || BUFFER_EQUAL_20(hook_accid, account_field))
+    if (txn_type != ttPAYMENT)
     {
         // PERMIT_MSG >> Transaction is not handled.
         PERMIT();
@@ -229,12 +229,60 @@ int64_t hook(uint32_t reserved)
         else if (EQUAL_HOOK_UPDATE(event_type, event_type_len))
             op_type = OP_HOOK_UPDATE;
     }
+    else if (BUFFER_EQUAL_20(hook_accid, account_field))
+    {
+        // Host refund.
+        if (EQUAL_HOST_REG_FAIL_REFUND(event_type, event_type_len))
+            op_type = OP_HOST_REG_FAIL_REFUND;
+    }
 
     // Pending reward request.
     if (EQUAL_PENDING_REWARDS_REQUEST(event_type, event_type_len))
         op_type = OP_REWARD_REQUEST;
 
     if (op_type == OP_NONE)
+    {
+        // PERMIT_MSG >> Transaction is not handled.
+        PERMIT();
+    }
+
+    if (op_type == OP_HOST_REG_FAIL_REFUND)
+    {
+        uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
+
+        // ASSERT_FAILURE_MSG >> Could not get issuer, foundation or heartbeat account id.
+        ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0));
+
+        uint8_t amount_buffer[AMOUNT_BUF_SIZE];
+        const int64_t result = slot(SBUF(amount_buffer), amt_slot);
+        // ASSERT_FAILURE_MSG >> Could not dump sfAmount
+        ASSERT(result == AMOUNT_BUF_SIZE);
+        const int64_t float_amt = slot_float(amt_slot);
+        // ASSERT_FAILURE_MSG >> Could not parse amount.
+        ASSERT(float_amt >= 0);
+        // Currency should be EVR.
+        // ASSERT_FAILURE_MSG >> Currency should be EVR for refund.
+        ASSERT(IS_EVR(amount_buffer, issuer_accid));
+
+        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+        uint8_t reward_info[REWARD_INFO_VAL_SIZE];
+        // ASSERT_FAILURE_MSG >> Could not get reward info state.
+        ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+        int64_t reward_pool_amount = INT64_FROM_BUF_LE(&reward_info[EPOCH_POOL_OFFSET]);
+
+        if (float_compare(float_amt, reward_pool_amount, COMPARE_LESS) == 1)
+        {
+            reward_pool_amount = float_sum(reward_pool_amount, float_negate(float_amt));
+            INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], reward_pool_amount);
+
+            // ASSERT_FAILURE_MSG >> Could not set state for reward info.
+            ASSERT(state_foreign_set(reward_info, REWARD_INFO_VAL_SIZE, SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
+        }
+
+        // PERMIT_MSG >> Updated the reward pool.
+        PERMIT();
+    }
+    else if (BUFFER_EQUAL_20(hook_accid, account_field))
     {
         // PERMIT_MSG >> Transaction is not handled.
         PERMIT();
