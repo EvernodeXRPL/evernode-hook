@@ -99,6 +99,10 @@ const uint32_t REPUTATION_VALUE_PARAM_OFFSET = 20;
      BUFFER_EQUAL_2((buf + 20), (HOST_UPDATE_REPUTATION + 20)) && \
      BUFFER_EQUAL_1((buf + 22), (HOST_UPDATE_REPUTATION + 22)))
 
+#define EQUAL_FOUNDATION_FUND_REQ(buf, len)      \
+    (sizeof(FOUNDATION_FUND_REQ) == (len + 1) && \
+     BUFFER_EQUAL_20(buf, FOUNDATION_FUND_REQ))
+
 // Copy operations
 
 #define COPY_DESCRIPTION(lhsbuf, rhsbuf)       \

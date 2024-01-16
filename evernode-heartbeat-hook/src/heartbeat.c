@@ -275,6 +275,8 @@ int64_t hook(uint32_t reserved)
     int has_pending_rewards = 0;
     uint8_t *host_accid_ptr;
 
+    uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
+
     if (op_type == OP_HEARTBEAT || op_type == OP_REWARD_REQUEST)
     {
         host_accid_ptr = (uint8_t *)((op_type == OP_HEARTBEAT) ? account_field : (event_data + REWARD_REQ_HOST_PARAM_OFFSET));
@@ -287,6 +289,9 @@ int64_t hook(uint32_t reserved)
         // Check for token id entry.
         // ASSERT_FAILURE_MSG >> This host is not registered.
         ASSERT(state_foreign(SBUF(token_id), SBUF(STP_TOKEN_ID), FOREIGN_REF) != DOESNT_EXIST);
+
+        // ASSERT_FAILURE_MSG >> Could not get registry account id.
+        ASSERT(!(state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
     }
 
     // Host heartbeat.
@@ -311,11 +316,12 @@ int64_t hook(uint32_t reserved)
         uint32_t last_heartbeat_moment = 0;
 
         // Skip if already sent a heartbeat in this moment.
-        int accept_heartbeat = 0;
+        int accept_heartbeat = 0, send_foundation_fund = 0;
         if (last_heartbeat_idx == 0)
         {
             last_heartbeat_moment = 0;
             accept_heartbeat = 1;
+            send_foundation_fund = 1;
         }
         else
         {
@@ -392,7 +398,7 @@ int64_t hook(uint32_t reserved)
         }
 
         // Allocate for both rewards trx + vote triggers.
-        etxn_reserve(has_pending_rewards ? 2 : 1);
+        etxn_reserve((has_pending_rewards ? 2 : 1) + (send_foundation_fund ? 1 : 0));
 
         const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
@@ -411,6 +417,26 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state governance_game info.
             ASSERT(state_foreign_set(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) != DOESNT_EXIST);
+        }
+
+        if (send_foundation_fund)
+        {
+            PREPARE_FOUNDATION_FUND_REQ_MIN_PAYMENT(1, registry_accid);
+            uint8_t emithash[HASH_SIZE];
+            // ASSERT_FAILURE_MSG >> Emitting txn failed
+            ASSERT(emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) >= 0);
+
+            if (redirect_op_type != OP_VOTE)
+            {
+                if (op_type == OP_HEARTBEAT)
+                {
+                    // PERMIT_MSG >> Successfully accepted host heartbeat..
+                    PERMIT();
+                }
+
+                // PERMIT_MSG >> Successfully accepted reward request..
+                PERMIT();
+            }
         }
 
         // Handle votes if there's a vote.
@@ -449,10 +475,6 @@ int64_t hook(uint32_t reserved)
     }
     else if (op_type == OP_REWARD_REQUEST)
     {
-        uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
-        // ASSERT_FAILURE_MSG >> Could not get registry account id.
-        ASSERT(!(state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
-
         // ASSERT_FAILURE_MSG >> Only registry is allowed to send reward requests.
         ASSERT(BUFFER_EQUAL_20(registry_accid, account_field))
 

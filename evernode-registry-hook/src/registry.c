@@ -147,6 +147,9 @@ int64_t hook(uint32_t reserved)
             // Host reputation update.
             else if (EQUAL_HOST_UPDATE_REPUTATION(event_type, event_type_len))
                 op_type = OP_HOST_UPDATE_REPUTATION;
+            // Foundation fund request.
+            else if (EQUAL_FOUNDATION_FUND_REQ(event_type, event_type_len))
+                op_type = OP_FOUNDATION_FUND_REQ;
         }
         else // IOU payment.
         {
@@ -173,7 +176,7 @@ int64_t hook(uint32_t reserved)
     int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA1_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
-    ASSERT(!(op_type != OP_HOST_REBATE && event_data_len < 0));
+    ASSERT(!(op_type != OP_HOST_REBATE && op_type != OP_FOUNDATION_FUND_REQ && event_data_len < 0));
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
     // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)><flags(1)>
@@ -241,9 +244,27 @@ int64_t hook(uint32_t reserved)
              state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
              state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0));
 
+    // Take the fixed reg fee from config.
+    int64_t conf_fixed_reg_fee;
+    GET_CONF_VALUE(conf_fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee state.");
+
     uint8_t candidate_remove_data[33];
 
-    if (op_type == OP_HOST_REG)
+    if (op_type == OP_FOUNDATION_FUND_REQ)
+    {
+        // We accept only the hook update transaction from heartbeat account.
+        if (!BUFFER_EQUAL_20(heartbeat_hook_accid, account_field))
+            rollback(SBUF("Evernode: Only heartbeat is allowed to send hook update trigger."), 1);
+
+        uint8_t emithash[32];
+        // Froward 5 EVRs to foundation.
+        // Create the outgoing hosting token txn.
+        PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee), foundation_accid);
+
+        // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
+        ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+    }
+    else if (op_type == OP_HOST_REG)
     {
         // Get transaction hash(id).
         uint8_t txid[HASH_SIZE];
@@ -355,24 +376,13 @@ int64_t hook(uint32_t reserved)
             host_count += 1;
             SET_HOST_COUNT(host_count);
 
-            // Take the fixed reg fee from config.
-            int64_t conf_fixed_reg_fee;
-            GET_CONF_VALUE(conf_fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee state.");
-
             // Take the fixed theoretical maximum registrants value from config.
             uint64_t conf_max_reg;
             GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
 
-            etxn_reserve(3);
+            etxn_reserve(2);
 
             uint8_t emithash[32];
-            // Froward 5 EVRs to foundation.
-            // Create the outgoing hosting token txn.
-            PREPARE_PAYMENT_TRUSTLINE_TX(EVR_TOKEN, issuer_accid, float_set(0, conf_fixed_reg_fee), foundation_accid);
-
-            // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
-            ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
-
             // Mint the uri token.
             PREPARE_URI_TOKEN_MINT_TX(txid_ref_buf);
 
@@ -711,14 +721,12 @@ int64_t hook(uint32_t reserved)
         SET_HOST_COUNT(host_count);
 
         const uint64_t reg_fee = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET]);
-        uint64_t fixed_reg_fee;
-        GET_CONF_VALUE(fixed_reg_fee, CONF_FIXED_REG_FEE, "Evernode: Could not get fixed reg fee.");
 
         uint64_t host_reg_fee;
         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        const uint64_t amount_half = host_reg_fee > fixed_reg_fee ? host_reg_fee / 2 : 0;
-        const uint64_t reward_amount = amount_half > fixed_reg_fee ? (amount_half - fixed_reg_fee) : 0;
+        const uint64_t amount_half = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
+        const uint64_t reward_amount = amount_half > conf_fixed_reg_fee ? (amount_half - conf_fixed_reg_fee) : 0;
         const uint64_t pending_rebate_amount = reg_fee > host_reg_fee ? reg_fee - host_reg_fee : 0;
 
         const uint64_t total_rebate_amount = amount_half + pending_rebate_amount;
