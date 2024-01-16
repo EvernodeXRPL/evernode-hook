@@ -148,4 +148,8 @@ uint8_t CANDIDATE_STATUS_CHANGE_MIN_PAYMENT_TX[390] = {
      BUFFER_EQUAL_8(buf, HEARTBEAT) && \
      BUFFER_EQUAL_4((buf + 8), (HEARTBEAT + 8)))
 
+#define EQUAL_HOST_REG_FAIL_REFUND(buf, len)                  \
+    (sizeof(HOST_REG_FAIL_REFUND) == (len + 1) &&             \
+     BUFFER_EQUAL_20(buf, HOST_REG_FAIL_REFUND))
+
 #define FOREIGN_REF SBUF(NAMESPACE), state_hook_accid, ACCOUNT_ID_SIZE
