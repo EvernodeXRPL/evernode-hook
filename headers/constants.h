@@ -122,7 +122,7 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 127;
+const uint32_t HOST_ADDR_VAL_SIZE = 133;
 const uint32_t TOKEN_ID_VAL_SIZE = 124;
 const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
@@ -204,6 +204,7 @@ const uint32_t HOST_LAST_VOTE_TIMESTAMP_OFFSET = 116;
 const uint32_t HOST_SUPPORT_VOTE_FLAG_OFFSET = 124;
 const uint32_t HOST_REPUTATION_OFFSET = 125;
 const uint32_t HOST_FLAGS_OFFSET = 126;
+const uint32_t HOST_TRANSFER_TIMESTAMP_OFFSET = 127;
 
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;

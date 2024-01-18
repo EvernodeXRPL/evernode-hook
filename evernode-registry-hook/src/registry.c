@@ -179,7 +179,7 @@ int64_t hook(uint32_t reserved)
     ASSERT(!(op_type != OP_HOST_REBATE && op_type != OP_FOUNDATION_FUND_REQ && event_data_len < 0));
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
-    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)><flags(1)>
+    // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)><flags(1)><transfer_timestamp(8)>
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
     // <host_address(20)><cpu_model_name(40)><cpu_count(2)><cpu_speed(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><email(40)><accumulated_reward_amount(8)>
     uint8_t token_id[TOKEN_ID_VAL_SIZE];
@@ -625,6 +625,7 @@ int64_t hook(uint32_t reserved)
             // Add transfer in progress flag to existing registration record.
             HOST_ADDR_KEY(account_field);
             host_addr[HOST_TRANSFER_FLAG_OFFSET] = TRANSFER_FLAG;
+            UINT64_TO_BUF_LE(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
             // ASSERT_FAILURE_MSG >> Could not set state for host_addr.
             ASSERT(state_foreign_set(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) >= 0)
@@ -725,11 +726,21 @@ int64_t hook(uint32_t reserved)
         uint64_t host_reg_fee;
         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        const uint64_t amount_half = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
-        const uint64_t reward_amount = amount_half > conf_fixed_reg_fee ? (amount_half - conf_fixed_reg_fee) : 0;
+        uint64_t host_rebate_amount = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
+        uint64_t reward_amount = host_rebate_amount > conf_fixed_reg_fee ? (host_rebate_amount - conf_fixed_reg_fee) : 0;
+
+        const int64_t last_heartbeat_timestamp = INT64_FROM_BUF_LE(&host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET]);
+        const int64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);
+        const int64_t transfer_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
+        if (last_heartbeat_timestamp == 0 || last_heartbeat_timestamp < registration_timestamp || last_heartbeat_timestamp < transfer_timestamp)
+        {
+            host_rebate_amount = host_reg_fee;
+            reward_amount = 0;
+        }
+
         const uint64_t pending_rebate_amount = reg_fee > host_reg_fee ? reg_fee - host_reg_fee : 0;
 
-        const uint64_t total_rebate_amount = amount_half + pending_rebate_amount;
+        const uint64_t total_rebate_amount = host_rebate_amount + pending_rebate_amount;
 
         const uint8_t *event_type_ptr = op_type == OP_HOST_DEREG ? HOST_DEREG_SELF_RES : (op_type == OP_DEAD_HOST_PRUNE ? DEAD_HOST_PRUNE_RES : DUD_HOST_REMOVE_RES);
         const uint8_t *host_addr_ptr = op_type == OP_HOST_DEREG ? account_field : event_data;
@@ -771,7 +782,7 @@ int64_t hook(uint32_t reserved)
 
         etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + (linked_candidate_removal_reserve + orphan_candidate_removal_reserve));
 
-        // Add amount_half - 5 to the epoch's reward pool. If there are pending rewards reward request will be sent to the heartbeat.
+        // Add host_rebate_amount - 5 to the epoch's reward pool. If there are pending rewards reward request will be sent to the heartbeat.
         if (reward_amount > 0)
         {
             const int64_t reward_amount_float = float_set(0, reward_amount);
