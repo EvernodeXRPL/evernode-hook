@@ -256,6 +256,8 @@ int64_t hook(uint32_t reserved)
         if (!BUFFER_EQUAL_20(heartbeat_hook_accid, account_field))
             rollback(SBUF("Evernode: Only heartbeat is allowed to send hook update trigger."), 1);
 
+        etxn_reserve(1);
+
         uint8_t emithash[32];
         // Froward 5 EVRs to foundation.
         // Create the outgoing hosting token txn.
@@ -263,6 +265,9 @@ int64_t hook(uint32_t reserved)
 
         // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
         ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
+
+        // PERMIT_MSG >> Foundation func successful.
+        PERMIT();
     }
     else if (op_type == OP_HOST_REG)
     {
@@ -729,9 +734,10 @@ int64_t hook(uint32_t reserved)
         uint64_t host_rebate_amount = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
         uint64_t reward_amount = host_rebate_amount > conf_fixed_reg_fee ? (host_rebate_amount - conf_fixed_reg_fee) : 0;
 
-        const int64_t last_heartbeat_timestamp = INT64_FROM_BUF_LE(&host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET]);
-        const int64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);
-        const int64_t transfer_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
+        const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
+        const int64_t last_heartbeat_timestamp = INT64_FROM_BUF_LE(heartbeat_ptr);
+        const uint64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);
+        const uint64_t transfer_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
         if (last_heartbeat_timestamp == 0 || last_heartbeat_timestamp < registration_timestamp || last_heartbeat_timestamp < transfer_timestamp)
         {
             host_rebate_amount = host_reg_fee;

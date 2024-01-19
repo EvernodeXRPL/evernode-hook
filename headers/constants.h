@@ -97,7 +97,7 @@ enum OPERATION
     OP_DUD_HOST_REMOVE,
     OP_HOST_REMOVE,
     OP_HOST_UPDATE_REPUTATION,
-    OP_FOUNDATION_FUND_REQ
+    OP_FOUNDATION_FUND_REQ,
     OP_HOST_REG_FAIL_REFUND
 };
 
@@ -124,7 +124,7 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 133;
+const uint32_t HOST_ADDR_VAL_SIZE = 135;
 const uint32_t TOKEN_ID_VAL_SIZE = 124;
 const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;

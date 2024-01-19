@@ -469,22 +469,10 @@ int64_t hook(uint32_t reserved)
 
         if (send_foundation_fund)
         {
-            PREPARE_FOUNDATION_FUND_REQ_MIN_PAYMENT(1, registry_accid);
+            PREPARE_FOUNDATION_FUND_REQ_MIN_PAYMENT_TX(1, registry_accid);
             uint8_t emithash[HASH_SIZE];
             // ASSERT_FAILURE_MSG >> Emitting txn failed
-            ASSERT(emit(SBUF(emithash), SBUF(REWARD_PAYMENT)) >= 0);
-
-            if (redirect_op_type != OP_VOTE)
-            {
-                if (op_type == OP_HEARTBEAT)
-                {
-                    // PERMIT_MSG >> Successfully accepted host heartbeat..
-                    PERMIT();
-                }
-
-                // PERMIT_MSG >> Successfully accepted reward request..
-                PERMIT();
-            }
+            ASSERT(emit(SBUF(emithash), SBUF(FOUNDATION_FUND_REQ_MIN_PAYMENT_TX)) >= 0);
         }
 
         // Handle votes if there's a vote.

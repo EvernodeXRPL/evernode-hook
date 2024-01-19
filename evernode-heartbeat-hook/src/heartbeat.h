@@ -167,7 +167,7 @@ uint8_t FOUNDATION_FUND_REQ_MIN_PAYMENT_TX[312] = {
     0x45, 0x56, 0x52, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,                                                 // Parameter name
     0x70,                                                                                                                   // Blob start marker
-    0x19, 0x18,                                                                                                             // Parameter value length 24 bytes
+    0x19, 0x14,                                                                                                             // Parameter value length 20 bytes
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Event Type (20 bytes) offset 174
     0xE1,                                                                                                                   // Hook parameter object end marker
     0xF1,                                                                                                                   // Hook parameter array end marker
@@ -181,7 +181,7 @@ uint8_t FOUNDATION_FUND_REQ_MIN_PAYMENT_TX[312] = {
 
 #define FOUNDATION_FUND_REQ_MIN_PAYMENT_TX_SIZE \
     sizeof(FOUNDATION_FUND_REQ_MIN_PAYMENT_TX)
-#define PREPARE_FOUNDATION_FUND_REQ_MIN_PAYMENT(drops_amount, to_address)              \
+#define PREPARE_FOUNDATION_FUND_REQ_MIN_PAYMENT_TX(drops_amount, to_address)           \
     {                                                                                  \
         uint8_t *buf_out = FOUNDATION_FUND_REQ_MIN_PAYMENT_TX;                         \
         uint32_t cls = (uint32_t)ledger_seq();                                         \
