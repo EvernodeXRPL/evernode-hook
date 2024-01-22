@@ -435,6 +435,7 @@ int64_t hook(uint32_t reserved)
             COPY_8BYTES(&host_addr[HOST_REG_LEDGER_OFFSET], &prev_host_addr[HOST_REG_LEDGER_OFFSET]);
             COPY_8BYTES(&host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET], &prev_host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET]);
             COPY_8BYTES(&host_addr[HOST_REG_TIMESTAMP_OFFSET], &prev_host_addr[HOST_REG_TIMESTAMP_OFFSET]);
+            COPY_8BYTES(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET], &prev_host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
 
             // Host reputation and flags will be copied from previous state.
             COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &prev_host_addr[HOST_REPUTATION_OFFSET]);
@@ -734,14 +735,25 @@ int64_t hook(uint32_t reserved)
         uint64_t host_rebate_amount = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
         uint64_t reward_amount = host_rebate_amount > conf_fixed_reg_fee ? (host_rebate_amount - conf_fixed_reg_fee) : 0;
 
-        const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
-        const int64_t last_heartbeat_timestamp = INT64_FROM_BUF_LE(heartbeat_ptr);
-        const uint64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);
-        const uint64_t transfer_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
-        if (last_heartbeat_timestamp == 0 || last_heartbeat_timestamp < registration_timestamp || last_heartbeat_timestamp < transfer_timestamp)
+        // Handle deregistration, If there's no heartbeat after the registration or re-registration.
+        if (op_type == OP_HOST_DEREG)
         {
-            host_rebate_amount = host_reg_fee;
-            reward_amount = 0;
+            const uint8_t *heartbeat_ptr = &host_addr[HOST_HEARTBEAT_TIMESTAMP_OFFSET];
+            const int64_t last_heartbeat_timestamp = INT64_FROM_BUF_LE(heartbeat_ptr);
+            const uint64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);
+            const uint64_t transfer_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
+            // If host has been transferred do not allow deregistration until heartbeat.
+            if (transfer_timestamp > 0)
+            {
+                // ASSERT_FAILURE_MSG >> De registration is not allowed until heartbeat for transfers.
+                ASSERT(last_heartbeat_timestamp > transfer_timestamp);
+            }
+            // If hosts hasn't send heartbeat after registration refund in full.
+            else if (last_heartbeat_timestamp < registration_timestamp)
+            {
+                host_rebate_amount = host_reg_fee;
+                reward_amount = 0;
+            }
         }
 
         const uint64_t pending_rebate_amount = reg_fee > host_reg_fee ? reg_fee - host_reg_fee : 0;
