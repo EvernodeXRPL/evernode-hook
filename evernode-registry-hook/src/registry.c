@@ -266,7 +266,7 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Emitting EVR forward txn failed
         ASSERT(emit(SBUF(emithash), SBUF(PAYMENT_TRUSTLINE)) >= 0);
 
-        // PERMIT_MSG >> Foundation func successful.
+        // PERMIT_MSG >> Foundation fund successful.
         PERMIT();
     }
     else if (op_type == OP_HOST_REG)
