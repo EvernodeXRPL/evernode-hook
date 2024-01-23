@@ -252,9 +252,9 @@ int64_t hook(uint32_t reserved)
 
     if (op_type == OP_FOUNDATION_FUND_REQ)
     {
-        // We accept only the hook update transaction from heartbeat account.
+        // We accept only the foundation fund request from heartbeat account.
         if (!BUFFER_EQUAL_20(heartbeat_hook_accid, account_field))
-            rollback(SBUF("Evernode: Only heartbeat is allowed to send hook update trigger."), 1);
+            rollback(SBUF("Evernode: Only heartbeat is allowed to send foundation fund request."), 1);
 
         etxn_reserve(1);
 
