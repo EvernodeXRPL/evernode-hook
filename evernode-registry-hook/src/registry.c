@@ -381,9 +381,9 @@ int64_t hook(uint32_t reserved)
             host_count += 1;
             SET_HOST_COUNT(host_count);
 
-            // Take the fixed theoretical maximum registrants value from config.
-            uint64_t conf_max_reg;
-            GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
+            // Take the mint limit value from config.
+            uint64_t conf_mint_limit;
+            GET_CONF_VALUE(conf_mint_limit, CONF_MINT_LIMIT, "Evernode: Could not get mint limit state.");
 
             etxn_reserve(2);
 
@@ -401,13 +401,21 @@ int64_t hook(uint32_t reserved)
             ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) >= 0);
 
             // If maximum theoretical host count reached, halve the registration fee.
-            if (host_reg_fee > conf_fixed_reg_fee && host_count >= (conf_max_reg / 2))
+            uint64_t max_host_count = (conf_mint_limit / host_reg_fee);
+            if (host_reg_fee > conf_fixed_reg_fee && host_count >= (max_host_count / 2))
             {
                 host_reg_fee /= 2;
                 SET_UINT_STATE_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not update the state for host reg fee.");
-                conf_max_reg *= 2;
-                SET_UINT_STATE_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
+                max_host_count = (conf_mint_limit / host_reg_fee);
             }
+
+            // Take the fixed theoretical maximum registrants value from config.
+            uint64_t conf_max_reg;
+            GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
+
+            // Update if the value is value has changed.
+            if (max_host_count != conf_max_reg)
+                SET_UINT_STATE_VALUE(max_host_count, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
 
             // PERMIT_MSG >> Host registration successful.
             PERMIT();
