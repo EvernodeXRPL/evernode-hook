@@ -409,7 +409,7 @@ int64_t hook(uint32_t reserved)
             const uint64_t next_epochs_reward_amount = epoch_reward_amount * (epoch_count - epoch);
             const int64_t remaining_reward_amount = float_sum(reward_pool_amount, float_set(0, next_epochs_reward_amount));
             const int64_t circulating_supply = float_sum(float_set(0, conf_mint_limit), float_negate(remaining_reward_amount));
-            if (host_reg_fee > conf_fixed_reg_fee && float_compare(float_set(0, deposit_amount), float_divide(circulating_supply, float_set(0, 2)), COMPARE_GREATER) == 1)
+            if ((host_reg_fee / 2) > conf_fixed_reg_fee && float_compare(float_set(0, deposit_amount), float_divide(circulating_supply, float_set(0, 2)), COMPARE_GREATER) == 1)
             {
                 host_reg_fee /= 2;
                 SET_UINT_STATE_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not update the state for host reg fee.");
@@ -747,7 +747,7 @@ int64_t hook(uint32_t reserved)
         uint64_t host_reg_fee;
         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        uint64_t host_rebate_amount = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
+        uint64_t host_rebate_amount = (host_reg_fee / 2) > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
         uint64_t reward_amount = host_reg_fee > (conf_fixed_reg_fee + host_rebate_amount) ? (host_reg_fee - conf_fixed_reg_fee - host_rebate_amount) : 0;
 
         // Handle deregistration, If there's no heartbeat after the registration or re-registration.
