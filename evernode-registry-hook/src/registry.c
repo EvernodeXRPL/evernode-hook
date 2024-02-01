@@ -235,6 +235,10 @@ int64_t hook(uint32_t reserved)
     const uint32_t first_epoch_reward_quota = UINT32_FROM_BUF_LE(&reward_configuration[FIRST_EPOCH_REWARD_QUOTA_OFFSET]);
     const uint32_t epoch_reward_amount = UINT32_FROM_BUF_LE(&reward_configuration[EPOCH_REWARD_AMOUNT_OFFSET]);
 
+    const uint8_t epoch = reward_info[EPOCH_OFFSET];
+    const uint8_t *pool_ptr = &reward_info[EPOCH_POOL_OFFSET];
+    const int64_t reward_pool_amount = INT64_FROM_BUF_LE(pool_ptr);
+
     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
@@ -401,12 +405,14 @@ int64_t hook(uint32_t reserved)
             ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_SELL_OFFER)) >= 0);
 
             // If maximum theoretical host count reached, halve the registration fee.
-            uint64_t max_host_count = (conf_mint_limit / host_reg_fee);
-            if (host_reg_fee > conf_fixed_reg_fee && host_count >= (max_host_count / 2))
+            const uint64_t deposit_amount = host_reg_fee * host_count;
+            const uint64_t next_epochs_reward_amount = epoch_reward_amount * (epoch_count - epoch);
+            const int64_t remaining_reward_amount = float_sum(reward_pool_amount, float_set(0, next_epochs_reward_amount));
+            const int64_t circulating_supply = float_sum(float_set(0, conf_mint_limit), float_negate(remaining_reward_amount));
+            if ((host_reg_fee / 2) > conf_fixed_reg_fee && float_compare(float_set(0, deposit_amount), float_divide(circulating_supply, float_set(0, 2)), COMPARE_GREATER) == 1)
             {
                 host_reg_fee /= 2;
                 SET_UINT_STATE_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not update the state for host reg fee.");
-                max_host_count = (conf_mint_limit / host_reg_fee);
             }
 
             // Take the fixed theoretical maximum registrants value from config.
@@ -414,8 +420,9 @@ int64_t hook(uint32_t reserved)
             GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
 
             // Update if the value is value has changed.
-            if (max_host_count != conf_max_reg)
-                SET_UINT_STATE_VALUE(max_host_count, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
+            const uint64_t max_reg = 0;
+            if (conf_max_reg != max_reg)
+                SET_UINT_STATE_VALUE(max_reg, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
 
             // PERMIT_MSG >> Host registration successful.
             PERMIT();
@@ -740,8 +747,8 @@ int64_t hook(uint32_t reserved)
         uint64_t host_reg_fee;
         GET_CONF_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not get host reg fee state.");
 
-        uint64_t host_rebate_amount = host_reg_fee > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
-        uint64_t reward_amount = host_rebate_amount > conf_fixed_reg_fee ? (host_rebate_amount - conf_fixed_reg_fee) : 0;
+        uint64_t host_rebate_amount = (host_reg_fee / 2) > conf_fixed_reg_fee ? host_reg_fee / 2 : 0;
+        uint64_t reward_amount = host_reg_fee > (conf_fixed_reg_fee + host_rebate_amount) ? (host_reg_fee - conf_fixed_reg_fee - host_rebate_amount) : 0;
 
         // Handle deregistration, If there's no heartbeat after the registration or re-registration.
         if (op_type == OP_HOST_DEREG)

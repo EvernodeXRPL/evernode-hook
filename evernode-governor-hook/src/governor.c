@@ -343,7 +343,6 @@ int64_t hook(uint32_t reserved)
 
             SET_UINT_STATE_VALUE(zero, STK_HOST_COUNT, "Evernode: Could not initialize state for host count.");
             SET_UINT_STATE_VALUE(DEF_HOST_REG_FEE, STK_HOST_REG_FEE, "Evernode: Could not initialize state for reg fee.");
-            SET_UINT_STATE_VALUE(DEF_MAX_REG, STK_MAX_REG, "Evernode: Could not initialize state for maximum registrants.");
 
             moment_base_info[MOMENT_TYPE_OFFSET] = DEF_MOMENT_TYPE;
             UINT64_TO_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET], cur_idx);

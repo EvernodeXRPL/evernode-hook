@@ -84,7 +84,6 @@ const uint8_t DEF_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
 const uint64_t DEF_MINT_LIMIT = 72253440;
 const uint64_t DEF_HOST_REG_FEE = 500;
 const uint64_t DEF_FIXED_REG_FEE = 5;
-const uint64_t DEF_MAX_REG = 144506; // No. of theoretical maximum registrants. (72253440/500)
 const uint16_t DEF_HOST_HEARTBEAT_FREQ = 1;
 const uint16_t DEF_LEASE_ACQUIRE_WINDOW = 160;   // In seconds
 const uint16_t DEF_MAX_TOLERABLE_DOWNTIME = 240; // In moments.
