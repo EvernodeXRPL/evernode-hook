@@ -330,8 +330,13 @@ int64_t hook(uint32_t reserved)
         UINT64_TO_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
         COPY_8BYTES(&host_addr[HOST_LEASE_AMOUNT_OFFSET], (event_data + HOST_LEASE_AMOUNT_PARAM_OFFSET));
 
-        // Set host reputation to the default threshold.
-        COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET]);
+        // Set host reputation based on lease amount and instance count.
+        uint32_t min_instance_count = UINT32_FROM_BUF_LE(&reward_configuration[HOST_MIN_INSTANCE_COUNT_OFFSET]);
+        int64_t max_lease_amount = INT64_FROM_BUF_LE(&reward_info[HOST_MAX_LEASE_AMOUNT_OFFSET]);
+        const int64_t host_lease_amount = INT64_FROM_BUF_LE(&host_addr[HOST_LEASE_AMOUNT_OFFSET]);
+        const uint32_t host_instance_count = UINT32_FROM_BUF_LE(&host_addr[HOST_TOT_INS_COUNT_OFFSET]);
+        host_addr[HOST_REPUTATION_OFFSET] =
+            (float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count) ? 0 : reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
         if (has_initiated_transfer == 0)
         {

@@ -414,7 +414,13 @@ int64_t hook(uint32_t reserved)
             // Calculate max lease amount. (10%) of the estimated reward amount.
             uint32_t host_count;
             GET_HOST_COUNT(host_count);
-            const int64_t reward_amount_estimate = (host_count == 0) ? float_set(0, 0) : float_divide(float_set(0, reward_quota), float_set(0, host_count));
+            int64_t reward_amount_estimate;
+            if (host_count == 0)
+                reward_amount_estimate = float_set(0, 0);
+            else if (reward_quota % host_count == 0)
+                reward_amount_estimate = float_set(0, (reward_quota / host_count));
+            else
+                reward_amount_estimate = float_divide(float_set(0, reward_quota), float_set(0, host_count));
             const int64_t max_lease_amount_calculated = float_multiply(reward_amount_estimate, float_set(-1, 1));
             int64_t max_lease_amount = INT64_FROM_BUF_LE(&reward_info[HOST_MAX_LEASE_AMOUNT_OFFSET]);
             if (max_lease_amount != max_lease_amount_calculated)
@@ -440,7 +446,7 @@ int64_t hook(uint32_t reserved)
             const int64_t host_lease_amount = INT64_FROM_BUF_LE(&host_addr[HOST_LEASE_AMOUNT_OFFSET]);
             const uint32_t host_instance_count = UINT32_FROM_BUF_LE(&host_addr[HOST_TOT_INS_COUNT_OFFSET]);
             host_addr[HOST_REPUTATION_OFFSET] =
-                ((float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count)) ? 0 : reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+                (float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count) ? 0 : reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
