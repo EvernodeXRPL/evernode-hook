@@ -173,7 +173,7 @@ int64_t hook(uint32_t reserved)
 
     // Rebate request without vote does not have data.
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
-    int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA1_KEY));
+    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
     ASSERT(!(op_type != OP_HOST_REBATE && op_type != OP_FOUNDATION_FUND_REQ && event_data_len < 0));
@@ -223,9 +223,9 @@ int64_t hook(uint32_t reserved)
         }
     }
 
-    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)>
+    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_min_instance_count(uint32_t)>
     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
-    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)><host_max_lease_amount(int64_t,xfl)>
     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
     // ASSERT_FAILURE_MSG >> Could not get reward configuration or reward info states.
     ASSERT(!(state_foreign(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) < 0 ||
@@ -319,7 +319,7 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Host already registered.
         ASSERT(!((has_initiated_transfer == 0 || (has_initiated_transfer == 1 && !parties_are_similar)) && state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST));
 
-        // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)>
+        // <country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><no_of_total_instances(4)><cpu_model(40)><cpu_count(2)><cpu_speed(2)><description(26)><email_address(40)><host_lease_amount(8,xfl)>
         // Populate values to the state address buffer and set state.
         // Clear reserve and description sections first.
         COPY_2BYTES((host_addr + HOST_COUNTRY_CODE_OFFSET), (event_data + HOST_COUNTRY_CODE_PARAM_OFFSET));
@@ -328,6 +328,7 @@ int64_t hook(uint32_t reserved)
         UINT64_TO_BUF_LE(&host_addr[HOST_REG_FEE_OFFSET], host_reg_fee);
         COPY_4BYTES((host_addr + HOST_TOT_INS_COUNT_OFFSET), (event_data + HOST_TOT_INS_COUNT_PARAM_OFFSET));
         UINT64_TO_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET], cur_ledger_timestamp);
+        COPY_8BYTES(&host_addr[HOST_LEASE_AMOUNT_OFFSET], (event_data + HOST_LEASE_AMOUNT_PARAM_OFFSET));
 
         // Set host reputation to the default threshold.
         COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET]);
@@ -415,15 +416,6 @@ int64_t hook(uint32_t reserved)
                 SET_UINT_STATE_VALUE(host_reg_fee, STK_HOST_REG_FEE, "Evernode: Could not update the state for host reg fee.");
             }
 
-            // Take the fixed theoretical maximum registrants value from config.
-            uint64_t conf_max_reg;
-            GET_CONF_VALUE(conf_max_reg, STK_MAX_REG, "Evernode: Could not get max reg fee state.");
-
-            // Update if the value is value has changed.
-            const uint64_t max_reg = 0;
-            if (conf_max_reg != max_reg)
-                SET_UINT_STATE_VALUE(max_reg, STK_MAX_REG, "Evernode: Could not update state for max theoretical registrants.");
-
             // PERMIT_MSG >> Host registration successful.
             PERMIT();
         }
@@ -502,7 +494,7 @@ int64_t hook(uint32_t reserved)
     else if (op_type == OP_HOST_UPDATE_REG)
     {
         // Msg format.
-        // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)><email(40)>
+        // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)><email(40)><host_lease_amount(8,xfl)>
 
         // Active instance count is required, If 0 it means there're no active instances.
         COPY_4BYTES((host_addr + HOST_ACT_INS_COUNT_OFFSET), (event_data + HOST_UPDATE_ACT_INS_COUNT_PARAM_OFFSET));
@@ -548,6 +540,11 @@ int64_t hook(uint32_t reserved)
             COPY_BYTE((host_addr + HOST_VERSION_OFFSET), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET));
             COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 1), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET + 1));
             COPY_BYTE((host_addr + HOST_VERSION_OFFSET + 2), (event_data + HOST_UPDATE_VERSION_PARAM_OFFSET + 2));
+        }
+
+        if (!IS_BUFFER_EMPTY_8((event_data + HOST_UPDATE_LEASE_AMOUNT_PARAM_OFFSET)))
+        {
+            COPY_8BYTES((host_addr + HOST_LEASE_AMOUNT_OFFSET), (event_data + HOST_UPDATE_LEASE_AMOUNT_PARAM_OFFSET));
         }
 
         // ASSERT_FAILURE_MSG >> Could not set state for info update.

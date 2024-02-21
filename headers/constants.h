@@ -102,12 +102,12 @@ enum OPERATION
 };
 
 #define MAX_MEMO_SIZE 4096      // Maximum tx blob size.
-#define MAX_HOOK_PARAM_SIZE 128 // Maximum txn param length.
+#define MAX_HOOK_PARAM_SIZE 256 // Maximum txn param length.
 #define MAX_EVENT_TYPE_SIZE 40  // Maximum string length of the event type.
 
 // Maximum size of the event data.
 #define MAX_EVENT_DATA_SIZE \
-    MAX_HOOK_PARAM_SIZE * 2
+    MAX_HOOK_PARAM_SIZE * 1
 
 // Transfer process related definitions
 const uint8_t TRANSFER_FLAG = PENDING_TRANSFER;
@@ -124,7 +124,7 @@ const uint8_t NAMESPACE[32] = {0x01, 0xEA, 0xF0, 0x93, 0x26, 0xB4, 0x91, 0x15, 0
                                0x59, 0xF2, 0xC5, 0x3E, 0xC6, 0x65, 0xA0}; // sha256('evernode.org|registry')
 
 // Constants
-const uint32_t HOST_ADDR_VAL_SIZE = 135;
+const uint32_t HOST_ADDR_VAL_SIZE = 143;
 const uint32_t TOKEN_ID_VAL_SIZE = 124;
 const uint32_t TRANSFEREE_ADDR_VAL_SIZE = 60;
 const uint32_t AMOUNT_BUF_SIZE = 48;
@@ -134,9 +134,9 @@ const uint32_t COUNTRY_CODE_LEN = 2;
 const uint32_t DESCRIPTION_LEN = 26;
 const uint32_t CPU_MODEl_NAME_LEN = 40;
 const uint32_t ACCOUNT_ID_SIZE = 20;
-const uint32_t REWARD_INFO_VAL_SIZE = 21;
+const uint32_t REWARD_INFO_VAL_SIZE = 29;
 const uint32_t GOVERNANCE_INFO_VAL_SIZE = 70;
-const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 16;
+const uint32_t REWARD_CONFIGURATION_VAL_SIZE = 20;
 const uint32_t MOMENT_TRANSIT_INFO_VAL_SIZE = 11;
 const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
@@ -156,6 +156,7 @@ const uint32_t SAVED_MOMENT_OFFSET = 1;
 const uint32_t PREV_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 5;
 const uint32_t CUR_MOMENT_ACTIVE_HOST_COUNT_OFFSET = 9;
 const uint32_t EPOCH_POOL_OFFSET = 13;
+const uint32_t HOST_MAX_LEASE_AMOUNT_OFFSET = 21;
 
 // REWARD_CONFIGURATION
 const uint32_t EPOCH_COUNT_OFFSET = 0;
@@ -164,6 +165,7 @@ const uint32_t EPOCH_REWARD_AMOUNT_OFFSET = 5;
 const uint32_t REWARD_START_MOMENT_OFFSET = 9;
 const uint32_t ACCUMULATED_REWARD_FREQUENCY_OFFSET = 13;
 const uint32_t HOST_REPUTATION_THRESHOLD_OFFSET = 15;
+const uint32_t HOST_MIN_INSTANCE_COUNT_OFFSET = 16;
 
 // GOVERNANCE_CONFIGURATION
 const uint32_t ELIGIBILITY_PERIOD_OFFSET = 0;
@@ -207,6 +209,7 @@ const uint32_t HOST_SUPPORT_VOTE_FLAG_OFFSET = 124;
 const uint32_t HOST_REPUTATION_OFFSET = 125;
 const uint32_t HOST_FLAGS_OFFSET = 126;
 const uint32_t HOST_TRANSFER_TIMESTAMP_OFFSET = 127;
+const uint32_t HOST_LEASE_AMOUNT_OFFSET = 135;
 
 // TOKEN_ID
 const uint32_t HOST_ADDRESS_OFFSET = 0;
@@ -296,7 +299,6 @@ const uint32_t CANDIDATE_VOTE_VALUE_PARAM_OFFSET = 32;
 // HOOK_PARAM_KEYS
 const uint8_t PARAM_STATE_HOOK_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 const uint8_t PARAM_EVENT_TYPE_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
-const uint8_t PARAM_EVENT_DATA1_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
-const uint8_t PARAM_EVENT_DATA2_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
+const uint8_t PARAM_EVENT_DATA_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
 
 #endif
