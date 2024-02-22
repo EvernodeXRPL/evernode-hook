@@ -411,7 +411,7 @@ int64_t hook(uint32_t reserved)
             uint32_t reward_quota;
             PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, host_reputed, reward_quota, reward_pool_amount, reward_amount);
 
-            // Calculate max lease amount. (10%) of the estimated reward amount.
+            // Calculate max lease amount. (110%) of the estimated reward amount.
             uint32_t host_count;
             GET_HOST_COUNT(host_count);
             int64_t reward_amount_estimate;
@@ -421,7 +421,7 @@ int64_t hook(uint32_t reserved)
                 reward_amount_estimate = float_set(0, (reward_quota / host_count));
             else
                 reward_amount_estimate = float_divide(float_set(0, reward_quota), float_set(0, host_count));
-            const int64_t max_lease_amount_calculated = float_multiply(reward_amount_estimate, float_set(-1, 1));
+            const int64_t max_lease_amount_calculated = float_multiply(reward_amount_estimate, float_set(-1, 11));
             int64_t max_lease_amount = INT64_FROM_BUF_LE(&reward_info[HOST_MAX_LEASE_AMOUNT_OFFSET]);
             if (max_lease_amount != max_lease_amount_calculated)
             {
