@@ -427,7 +427,9 @@ int64_t hook(uint32_t reserved)
 
             // Send the accumulated rewards if there's any.
             const uint16_t accumulated_reward_freq = UINT16_FROM_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET]);
-            if (cur_moment % accumulated_reward_freq == 0 && float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
+            const uint64_t registration_timestamp = UINT64_FROM_BUF_LE(&host_addr[HOST_REG_TIMESTAMP_OFFSET]);
+            const uint32_t registration_moment = GET_MOMENT(registration_timestamp);
+            if ((cur_moment - registration_moment) % accumulated_reward_freq == 0 && float_compare(accumulated_reward, float_set(0, 0), COMPARE_GREATER) == 1)
             {
                 // Keep pending rewards to sent.
                 pending_rewards = accumulated_reward;
