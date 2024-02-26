@@ -264,7 +264,7 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Currency should be EVR for refund.
         ASSERT(IS_EVR(amount_buffer, issuer_accid));
 
-        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+        // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)><host_max_lease_amount(int64_t,xfl)>
         uint8_t reward_info[REWARD_INFO_VAL_SIZE];
         // ASSERT_FAILURE_MSG >> Could not get reward info state.
         ASSERT(state_foreign(SBUF(reward_info), SBUF(STK_REWARD_INFO), FOREIGN_REF) >= 0);
@@ -290,7 +290,7 @@ int64_t hook(uint32_t reserved)
 
     // Heartbeat without vote does not have data.
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
-    int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA1_KEY));
+    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
     ASSERT(!(op_type != OP_HEARTBEAT && event_data_len < 0));
@@ -380,7 +380,7 @@ int64_t hook(uint32_t reserved)
 
         if (accept_heartbeat)
         {
-            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_reputation_threshold(uint8_t)>
+            // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_min_instance_count(uint32_t)>
             uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
 
             // ASSERT_FAILURE_MSG >> Could not get reward configuration state.
@@ -396,7 +396,7 @@ int64_t hook(uint32_t reserved)
             else
                 REMOVE_FLAG(host_addr[HOST_FLAGS_OFFSET], REPUTED_ON_HEARTBEAT);
 
-            // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+            // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)><host_max_lease_amount(int64_t,xfl)>
             uint8_t reward_info[REWARD_INFO_VAL_SIZE];
 
             // ASSERT_FAILURE_MSG >> Could not get reward info state.
@@ -408,7 +408,45 @@ int64_t hook(uint32_t reserved)
             const uint32_t reward_start_moment = UINT32_FROM_BUF_LE(&reward_configuration[REWARD_START_MOMENT_OFFSET]);
 
             int64_t reward_pool_amount, reward_amount;
-            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, host_reputed, reward_pool_amount, reward_amount);
+            uint32_t reward_quota;
+            PREPARE_EPOCH_REWARD_INFO(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, host_reputed, reward_quota, reward_pool_amount, reward_amount);
+
+            // Calculate max lease amount. (110%) of the estimated reward amount.
+            uint32_t host_count;
+            GET_HOST_COUNT(host_count);
+            int64_t reward_amount_estimate;
+            if (host_count == 0)
+                reward_amount_estimate = float_set(0, 0);
+            else if (reward_quota % host_count == 0)
+                reward_amount_estimate = float_set(0, (reward_quota / host_count));
+            else
+                reward_amount_estimate = float_divide(float_set(0, reward_quota), float_set(0, host_count));
+            const int64_t max_lease_amount_calculated = float_multiply(reward_amount_estimate, float_set(-1, 11));
+            int64_t max_lease_amount = INT64_FROM_BUF_LE(&reward_info[HOST_MAX_LEASE_AMOUNT_OFFSET]);
+            if (max_lease_amount != max_lease_amount_calculated)
+            {
+                max_lease_amount = max_lease_amount_calculated;
+                INT64_TO_BUF_LE(&reward_info[HOST_MAX_LEASE_AMOUNT_OFFSET], max_lease_amount);
+            }
+
+            uint32_t min_instance_count = UINT32_FROM_BUF_LE(&reward_configuration[HOST_MIN_INSTANCE_COUNT_OFFSET]);
+
+            // TODO: Remove this after configuration is set.
+            ////////////////////////////////////////////////
+            const uint32_t def_min_host_instance_count = 3;
+            if (min_instance_count != def_min_host_instance_count)
+            {
+                min_instance_count = def_min_host_instance_count;
+                UINT32_TO_BUF_LE(&reward_configuration[HOST_MIN_INSTANCE_COUNT_OFFSET], min_instance_count);
+                ASSERT(state_foreign_set(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
+            }
+            ////////////////////////////////////////////////
+
+            // Make host reputation to 0, if max lease amount and min instance count are not reached.
+            const int64_t host_lease_amount = INT64_FROM_BUF_LE(&host_addr[HOST_LEASE_AMOUNT_OFFSET]);
+            const uint32_t host_instance_count = UINT32_FROM_BUF_LE(&host_addr[HOST_TOT_INS_COUNT_OFFSET]);
+            host_addr[HOST_REPUTATION_OFFSET] =
+                (float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count) ? 0 : reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);

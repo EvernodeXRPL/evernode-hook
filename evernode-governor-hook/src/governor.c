@@ -173,7 +173,7 @@ int64_t hook(uint32_t reserved)
 
     // All the events should contain an event data.
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
-    int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA1_KEY));
+    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
     ASSERT(event_data_len >= 0);
@@ -200,9 +200,9 @@ int64_t hook(uint32_t reserved)
     // <proposal_elected_timestamp(8)><updated_hook_count(1)>
     uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
 
-    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)>
+    // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)><host_max_lease_amount(int64_t,xfl)>
     uint8_t reward_info[REWARD_INFO_VAL_SIZE];
-    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)>
+    // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_min_instance_count(uint32_t)>
     uint8_t reward_configuration[REWARD_CONFIGURATION_VAL_SIZE];
 
     if (op_type != OP_INITIALIZE)
@@ -389,16 +389,6 @@ int64_t hook(uint32_t reserved)
     }
     else if (op_type == OP_PROPOSE)
     {
-        // ASSERT_FAILURE_MSG >> There are no enough space to read second param in whole.
-        ASSERT((MAX_EVENT_DATA_SIZE - event_data_len) >= MAX_HOOK_PARAM_SIZE);
-
-        // Continue loading data into the buffer from other params.
-        const int64_t event_data2_len = otxn_param(event_data + event_data_len, (MAX_EVENT_DATA_SIZE - event_data_len), SBUF(PARAM_EVENT_DATA2_KEY));
-
-        // ASSERT_FAILURE_MSG >> Error getting the event data 2 param.
-        ASSERT(event_data2_len >= 0);
-        event_data_len += event_data2_len;
-
         int hooks_exists = 0;
         IS_HOOKS_VALID((event_data + CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET), hooks_exists);
 
@@ -867,6 +857,7 @@ int64_t hook(uint32_t reserved)
 
         UINT16_TO_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET], DEF_ACCUMULATED_REWARD_FREQUENCY);
         reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET] = DEF_HOST_REPUTATION_THRESHOLD;
+        UINT32_TO_BUF_LE(&reward_configuration[HOST_MIN_INSTANCE_COUNT_OFFSET], DEF_HOST_MIN_INSTANCE_COUNT);
 
         // ASSERT_FAILURE_MSG >> Could not set state for reward configuration.
         ASSERT(state_foreign_set(reward_configuration, REWARD_CONFIGURATION_VAL_SIZE, SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
