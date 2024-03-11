@@ -335,8 +335,11 @@ int64_t hook(uint32_t reserved)
         int64_t max_lease_amount = INT64_FROM_BUF_LE(&reward_info[HOST_MAX_LEASE_AMOUNT_OFFSET]);
         const int64_t host_lease_amount = INT64_FROM_BUF_LE(&host_addr[HOST_LEASE_AMOUNT_OFFSET]);
         const uint32_t host_instance_count = UINT32_FROM_BUF_LE(&host_addr[HOST_TOT_INS_COUNT_OFFSET]);
-        host_addr[HOST_REPUTATION_OFFSET] =
-            (float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count) ? 0 : reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+        // If reputation conditions aren't met, Make reputation to 0 in both fresh and transfer install.
+        if (float_compare(host_lease_amount, float_set(0, 0), COMPARE_EQUAL) == 1 || float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count)
+            host_addr[HOST_REPUTATION_OFFSET] = 0;
+        else
+            host_addr[HOST_REPUTATION_OFFSET] = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
         if (has_initiated_transfer == 0)
         {
@@ -449,8 +452,10 @@ int64_t hook(uint32_t reserved)
             COPY_8BYTES(&host_addr[HOST_REG_TIMESTAMP_OFFSET], &prev_host_addr[HOST_REG_TIMESTAMP_OFFSET]);
             COPY_8BYTES(&host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET], &prev_host_addr[HOST_TRANSFER_TIMESTAMP_OFFSET]);
 
-            // Host reputation and flags will be copied from previous state.
-            COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &prev_host_addr[HOST_REPUTATION_OFFSET]);
+            // Reputation is set to threshold above if reputation conditions are met. If so copy the previous reputation.
+            if (prev_host_addr[HOST_REPUTATION_OFFSET] != 0 && host_addr[HOST_REPUTATION_OFFSET] == reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET])
+                COPY_BYTE(&host_addr[HOST_REPUTATION_OFFSET], &prev_host_addr[HOST_REPUTATION_OFFSET]);
+            // Host flags will be copied from previous state.
             COPY_BYTE(&host_addr[HOST_FLAGS_OFFSET], &prev_host_addr[HOST_FLAGS_OFFSET]);
 
             // Set the STP_HOST_ADDR with corresponding new state's key.

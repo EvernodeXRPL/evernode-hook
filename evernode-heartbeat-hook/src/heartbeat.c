@@ -431,22 +431,13 @@ int64_t hook(uint32_t reserved)
 
             uint32_t min_instance_count = UINT32_FROM_BUF_LE(&reward_configuration[HOST_MIN_INSTANCE_COUNT_OFFSET]);
 
-            // TODO: Remove this after configuration is set.
-            ////////////////////////////////////////////////
-            const uint32_t def_min_host_instance_count = 3;
-            if (min_instance_count != def_min_host_instance_count)
-            {
-                min_instance_count = def_min_host_instance_count;
-                UINT32_TO_BUF_LE(&reward_configuration[HOST_MIN_INSTANCE_COUNT_OFFSET], min_instance_count);
-                ASSERT(state_foreign_set(SBUF(reward_configuration), SBUF(CONF_REWARD_CONFIGURATION), FOREIGN_REF) >= 0);
-            }
-            ////////////////////////////////////////////////
-
             // Make host reputation to 0, if max lease amount and min instance count are not reached.
             const int64_t host_lease_amount = INT64_FROM_BUF_LE(&host_addr[HOST_LEASE_AMOUNT_OFFSET]);
             const uint32_t host_instance_count = UINT32_FROM_BUF_LE(&host_addr[HOST_TOT_INS_COUNT_OFFSET]);
-            host_addr[HOST_REPUTATION_OFFSET] =
-                (float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count) ? 0 : reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+            if (float_compare(host_lease_amount, float_set(0, 0), COMPARE_EQUAL) == 1 || float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count)
+                host_addr[HOST_REPUTATION_OFFSET] = 0;
+            else if (host_addr[HOST_REPUTATION_OFFSET] == 0)
+                host_addr[HOST_REPUTATION_OFFSET] = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
