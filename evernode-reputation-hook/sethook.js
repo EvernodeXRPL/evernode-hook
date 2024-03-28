@@ -75,6 +75,6 @@ else {
                 { Hook: { Flags: hsfOVERRIDE || hsfNSDELETE, CreateCode: '' } }]
         };
 
-        submitTxn(registrySecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
+        submitTxn(reputationSecret, hookTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0))
     }).catch(console.error);
 }
