@@ -201,3 +201,4 @@
 #define sfHookExecutions ((15U << 16U) + 18U)
 #define sfHookParameters ((15U << 16U) + 19U)
 #define sfHookGrants ((15U << 16U) + 20U)
+#define sfBlob ((7U << 16U) + 26U)

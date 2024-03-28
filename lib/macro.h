@@ -252,6 +252,7 @@ int out_len = 0;\
 #define ttNFT_ACCEPT_OFFER 29
 #define ttURI_TOKEN_CREATE_SELL_OFFER 48
 #define ttURI_TOKEN_BUY 47
+#define ttINVOKE 99
 #define tfCANONICAL 0x80000000UL
 
 #define atACCOUNT 1U

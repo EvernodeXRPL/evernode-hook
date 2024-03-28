@@ -311,6 +311,7 @@ int64_t hook(uint32_t reserved)
         uint8_t *foundation_ptr = event_data + ACCOUNT_ID_SIZE;
         uint8_t *registry_hook_ptr = event_data + (2 * ACCOUNT_ID_SIZE);
         uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
+        uint8_t *reputation_hook_ptr = event_data + (4 * ACCOUNT_ID_SIZE);
 
         // First check if the states are already initialized by checking lastly added state key for existence.
         if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
@@ -330,6 +331,9 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
             ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
+
+            // ASSERT_FAILURE_MSG >> Could not set state for reputation hook account.
+            ASSERT(state_foreign_set(reputation_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) >= 0);
 
             SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
             moment_size = DEF_MOMENT_SIZE;
