@@ -305,7 +305,7 @@ int64_t hook(uint32_t reserved)
         ASSERT(BUFFER_EQUAL_20(initializer_accid, account_field));
 
         // ASSERT_FAILURE_MSG >> Memo data should contain foundation cold wallet, registry heartbeat hook and issuer addresses.
-        ASSERT(event_data_len == (4 * ACCOUNT_ID_SIZE));
+        ASSERT(event_data_len == (5 * ACCOUNT_ID_SIZE));
 
         uint8_t *issuer_ptr = event_data;
         uint8_t *foundation_ptr = event_data + ACCOUNT_ID_SIZE;
