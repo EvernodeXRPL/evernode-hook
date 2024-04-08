@@ -43,11 +43,6 @@ uint8_t registry_namespace[32] =
         0xDEU, 0x2EU, 0xC3U, 0x5DU, 0x9EU, 0x59U, 0xF2U, 0xC5U, 0x3EU, 0xC6U,
         0x65U, 0xA0U};
 
-uint8_t registry_accid[20] =
-    {
-        0x77U, 0xC6U, 0xE7U, 0x07U, 0x43U, 0x0AU, 0xC2U, 0x67U, 0x16U, 0x12U,
-        0x1FU, 0x50U, 0x53U, 0x96U, 0x34U, 0xE4U, 0x02U, 0x4FU, 0xB4U, 0x57U};
-
 #define MOMENT_SECONDS 3600
 
 int64_t hook(uint32_t r)
@@ -221,12 +216,13 @@ int64_t hook(uint32_t r)
     if (state_set(acc_data, 24, accid + 8, 20) != 24)
         NOPE("Everrep: Failed to set acc_data. Check hook reserves.");
 
-    // first check if they're still in the registry
-    uint8_t host_data[256];
-    result = state_foreign(SBUF(host_data), accid + 8, 20, SBUF(registry_namespace), SBUF(registry_accid));
+    // TODO: Check host is registered.
+    // // first check if they're still in the registry
+    // uint8_t host_data[256];
+    // result = state_foreign(SBUF(host_data), accid + 8, 20, SBUF(registry_namespace), SBUF(registry_accid));
 
-    if (result == DOESNT_EXIST)
-        DONE("Everrep: Scores submitted but host no longer registered and therefore doesn't qualify for next round.");
+    // if (result == DOESNT_EXIST)
+    //     DONE("Everrep: Scores submitted but host no longer registered and therefore doesn't qualify for next round.");
 
     // execution to here means we will register for next round
 
