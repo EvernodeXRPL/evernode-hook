@@ -21,40 +21,38 @@
  *  Outside of this Hook, the reputation software should ascertain which Universe you are in.
  *  It should compile the reputation contact with a UNL that matches the nodes in that universe.
  *  It should run that contract for around 90% of the moment. Its participation is noticed by the other peers.
- *  Each peer in the universe then compiles the ordered scores into a blob of 64 bytes and submits them back to this 
+ *  Each peer in the universe then compiles the ordered scores into a blob of 64 bytes and submits them back to this
  *  hook to both vote and register for thew next round at the same time.
  */
 
 #include "reputation.h"
 
-#define DONE(x)\
+#define DONE(x) \
     return accept(SBUF(x), __LINE__)
 
-#define NOPE(x)\
+#define NOPE(x) \
     return rollback(SBUF(x), __LINE__)
 
-#define SVAR(x)\
+#define SVAR(x) \
     &(x), sizeof(x)
 
 uint8_t registry_namespace[32] =
-{
-    0x01U,0xEAU,0xF0U,0x93U,0x26U,0xB4U,0x91U,0x15U,0x54U,0x38U,
-    0x41U,0x21U,0xFFU,0x56U,0xFAU,0x8FU,0xECU,0xC2U,0x15U,0xFDU,
-    0xDEU,0x2EU,0xC3U,0x5DU,0x9EU,0x59U,0xF2U,0xC5U,0x3EU,0xC6U,
-    0x65U,0xA0U
-};
+    {
+        0x01U, 0xEAU, 0xF0U, 0x93U, 0x26U, 0xB4U, 0x91U, 0x15U, 0x54U, 0x38U,
+        0x41U, 0x21U, 0xFFU, 0x56U, 0xFAU, 0x8FU, 0xECU, 0xC2U, 0x15U, 0xFDU,
+        0xDEU, 0x2EU, 0xC3U, 0x5DU, 0x9EU, 0x59U, 0xF2U, 0xC5U, 0x3EU, 0xC6U,
+        0x65U, 0xA0U};
 
 uint8_t registry_accid[20] =
-{
-    0x77U,0xC6U,0xE7U,0x07U,0x43U,0x0AU,0xC2U,0x67U,0x16U,0x12U,
-    0x1FU,0x50U,0x53U,0x96U,0x34U,0xE4U,0x02U,0x4FU,0xB4U,0x57U
-};
+    {
+        0x77U, 0xC6U, 0xE7U, 0x07U, 0x43U, 0x0AU, 0xC2U, 0x67U, 0x16U, 0x12U,
+        0x1FU, 0x50U, 0x53U, 0x96U, 0x34U, 0xE4U, 0x02U, 0x4FU, 0xB4U, 0x57U};
 
 #define MOMENT_SECONDS 3600
 
 int64_t hook(uint32_t r)
 {
-    _g(1,1);
+    _g(1, 1);
 
     if (otxn_type() != ttINVOKE)
         DONE("Everrep: passing non-invoke");
@@ -77,7 +75,32 @@ int64_t hook(uint32_t r)
     if (!no_scores_submitted && result != 64)
         NOPE("Everrep: sfBlob must be 64 bytes.");
 
-    uint64_t current_moment = ledger_last_time() / MOMENT_SECONDS;
+    int64_t cur_ledger_seq = ledger_seq();
+
+    int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
+
+    // Reading the hook governance account from hook params
+    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
+    ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) == ACCOUNT_ID_SIZE);
+
+    // <transition index><transition_moment><index_type>
+    uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
+
+    // ASSERT_FAILURE_MSG >> Could not get moment base info state.
+    ASSERT(state_foreign(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+
+    uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
+    uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
+    // If state does not exist, take the moment type from default constant.
+    uint8_t cur_moment_type = moment_base_info[MOMENT_TYPE_OFFSET];
+    uint64_t cur_idx = cur_moment_type == TIMESTAMP_MOMENT_TYPE ? cur_ledger_timestamp : cur_ledger_seq;
+
+    // Take the moment size from config.
+    uint16_t moment_size = 0;
+    GET_CONF_VALUE(moment_size, CONF_MOMENT_SIZE, "Evernode: Could not get moment size.");
+
+    uint64_t current_moment = GET_MOMENT(cur_idx);
     uint64_t previous_moment = current_moment - 1;
     uint64_t before_previous_moment = current_moment - 2;
     uint64_t next_moment = current_moment + 1;
@@ -91,29 +114,29 @@ int64_t hook(uint32_t r)
     if (cleanup_moment[0] > 0 && cleanup_moment[0] < before_previous_moment)
     {
         // store the host count in cleanup_moment[1], so we can use the whole array as a key in a minute
-        if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]) == sizeof(cleanup_moment[1])))
+        if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0])) == sizeof(cleanup_moment[1]))
         {
 
             uint8_t accid[28];
             // we will cleanup the final two entries in an amortised fashion
             if (cleanup_moment[1] > 0)
             {
-                *((uint64_t*)accid) = --cleanup_moment[1];
+                *((uint64_t *)accid) = --cleanup_moment[1];
                 // fetch the account id for the reverse direction
                 state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
-                
-                state_set(0,0, SBUF(accid));
-                state_set(0,0, cleanup_moment, sizeof(cleanup_moment));
+
+                state_set(0, 0, SBUF(accid));
+                state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
             }
-            
+
             if (cleanup_moment[1] > 0)
             {
-                *((uint64_t*)accid) = --cleanup_moment[1];
+                *((uint64_t *)accid) = --cleanup_moment[1];
                 // fetch the account id for the reverse direction
                 state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
-                
-                state_set(0,0, SBUF(accid));
-                state_set(0,0, cleanup_moment, sizeof(cleanup_moment));
+
+                state_set(0, 0, SBUF(accid));
+                state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
             }
 
             // update or remove moment counters
@@ -121,22 +144,20 @@ int64_t hook(uint32_t r)
                 state_set(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]));
             else
             {
-                state_set(0,0, SVAR(cleanup_moment[0]));
+                state_set(0, 0, SVAR(cleanup_moment[0]));
                 cleanup_moment[0]++;
-
             }
         }
     }
     state_set(SVAR(cleanup_moment[0]), SVAR(special));
 
-
-    *((uint64_t*)accid) = previous_moment;
+    *((uint64_t *)accid) = previous_moment;
     uint64_t previous_hostid;
 
     int64_t in_previous_round = (state(SVAR(previous_hostid), SBUF(accid)) == sizeof(previous_hostid));
 
     if (in_previous_round)
-    {    
+    {
         if (no_scores_submitted)
             NOPE("Everrep: Submit your scores!");
 
@@ -149,8 +170,8 @@ int64_t hook(uint32_t r)
         state(SVAR(host_count), accid, 8);
 
         uint64_t first_hostid = universe << 6;
-        
-        uint64_t last_hostid = ((universe + 1 ) << 6) - 1;
+
+        uint64_t last_hostid = ((universe + 1) << 6) - 1;
 
         uint64_t last_universe = host_count >> 6;
 
@@ -192,14 +213,14 @@ int64_t hook(uint32_t r)
     // register for the next moment
     // get host voting data
     uint64_t acc_data[3];
-    state(SBUF(acc_data), accid+8, 20);
+    state(SBUF(acc_data), accid + 8, 20);
     if (acc_data[0] == next_moment)
         NOPE("Everrep: Already registered for this round.");
 
     acc_data[0] = next_moment;
     if (state_set(acc_data, 24, accid + 8, 20) != 24)
         NOPE("Everrep: Failed to set acc_data. Check hook reserves.");
-    
+
     // first check if they're still in the registry
     uint8_t host_data[256];
     result = state_foreign(SBUF(host_data), accid + 8, 20, SBUF(registry_namespace), SBUF(registry_accid));
@@ -212,7 +233,7 @@ int64_t hook(uint32_t r)
     uint64_t host_count;
     state(SVAR(host_count), SVAR(next_moment));
 
-    *((uint64_t*)accid) = next_moment;
+    *((uint64_t *)accid) = next_moment;
     uint64_t forward[2] = {next_moment, 0};
 
     if (host_count == 0)
@@ -232,11 +253,11 @@ int64_t hook(uint32_t r)
         // put the other at the end
         forward[1] = other;
         uint8_t reverse[28];
-        *((uint64_t*)reverse) = next_moment;
-        state(reverse + 8, 20,  forward, 16);
+        *((uint64_t *)reverse) = next_moment;
+        state(reverse + 8, 20, forward, 16);
 
         forward[1] = host_count;
-        
+
         if (state_set(SVAR(host_count), SBUF(reverse)) != 8 ||
             state_set(reverse + 8, 20, forward, 16) != 20)
             NOPE("Everrep: Could not set state (move host.) Check hook reserves.");
