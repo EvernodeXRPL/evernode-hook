@@ -153,8 +153,9 @@ int64_t hook(uint32_t r)
 
     if (in_previous_round)
     {
-        if (no_scores_submitted)
-            NOPE("Everrep: Submit your scores!");
+        // TODO: Recheck the logic.
+        // if (no_scores_submitted)
+        //     NOPE("Everrep: Submit your scores!");
 
         // find out which universe you were in
         uint64_t hostid = previous_hostid;
