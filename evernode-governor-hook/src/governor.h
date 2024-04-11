@@ -124,15 +124,15 @@ const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
             hook_slot = slot_set(hook_keylets_ptr + 34, 34, 0);          \
             if (hook_slot >= 0)                                          \
             {                                                            \
-                slot(&hook_hashes[32], 64, hook_slot);                   \
+                slot(&hook_hashes[32], 32, hook_slot);                   \
                 hook_slot = slot_set(hook_keylets_ptr + 68, 34, 0);      \
                 if (hook_slot >= 0)                                      \
                 {                                                        \
-                    slot(&hook_hashes[64], 92, hook_slot);               \
+                    slot(&hook_hashes[64], 32, hook_slot);               \
                     hook_slot = slot_set(hook_keylets_ptr + 102, 34, 0); \
                     if (hook_slot >= 0)                                  \
                     {                                                    \
-                        slot(&hook_hashes[64], 92, hook_slot);           \
+                        slot(&hook_hashes[96], 32, hook_slot);           \
                         hooks_exists = 1;                                \
                     }                                                    \
                 }                                                        \

@@ -120,14 +120,8 @@ int64_t hook(uint32_t reserved)
     if (!no_scores_submitted && result != 64)
         NOPE("Everrep: sfBlob must be 64 bytes.");
 
-    int64_t cur_ledger_seq = ledger_seq();
-
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
-    // Reading the hook governance account from hook params
-    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
-    // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
-    ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) == ACCOUNT_ID_SIZE);
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
