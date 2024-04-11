@@ -288,7 +288,7 @@ const uint8_t AUTO_PILOTED = 3;
 // <hook_keylets(34*3)><unique_id(32)><short_name(20)>
 // PROPOSE
 const uint32_t CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET = 0;
-const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET = 134;
+const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET = 136;
 const uint32_t CANDIDATE_PROPOSE_SHORT_NAME_PARAM_OFFSET = 168;
 
 // <unique_id(32)><vote(1)>
