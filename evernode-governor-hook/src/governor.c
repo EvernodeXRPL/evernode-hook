@@ -195,6 +195,7 @@ int64_t hook(uint32_t reserved)
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
+    uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
 
     // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><foundation_last_voted_timestamp(8)><elected_proposal_unique_id(32)>
     // <proposal_elected_timestamp(8)><updated_hook_count(1)>
@@ -213,9 +214,10 @@ int64_t hook(uint32_t reserved)
 
         source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
 
-        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
+        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry ore reputation hook account id.
         ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
-                 state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
+                 state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0 ||
+                 state_foreign(SBUF(reputation_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
 
         // ASSERT_FAILURE_MSG >> Could not get governance configuration or governance info states.
         ASSERT(!(state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0 ||
@@ -394,7 +396,10 @@ int64_t hook(uint32_t reserved)
     else if (op_type == OP_PROPOSE)
     {
         int hooks_exists = 0;
-        IS_HOOKS_VALID((event_data + CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET), hooks_exists);
+        const uint32_t HOOK_HASHES_BUF_LEN = 128;
+        uint8_t proposed_hook_hashes[HOOK_HASHES_BUF_LEN];
+
+        IS_HOOKS_VALID((event_data + CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET), proposed_hook_hashes, hooks_exists);
 
         // ASSERT_FAILURE_MSG >> Provided hooks are not valid.
         ASSERT(hooks_exists != 0);
@@ -405,7 +410,7 @@ int64_t hook(uint32_t reserved)
         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) == DOESNT_EXIST);
 
         uint8_t unique_id[HASH_SIZE] = {0};
-        GET_NEW_HOOK_CANDIDATE_ID(event_data + CANDIDATE_PROPOSE_HASHES_PARAM_OFFSET, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, unique_id);
+        GET_NEW_HOOK_CANDIDATE_ID(proposed_hook_hashes, HOOK_HASHES_BUF_LEN, unique_id);
 
         // ASSERT_FAILURE_MSG >> Generated candidate hash is not matched with provided.
         ASSERT(BUFFER_EQUAL_32((event_data + CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET), unique_id));
@@ -429,7 +434,7 @@ int64_t hook(uint32_t reserved)
         candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = CANDIDATE_REJECTED;
 
         // Write to states.
-        COPY_CANDIDATE_HASHES(candidate_owner, event_data);
+        COPY_CANDIDATE_HASHES(candidate_owner, proposed_hook_hashes);
 
         // ASSERT_FAILURE_MSG >> Could not set state for candidate.
         ASSERT(!(state_foreign_set(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0 || state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0));
@@ -491,12 +496,14 @@ int64_t hook(uint32_t reserved)
         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0);
 
         // ASSERT_FAILURE_MSG >> Only heartbeat or registry are allowed to send hook update results.
-        ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field));
+        ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field) || BUFFER_EQUAL_20(reputation_accid, account_field));
 
         uint8_t *hook_hash_ptr;
         // We accept only the hook update transaction from hook heartbeat or registry accounts.
         if (BUFFER_EQUAL_20(heartbeat_accid, account_field))
             hook_hash_ptr = &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET];
+        else if (BUFFER_EQUAL_20(reputation_accid, account_field))
+            hook_hash_ptr = &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET];
         else
             hook_hash_ptr = &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET];
 
