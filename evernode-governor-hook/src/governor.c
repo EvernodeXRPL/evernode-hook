@@ -173,7 +173,7 @@ int64_t hook(uint32_t reserved)
 
     // All the events should contain an event data.
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
-    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
+    int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
     ASSERT(event_data_len >= 0);
@@ -395,11 +395,16 @@ int64_t hook(uint32_t reserved)
     }
     else if (op_type == OP_PROPOSE)
     {
-        int hooks_exists = 0;
-        const uint32_t HOOK_HASHES_BUF_LEN = 128;
-        uint8_t proposed_hook_hashes[HOOK_HASHES_BUF_LEN];
 
-        IS_HOOKS_VALID((event_data + CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET), proposed_hook_hashes, hooks_exists);
+        const int64_t event_data2_len = otxn_param(event_data + event_data_len, MAX_HOOK_PARAM_SIZE, SBUF(PARAM_EVENT_DATA2_KEY));
+
+        // ASSERT_FAILURE_MSG >> Error getting the event data 2 param.
+        ASSERT(event_data2_len >= 0);
+        event_data_len += event_data2_len;
+
+        int hooks_exists = 0;
+
+        IS_HOOKS_VALID((event_data + CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET), hooks_exists);
 
         // ASSERT_FAILURE_MSG >> Provided hooks are not valid.
         ASSERT(hooks_exists != 0);
@@ -410,7 +415,7 @@ int64_t hook(uint32_t reserved)
         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) == DOESNT_EXIST);
 
         uint8_t unique_id[HASH_SIZE] = {0};
-        GET_NEW_HOOK_CANDIDATE_ID(proposed_hook_hashes, HOOK_HASHES_BUF_LEN, unique_id);
+        GET_NEW_HOOK_CANDIDATE_ID(event_data + CANDIDATE_PROPOSE_HASHES_PARAM_OFFSET, CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET, unique_id);
 
         // ASSERT_FAILURE_MSG >> Generated candidate hash is not matched with provided.
         ASSERT(BUFFER_EQUAL_32((event_data + CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET), unique_id));
@@ -434,7 +439,7 @@ int64_t hook(uint32_t reserved)
         candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET] = CANDIDATE_REJECTED;
 
         // Write to states.
-        COPY_CANDIDATE_HASHES(candidate_owner, proposed_hook_hashes);
+        COPY_CANDIDATE_HASHES(candidate_owner, event_data);
 
         // ASSERT_FAILURE_MSG >> Could not set state for candidate.
         ASSERT(!(state_foreign_set(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0 || state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0));

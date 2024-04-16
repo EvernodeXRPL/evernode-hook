@@ -114,25 +114,22 @@ const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
      IS_BUFFER_EMPTY_2((buf + 8)) &&      \
      IS_BUFFER_EMPTY_1((buf + 10)))
 
-#define IS_HOOKS_VALID(hook_keylets_ptr, hook_hashes, hooks_exists)      \
+#define IS_HOOKS_VALID(hook_keylets_ptr, hooks_exists)                   \
     {                                                                    \
         hooks_exists = 0;                                                \
         int64_t hook_slot = slot_set(hook_keylets_ptr, 34, 0);           \
         if (hook_slot >= 0)                                              \
         {                                                                \
-            slot(&hook_hashes[0], 32, hook_slot);                        \
             hook_slot = slot_set(hook_keylets_ptr + 34, 34, 0);          \
             if (hook_slot >= 0)                                          \
             {                                                            \
-                slot(&hook_hashes[32], 32, hook_slot);                   \
                 hook_slot = slot_set(hook_keylets_ptr + 68, 34, 0);      \
                 if (hook_slot >= 0)                                      \
                 {                                                        \
-                    slot(&hook_hashes[64], 32, hook_slot);               \
                     hook_slot = slot_set(hook_keylets_ptr + 102, 34, 0); \
                     if (hook_slot >= 0)                                  \
                     {                                                    \
-                        slot(&hook_hashes[96], 32, hook_slot);           \
+                        TRACESTR("Hello");                               \
                         hooks_exists = 1;                                \
                     }                                                    \
                 }                                                        \
