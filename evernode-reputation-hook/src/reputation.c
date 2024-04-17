@@ -103,7 +103,7 @@ int64_t hook(uint32_t reserved)
 
     // Child hook update trigger.
     if (op_type == OP_HOOK_UPDATE)
-        HANDLE_HOOK_UPDATE(CANDIDATE_REGISTRY_HOOK_HASH_OFFSET);
+        HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
 
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);

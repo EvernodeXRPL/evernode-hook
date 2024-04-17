@@ -2,6 +2,7 @@
 #define EVERNODE_INCLUDED 1
 
 #include "constants.h"
+#include "statekeys.h"
 #include "transactions.h"
 
 /****** Field and Type codes ******/
@@ -560,7 +561,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                                                                                                                                                               \
         /* As first 20 bytes of "candidate_id" represents owner address.*/                                                                                    \
         CANDIDATE_OWNER_KEY(candidate_id);                                                                                                                    \
-        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)> */                                                                                      \
+        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)> */                                                                                      \
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];                                                                                                    \
         if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)                                                                 \
             rollback(SBUF("Evernode: Could not get candidate owner state."), 1);                                                                              \
@@ -568,7 +569,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         const uint8_t updated_hook_count = governance_game_info[UPDATED_HOOK_COUNT_OFFSET];                                                                   \
                                                                                                                                                               \
         etxn_reserve(1);                                                                                                                                      \
-        if (reserved == STRONG_HOOK && updated_hook_count != 2)                                                                                               \
+        if (reserved == STRONG_HOOK && updated_hook_count != 3)                                                                                               \
         {                                                                                                                                                     \
             uint8_t hash_arr[HASH_SIZE * 4];                                                                                                                  \
             COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                            \
@@ -583,7 +584,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                 rollback(SBUF("Evernode: Hook again failed on update hook."), 1);                                                                             \
             accept(SBUF("Evernode: Successfully applied the hook update."), 0);                                                                               \
         }                                                                                                                                                     \
-        else if (reserved == AGAIN_HOOK || updated_hook_count == 2)                                                                                           \
+        else if (reserved == AGAIN_HOOK || updated_hook_count == 3)                                                                                           \
         {                                                                                                                                                     \
             PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);                                                                              \
             uint8_t emithash[HASH_SIZE];                                                                                                                      \

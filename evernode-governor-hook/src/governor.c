@@ -526,10 +526,10 @@ int64_t hook(uint32_t reserved)
 
         const uint8_t updated_hook_count = governance_info[UPDATED_HOOK_COUNT_OFFSET];
 
-        if (updated_hook_count == 0)
-            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 1;
+        if (updated_hook_count < 2)
+            governance_info[UPDATED_HOOK_COUNT_OFFSET]++;
         // Update the hook and the grants if one update hook result is already received.
-        else if (updated_hook_count == 1)
+        else if (updated_hook_count == 2)
         {
             uint8_t hash_arr[HASH_SIZE * 4];
             COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET]);
@@ -737,7 +737,7 @@ int64_t hook(uint32_t reserved)
             {
                 // If proposal is withdrawn proposal fee will be rebated to owner.
                 reward_amount = 0;
-                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 3 : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
+                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 4 : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
                                                                                                                      : 2);
 
                 if (candidate_type == NEW_HOOK_CANDIDATE)
