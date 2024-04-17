@@ -214,7 +214,7 @@ int64_t hook(uint32_t reserved)
 
         source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
 
-        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry ore reputation hook account id.
+        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry or reputation hook account id.
         ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
                  state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0 ||
                  state_foreign(SBUF(reputation_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
