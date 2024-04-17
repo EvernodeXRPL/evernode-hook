@@ -105,6 +105,8 @@ int64_t hook(uint32_t reserved)
     if (op_type == OP_HOOK_UPDATE)
         HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
 
+    // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
+
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);
 
@@ -121,7 +123,6 @@ int64_t hook(uint32_t reserved)
         NOPE("Everrep: sfBlob must be 64 bytes.");
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
-
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
