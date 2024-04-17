@@ -128,9 +128,7 @@ const uint8_t NEW_MOMENT_TYPE = TIMESTAMP_MOMENT_TYPE;
                 {                                                        \
                     hook_slot = slot_set(hook_keylets_ptr + 102, 34, 0); \
                     if (hook_slot >= 0)                                  \
-                    {                                                    \
                         hooks_exists = 1;                                \
-                    }                                                    \
                 }                                                        \
             }                                                            \
         }                                                                \
