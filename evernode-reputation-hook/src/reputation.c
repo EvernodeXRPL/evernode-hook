@@ -266,6 +266,10 @@ int64_t hook(uint32_t r)
             NOPE("Everrep: Could not set state (new host.) Check hook reserves.");
     }
 
+    host_count += 1;
+    if (state_set(SVAR(host_count), SVAR(next_moment)) != 8)
+        NOPE("Everrep: Failed to set state host_count 1. Check hook reserves.");
+
     if (no_scores_submitted)
         DONE("Everrep: Registered for next round.");
 
