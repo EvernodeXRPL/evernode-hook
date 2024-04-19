@@ -61,13 +61,13 @@ int64_t hook(uint32_t r)
     if (BUFFER_EQUAL_20(hookacc, accid + 8))
         DONE("Everrep: passing outgoing txn");
 
-    uint8_t blob[64];
+    uint8_t blob[65];
 
     int64_t result = otxn_field(SBUF(blob), sfBlob);
 
     int64_t no_scores_submitted = (result == DOESNT_EXIST);
 
-    if (!no_scores_submitted && result != 64)
+    if (!no_scores_submitted && result != 65)
         NOPE("Everrep: sfBlob must be 64 bytes.");
 
     int64_t cur_ledger_seq = ledger_seq();
@@ -192,7 +192,7 @@ int64_t hook(uint32_t r)
                 if (data[0] > next_moment || data[0] < previous_moment)
                     continue;
 
-                data[1] += blob[n];
+                data[1] += blob[n + 1];
                 data[2]++;
 
                 // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
