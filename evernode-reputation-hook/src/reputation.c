@@ -87,7 +87,7 @@ int64_t hook(uint32_t reserved)
     }
     else if (txn_type == ttINVOKE)
     {
-        op_type = OP_HOST_SEND_REPUTATIONS;
+        op_type = OP_HOST_UPDATE_REPUTATION;
     }
 
     if (op_type == OP_NONE)

@@ -561,7 +561,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                                                                                                                                                               \
         /* As first 20 bytes of "candidate_id" represents owner address.*/                                                                                    \
         CANDIDATE_OWNER_KEY(candidate_id);                                                                                                                    \
-        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)> */                                                                                      \
+        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)> */                                                                 \
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];                                                                                                    \
         if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)                                                                 \
             rollback(SBUF("Evernode: Could not get candidate owner state."), 1);                                                                              \
