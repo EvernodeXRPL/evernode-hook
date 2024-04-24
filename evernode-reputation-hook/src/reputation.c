@@ -177,7 +177,7 @@ int64_t hook(uint32_t r)
         {
             // accumulate the scores
             uint64_t id[2];
-            id[0] = previous_moment;
+            id[0] = current_moment;
             int n = 0;
             for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
             {
