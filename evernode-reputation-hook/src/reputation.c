@@ -171,7 +171,7 @@ int64_t hook(uint32_t r)
 
         uint64_t last_universe = host_count >> 6;
 
-        uint64_t last_universe_hostid = (last_universe << 6) - 1;
+        uint64_t last_universe_hostid = ((last_universe + 1) << 6) - 1;
 
         if (hostid <= last_universe_hostid)
         {
@@ -181,7 +181,7 @@ int64_t hook(uint32_t r)
             int n = 0;
             for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
             {
-                uint64_t accid[20];
+                uint8_t accid[20];
                 if (state(SBUF(accid), id, 16) != 20)
                     continue;
                 uint64_t data[3];
