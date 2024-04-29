@@ -34,6 +34,7 @@
 #define HOST_UPDATE_REPUTATION "evnHostUpdateReputation"
 #define FOUNDATION_FUND_REQ "evnFoundationFundReq"
 #define HOST_REG_FAIL_REFUND "evnHostRegFailRefund"
+#define ORPHAN_REPUTATION_ENTRY_REMOVE "evnRemoveReputationEntry"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
