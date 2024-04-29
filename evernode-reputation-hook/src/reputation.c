@@ -8,7 +8,7 @@
  *   [moment : 8l]                          => [host count in that moment : 8l]
  *
  * Todo:
- *  Use sfMessageKey to delegate "reputation scoring authority" from the host account to the reputation account.
+ *  Use sfWalletLocator to delegate "reputation scoring authority" from the host account to the reputation account.
  *
  * Behaviour:
  *  There is a reputation round each moment (hour).
@@ -107,39 +107,6 @@ int64_t hook(uint32_t reserved)
 
     // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
 
-    // Registration Entry existence check
-    uint8_t host_reg_acc_keylet[34] = {0};
-
-    // Host Registration State.
-    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-
-    COPY_32BYTES(host_reg_acc_keylet, event_data);
-    COPY_2BYTES(host_reg_acc_keylet + 32, event_data + 32);
-
-    int64_t cur_slot = 0;
-    int64_t sub_field_slot = 0;
-    GET_SLOT_FROM_KEYLET(host_reg_acc_keylet, cur_slot);
-
-    uint8_t host_reg_account_id[20] = {0};
-    sub_field_slot = cur_slot;
-    GET_SUB_FIELDS(sub_field_slot, sfAccount, host_reg_account_id);
-    HOST_ADDR_KEY(host_reg_account_id);
-
-    uint8_t host_reg_account_message_key[34] = {0};
-    sub_field_slot = cur_slot;
-    GET_SUB_FIELDS(sub_field_slot, sfMessageKey, host_reg_account_message_key)
-
-    // Query Txn Signing Publickey (Host Reputation Acc. Ref)
-    uint8_t signing_public_key[34] = {0};
-    otxn_field(SBUF(signing_public_key), sfSigningPubKey);
-
-    // Verify the hsot reputation account public key matches with MessageKey of the host registration account.
-    ASSERT(BUFFER_EQUAL_32(signing_public_key + 1, host_reg_account_message_key + 1) && BUFFER_EQUAL_1(signing_public_key + 33, host_reg_account_message_key + 33));
-
-    // Check for registration entry.
-    // ASSERT_FAILURE_MSG >> This host is not registered.
-    ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
-
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);
 
@@ -191,7 +158,7 @@ int64_t hook(uint32_t reserved)
         {
 
             uint8_t accid[28];
-            // we will cleanup the final two entries in an amortised fashion
+            // we will cleanup the final two entries in an amortized fashion
             if (cleanup_moment[1] > 0)
             {
                 *((uint64_t *)accid) = --cleanup_moment[1];
@@ -280,6 +247,17 @@ int64_t hook(uint32_t reserved)
                 }
                 state_set(data, 24, SBUF(accid));
             }
+
+            // Clean up Junk state entires related to host previous round.
+            uint8_t moment_rep_acc_id[28];
+            COPY_8BYTES(moment_rep_acc_id, previous_moment);
+            COPY_20BYTES(moment_rep_acc_id + 8, account_field);
+            state_set(0, 0, SBUF(moment_rep_acc_id));
+
+            uint8_t moment_host_order_id[16];
+            COPY_8BYTES(moment_host_order_id, previous_moment);
+            COPY_8BYTES(moment_host_order_id + 8, hostid);
+            state_set(0, 0, SBUF(moment_host_order_id));
         }
     }
 
@@ -294,13 +272,26 @@ int64_t hook(uint32_t reserved)
     if (state_set(acc_data, 24, accid + 8, 20) != 24)
         NOPE("Everrep: Failed to set acc_data. Check hook reserves.");
 
-    // TODO: Check host is registered.
-    // // first check if they're still in the registry
-    // uint8_t host_data[256];
-    // result = state_foreign(SBUF(host_data), accid + 8, 20, SBUF(registry_namespace), SBUF(registry_accid));
+    // BEGIN: Check for registration entry.
+    uint8_t host_rep_acc_keylet[34] = {0};
+    util_keylet(host_rep_acc_keylet, 34, KEYLET_ACCOUNT, account_field, 20, 0, 0, 0, 0);
 
-    // if (result == DOESNT_EXIST)
-    //     DONE("Everrep: Scores submitted but host no longer registered and therefore doesn't qualify for next round.");
+    // Host Registration State.
+    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+
+    int64_t cur_slot = 0;
+    int64_t sub_field_slot = 0;
+    GET_SLOT_FROM_KEYLET(host_rep_acc_keylet, cur_slot);
+
+    uint8_t host_reg_account_id[20] = {0};
+    sub_field_slot = cur_slot;
+    GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_reg_account_id);
+    HOST_ADDR_KEY(host_reg_account_id);
+
+    // ASSERT_FAILURE_MSG >> This host is not registered.
+    ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
+
+    // END: Check for registration entry.
 
     // execution to here means we will register for next round
 
