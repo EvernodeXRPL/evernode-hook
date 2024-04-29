@@ -241,12 +241,14 @@ int64_t hook(uint32_t reserved)
 
     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-    uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
+    uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    uint8_t reputation_hook_accid[ACCOUNT_ID_SIZE] = {0};
 
     // ASSERT_FAILURE_MSG >> Could not get issuer, foundation or heartbeat account id.
     ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
              state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
-             state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0));
+             state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
+             state_foreign(SBUF(reputation_hook_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
 
     // Take the fixed reg fee from config.
     int64_t conf_fixed_reg_fee;
@@ -801,6 +803,23 @@ int64_t hook(uint32_t reserved)
         uint32_t orphan_candidate_removal_reserve = 0;
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
+        // Host account keylet
+        uint8_t host_account_keylet[34] = {0};
+        util_keylet(SBUF(host_account_keylet), KEYLET_ACCOUNT, SBUF(host_addr_ptr), 0, 0, 0, 0);
+
+        int64_t cur_slot = 0;
+        int64_t sub_field_slot = 0;
+        GET_SLOT_FROM_KEYLET(host_account_keylet, cur_slot);
+
+        uint8_t host_rep_account_id[20] = {0};
+        sub_field_slot = cur_slot;
+        GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_rep_account_id);
+
+        // uint8_t host_reputation_state[24] = {0};
+        // NOTE: Once Grants are set.
+        // uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id), FOREIGN_REF) != DOESNT_EXIST) ? 1 : 0;
+        uint32_t reputation_hook_invoke_reserve = 1;
+
         // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
         if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DEREG)
         {
@@ -820,7 +839,7 @@ int64_t hook(uint32_t reserved)
 
         uint8_t emithash[HASH_SIZE];
 
-        etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + (linked_candidate_removal_reserve + orphan_candidate_removal_reserve));
+        etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + (linked_candidate_removal_reserve + orphan_candidate_removal_reserve + reputation_hook_invoke_reserve));
 
         // Add host_rebate_amount - 5 to the epoch's reward pool. If there are pending rewards reward request will be sent to the heartbeat.
         if (reward_amount > 0)
@@ -866,6 +885,14 @@ int64_t hook(uint32_t reserved)
 
         // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
         ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
+
+        if (reputation_hook_invoke_reserve > 0)
+        {
+            PREPARE_REPUTATION_HOOK_INVOKE(reputation_hook_accid, ORPHAN_REPUTATION_ENTRY_REMOVE, host_addr_ptr);
+
+            // ASSERT_FAILURE_MSG >> Emitting Reputation Hook account invoke
+            ASSERT(emit(SBUF(emithash), SBUF(REPUTATION_HOOK_INVOKE)) >= 0);
+        }
 
         // Invoke Governor to trigger on this condition.
         if (linked_candidate_removal_reserve > 0 || orphan_candidate_removal_reserve > 0)
