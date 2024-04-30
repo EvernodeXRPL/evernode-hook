@@ -313,6 +313,16 @@ int64_t hook(uint32_t reserved)
         uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
         uint8_t *reputation_hook_ptr = event_data + (4 * ACCOUNT_ID_SIZE);
 
+        // TODO: Remove when reputation is configured.
+        uint8_t reputation_hook[ACCOUNT_ID_SIZE];
+        if (state_foreign(SBUF(reputation_hook), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) == DOESNT_EXIST)
+        {
+            // ASSERT_FAILURE_MSG >> Could not set state for reputation hook account.
+            ASSERT(state_foreign_set(reputation_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) >= 0);
+            // PERMIT_MSG >> Setting reputation address successful.
+            PERMIT();
+        }
+
         // First check if the states are already initialized by checking lastly added state key for existence.
         if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
         {
