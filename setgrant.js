@@ -69,7 +69,7 @@ else {
                     })
                 };
 
-                await submitTxn(governorSecret, governorGrantTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
+                await submitTxn(governorSecret, governorGrantTx).then(res => { console.log(res); }).catch(console.error);
 
                 if (reputationSecret) {
                     const reputationAccount = xrpljs.Wallet.fromSeed(reputationSecret);
@@ -82,7 +82,7 @@ else {
                             return {
                                 Hook: {
                                     HookGrants: [
-                                        ...hookHashes.map(h => ({ HookGrant: { Authorize: governorAccount, HookHash: h } })),
+                                        ...hookHashes.map(h => ({ HookGrant: { Authorize: governorAccount.classicAddress, HookHash: h } })),
                                         ...hook2Hashes.map(h => ({ HookGrant: { Authorize: registryAddress, HookHash: h } })),
                                         ...hook3Hashes.map(h => ({ HookGrant: { Authorize: heartbeatAddress, HookHash: h } }))
                                     ]
@@ -91,12 +91,14 @@ else {
                         })
                     };
 
-                    submitTxn(reputationSecret, reputationGrantTx).then(res => { console.log(res); }).catch(console.error).finally(() => process.exit(0));
+                    await submitTxn(reputationSecret, reputationGrantTx).then(res => { console.log(res); }).catch(console.error);
                 }
             } else {
                 console.error("Error in fetching hook hashes.");
                 process.exit(1);
             }
+
+            process.exit(0);
         });
     }).catch(console.error);
 }
