@@ -36,15 +36,6 @@
 #define SVAR(x) \
     &(x), sizeof(x)
 
-uint8_t registry_namespace[32] =
-    {
-        0x01U, 0xEAU, 0xF0U, 0x93U, 0x26U, 0xB4U, 0x91U, 0x15U, 0x54U, 0x38U,
-        0x41U, 0x21U, 0xFFU, 0x56U, 0xFAU, 0x8FU, 0xECU, 0xC2U, 0x15U, 0xFDU,
-        0xDEU, 0x2EU, 0xC3U, 0x5DU, 0x9EU, 0x59U, 0xF2U, 0xC5U, 0x3EU, 0xC6U,
-        0x65U, 0xA0U};
-
-#define MOMENT_SECONDS 3600
-
 int64_t hook(uint32_t reserved)
 {
     _g(1, 1);
@@ -70,6 +61,12 @@ int64_t hook(uint32_t reserved)
     enum OPERATION op_type = OP_NONE;
     int64_t txn_type = otxn_type();
 
+    if ((!(txn_type == ttPAYMENT || txn_type == ttINVOKE)) || BUFFER_EQUAL_20(hook_accid, account_field))
+    {
+        // PERMIT_MSG >> Transaction is not handled.
+        PERMIT();
+    }
+
     uint8_t event_type[MAX_EVENT_TYPE_SIZE];
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
 
@@ -80,8 +77,14 @@ int64_t hook(uint32_t reserved)
     int64_t cur_slot = 0;
     int64_t sub_field_slot = 0;
 
+    if (txn_type != ttINVOKE && event_type_len == DOESNT_EXIST)
+    {
+        // PERMIT_MSG >> Transaction is not handled.
+        PERMIT();
+    }
+
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
-    ASSERT(!((event_type_len < 0) && (txn_type != ttINVOKE)));
+    ASSERT(txn_type == ttINVOKE || !(event_type_len < 0));
 
     if (txn_type == ttPAYMENT)
     {
@@ -266,8 +269,9 @@ int64_t hook(uint32_t reserved)
 
     if (in_previous_round)
     {
-        if (no_scores_submitted)
-            NOPE("Everrep: Submit your scores!");
+        // TODO: Recheck the logic.
+        // if (no_scores_submitted)
+        //     NOPE("Everrep: Submit your scores!");
 
         // find out which universe you were in
         uint64_t hostid = previous_hostid;
@@ -283,18 +287,18 @@ int64_t hook(uint32_t reserved)
 
         uint64_t last_universe = host_count >> 6;
 
-        uint64_t last_universe_hostid = (last_universe << 6) - 1;
+        uint64_t last_universe_hostid = ((last_universe + 1) << 6) - 1;
 
         if (hostid <= last_universe_hostid)
         {
             // accumulate the scores
             uint64_t id[2];
-            id[0] = previous_moment;
+            id[0] = current_moment;
             int n = 0;
             uint64_t reg_moment = previous_moment;
             for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
             {
-                uint64_t accid[20];
+                uint8_t accid[20];
                 if (state(SBUF(accid), id, 16) != 20)
                     continue;
                 uint64_t data[3];
@@ -306,7 +310,7 @@ int64_t hook(uint32_t reserved)
                 if (data[0] > next_moment || data[0] < previous_moment)
                     continue;
 
-                data[1] += blob[n];
+                data[1] += blob[n + 1];
                 data[2]++;
 
                 // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
@@ -401,6 +405,10 @@ int64_t hook(uint32_t reserved)
             state_set(accid + 8, 20, forward, 16) != 20)
             NOPE("Everrep: Could not set state (new host.) Check hook reserves.");
     }
+
+    host_count += 1;
+    if (state_set(SVAR(host_count), SVAR(next_moment)) != 8)
+        NOPE("Everrep: Failed to set state host_count 1. Check hook reserves.");
 
     if (no_scores_submitted)
         DONE("Everrep: Registered for next round.");
