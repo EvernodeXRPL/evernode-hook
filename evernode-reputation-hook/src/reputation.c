@@ -170,13 +170,16 @@ int64_t hook(uint32_t reserved)
         COPY_20BYTES(reputation_id_state_key + 12, host_reputation_account_id);
 
         // Removing host [REPUTATION_ACC_ID] based state.
+        uint8_t reputation_id_state_data[24] = {0};
+        state(SBUF(reputation_id_state_data), SBUF(reputation_id_state_key));
         state_set(0, 0, SBUF(reputation_id_state_key));
 
         uint8_t removing_moment_rep_accid_state_key[32] = {0};
         uint8_t removing_moment_order_id_state_key[32] = {0};
         uint8_t order_id[8] = {0};
 
-        uint64_t removing_moment = next_moment;
+        uint64_t removing_moment = UINT64_FROM_BUF_LE(&reputation_id_state_data[0]);
+        // Goes 24 moments back from last registered moments and remove the junk states.
         for (int i = 0; GUARD(24), i < 24; i++)
         {
             if (removing_moment < 0)
