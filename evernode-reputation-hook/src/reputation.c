@@ -36,15 +36,6 @@
 #define SVAR(x) \
     &(x), sizeof(x)
 
-uint8_t registry_namespace[32] =
-    {
-        0x01U, 0xEAU, 0xF0U, 0x93U, 0x26U, 0xB4U, 0x91U, 0x15U, 0x54U, 0x38U,
-        0x41U, 0x21U, 0xFFU, 0x56U, 0xFAU, 0x8FU, 0xECU, 0xC2U, 0x15U, 0xFDU,
-        0xDEU, 0x2EU, 0xC3U, 0x5DU, 0x9EU, 0x59U, 0xF2U, 0xC5U, 0x3EU, 0xC6U,
-        0x65U, 0xA0U};
-
-#define MOMENT_SECONDS 3600
-
 int64_t hook(uint32_t reserved)
 {
     _g(1, 1);
@@ -69,6 +60,11 @@ int64_t hook(uint32_t reserved)
 
     enum OPERATION op_type = OP_NONE;
     int64_t txn_type = otxn_type();
+    if ((!(txn_type == ttPAYMENT || txn_type == ttINVOKE)) || BUFFER_EQUAL_20(hook_accid, account_field))
+    {
+        // PERMIT_MSG >> Transaction is not handled.
+        PERMIT();
+    }
 
     uint8_t event_type[MAX_EVENT_TYPE_SIZE];
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
@@ -76,9 +72,14 @@ int64_t hook(uint32_t reserved)
     // Hook param analysis
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
+    if (txn_type != ttINVOKE && event_type_len == DOESNT_EXIST)
+    {
+        // PERMIT_MSG >> Transaction is not handled.
+        PERMIT();
+    }
 
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
-    ASSERT(!((event_type_len < 0) && (txn_type != ttINVOKE)));
+    ASSERT(!(event_type_len < 0));
 
     if (txn_type == ttPAYMENT)
     {
@@ -142,9 +143,6 @@ int64_t hook(uint32_t reserved)
 
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);
-
-    if (BUFFER_EQUAL_20(hook_accid, accid + 8))
-        DONE("Everrep: passing outgoing txn");
 
     uint8_t blob[65];
 
