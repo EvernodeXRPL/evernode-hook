@@ -282,6 +282,17 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 #define ADD_FLAG(lvalue, flag) \
     (lvalue |= flag)
 
+#define GET_SLOT_FROM_KEYLET(keylet, slot_no) \
+    slot_no = slot_set(SBUF(keylet), 0);      \
+    if (slot_no < 0)                          \
+        rollback(SBUF("Evernode: Could not set the keylet in slot"), 10);
+
+#define GET_SUB_FIELDS(main_slot, field_type, field_value)                             \
+    main_slot = slot_subfield(main_slot, field_type, 0);                               \
+    if (main_slot < 0)                                                                 \
+        rollback(SBUF("Evernode: Could not find the relevant field in the slot"), 10); \
+    slot(SBUF(field_value), main_slot);
+
 // check if the otxn is a partial payment. note: this does not check it is an incoming txn
 #define CHECK_PARTIAL_PAYMENT()                                                                       \
     {                                                                                                 \

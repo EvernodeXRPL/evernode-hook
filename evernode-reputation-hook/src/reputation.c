@@ -73,7 +73,7 @@ int64_t hook(uint32_t reserved)
     uint8_t event_type[MAX_EVENT_TYPE_SIZE];
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
 
-    // Heartbeat without vote does not have data.
+    // Hook param analysis
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
@@ -106,6 +106,39 @@ int64_t hook(uint32_t reserved)
         HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
 
     // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
+
+    // Registration Entry existence check
+    uint8_t host_reg_acc_keylet[34] = {0};
+
+    // Host Registration State.
+    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+
+    COPY_32BYTES(host_reg_acc_keylet, event_data);
+    COPY_2BYTES(host_reg_acc_keylet + 32, event_data + 32);
+
+    int64_t cur_slot = 0;
+    int64_t sub_field_slot = 0;
+    GET_SLOT_FROM_KEYLET(host_reg_acc_keylet, cur_slot);
+
+    uint8_t host_reg_account_id[20] = {0};
+    sub_field_slot = cur_slot;
+    GET_SUB_FIELDS(sub_field_slot, sfAccount, host_reg_account_id);
+    HOST_ADDR_KEY(host_reg_account_id);
+
+    uint8_t host_reg_account_message_key[34] = {0};
+    sub_field_slot = cur_slot;
+    GET_SUB_FIELDS(sub_field_slot, sfMessageKey, host_reg_account_message_key)
+
+    // Query Txn Signing Publickey (Host Reputation Acc. Ref)
+    uint8_t signing_public_key[34] = {0};
+    otxn_field(SBUF(signing_public_key), sfSigningPubKey);
+
+    // Verify the hsot reputation account public key matches with MessageKey of the host registration account.
+    ASSERT(BUFFER_EQUAL_32(signing_public_key + 1, host_reg_account_message_key + 1) && BUFFER_EQUAL_1(signing_public_key + 33, host_reg_account_message_key + 33));
+
+    // Check for registration entry.
+    // ASSERT_FAILURE_MSG >> This host is not registered.
+    ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
 
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);
