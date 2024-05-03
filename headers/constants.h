@@ -142,7 +142,7 @@ const uint32_t MOMENT_BASE_INFO_VAL_SIZE = 13;
 const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
 const uint32_t GOVERNANCE_CONFIGURATION_VAL_SIZE = 14;
-const uint32_t CANDIDATE_OWNER_VAL_SIZE = 96;
+const uint32_t CANDIDATE_OWNER_VAL_SIZE = 128;
 const uint32_t CANDIDATE_ID_VAL_SIZE = 82;
 const uint32_t URI_TOKEN_ID_SIZE = 32;
 const uint32_t REG_URI_TOKEN_URI_SIZE = 23;
@@ -231,6 +231,7 @@ const uint32_t TRANSFER_HOST_TOKEN_ID_OFFSET = 28;
 const uint32_t CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET = 0;
 const uint32_t CANDIDATE_REGISTRY_HOOK_HASH_OFFSET = 32;
 const uint32_t CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET = 64;
+const uint32_t CANDIDATE_REPUTATION_HOOK_HASH_OFFSET = 96;
 
 // CANDIDATE_ID
 const uint32_t CANDIDATE_OWNER_ADDRESS_OFFSET = 0;
@@ -283,12 +284,12 @@ const uint8_t CO_PILOTED = 2;
 const uint8_t AUTO_PILOTED = 3;
 
 // Param Offsets
-// <hook_hashes(32*3)><hook_keylets(34*3)><unique_id(32)><short_name(20)>
+// <hook_hashes(32*4)><hook_keylets(34*4)><unique_id(32)><short_name(20)>
 // PROPOSE
 const uint32_t CANDIDATE_PROPOSE_HASHES_PARAM_OFFSET = 0;
-const uint32_t CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET = 96;
-const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET = 198;
-const uint32_t CANDIDATE_PROPOSE_SHORT_NAME_PARAM_OFFSET = 230;
+const uint32_t CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET = 128;
+const uint32_t CANDIDATE_PROPOSE_UNIQUE_ID_PARAM_OFFSET = 264;
+const uint32_t CANDIDATE_PROPOSE_SHORT_NAME_PARAM_OFFSET = 296;
 
 // <unique_id(32)><vote(1)>
 // VOTE
@@ -300,5 +301,6 @@ const uint32_t CANDIDATE_VOTE_VALUE_PARAM_OFFSET = 32;
 const uint8_t PARAM_STATE_HOOK_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 const uint8_t PARAM_EVENT_TYPE_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2};
 const uint8_t PARAM_EVENT_DATA_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
+const uint8_t PARAM_EVENT_DATA2_KEY[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
 
 #endif

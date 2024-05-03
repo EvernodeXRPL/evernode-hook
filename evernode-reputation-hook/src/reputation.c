@@ -45,20 +45,72 @@ uint8_t registry_namespace[32] =
 
 #define MOMENT_SECONDS 3600
 
-int64_t hook(uint32_t r)
+int64_t hook(uint32_t reserved)
 {
     _g(1, 1);
 
-    if (otxn_type() != ttINVOKE)
-        DONE("Everrep: passing non-invoke");
+    if (!ACTIVE(ACTIVATION_UNIXTIME))
+        rollback(SBUF("Not active yet."), __LINE__);
 
-    uint8_t hookacc[20];
-    hook_account(hookacc, 20);
+    CHECK_PARTIAL_PAYMENT();
+
+    // Getting the hook account id.
+    unsigned char hook_accid[20];
+    hook_account((uint32_t)hook_accid, 20);
+
+    int64_t cur_ledger_seq = ledger_seq();
+
+    // Fetch the sfAccount field from the originating transaction
+    uint8_t account_field[ACCOUNT_ID_SIZE];
+    int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
+
+    // ASSERT_FAILURE_MSG >> sfAccount field is missing.
+    ASSERT(account_field_len == 20);
+
+    enum OPERATION op_type = OP_NONE;
+    int64_t txn_type = otxn_type();
+
+    uint8_t event_type[MAX_EVENT_TYPE_SIZE];
+    const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
+
+    // Heartbeat without vote does not have data.
+    uint8_t event_data[MAX_EVENT_DATA_SIZE];
+    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
+
+    // ASSERT_FAILURE_MSG >> Error getting the event type param.
+    ASSERT(!((event_type_len < 0) && (txn_type != ttINVOKE)));
+
+    if (txn_type == ttPAYMENT)
+    {
+        if (EQUAL_HOOK_UPDATE(event_type, event_type_len))
+            op_type = OP_HOOK_UPDATE;
+    }
+    else if (txn_type == ttINVOKE)
+    {
+        op_type = OP_HOST_UPDATE_REPUTATION;
+    }
+
+    if (op_type == OP_NONE)
+    {
+        // PERMIT_MSG >> Transaction is not handled.
+        PERMIT();
+    }
+
+    // Reading the hook governance account from hook params
+    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
+    ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) == ACCOUNT_ID_SIZE);
+
+    // Child hook update trigger.
+    if (op_type == OP_HOOK_UPDATE)
+        HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
+
+    // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
 
     uint8_t accid[28];
-    otxn_field(accid + 8, 20, sfAccount);
+    COPY_20BYTES((accid + 8), account_field);
 
-    if (BUFFER_EQUAL_20(hookacc, accid + 8))
+    if (BUFFER_EQUAL_20(hook_accid, accid + 8))
         DONE("Everrep: passing outgoing txn");
 
     uint8_t blob[65];
@@ -70,14 +122,7 @@ int64_t hook(uint32_t r)
     if (!no_scores_submitted && result != 65)
         NOPE("Everrep: sfBlob must be 64 bytes.");
 
-    int64_t cur_ledger_seq = ledger_seq();
-
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
-
-    // Reading the hook governance account from hook params
-    uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
-    // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
-    ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) == ACCOUNT_ID_SIZE);
 
     // <transition index><transition_moment><index_type>
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
