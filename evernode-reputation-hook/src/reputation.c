@@ -79,7 +79,7 @@ int64_t hook(uint32_t reserved)
     }
 
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
-    ASSERT(!(event_type_len < 0));
+    ASSERT(txn_type == ttINVOKE || !(event_type_len < 0));
 
     if (txn_type == ttPAYMENT)
     {
