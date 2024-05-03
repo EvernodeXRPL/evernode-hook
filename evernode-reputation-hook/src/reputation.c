@@ -146,13 +146,13 @@ int64_t hook(uint32_t reserved)
     if (BUFFER_EQUAL_20(hook_accid, accid + 8))
         DONE("Everrep: passing outgoing txn");
 
-    uint8_t blob[64];
+    uint8_t blob[65];
 
     int64_t result = otxn_field(SBUF(blob), sfBlob);
 
     int64_t no_scores_submitted = (result == DOESNT_EXIST);
 
-    if (!no_scores_submitted && result != 64)
+    if (!no_scores_submitted && result != 65)
         NOPE("Everrep: sfBlob must be 64 bytes.");
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
@@ -231,8 +231,9 @@ int64_t hook(uint32_t reserved)
 
     if (in_previous_round)
     {
-        if (no_scores_submitted)
-            NOPE("Everrep: Submit your scores!");
+        // TODO: Recheck the logic.
+        // if (no_scores_submitted)
+        //     NOPE("Everrep: Submit your scores!");
 
         // find out which universe you were in
         uint64_t hostid = previous_hostid;
@@ -248,17 +249,17 @@ int64_t hook(uint32_t reserved)
 
         uint64_t last_universe = host_count >> 6;
 
-        uint64_t last_universe_hostid = (last_universe << 6) - 1;
+        uint64_t last_universe_hostid = ((last_universe + 1) << 6) - 1;
 
         if (hostid <= last_universe_hostid)
         {
             // accumulate the scores
             uint64_t id[2];
-            id[0] = previous_moment;
+            id[0] = current_moment;
             int n = 0;
             for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
             {
-                uint64_t accid[20];
+                uint8_t accid[20];
                 if (state(SBUF(accid), id, 16) != 20)
                     continue;
                 uint64_t data[3];
@@ -269,7 +270,7 @@ int64_t hook(uint32_t reserved)
                 if (data[0] > next_moment || data[0] < previous_moment)
                     continue;
 
-                data[1] += blob[n];
+                data[1] += blob[n + 1];
                 data[2]++;
 
                 // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
@@ -342,6 +343,10 @@ int64_t hook(uint32_t reserved)
             state_set(accid + 8, 20, forward, 16) != 20)
             NOPE("Everrep: Could not set state (new host.) Check hook reserves.");
     }
+
+    host_count += 1;
+    if (state_set(SVAR(host_count), SVAR(next_moment)) != 8)
+        NOPE("Everrep: Failed to set state host_count 1. Check hook reserves.");
 
     if (no_scores_submitted)
         DONE("Everrep: Registered for next round.");
