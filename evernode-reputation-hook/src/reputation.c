@@ -80,9 +80,6 @@ int64_t hook(uint32_t reserved)
     int64_t cur_slot = 0;
     int64_t sub_field_slot = 0;
 
-    TRACEHEX(event_type);
-    TRACEHEX(event_type_len);
-
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
     ASSERT(!((event_type_len < 0) && (txn_type != ttINVOKE)));
 
@@ -93,7 +90,6 @@ int64_t hook(uint32_t reserved)
     }
     else if (txn_type == ttINVOKE)
     {
-        TRACEVAR("Hello");
 
         if (EQUAL_ORPHAN_REPUTATION_ENTRY_REMOVE(event_type, event_type_len))
             op_type = OP_REMOVE_ORPHAN_REPUTATION_ENTRY;
@@ -173,30 +169,28 @@ int64_t hook(uint32_t reserved)
         // Removing host [REPUTATION_ACC_ID] based state.
         state_set(0, 0, reputation_id_state_key, 20);
 
-        // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
         uint8_t removing_moment_rep_accid_state_key[32] = {0};
-        COPY_8BYTES(removing_moment_rep_accid_state_key + 4, before_previous_moment);
-        COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
-        uint8_t order_id[8] = {0};
-        state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
-        state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
-
-        // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
         uint8_t removing_moment_order_id_state_key[32] = {0};
-        COPY_8BYTES(removing_moment_order_id_state_key + 16, before_previous_moment);
-        COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
-        state_set(0, 0, SBUF(removing_moment_order_id_state_key));
+        uint8_t order_id[8] = {0};
 
-        // Removing host [MOMENT + REPUTATION_ACC_ID] based state of previous_moment.
-        COPY_8BYTES(removing_moment_rep_accid_state_key + 4, previous_moment);
-        COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
-        state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
-        state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
+        for (int i = 0; GUARD(24), i < 24; i++)
+        {
+            if (previous_moment < 0)
+                break;
 
-        // Removing host [MOMENT + ORDER_ID] based state of previous_moment.
-        COPY_8BYTES(removing_moment_order_id_state_key + 16, previous_moment);
-        COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
-        state_set(0, 0, SBUF(removing_moment_order_id_state_key));
+            // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
+            UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], current_moment);
+            COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
+            state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
+            state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
+
+            // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
+            UINT64_TO_BUF_LE(&removing_moment_order_id_state_key[16], current_moment);
+            COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
+            state_set(0, 0, SBUF(removing_moment_order_id_state_key));
+
+            current_moment--;
+        }
 
         PERMIT();
     }
@@ -322,15 +316,15 @@ int64_t hook(uint32_t reserved)
             }
 
             // Clean up Junk state entires related to host previous round.
-            uint8_t moment_rep_acc_id[32];
-            COPY_8BYTES(moment_rep_acc_id + 4, previous_moment);
-            COPY_20BYTES(moment_rep_acc_id + 12, account_field);
-            state_set(0, 0, SBUF(moment_rep_acc_id));
+            uint8_t moment_rep_acc_id_state_key[32];
+            UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], previous_moment);
+            COPY_20BYTES(moment_rep_acc_id_state_key + 12, account_field);
+            state_set(0, 0, SBUF(moment_rep_acc_id_state_key));
 
-            uint8_t moment_host_order_id[32];
-            COPY_8BYTES(moment_host_order_id + 16, previous_moment);
-            COPY_8BYTES(moment_host_order_id + 24, hostid);
-            state_set(0, 0, SBUF(moment_host_order_id));
+            uint8_t moment_host_order_id_state_key[32];
+            UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], previous_moment);
+            COPY_8BYTES(moment_host_order_id_state_key + 24, hostid);
+            state_set(0, 0, SBUF(moment_host_order_id_state_key));
         }
     }
 
