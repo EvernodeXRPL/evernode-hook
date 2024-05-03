@@ -805,19 +805,22 @@ int64_t hook(uint32_t reserved)
 
         // Host account keylet
         uint8_t host_account_keylet[34] = {0};
-        util_keylet(SBUF(host_account_keylet), KEYLET_ACCOUNT, SBUF(host_addr_ptr), 0, 0, 0, 0);
+        util_keylet(SBUF(host_account_keylet), KEYLET_ACCOUNT, host_addr_ptr, 20, 0, 0, 0, 0);
 
         int64_t cur_slot = 0;
         int64_t sub_field_slot = 0;
         GET_SLOT_FROM_KEYLET(host_account_keylet, cur_slot);
 
-        uint8_t host_rep_account_id[20] = {0};
+        uint8_t host_rep_account_id[32] = {0};
         sub_field_slot = cur_slot;
         GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_rep_account_id);
 
+        uint8_t host_rep_account_id_state_key[32] = {0};
+        COPY_20BYTES(host_rep_account_id_state_key + 12, host_rep_account_id);
+
         // uint8_t host_reputation_state[24] = {0};
         // NOTE: Once Grants are set.
-        // uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id), FOREIGN_REF) != DOESNT_EXIST) ? 1 : 0;
+        // uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id_state_key), FOREIGN_REF) != DOESNT_EXIST) ? 1 : 0;
         uint32_t reputation_hook_invoke_reserve = 1;
 
         // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.

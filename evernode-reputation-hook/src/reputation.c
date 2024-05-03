@@ -77,6 +77,12 @@ int64_t hook(uint32_t reserved)
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
+    int64_t cur_slot = 0;
+    int64_t sub_field_slot = 0;
+
+    TRACEHEX(event_type);
+    TRACEHEX(event_type_len);
+
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
     ASSERT(!((event_type_len < 0) && (txn_type != ttINVOKE)));
 
@@ -87,7 +93,12 @@ int64_t hook(uint32_t reserved)
     }
     else if (txn_type == ttINVOKE)
     {
-        op_type = OP_HOST_UPDATE_REPUTATION;
+        TRACEVAR("Hello");
+
+        if (EQUAL_ORPHAN_REPUTATION_ENTRY_REMOVE(event_type, event_type_len))
+            op_type = OP_REMOVE_ORPHAN_REPUTATION_ENTRY;
+        else if (EQUAL_HOST_SEND_REPUTATION(event_type, event_type_len))
+            op_type = OP_HOST_SEND_REPUTATION;
     }
 
     if (op_type == OP_NONE)
@@ -100,27 +111,6 @@ int64_t hook(uint32_t reserved)
     uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
     // ASSERT_FAILURE_MSG >> Error getting the state hook address from params.
     ASSERT(hook_param(SBUF(state_hook_accid), SBUF(PARAM_STATE_HOOK_KEY)) == ACCOUNT_ID_SIZE);
-
-    // Child hook update trigger.
-    if (op_type == OP_HOOK_UPDATE)
-        HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
-
-    // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
-
-    uint8_t accid[28];
-    COPY_20BYTES((accid + 8), account_field);
-
-    if (BUFFER_EQUAL_20(hook_accid, accid + 8))
-        DONE("Everrep: passing outgoing txn");
-
-    uint8_t blob[64];
-
-    int64_t result = otxn_field(SBUF(blob), sfBlob);
-
-    int64_t no_scores_submitted = (result == DOESNT_EXIST);
-
-    if (!no_scores_submitted && result != 64)
-        NOPE("Everrep: sfBlob must be 64 bytes.");
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
@@ -144,6 +134,89 @@ int64_t hook(uint32_t reserved)
     uint64_t previous_moment = current_moment - 1;
     uint64_t before_previous_moment = current_moment - 2;
     uint64_t next_moment = current_moment + 1;
+
+    // Child hook update trigger.
+    if (op_type == OP_HOOK_UPDATE)
+    {
+        HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
+        // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
+    }
+    else if (op_type == OP_REMOVE_ORPHAN_REPUTATION_ENTRY)
+    {
+        uint8_t registry_hook_accid[ACCOUNT_ID_SIZE] = {0};
+
+        // ASSERT_FAILURE_MSG >> Could not get registry account id.
+        ASSERT(!(state_foreign(SBUF(registry_hook_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
+
+        // ASSERT_FAILURE_MSG >> This txn has not been initiated via registry hook account.
+        ASSERT(BUFFER_EQUAL_20(registry_hook_accid, account_field));
+
+        // Remove corresponding orphan state entries to remove with host removal.
+        uint8_t removing_host_accid[20] = {0};
+        COPY_20BYTES(removing_host_accid, event_data);
+
+        uint8_t removing_host_acc_keylet[34] = {0};
+        util_keylet(SBUF(removing_host_acc_keylet), KEYLET_ACCOUNT, SBUF(removing_host_accid), 0, 0, 0, 0);
+
+        cur_slot = 0;
+        sub_field_slot = 0;
+        GET_SLOT_FROM_KEYLET(removing_host_acc_keylet, cur_slot);
+
+        // This wallet locater field is a 32 byte buffer: [<20 bytes accid><12 bytes padding>]
+        uint8_t host_reputation_account_id[32] = {0};
+        sub_field_slot = cur_slot;
+        GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_reputation_account_id);
+
+        uint8_t reputation_id_state_key[32] = {0};
+        COPY_20BYTES(reputation_id_state_key + 12, host_reputation_account_id);
+
+        // Removing host [REPUTATION_ACC_ID] based state.
+        state_set(0, 0, reputation_id_state_key, 20);
+
+        // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
+        uint8_t removing_moment_rep_accid_state_key[32] = {0};
+        COPY_8BYTES(removing_moment_rep_accid_state_key + 4, before_previous_moment);
+        COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
+        uint8_t order_id[8] = {0};
+        state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
+        state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
+
+        // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
+        uint8_t removing_moment_order_id_state_key[32] = {0};
+        COPY_8BYTES(removing_moment_order_id_state_key + 16, before_previous_moment);
+        COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
+        state_set(0, 0, SBUF(removing_moment_order_id_state_key));
+
+        // Removing host [MOMENT + REPUTATION_ACC_ID] based state of previous_moment.
+        COPY_8BYTES(removing_moment_rep_accid_state_key + 4, previous_moment);
+        COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
+        state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
+        state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
+
+        // Removing host [MOMENT + ORDER_ID] based state of previous_moment.
+        COPY_8BYTES(removing_moment_order_id_state_key + 16, previous_moment);
+        COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
+        state_set(0, 0, SBUF(removing_moment_order_id_state_key));
+
+        PERMIT();
+    }
+
+    // Here onwards OP_HOST_SEND_REPUTATIONS operation will be taken place.
+
+    uint8_t accid[28];
+    COPY_20BYTES((accid + 8), account_field);
+
+    if (BUFFER_EQUAL_20(hook_accid, accid + 8))
+        DONE("Everrep: passing outgoing txn");
+
+    uint8_t blob[64];
+
+    int64_t result = otxn_field(SBUF(blob), sfBlob);
+
+    int64_t no_scores_submitted = (result == DOESNT_EXIST);
+
+    if (!no_scores_submitted && result != 64)
+        NOPE("Everrep: sfBlob must be 64 bytes.");
 
     uint64_t cleanup_moment[2];
     uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
@@ -249,14 +322,14 @@ int64_t hook(uint32_t reserved)
             }
 
             // Clean up Junk state entires related to host previous round.
-            uint8_t moment_rep_acc_id[28];
-            COPY_8BYTES(moment_rep_acc_id, previous_moment);
-            COPY_20BYTES(moment_rep_acc_id + 8, account_field);
+            uint8_t moment_rep_acc_id[32];
+            COPY_8BYTES(moment_rep_acc_id + 4, previous_moment);
+            COPY_20BYTES(moment_rep_acc_id + 12, account_field);
             state_set(0, 0, SBUF(moment_rep_acc_id));
 
-            uint8_t moment_host_order_id[16];
-            COPY_8BYTES(moment_host_order_id, previous_moment);
-            COPY_8BYTES(moment_host_order_id + 8, hostid);
+            uint8_t moment_host_order_id[32];
+            COPY_8BYTES(moment_host_order_id + 16, previous_moment);
+            COPY_8BYTES(moment_host_order_id + 24, hostid);
             state_set(0, 0, SBUF(moment_host_order_id));
         }
     }
@@ -279,14 +352,12 @@ int64_t hook(uint32_t reserved)
     // Host Registration State.
     uint8_t host_addr[HOST_ADDR_VAL_SIZE];
 
-    int64_t cur_slot = 0;
-    int64_t sub_field_slot = 0;
     GET_SLOT_FROM_KEYLET(host_rep_acc_keylet, cur_slot);
 
-    uint8_t host_reg_account_id[20] = {0};
+    uint8_t wallet_locator[32] = {0};
     sub_field_slot = cur_slot;
-    GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_reg_account_id);
-    HOST_ADDR_KEY(host_reg_account_id);
+    GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, wallet_locator);
+    HOST_ADDR_KEY(wallet_locator);
 
     // ASSERT_FAILURE_MSG >> This host is not registered.
     ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
