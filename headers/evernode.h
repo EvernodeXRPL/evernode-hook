@@ -272,11 +272,6 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_20(buf, HOST_SEND_REPUTATION) && \
      BUFFER_EQUAL_1(buf + 20, HOST_SEND_REPUTATION + 20))
 
-#define EQUAL_ORPHAN_REPUTATION_ENTRY_REMOVE(buf, len)       \
-    (sizeof(ORPHAN_REPUTATION_ENTRY_REMOVE) == (len + 1) &&  \
-     BUFFER_EQUAL_20(buf, ORPHAN_REPUTATION_ENTRY_REMOVE) && \
-     BUFFER_EQUAL_4(buf + 20, ORPHAN_REPUTATION_ENTRY_REMOVE + 20))
-
 #define SET_UINT_STATE_VALUE(value, key, error_buf)                               \
     {                                                                             \
         if (state_foreign_set(&value, sizeof(value), SBUF(key), FOREIGN_REF) < 0) \

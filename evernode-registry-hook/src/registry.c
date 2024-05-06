@@ -887,12 +887,45 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
         ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
 
+        // Remove reputation states if there are any.
         if (reputation_hook_invoke_reserve > 0)
         {
-            PREPARE_REPUTATION_HOOK_INVOKE(reputation_hook_accid, ORPHAN_REPUTATION_ENTRY_REMOVE, host_addr_ptr);
+            uint8_t removing_host_acc_keylet[34] = {0};
+            util_keylet(SBUF(removing_host_acc_keylet), KEYLET_ACCOUNT, host_addr_ptr, ACCOUNT_ID_SIZE, 0, 0, 0, 0);
 
-            // ASSERT_FAILURE_MSG >> Emitting Reputation Hook account invoke
-            ASSERT(emit(SBUF(emithash), SBUF(REPUTATION_HOOK_INVOKE)) >= 0);
+            cur_slot = 0;
+            sub_field_slot = 0;
+            GET_SLOT_FROM_KEYLET(removing_host_acc_keylet, cur_slot);
+
+            // This wallet locater field is a 32 byte buffer: [<20 bytes accid><12 bytes padding>]
+            uint8_t host_reputation_account_id[32] = {0};
+            sub_field_slot = cur_slot;
+            GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_reputation_account_id);
+
+            uint8_t reputation_id_state_key[32] = {0};
+            COPY_20BYTES(reputation_id_state_key + 12, host_reputation_account_id);
+
+            // Removing host [REPUTATION_ACC_ID] based state.
+            uint8_t reputation_id_state_data[24] = {0};
+            state_foreign(SBUF(reputation_id_state_data), SBUF(reputation_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+            state_foreign_set(0, 0, SBUF(reputation_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+
+            uint8_t removing_moment_rep_accid_state_key[32] = {0};
+            uint8_t removing_moment_order_id_state_key[32] = {0};
+            uint8_t order_id[8] = {0};
+
+            uint64_t removing_moment = UINT64_FROM_BUF_LE(&reputation_id_state_data[0]);
+
+            // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
+            UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], removing_moment);
+            COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
+            state_foreign(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+            state_foreign_set(0, 0, SBUF(removing_moment_rep_accid_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+
+            // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
+            UINT64_TO_BUF_LE(&removing_moment_order_id_state_key[16], removing_moment);
+            COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
+            state_foreign_set(0, 0, SBUF(removing_moment_order_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
         }
 
         // Invoke Governor to trigger on this condition.
