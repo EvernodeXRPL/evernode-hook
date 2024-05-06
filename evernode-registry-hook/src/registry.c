@@ -818,10 +818,8 @@ int64_t hook(uint32_t reserved)
         uint8_t host_rep_account_id_state_key[32] = {0};
         COPY_20BYTES(host_rep_account_id_state_key + 12, host_rep_account_id);
 
-        // uint8_t host_reputation_state[24] = {0};
-        // NOTE: Once Grants are set.
-        // uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id_state_key), FOREIGN_REF) != DOESNT_EXIST) ? 1 : 0;
-        uint32_t reputation_hook_invoke_reserve = 1;
+        uint8_t host_reputation_state[24] = {0};
+        uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid)) != DOESNT_EXIST) ? 1 : 0;
 
         // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
         if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DEREG)

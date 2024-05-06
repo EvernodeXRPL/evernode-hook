@@ -179,30 +179,28 @@ int64_t hook(uint32_t reserved)
         uint8_t order_id[8] = {0};
 
         uint64_t removing_moment = UINT64_FROM_BUF_LE(&reputation_id_state_data[0]);
-        // Goes 24 moments back from last registered moments and remove the junk states.
-        for (int i = 0; GUARD(24), i < 24; i++)
-        {
-            if (removing_moment < 0)
-                break;
 
-            // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
-            UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], removing_moment);
-            COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
-            state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
-            state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
+        // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
+        UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], removing_moment);
+        COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
+        state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
+        state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
 
-            // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
-            UINT64_TO_BUF_LE(&removing_moment_order_id_state_key[16], removing_moment);
-            COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
-            state_set(0, 0, SBUF(removing_moment_order_id_state_key));
-
-            removing_moment--;
-        }
+        // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
+        UINT64_TO_BUF_LE(&removing_moment_order_id_state_key[16], removing_moment);
+        COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
+        state_set(0, 0, SBUF(removing_moment_order_id_state_key));
 
         PERMIT();
     }
 
     // Here onwards OP_HOST_SEND_REPUTATIONS operation will be taken place.
+
+    uint8_t account_id_state_key[32] = {0};
+    uint8_t account_id_state_data[24] = {0};
+    COPY_20BYTES(account_id_state_key + 12, account_field);
+
+    uint64_t last_rep_registration_moment = (state(SBUF(account_id_state_key), SBUF(account_id_state_data)) != DOESNT_EXIST) ? UINT64_FROM_BUF_LE(account_id_state_data) : 0;
 
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);
@@ -210,14 +208,14 @@ int64_t hook(uint32_t reserved)
     if (BUFFER_EQUAL_20(hook_accid, accid + 8))
         DONE("Everrep: passing outgoing txn");
 
-    uint8_t blob[64];
+    uint8_t blob[65];
 
     int64_t result = otxn_field(SBUF(blob), sfBlob);
 
     int64_t no_scores_submitted = (result == DOESNT_EXIST);
 
-    if (!no_scores_submitted && result != 64)
-        NOPE("Everrep: sfBlob must be 64 bytes.");
+    if (!no_scores_submitted && result != 65)
+        NOPE("Everrep: sfBlob must be 65 bytes.");
 
     uint64_t cleanup_moment[2];
     uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
@@ -324,18 +322,23 @@ int64_t hook(uint32_t reserved)
                 }
                 state_set(data, 24, SBUF(accid));
             }
-
-            // Clean up Junk state entires related to host previous round.
-            uint8_t moment_rep_acc_id_state_key[32];
-            UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], reg_moment - 1);
-            COPY_20BYTES(moment_rep_acc_id_state_key + 12, account_field);
-            state_set(0, 0, SBUF(moment_rep_acc_id_state_key));
-
-            uint8_t moment_host_order_id_state_key[32];
-            UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], reg_moment - 1);
-            COPY_8BYTES(moment_host_order_id_state_key + 24, hostid);
-            state_set(0, 0, SBUF(moment_host_order_id_state_key));
         }
+    }
+
+    if (last_rep_registration_moment > 0)
+    {
+        uint8_t order_id[8] = {0};
+        // Clean up Junk state entires related to host previous round.
+        uint8_t moment_rep_acc_id_state_key[32];
+        UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], last_rep_registration_moment);
+        COPY_20BYTES(moment_rep_acc_id_state_key + 12, account_field);
+        state(SBUF(order_id), SBUF(moment_rep_acc_id_state_key));
+        state_set(0, 0, SBUF(moment_rep_acc_id_state_key));
+
+        uint8_t moment_host_order_id_state_key[32];
+        UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], last_rep_registration_moment);
+        COPY_8BYTES(moment_host_order_id_state_key + 24, order_id);
+        state_set(0, 0, SBUF(moment_host_order_id_state_key));
     }
 
     // register for the next moment

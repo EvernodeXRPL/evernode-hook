@@ -42,6 +42,8 @@ const uint32_t REPUTATION_VALUE_PARAM_OFFSET = 20;
 
 #define FOREIGN_REF SBUF(NAMESPACE), state_hook_accid, ACCOUNT_ID_SIZE
 
+#define FOREIGN_REF_CUSTOM(custom_hook_accid) SBUF(NAMESPACE), custom_hook_accid, ACCOUNT_ID_SIZE
+
 ///// Operational macros /////
 
 // Equal operations
