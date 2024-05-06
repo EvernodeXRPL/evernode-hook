@@ -35,7 +35,6 @@
 #define FOUNDATION_FUND_REQ "evnFoundationFundReq"
 #define HOST_REG_FAIL_REFUND "evnHostRegFailRefund"
 #define HOST_SEND_REPUTATION "evnHostSendReputation"
-#define ORPHAN_REPUTATION_ENTRY_REMOVE "evnRemoveReputationEntry"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -101,7 +100,6 @@ enum OPERATION
     OP_HOST_UPDATE_REPUTATION,
     OP_FOUNDATION_FUND_REQ,
     OP_HOST_REG_FAIL_REFUND,
-    OP_REMOVE_ORPHAN_REPUTATION_ENTRY,
     OP_HOST_SEND_REPUTATION
 };
 

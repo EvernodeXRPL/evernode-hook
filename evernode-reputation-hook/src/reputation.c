@@ -94,9 +94,7 @@ int64_t hook(uint32_t reserved)
     else if (txn_type == ttINVOKE)
     {
 
-        if (EQUAL_ORPHAN_REPUTATION_ENTRY_REMOVE(event_type, event_type_len))
-            op_type = OP_REMOVE_ORPHAN_REPUTATION_ENTRY;
-        else if (EQUAL_HOST_SEND_REPUTATION(event_type, event_type_len))
+        if (EQUAL_HOST_SEND_REPUTATION(event_type, event_type_len))
             op_type = OP_HOST_SEND_REPUTATION;
     }
 
@@ -139,59 +137,6 @@ int64_t hook(uint32_t reserved)
     {
         HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
         // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
-    }
-    else if (op_type == OP_REMOVE_ORPHAN_REPUTATION_ENTRY)
-    {
-        uint8_t registry_hook_accid[ACCOUNT_ID_SIZE] = {0};
-
-        // ASSERT_FAILURE_MSG >> Could not get registry account id.
-        ASSERT(!(state_foreign(SBUF(registry_hook_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
-
-        // ASSERT_FAILURE_MSG >> This txn has not been initiated via registry hook account.
-        ASSERT(BUFFER_EQUAL_20(registry_hook_accid, account_field));
-
-        // Remove corresponding orphan state entries to remove with host removal.
-        uint8_t removing_host_accid[20] = {0};
-        COPY_20BYTES(removing_host_accid, event_data);
-
-        uint8_t removing_host_acc_keylet[34] = {0};
-        util_keylet(SBUF(removing_host_acc_keylet), KEYLET_ACCOUNT, SBUF(removing_host_accid), 0, 0, 0, 0);
-
-        cur_slot = 0;
-        sub_field_slot = 0;
-        GET_SLOT_FROM_KEYLET(removing_host_acc_keylet, cur_slot);
-
-        // This wallet locater field is a 32 byte buffer: [<20 bytes accid><12 bytes padding>]
-        uint8_t host_reputation_account_id[32] = {0};
-        sub_field_slot = cur_slot;
-        GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_reputation_account_id);
-
-        uint8_t reputation_id_state_key[32] = {0};
-        COPY_20BYTES(reputation_id_state_key + 12, host_reputation_account_id);
-
-        // Removing host [REPUTATION_ACC_ID] based state.
-        uint8_t reputation_id_state_data[24] = {0};
-        state(SBUF(reputation_id_state_data), SBUF(reputation_id_state_key));
-        state_set(0, 0, SBUF(reputation_id_state_key));
-
-        uint8_t removing_moment_rep_accid_state_key[32] = {0};
-        uint8_t removing_moment_order_id_state_key[32] = {0};
-        uint8_t order_id[8] = {0};
-
-        uint64_t removing_moment = UINT64_FROM_BUF_LE(&reputation_id_state_data[0]);
-
-        // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
-        UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], removing_moment);
-        COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
-        state(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key));
-        state_set(0, 0, SBUF(removing_moment_rep_accid_state_key));
-
-        // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
-        UINT64_TO_BUF_LE(&removing_moment_order_id_state_key[16], removing_moment);
-        COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
-        state_set(0, 0, SBUF(removing_moment_order_id_state_key));
-
-        PERMIT();
     }
 
     // Here onwards OP_HOST_SEND_REPUTATIONS operation will be taken place.
