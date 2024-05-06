@@ -137,6 +137,9 @@ int64_t hook(uint32_t reserved)
     // Child hook update trigger.
     if (op_type == OP_HOOK_UPDATE)
     {
+        // ASSERT_FAILURE_MSG >> This txn has not been initiated via governor hook account.
+        ASSERT(BUFFER_EQUAL_20(state_hook_accid, account_field));
+
         HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
         // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
     }
@@ -200,7 +203,7 @@ int64_t hook(uint32_t reserved)
     uint8_t account_id_state_data[24] = {0};
     COPY_20BYTES(account_id_state_key + 12, account_field);
 
-    uint64_t last_rep_registration_moment = (state(SBUF(account_id_state_key), SBUF(account_id_state_data)) != DOESNT_EXIST) ? UINT64_FROM_BUF_LE(account_id_state_data) : 0;
+    uint64_t last_rep_registration_moment = (state(SBUF(account_id_state_data), SBUF(account_id_state_key)) != DOESNT_EXIST) ? UINT64_FROM_BUF_LE(account_id_state_data) : 0;
 
     uint8_t accid[28];
     COPY_20BYTES((accid + 8), account_field);
@@ -325,6 +328,13 @@ int64_t hook(uint32_t reserved)
         }
     }
 
+    // register for the next moment
+    // get host voting data
+    uint64_t acc_data[3];
+    state(SBUF(acc_data), accid + 8, 20);
+    if (acc_data[0] == next_moment)
+        NOPE("Everrep: Already registered for this round.");
+
     if (last_rep_registration_moment > 0)
     {
         uint8_t order_id[8] = {0};
@@ -339,14 +349,9 @@ int64_t hook(uint32_t reserved)
         UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], last_rep_registration_moment);
         COPY_8BYTES(moment_host_order_id_state_key + 24, order_id);
         state_set(0, 0, SBUF(moment_host_order_id_state_key));
-    }
 
-    // register for the next moment
-    // get host voting data
-    uint64_t acc_data[3];
-    state(SBUF(acc_data), accid + 8, 20);
-    if (acc_data[0] == next_moment)
-        NOPE("Everrep: Already registered for this round.");
+        state_set(0, 0, SVAR(last_rep_registration_moment));
+    }
 
     acc_data[0] = next_moment;
     if (state_set(acc_data, 24, accid + 8, 20) != 24)
