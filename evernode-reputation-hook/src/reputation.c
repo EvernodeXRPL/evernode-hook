@@ -98,7 +98,6 @@ int64_t hook(uint32_t reserved)
     }
     else if (txn_type == ttINVOKE)
     {
-
         if (EQUAL_HOST_SEND_REPUTATION(event_type, event_type_len))
             op_type = OP_HOST_SEND_REPUTATION;
     }
@@ -153,7 +152,7 @@ int64_t hook(uint32_t reserved)
         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
         // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
-        // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)>
+        // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)>
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
         CANDIDATE_ID_KEY(event_data);
