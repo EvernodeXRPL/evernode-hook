@@ -27,12 +27,6 @@
 
 #include "reputation.h"
 
-#define DONE(x) \
-    return accept(SBUF(x), __LINE__)
-
-#define NOPE(x) \
-    return rollback(SBUF(x), __LINE__)
-
 #define SVAR(x) \
     &(x), sizeof(x)
 
@@ -74,17 +68,14 @@ int64_t hook(uint32_t reserved)
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
-    int64_t cur_slot = 0;
-    int64_t sub_field_slot = 0;
-
-    if (txn_type != ttINVOKE && event_type_len == DOESNT_EXIST)
+    if (event_type_len == DOESNT_EXIST)
     {
         // PERMIT_MSG >> Transaction is not handled.
         PERMIT();
     }
 
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
-    ASSERT(txn_type == ttINVOKE || !(event_type_len < 0));
+    ASSERT(!(event_type_len < 0));
 
     if (txn_type == ttPAYMENT)
     {
@@ -132,8 +123,227 @@ int64_t hook(uint32_t reserved)
     uint64_t before_previous_moment = current_moment - 2;
     uint64_t next_moment = current_moment + 1;
 
-    // Child hook update trigger.
-    if (op_type == OP_HOOK_UPDATE)
+    if (op_type == OP_HOST_SEND_REPUTATION)
+    {
+        // BEGIN: Check for registration entry.
+        uint8_t host_rep_acc_keylet[34] = {0};
+        util_keylet(host_rep_acc_keylet, 34, KEYLET_ACCOUNT, account_field, 20, 0, 0, 0, 0);
+
+        // Host Registration State.
+        uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+
+        int64_t cur_slot = 0;
+        GET_SLOT_FROM_KEYLET(host_rep_acc_keylet, cur_slot);
+
+        uint8_t wallet_locator[32] = {0};
+        GET_SUB_FIELDS(cur_slot, sfWalletLocator, wallet_locator);
+        HOST_ADDR_KEY(wallet_locator);
+
+        // ASSERT_FAILURE_MSG >> This host is not registered.
+        ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
+
+        // END: Check for registration entry.
+
+        uint8_t account_id_state_key[32] = {0};
+        uint8_t account_id_state_data[24] = {0};
+        COPY_20BYTES(account_id_state_key + 12, account_field);
+
+        uint64_t last_rep_registration_moment = (state(SBUF(account_id_state_data), SBUF(account_id_state_key)) != DOESNT_EXIST) ? UINT64_FROM_BUF_LE(account_id_state_data) : 0;
+
+        uint8_t accid[28];
+        COPY_20BYTES((accid + 8), account_field);
+
+        uint8_t blob[65];
+
+        int64_t result = otxn_field(SBUF(blob), sfBlob);
+
+        int64_t no_scores_submitted = (result == DOESNT_EXIST);
+
+        // ASSERT_FAILURE_MSG >> sfBlob must be 65 bytes.
+        ASSERT(no_scores_submitted || result == 65);
+
+        uint64_t cleanup_moment[2];
+        uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
+        state(SVAR(cleanup_moment[0]), SVAR(special));
+
+        // gc
+
+        if (cleanup_moment[0] > 0 && cleanup_moment[0] < before_previous_moment)
+        {
+            // store the host count in cleanup_moment[1], so we can use the whole array as a key in a minute
+            if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0])) == sizeof(cleanup_moment[1]))
+            {
+
+                uint8_t accid[28];
+                // we will cleanup the final two entries in an amortized fashion
+                if (cleanup_moment[1] > 0)
+                {
+                    *((uint64_t *)accid) = --cleanup_moment[1];
+                    // fetch the account id for the reverse direction
+                    state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
+
+                    state_set(0, 0, SBUF(accid));
+                    state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
+                }
+
+                if (cleanup_moment[1] > 0)
+                {
+                    *((uint64_t *)accid) = --cleanup_moment[1];
+                    // fetch the account id for the reverse direction
+                    state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
+
+                    state_set(0, 0, SBUF(accid));
+                    state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
+                }
+
+                // update or remove moment counters
+                if (cleanup_moment[1] > 0)
+                    state_set(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]));
+                else
+                {
+                    state_set(0, 0, SVAR(cleanup_moment[0]));
+                    cleanup_moment[0]++;
+                }
+            }
+        }
+        state_set(SVAR(cleanup_moment[0]), SVAR(special));
+
+        *((uint64_t *)accid) = previous_moment;
+        uint64_t previous_hostid;
+
+        int64_t in_previous_round = (state(SVAR(previous_hostid), SBUF(accid)) == sizeof(previous_hostid));
+
+        if (in_previous_round)
+        {
+            // find out which universe you were in
+            uint64_t hostid = previous_hostid;
+
+            uint64_t universe = hostid >> 6;
+
+            uint64_t host_count;
+            state(SVAR(host_count), accid, 8);
+
+            uint64_t first_hostid = universe << 6;
+
+            uint64_t last_hostid = ((universe + 1) << 6) - 1;
+
+            uint64_t last_universe = host_count >> 6;
+
+            uint64_t last_universe_hostid = ((last_universe + 1) << 6) - 1;
+
+            if (hostid <= last_universe_hostid)
+            {
+                // accumulate the scores
+                uint64_t id[2];
+                id[0] = current_moment;
+                int n = 0;
+                uint64_t reg_moment = previous_moment;
+                for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
+                {
+                    uint8_t accid[20];
+                    if (state(SBUF(accid), id, 16) != 20)
+                        continue;
+                    uint64_t data[3];
+                    if (state(data, 24, SBUF(accid)) != 24)
+                        continue;
+
+                    reg_moment = data[0];
+                    // sanity check: either they are still most recently registered for next moment or last
+                    if (data[0] > next_moment || data[0] < previous_moment)
+                        continue;
+
+                    data[1] += blob[n + 1];
+                    data[2]++;
+
+                    // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
+                    if (data[2] > 12 * host_count)
+                    {
+                        data[1] >>= 1;
+                        data[2] >>= 1;
+                    }
+                    state_set(data, 24, SBUF(accid));
+                }
+            }
+        }
+
+        // register for the next moment
+        // get host voting data
+        uint64_t acc_data[3];
+        state(SBUF(acc_data), accid + 8, 20);
+        // ASSERT_FAILURE_MSG >> Already registered for this round.
+        ASSERT(acc_data[0] != next_moment);
+
+        if (last_rep_registration_moment > 0)
+        {
+            uint8_t order_id[8] = {0};
+            // Clean up Junk state entires related to host previous round.
+            uint8_t moment_rep_acc_id_state_key[32];
+            UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], last_rep_registration_moment);
+            COPY_20BYTES(moment_rep_acc_id_state_key + 12, account_field);
+            state(SBUF(order_id), SBUF(moment_rep_acc_id_state_key));
+            state_set(0, 0, SBUF(moment_rep_acc_id_state_key));
+
+            uint8_t moment_host_order_id_state_key[32];
+            UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], last_rep_registration_moment);
+            COPY_8BYTES(moment_host_order_id_state_key + 24, order_id);
+            state_set(0, 0, SBUF(moment_host_order_id_state_key));
+
+            state_set(0, 0, SVAR(last_rep_registration_moment));
+        }
+
+        acc_data[0] = next_moment;
+        // ASSERT_FAILURE_MSG >> Failed to set acc_data. Check hook reserves.
+        ASSERT(state_set(acc_data, 24, accid + 8, 20) == 24);
+
+        // execution to here means we will register for next round
+
+        uint64_t host_count;
+        state(SVAR(host_count), SVAR(next_moment));
+
+        *((uint64_t *)accid) = next_moment;
+        uint64_t forward[2] = {next_moment, 0};
+
+        if (host_count == 0)
+        {
+            // ASSERT_FAILURE_MSG >> Failed to set state host_count 1. Check hook reserves.
+            ASSERT(state_set(accid + 8, 20, forward, 16) == 20 &&
+                   state_set(SVAR(host_count), SBUF(accid)) == 8);
+        }
+        else
+        {
+            // pick a random other host
+            uint64_t rnd[4];
+            ledger_nonce(rnd, 32);
+
+            uint64_t other = rnd[0] % host_count;
+
+            // put the other at the end
+            forward[1] = other;
+            uint8_t reverse[28];
+            *((uint64_t *)reverse) = next_moment;
+            state(reverse + 8, 20, forward, 16);
+
+            forward[1] = host_count;
+
+            // ASSERT_FAILURE_MSG >> Could not set state (move host.) Check hook reserves.
+            ASSERT(state_set(SVAR(host_count), SBUF(reverse)) == 8 &&
+                   state_set(reverse + 8, 20, forward, 16) == 20);
+
+            // put us where he was
+            forward[1] = other;
+            // ASSERT_FAILURE_MSG >> Could not set state (new host.) Check hook reserves.
+            ASSERT(state_set(SVAR(other), SBUF(accid)) == 8 &&
+                   state_set(accid + 8, 20, forward, 16) == 20);
+        }
+
+        host_count += 1;
+        // ASSERT_FAILURE_MSG >> Failed to set state host_count 1. Check hook reserves.
+        ASSERT(state_set(SVAR(host_count), SVAR(next_moment)) == 8);
+
+        // PERMIT_MSG >> Registered for next round.
+        PERMIT()
+    }
+    else if (op_type == OP_HOOK_UPDATE)
     {
         // ASSERT_FAILURE_MSG >> This txn has not been initiated via governor hook account.
         ASSERT(BUFFER_EQUAL_20(state_hook_accid, account_field));
@@ -142,233 +352,7 @@ int64_t hook(uint32_t reserved)
         // NOTE: Above HANDLE_HOOK_UPDATE will be directed to either accept or rollback. Hence no else if block has been introduced the for OP_HOST_SEND_REPUTATIONS.
     }
 
-    // Here onwards OP_HOST_SEND_REPUTATIONS operation will be taken place.
-
-    uint8_t account_id_state_key[32] = {0};
-    uint8_t account_id_state_data[24] = {0};
-    COPY_20BYTES(account_id_state_key + 12, account_field);
-
-    uint64_t last_rep_registration_moment = (state(SBUF(account_id_state_data), SBUF(account_id_state_key)) != DOESNT_EXIST) ? UINT64_FROM_BUF_LE(account_id_state_data) : 0;
-
-    uint8_t accid[28];
-    COPY_20BYTES((accid + 8), account_field);
-
-    if (BUFFER_EQUAL_20(hook_accid, accid + 8))
-        DONE("Everrep: passing outgoing txn");
-
-    uint8_t blob[65];
-
-    int64_t result = otxn_field(SBUF(blob), sfBlob);
-
-    int64_t no_scores_submitted = (result == DOESNT_EXIST);
-
-    if (!no_scores_submitted && result != 65)
-        NOPE("Everrep: sfBlob must be 65 bytes.");
-
-    uint64_t cleanup_moment[2];
-    uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
-    state(SVAR(cleanup_moment[0]), SVAR(special));
-
-    // gc
-
-    if (cleanup_moment[0] > 0 && cleanup_moment[0] < before_previous_moment)
-    {
-        // store the host count in cleanup_moment[1], so we can use the whole array as a key in a minute
-        if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0])) == sizeof(cleanup_moment[1]))
-        {
-
-            uint8_t accid[28];
-            // we will cleanup the final two entries in an amortized fashion
-            if (cleanup_moment[1] > 0)
-            {
-                *((uint64_t *)accid) = --cleanup_moment[1];
-                // fetch the account id for the reverse direction
-                state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
-
-                state_set(0, 0, SBUF(accid));
-                state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
-            }
-
-            if (cleanup_moment[1] > 0)
-            {
-                *((uint64_t *)accid) = --cleanup_moment[1];
-                // fetch the account id for the reverse direction
-                state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
-
-                state_set(0, 0, SBUF(accid));
-                state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
-            }
-
-            // update or remove moment counters
-            if (cleanup_moment[1] > 0)
-                state_set(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]));
-            else
-            {
-                state_set(0, 0, SVAR(cleanup_moment[0]));
-                cleanup_moment[0]++;
-            }
-        }
-    }
-    state_set(SVAR(cleanup_moment[0]), SVAR(special));
-
-    *((uint64_t *)accid) = previous_moment;
-    uint64_t previous_hostid;
-
-    int64_t in_previous_round = (state(SVAR(previous_hostid), SBUF(accid)) == sizeof(previous_hostid));
-
-    if (in_previous_round)
-    {
-        // TODO: Recheck the logic.
-        // if (no_scores_submitted)
-        //     NOPE("Everrep: Submit your scores!");
-
-        // find out which universe you were in
-        uint64_t hostid = previous_hostid;
-
-        uint64_t universe = hostid >> 6;
-
-        uint64_t host_count;
-        state(SVAR(host_count), accid, 8);
-
-        uint64_t first_hostid = universe << 6;
-
-        uint64_t last_hostid = ((universe + 1) << 6) - 1;
-
-        uint64_t last_universe = host_count >> 6;
-
-        uint64_t last_universe_hostid = ((last_universe + 1) << 6) - 1;
-
-        if (hostid <= last_universe_hostid)
-        {
-            // accumulate the scores
-            uint64_t id[2];
-            id[0] = current_moment;
-            int n = 0;
-            uint64_t reg_moment = previous_moment;
-            for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
-            {
-                uint8_t accid[20];
-                if (state(SBUF(accid), id, 16) != 20)
-                    continue;
-                uint64_t data[3];
-                if (state(data, 24, SBUF(accid)) != 24)
-                    continue;
-
-                reg_moment = data[0];
-                // sanity check: either they are still most recently registered for next moment or last
-                if (data[0] > next_moment || data[0] < previous_moment)
-                    continue;
-
-                data[1] += blob[n + 1];
-                data[2]++;
-
-                // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
-                if (data[2] > 12 * host_count)
-                {
-                    data[1] >>= 1;
-                    data[2] >>= 1;
-                }
-                state_set(data, 24, SBUF(accid));
-            }
-        }
-    }
-
-    // register for the next moment
-    // get host voting data
-    uint64_t acc_data[3];
-    state(SBUF(acc_data), accid + 8, 20);
-    if (acc_data[0] == next_moment)
-        NOPE("Everrep: Already registered for this round.");
-
-    if (last_rep_registration_moment > 0)
-    {
-        uint8_t order_id[8] = {0};
-        // Clean up Junk state entires related to host previous round.
-        uint8_t moment_rep_acc_id_state_key[32];
-        UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], last_rep_registration_moment);
-        COPY_20BYTES(moment_rep_acc_id_state_key + 12, account_field);
-        state(SBUF(order_id), SBUF(moment_rep_acc_id_state_key));
-        state_set(0, 0, SBUF(moment_rep_acc_id_state_key));
-
-        uint8_t moment_host_order_id_state_key[32];
-        UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], last_rep_registration_moment);
-        COPY_8BYTES(moment_host_order_id_state_key + 24, order_id);
-        state_set(0, 0, SBUF(moment_host_order_id_state_key));
-
-        state_set(0, 0, SVAR(last_rep_registration_moment));
-    }
-
-    acc_data[0] = next_moment;
-    if (state_set(acc_data, 24, accid + 8, 20) != 24)
-        NOPE("Everrep: Failed to set acc_data. Check hook reserves.");
-
-    // BEGIN: Check for registration entry.
-    uint8_t host_rep_acc_keylet[34] = {0};
-    util_keylet(host_rep_acc_keylet, 34, KEYLET_ACCOUNT, account_field, 20, 0, 0, 0, 0);
-
-    // Host Registration State.
-    uint8_t host_addr[HOST_ADDR_VAL_SIZE];
-
-    GET_SLOT_FROM_KEYLET(host_rep_acc_keylet, cur_slot);
-
-    uint8_t wallet_locator[32] = {0};
-    sub_field_slot = cur_slot;
-    GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, wallet_locator);
-    HOST_ADDR_KEY(wallet_locator);
-
-    // ASSERT_FAILURE_MSG >> This host is not registered.
-    ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
-
-    // END: Check for registration entry.
-
-    // execution to here means we will register for next round
-
-    uint64_t host_count;
-    state(SVAR(host_count), SVAR(next_moment));
-
-    *((uint64_t *)accid) = next_moment;
-    uint64_t forward[2] = {next_moment, 0};
-
-    if (host_count == 0)
-    {
-        if (state_set(accid + 8, 20, forward, 16) != 20 ||
-            state_set(SVAR(host_count), SBUF(accid)) != 8)
-            NOPE("Everrep: Failed to set state host_count 1. Check hook reserves.");
-    }
-    else
-    {
-        // pick a random other host
-        uint64_t rnd[4];
-        ledger_nonce(rnd, 32);
-
-        uint64_t other = rnd[0] % host_count;
-
-        // put the other at the end
-        forward[1] = other;
-        uint8_t reverse[28];
-        *((uint64_t *)reverse) = next_moment;
-        state(reverse + 8, 20, forward, 16);
-
-        forward[1] = host_count;
-
-        if (state_set(SVAR(host_count), SBUF(reverse)) != 8 ||
-            state_set(reverse + 8, 20, forward, 16) != 20)
-            NOPE("Everrep: Could not set state (move host.) Check hook reserves.");
-
-        // put us where he was
-        forward[1] = other;
-        if (state_set(SVAR(other), SBUF(accid)) != 8 ||
-            state_set(accid + 8, 20, forward, 16) != 20)
-            NOPE("Everrep: Could not set state (new host.) Check hook reserves.");
-    }
-
-    host_count += 1;
-    if (state_set(SVAR(host_count), SVAR(next_moment)) != 8)
-        NOPE("Everrep: Failed to set state host_count 1. Check hook reserves.");
-
-    if (no_scores_submitted)
-        DONE("Everrep: Registered for next round.");
-
-    DONE("Everrep: Voted and registered for next round.");
+    _g(1, 1); // every hook needs to import guard function and use it at least once
+    // unreachable
     return 0;
 }
