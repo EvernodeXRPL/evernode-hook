@@ -224,52 +224,52 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> sfBlob must be 65 bytes.
         ASSERT(no_scores_submitted || result == 65);
 
-        // TODO: Commented due to uncertainty wether this has any affect.
-        // uint64_t cleanup_moment[2];
-        // uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
-        // state(SVAR(cleanup_moment[0]), SVAR(special));
+        // TODO: Clarify uncertainty wether this has any affect.
+        uint64_t cleanup_moment[2];
+        uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
+        state(SVAR(cleanup_moment[0]), SVAR(special));
 
-        // // gc
+        // gc
 
-        // if (cleanup_moment[0] > 0 && cleanup_moment[0] < before_previous_moment)
-        // {
-        //     // store the host count in cleanup_moment[1], so we can use the whole array as a key in a minute
-        //     if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0])) == sizeof(cleanup_moment[1]))
-        //     {
+        if (cleanup_moment[0] > 0 && cleanup_moment[0] < before_previous_moment)
+        {
+            // store the host count in cleanup_moment[1], so we can use the whole array as a key in a minute
+            if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0])) == sizeof(cleanup_moment[1]))
+            {
 
-        //         uint8_t accid[28];
-        //         // we will cleanup the final two entries in an amortized fashion
-        //         if (cleanup_moment[1] > 0)
-        //         {
-        //             *((uint64_t *)accid) = --cleanup_moment[1];
-        //             // fetch the account id for the reverse direction
-        //             state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
+                uint8_t accid[28];
+                // we will cleanup the final two entries in an amortized fashion
+                if (cleanup_moment[1] > 0)
+                {
+                    *((uint64_t *)accid) = --cleanup_moment[1];
+                    // fetch the account id for the reverse direction
+                    state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
 
-        //             state_set(0, 0, SBUF(accid));
-        //             state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
-        //         }
+                    state_set(0, 0, SBUF(accid));
+                    state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
+                }
 
-        //         if (cleanup_moment[1] > 0)
-        //         {
-        //             *((uint64_t *)accid) = --cleanup_moment[1];
-        //             // fetch the account id for the reverse direction
-        //             state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
+                if (cleanup_moment[1] > 0)
+                {
+                    *((uint64_t *)accid) = --cleanup_moment[1];
+                    // fetch the account id for the reverse direction
+                    state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
 
-        //             state_set(0, 0, SBUF(accid));
-        //             state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
-        //         }
+                    state_set(0, 0, SBUF(accid));
+                    state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
+                }
 
-        //         // update or remove moment counters
-        //         if (cleanup_moment[1] > 0)
-        //             state_set(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]));
-        //         else
-        //         {
-        //             state_set(0, 0, SVAR(cleanup_moment[0]));
-        //             cleanup_moment[0]++;
-        //         }
-        //     }
-        // }
-        // state_set(SVAR(cleanup_moment[0]), SVAR(special));
+                // update or remove moment counters
+                if (cleanup_moment[1] > 0)
+                    state_set(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]));
+                else
+                {
+                    state_set(0, 0, SVAR(cleanup_moment[0]));
+                    cleanup_moment[0]++;
+                }
+            }
+        }
+        state_set(SVAR(cleanup_moment[0]), SVAR(special));
 
         *((uint64_t *)accid) = previous_moment;
         uint64_t previous_hostid;
