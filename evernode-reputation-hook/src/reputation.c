@@ -283,15 +283,15 @@ int64_t hook(uint32_t reserved)
     if (last_rep_registration_moment > 0)
     {
         uint8_t order_id[8] = {0};
-        // Clean up Junk state entires related to host previous round.
+        // Clean up Junk state entires related to before host previous round.
         uint8_t moment_rep_acc_id_state_key[32];
-        UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], last_rep_registration_moment);
+        UINT64_TO_BUF_LE(&moment_rep_acc_id_state_key[4], last_rep_registration_moment - 1);
         COPY_20BYTES(moment_rep_acc_id_state_key + 12, account_field);
         state(SBUF(order_id), SBUF(moment_rep_acc_id_state_key));
         state_set(0, 0, SBUF(moment_rep_acc_id_state_key));
 
         uint8_t moment_host_order_id_state_key[32];
-        UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], last_rep_registration_moment);
+        UINT64_TO_BUF_LE(&moment_host_order_id_state_key[16], last_rep_registration_moment - 1);
         COPY_8BYTES(moment_host_order_id_state_key + 24, order_id);
         state_set(0, 0, SBUF(moment_host_order_id_state_key));
 
