@@ -339,8 +339,9 @@ int64_t hook(uint32_t reserved)
         if (acc_data[0] > 0)
         {
             // Clean up Junk state entires related to host previous round.
-            uint64_t order_id[2] = {acc_data[0], 0};
-            *((uint64_t *)accid) = acc_data[0];
+            uint64_t cleanup_moment = acc_data[0] == current_moment ? acc_data[0] - 1 : acc_data[0];
+            uint64_t order_id[2] = {cleanup_moment, 0};
+            *((uint64_t *)accid) = cleanup_moment;
             if (state(SVAR(order_id[1]), SBUF(accid)) > 0)
             {
                 state_set(0, 0, SBUF(accid));
