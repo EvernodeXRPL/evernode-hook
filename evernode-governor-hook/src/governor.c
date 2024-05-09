@@ -568,6 +568,19 @@ int64_t hook(uint32_t reserved)
         // Clean states and update configs if all hooks are updated
         else if (updated_hook_count == 3)
         {
+            etxn_reserve(1);
+            uint8_t emithash[HASH_SIZE];
+
+            PREPARE_HOOK_UPDATE_PAYMENT_TX(1, reputation_accid, event_data);
+
+            // ASSERT_FAILURE_MSG >> Emitting reputation hook post update trigger failed.
+            ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) >= 0);
+
+            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 4;
+        }
+        // Clean states and update configs if all hooks are updated
+        else if (updated_hook_count == 4)
+        {
             // Clean the update state.
             governance_info[UPDATED_HOOK_COUNT_OFFSET] = 0;
 
@@ -578,7 +591,7 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
         ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-        if (updated_hook_count == 3)
+        if (updated_hook_count == 4)
         {
             origin_op_type = OP_HOOK_UPDATE;
             op_type = OP_CHANGE_CONFIGURATION;
