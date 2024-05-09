@@ -278,6 +278,9 @@ int64_t hook(uint32_t reserved)
 
         if (in_previous_round)
         {
+            // ASSERT_FAILURE_MSG >> Submit your scores!
+            ASSERT(!no_scores_submitted);
+
             // find out which universe you were in
             uint64_t hostid = previous_hostid;
 
