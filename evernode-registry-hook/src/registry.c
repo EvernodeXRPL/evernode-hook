@@ -803,23 +803,29 @@ int64_t hook(uint32_t reserved)
         uint32_t orphan_candidate_removal_reserve = 0;
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
+        // Get wallet locator if exists.
         // Host account keylet
         uint8_t host_account_keylet[34] = {0};
         util_keylet(SBUF(host_account_keylet), KEYLET_ACCOUNT, host_addr_ptr, 20, 0, 0, 0, 0);
 
-        int64_t cur_slot = 0;
-        int64_t sub_field_slot = 0;
-        GET_SLOT_FROM_KEYLET(host_account_keylet, cur_slot);
-
-        uint8_t host_rep_account_id[32] = {0};
-        sub_field_slot = cur_slot;
-        GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_rep_account_id);
-
+        int64_t cur_slot = slot_set(SBUF(host_account_keylet), 0);
+        uint32_t reputation_hook_invoke_reserve = 0;
         uint8_t host_rep_account_id_state_key[32] = {0};
-        COPY_20BYTES(host_rep_account_id_state_key + 12, host_rep_account_id);
-
         uint8_t host_reputation_state[24] = {0};
-        uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid)) != DOESNT_EXIST) ? 1 : 0;
+        uint8_t host_rep_account_id[32] = {0};
+        if (cur_slot >= 0)
+        {
+            cur_slot = slot_subfield(cur_slot, sfWalletLocator, 0);
+            if (cur_slot >= 0)
+            {
+                cur_slot = slot(SBUF(host_rep_account_id), cur_slot);
+                if (cur_slot >= 0)
+                {
+                    COPY_20BYTES(host_rep_account_id_state_key + 12, host_rep_account_id);
+                    uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid)) != DOESNT_EXIST) ? 1 : 0;
+                }
+            }
+        }
 
         // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
         if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DEREG)
@@ -890,35 +896,18 @@ int64_t hook(uint32_t reserved)
         // Remove reputation states if there are any.
         if (reputation_hook_invoke_reserve > 0)
         {
-            uint8_t removing_host_acc_keylet[34] = {0};
-            util_keylet(SBUF(removing_host_acc_keylet), KEYLET_ACCOUNT, host_addr_ptr, ACCOUNT_ID_SIZE, 0, 0, 0, 0);
-
-            cur_slot = 0;
-            sub_field_slot = 0;
-            GET_SLOT_FROM_KEYLET(removing_host_acc_keylet, cur_slot);
-
-            // This wallet locater field is a 32 byte buffer: [<20 bytes accid><12 bytes padding>]
-            uint8_t host_reputation_account_id[32] = {0};
-            sub_field_slot = cur_slot;
-            GET_SUB_FIELDS(sub_field_slot, sfWalletLocator, host_reputation_account_id);
-
-            uint8_t reputation_id_state_key[32] = {0};
-            COPY_20BYTES(reputation_id_state_key + 12, host_reputation_account_id);
-
             // Removing host [REPUTATION_ACC_ID] based state.
-            uint8_t reputation_id_state_data[24] = {0};
-            state_foreign(SBUF(reputation_id_state_data), SBUF(reputation_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
-            state_foreign_set(0, 0, SBUF(reputation_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+            state_foreign_set(0, 0, SBUF(host_rep_account_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
 
             uint8_t removing_moment_rep_accid_state_key[32] = {0};
             uint8_t removing_moment_order_id_state_key[32] = {0};
             uint8_t order_id[8] = {0};
 
-            uint64_t removing_moment = UINT64_FROM_BUF_LE(&reputation_id_state_data[0]);
+            uint64_t removing_moment = UINT64_FROM_BUF_LE(&host_reputation_state[0]);
 
             // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
             UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], removing_moment);
-            COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_reputation_account_id);
+            COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_rep_account_id);
             state_foreign(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
             state_foreign_set(0, 0, SBUF(removing_moment_rep_accid_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
 
