@@ -271,7 +271,7 @@ int64_t hook(uint32_t reserved)
         }
         state_set(SVAR(cleanup_moment[0]), SVAR(special));
 
-        *((uint64_t *)accid) = previous_moment;
+        *((uint64_t *)accid) = current_moment;
         uint64_t previous_hostid;
 
         int64_t in_previous_round = (state(SVAR(previous_hostid), SBUF(accid)) == sizeof(previous_hostid));
@@ -303,7 +303,6 @@ int64_t hook(uint32_t reserved)
                 uint64_t id[2];
                 id[0] = current_moment;
                 int n = 0;
-                uint64_t reg_moment = previous_moment;
                 for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
                 {
                     uint8_t accid[20];
@@ -313,7 +312,6 @@ int64_t hook(uint32_t reserved)
                     if (state(data, 24, SBUF(accid)) != 24)
                         continue;
 
-                    reg_moment = data[0];
                     // sanity check: either they are still most recently registered for next moment or last
                     if (data[0] > next_moment || data[0] < previous_moment)
                         continue;
@@ -350,7 +348,7 @@ int64_t hook(uint32_t reserved)
                 state_set(0, 0, SBUF(accid));
                 state_set(0, 0, order_id, 16);
             }
-            state_set(0, 0, SVAR(acc_data[0]));
+            state_set(0, 0, SVAR(cleanup_moment));
         }
 
         acc_data[0] = next_moment;
