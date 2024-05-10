@@ -7,7 +7,6 @@
  *   [moment : 8l, ordered hostid : 8l ]    => [repaccid : 20b]
  *   [moment : 8l]                          => [host count in that moment : 8l]
  *
- * Todo:
  *  Use sfWalletLocator to delegate "reputation scoring authority" from the host account to the reputation account.
  *
  * Behaviour:
@@ -181,12 +180,12 @@ int64_t hook(uint32_t reserved)
                                                    &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET],
                                                    0, 0, 0, 0, 1, tx_size);
 
-        // ASSERT_FAILURE_MSG >> Emitting registry hook post update trigger failed.
+        // ASSERT_FAILURE_MSG >> Emitting reputation hook grant update failed.
         ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) >= 0);
 
         PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);
 
-        // ASSERT_FAILURE_MSG >> Emitting registry hook post update trigger failed.
+        // ASSERT_FAILURE_MSG >> Emitting reputation hook post update trigger failed.
         ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) >= 0);
 
         PERMIT();
