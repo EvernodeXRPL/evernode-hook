@@ -34,6 +34,7 @@
 #define HOST_UPDATE_REPUTATION "evnHostUpdateReputation"
 #define FOUNDATION_FUND_REQ "evnFoundationFundReq"
 #define HOST_REG_FAIL_REFUND "evnHostRegFailRefund"
+#define HOST_SEND_REPUTATION "evnHostSendReputation"
 
 #define FORMAT_HEX "hex"
 #define FORMAT_BASE64 "base64"
@@ -98,7 +99,8 @@ enum OPERATION
     OP_HOST_REMOVE,
     OP_HOST_UPDATE_REPUTATION,
     OP_FOUNDATION_FUND_REQ,
-    OP_HOST_REG_FAIL_REFUND
+    OP_HOST_REG_FAIL_REFUND,
+    OP_HOST_SEND_REPUTATION
 };
 
 #define MAX_MEMO_SIZE 4096      // Maximum tx blob size.
