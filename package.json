@@ -10,7 +10,8 @@
         "build:governor": "ncc build ./evernode-governor-hook/sethook.js --minify -o dist/hook-setup",
         "build:registry": "ncc build ./evernode-registry-hook/sethook.js --minify -o dist/hook2-setup",
         "build:heartbeat": "ncc build ./evernode-heartbeat-hook/sethook.js --minify -o dist/hook3-setup",
-        "build": "rm -rf dist && npm run build:hook && npm run build:self && npm run build:governor && npm run build:registry && npm run build:heartbeat && cp ./evernode-governor-hook/build/* dist/hook-setup/ && cp ./evernode-registry-hook/build/* dist/hook2-setup/ && cp ./evernode-heartbeat-hook/build/* dist/hook3-setup/"
+        "build:reputation": "ncc build ./evernode-reputation-hook/sethook.js --minify -o dist/hook4-setup",
+        "build": "rm -rf dist && npm run build:hook && npm run build:self && npm run build:governor && npm run build:registry && npm run build:heartbeat && npm run build:reputation && cp ./evernode-governor-hook/build/* dist/hook-setup/ && cp ./evernode-registry-hook/build/* dist/hook2-setup/ && cp ./evernode-heartbeat-hook/build/* dist/hook3-setup/ && cp ./evernode-reputation-hook/build/* dist/hook4-setup/"
     },
     "dependencies": {
         "xrpl-hooks": "2.2.1"

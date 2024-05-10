@@ -79,6 +79,8 @@ const uint8_t CONF_REGISTRY_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0
 const uint8_t CONF_GOVERNANCE_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14};
 // Network configuration <busyness_detect_period(uint32_t)><busyness_detect_average(uint16_t)>.
 const uint8_t CONF_NETWORK_CONFIGURATION[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15};
+// Reputation Hook address.
+const uint8_t CONF_REPUTATION_ADDR[32] = {'E', 'V', 'R', 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16};
 
 #define HOST_ADDR_KEY(host_addr) \
     COPY_20BYTES((STP_HOST_ADDR + 12), host_addr)

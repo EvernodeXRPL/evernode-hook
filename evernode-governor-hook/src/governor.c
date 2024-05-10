@@ -173,7 +173,7 @@ int64_t hook(uint32_t reserved)
 
     // All the events should contain an event data.
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
-    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
+    int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
     ASSERT(event_data_len >= 0);
@@ -195,6 +195,7 @@ int64_t hook(uint32_t reserved)
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
+    uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
 
     // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><foundation_last_voted_timestamp(8)><elected_proposal_unique_id(32)>
     // <proposal_elected_timestamp(8)><updated_hook_count(1)>
@@ -213,9 +214,10 @@ int64_t hook(uint32_t reserved)
 
         source_is_foundation = BUFFER_EQUAL_20(foundation_accid, account_field);
 
-        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry account id.
+        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry or reputation hook account id.
         ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
-                 state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
+                 state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0 ||
+                 state_foreign(SBUF(reputation_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
 
         // ASSERT_FAILURE_MSG >> Could not get governance configuration or governance info states.
         ASSERT(!(state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0 ||
@@ -305,12 +307,23 @@ int64_t hook(uint32_t reserved)
         ASSERT(BUFFER_EQUAL_20(initializer_accid, account_field));
 
         // ASSERT_FAILURE_MSG >> Memo data should contain foundation cold wallet, registry heartbeat hook and issuer addresses.
-        ASSERT(event_data_len == (4 * ACCOUNT_ID_SIZE));
+        ASSERT(event_data_len == (5 * ACCOUNT_ID_SIZE));
 
         uint8_t *issuer_ptr = event_data;
         uint8_t *foundation_ptr = event_data + ACCOUNT_ID_SIZE;
         uint8_t *registry_hook_ptr = event_data + (2 * ACCOUNT_ID_SIZE);
         uint8_t *heartbeat_hook_ptr = event_data + (3 * ACCOUNT_ID_SIZE);
+        uint8_t *reputation_hook_ptr = event_data + (4 * ACCOUNT_ID_SIZE);
+
+        // TODO: Remove when reputation is configured.
+        uint8_t reputation_hook[ACCOUNT_ID_SIZE];
+        if (state_foreign(SBUF(reputation_hook), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) == DOESNT_EXIST)
+        {
+            // ASSERT_FAILURE_MSG >> Could not set state for reputation hook account.
+            ASSERT(state_foreign_set(reputation_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) >= 0);
+            // PERMIT_MSG >> Setting reputation address successful.
+            PERMIT();
+        }
 
         // First check if the states are already initialized by checking lastly added state key for existence.
         if (state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) == DOESNT_EXIST)
@@ -330,6 +343,9 @@ int64_t hook(uint32_t reserved)
 
             // ASSERT_FAILURE_MSG >> Could not set state for registry hook account.
             ASSERT(state_foreign_set(registry_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) >= 0);
+
+            // ASSERT_FAILURE_MSG >> Could not set state for reputation hook account.
+            ASSERT(state_foreign_set(reputation_hook_ptr, ACCOUNT_ID_SIZE, SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) >= 0);
 
             SET_UINT_STATE_VALUE(DEF_MOMENT_SIZE, CONF_MOMENT_SIZE, "Evernode: Could not initialize state for moment size.");
             moment_size = DEF_MOMENT_SIZE;
@@ -389,7 +405,15 @@ int64_t hook(uint32_t reserved)
     }
     else if (op_type == OP_PROPOSE)
     {
+
+        const int64_t event_data2_len = otxn_param(event_data + event_data_len, MAX_HOOK_PARAM_SIZE, SBUF(PARAM_EVENT_DATA2_KEY));
+
+        // ASSERT_FAILURE_MSG >> Error getting the event data 2 param.
+        ASSERT(event_data2_len >= 0);
+        event_data_len += event_data2_len;
+
         int hooks_exists = 0;
+
         IS_HOOKS_VALID((event_data + CANDIDATE_PROPOSE_KEYLETS_PARAM_OFFSET), hooks_exists);
 
         // ASSERT_FAILURE_MSG >> Provided hooks are not valid.
@@ -487,12 +511,14 @@ int64_t hook(uint32_t reserved)
         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0);
 
         // ASSERT_FAILURE_MSG >> Only heartbeat or registry are allowed to send hook update results.
-        ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field));
+        ASSERT(BUFFER_EQUAL_20(heartbeat_accid, account_field) || BUFFER_EQUAL_20(registry_accid, account_field) || BUFFER_EQUAL_20(reputation_accid, account_field));
 
         uint8_t *hook_hash_ptr;
         // We accept only the hook update transaction from hook heartbeat or registry accounts.
         if (BUFFER_EQUAL_20(heartbeat_accid, account_field))
             hook_hash_ptr = &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET];
+        else if (BUFFER_EQUAL_20(reputation_accid, account_field))
+            hook_hash_ptr = &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET];
         else
             hook_hash_ptr = &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET];
 
@@ -510,10 +536,10 @@ int64_t hook(uint32_t reserved)
 
         const uint8_t updated_hook_count = governance_info[UPDATED_HOOK_COUNT_OFFSET];
 
-        if (updated_hook_count == 0)
-            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 1;
+        if (updated_hook_count < 2)
+            governance_info[UPDATED_HOOK_COUNT_OFFSET]++;
         // Update the hook and the grants if one update hook result is already received.
-        else if (updated_hook_count == 1)
+        else if (updated_hook_count == 2)
         {
             uint8_t hash_arr[HASH_SIZE * 4];
             COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET]);
@@ -525,6 +551,8 @@ int64_t hook(uint32_t reserved)
                                                        &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET],
                                                        heartbeat_accid,
                                                        &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET],
+                                                       reputation_accid,
+                                                       &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET],
                                                        0, 0, 0, 0, 1, tx_size);
             uint8_t emithash[HASH_SIZE];
             // ASSERT_FAILURE_MSG >> Emitting set hook failed
@@ -535,10 +563,23 @@ int64_t hook(uint32_t reserved)
             // ASSERT_FAILURE_MSG >> Emitting registry hook post update trigger failed.
             ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) >= 0);
 
-            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 2;
+            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 3;
         }
         // Clean states and update configs if all hooks are updated
-        else if (updated_hook_count == 2)
+        else if (updated_hook_count == 3)
+        {
+            etxn_reserve(1);
+            uint8_t emithash[HASH_SIZE];
+
+            PREPARE_HOOK_UPDATE_PAYMENT_TX(1, reputation_accid, event_data);
+
+            // ASSERT_FAILURE_MSG >> Emitting reputation hook post update trigger failed.
+            ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) >= 0);
+
+            governance_info[UPDATED_HOOK_COUNT_OFFSET] = 4;
+        }
+        // Clean states and update configs if all hooks are updated
+        else if (updated_hook_count == 4)
         {
             // Clean the update state.
             governance_info[UPDATED_HOOK_COUNT_OFFSET] = 0;
@@ -550,7 +591,7 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Could not set state for governance_game info.
         ASSERT(state_foreign_set(governance_info, GOVERNANCE_INFO_VAL_SIZE, SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
 
-        if (updated_hook_count == 2)
+        if (updated_hook_count == 4)
         {
             origin_op_type = OP_HOOK_UPDATE;
             op_type = OP_CHANGE_CONFIGURATION;
@@ -719,7 +760,7 @@ int64_t hook(uint32_t reserved)
             {
                 // If proposal is withdrawn proposal fee will be rebated to owner.
                 reward_amount = 0;
-                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 3 : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
+                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 4 : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
                                                                                                                      : 2);
 
                 if (candidate_type == NEW_HOOK_CANDIDATE)
@@ -733,6 +774,11 @@ int64_t hook(uint32_t reserved)
                     PREPARE_HOOK_UPDATE_PAYMENT_TX(1, registry_accid, event_data);
 
                     // ASSERT_FAILURE_MSG >> Emitting registry hook update trigger failed.
+                    ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) >= 0);
+
+                    PREPARE_HOOK_UPDATE_PAYMENT_TX(1, reputation_accid, event_data);
+
+                    // ASSERT_FAILURE_MSG >> Emitting reputation hook update trigger failed.
                     ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_PAYMENT)) >= 0);
 
                     // Update the governance info state.

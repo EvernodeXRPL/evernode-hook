@@ -241,12 +241,14 @@ int64_t hook(uint32_t reserved)
 
     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
-    uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
+    uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE] = {0};
+    uint8_t reputation_hook_accid[ACCOUNT_ID_SIZE] = {0};
 
     // ASSERT_FAILURE_MSG >> Could not get issuer, foundation or heartbeat account id.
     ASSERT(!(state_foreign(SBUF(issuer_accid), SBUF(CONF_ISSUER_ADDR), FOREIGN_REF) < 0 ||
              state_foreign(SBUF(foundation_accid), SBUF(CONF_FOUNDATION_ADDR), FOREIGN_REF) < 0 ||
-             state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0));
+             state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
+             state_foreign(SBUF(reputation_hook_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
 
     // Take the fixed reg fee from config.
     int64_t conf_fixed_reg_fee;
@@ -801,6 +803,30 @@ int64_t hook(uint32_t reserved)
         uint32_t orphan_candidate_removal_reserve = 0;
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
+        // Get wallet locator if exists.
+        // Host account keylet
+        uint8_t host_account_keylet[34] = {0};
+        util_keylet(SBUF(host_account_keylet), KEYLET_ACCOUNT, host_addr_ptr, 20, 0, 0, 0, 0);
+
+        int64_t cur_slot = slot_set(SBUF(host_account_keylet), 0);
+        uint32_t reputation_hook_invoke_reserve = 0;
+        uint8_t host_rep_account_id_state_key[32] = {0};
+        uint8_t host_reputation_state[24] = {0};
+        uint8_t host_rep_account_id[32] = {0};
+        if (cur_slot >= 0)
+        {
+            cur_slot = slot_subfield(cur_slot, sfWalletLocator, 0);
+            if (cur_slot >= 0)
+            {
+                cur_slot = slot(SBUF(host_rep_account_id), cur_slot);
+                if (cur_slot >= 0)
+                {
+                    COPY_20BYTES(host_rep_account_id_state_key + 12, host_rep_account_id);
+                    uint32_t reputation_hook_invoke_reserve = (state_foreign(SBUF(host_reputation_state), SBUF(host_rep_account_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid)) != DOESNT_EXIST) ? 1 : 0;
+                }
+            }
+        }
+
         // Add an additional emission reservation to trigger the governor to remove a dud host candidate, once that candidate related host is deregistered and pruned.
         if (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_HOST_DEREG)
         {
@@ -820,7 +846,7 @@ int64_t hook(uint32_t reserved)
 
         uint8_t emithash[HASH_SIZE];
 
-        etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + (linked_candidate_removal_reserve + orphan_candidate_removal_reserve));
+        etxn_reserve(((reward_amount > 0 || request_reward == 1) ? 3 : 2) + (linked_candidate_removal_reserve + orphan_candidate_removal_reserve + reputation_hook_invoke_reserve));
 
         // Add host_rebate_amount - 5 to the epoch's reward pool. If there are pending rewards reward request will be sent to the heartbeat.
         if (reward_amount > 0)
@@ -866,6 +892,30 @@ int64_t hook(uint32_t reserved)
 
         // ASSERT_FAILURE_MSG >> Emitting URI token burn txn failed
         ASSERT(emit(SBUF(emithash), SBUF(URI_TOKEN_BURN_TX)) >= 0);
+
+        // Remove reputation states if there are any.
+        if (reputation_hook_invoke_reserve > 0)
+        {
+            // Removing host [REPUTATION_ACC_ID] based state.
+            state_foreign_set(0, 0, SBUF(host_rep_account_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+
+            uint8_t removing_moment_rep_accid_state_key[32] = {0};
+            uint8_t removing_moment_order_id_state_key[32] = {0};
+            uint8_t order_id[8] = {0};
+
+            uint64_t removing_moment = UINT64_FROM_BUF_LE(&host_reputation_state[0]);
+
+            // Removing host [MOMENT + REPUTATION_ACC_ID] based state of before_previous_moment.
+            UINT64_TO_BUF_LE(&removing_moment_rep_accid_state_key[4], removing_moment);
+            COPY_20BYTES(removing_moment_rep_accid_state_key + 12, host_rep_account_id);
+            state_foreign(SBUF(order_id), SBUF(removing_moment_rep_accid_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+            state_foreign_set(0, 0, SBUF(removing_moment_rep_accid_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+
+            // Removing host [MOMENT + ORDER_ID] based state of before_previous_moment.
+            UINT64_TO_BUF_LE(&removing_moment_order_id_state_key[16], removing_moment);
+            COPY_8BYTES(removing_moment_order_id_state_key + 24, order_id);
+            state_foreign_set(0, 0, SBUF(removing_moment_order_id_state_key), FOREIGN_REF_CUSTOM(reputation_hook_accid));
+        }
 
         // Invoke Governor to trigger on this condition.
         if (linked_candidate_removal_reserve > 0 || orphan_candidate_removal_reserve > 0)

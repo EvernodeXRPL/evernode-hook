@@ -2,6 +2,7 @@
 #define EVERNODE_INCLUDED 1
 
 #include "constants.h"
+#include "statekeys.h"
 #include "transactions.h"
 
 /****** Field and Type codes ******/
@@ -266,6 +267,11 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
      BUFFER_EQUAL_2((buf + 16), (PENDING_REWARDS_REQUEST + 16)) && \
      BUFFER_EQUAL_1((buf + 18), (PENDING_REWARDS_REQUEST + 18)))
 
+#define EQUAL_HOST_SEND_REPUTATION(buf, len)       \
+    (sizeof(HOST_SEND_REPUTATION) == (len + 1) &&  \
+     BUFFER_EQUAL_20(buf, HOST_SEND_REPUTATION) && \
+     BUFFER_EQUAL_1(buf + 20, HOST_SEND_REPUTATION + 20))
+
 #define SET_UINT_STATE_VALUE(value, key, error_buf)                               \
     {                                                                             \
         if (state_foreign_set(&value, sizeof(value), SBUF(key), FOREIGN_REF) < 0) \
@@ -280,6 +286,17 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
 
 #define ADD_FLAG(lvalue, flag) \
     (lvalue |= flag)
+
+#define GET_SLOT_FROM_KEYLET(keylet, slot_no) \
+    slot_no = slot_set(SBUF(keylet), 0);      \
+    if (slot_no < 0)                          \
+        rollback(SBUF("Evernode: Could not set the keylet in slot"), 10);
+
+#define GET_SUB_FIELDS(main_slot, field_type, field_value)                             \
+    main_slot = slot_subfield(main_slot, field_type, 0);                               \
+    if (main_slot < 0)                                                                 \
+        rollback(SBUF("Evernode: Could not find the relevant field in the slot"), 10); \
+    slot(SBUF(field_value), main_slot);
 
 // check if the otxn is a partial payment. note: this does not check it is an incoming txn
 #define CHECK_PARTIAL_PAYMENT()                                                                       \
@@ -560,7 +577,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                                                                                                                                                               \
         /* As first 20 bytes of "candidate_id" represents owner address.*/                                                                                    \
         CANDIDATE_OWNER_KEY(candidate_id);                                                                                                                    \
-        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)> */                                                                                      \
+        /* <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)> */                                                                 \
         uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];                                                                                                    \
         if (state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) < 0)                                                                 \
             rollback(SBUF("Evernode: Could not get candidate owner state."), 1);                                                                              \
@@ -568,7 +585,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
         const uint8_t updated_hook_count = governance_game_info[UPDATED_HOOK_COUNT_OFFSET];                                                                   \
                                                                                                                                                               \
         etxn_reserve(1);                                                                                                                                      \
-        if (reserved == STRONG_HOOK && updated_hook_count != 2)                                                                                               \
+        if (reserved == STRONG_HOOK && updated_hook_count != 3)                                                                                               \
         {                                                                                                                                                     \
             uint8_t hash_arr[HASH_SIZE * 4];                                                                                                                  \
             COPY_32BYTES(hash_arr, &candidate_owner[hash_offset]);                                                                                            \
@@ -583,7 +600,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
                 rollback(SBUF("Evernode: Hook again failed on update hook."), 1);                                                                             \
             accept(SBUF("Evernode: Successfully applied the hook update."), 0);                                                                               \
         }                                                                                                                                                     \
-        else if (reserved == AGAIN_HOOK || updated_hook_count == 2)                                                                                           \
+        else if (reserved == AGAIN_HOOK || updated_hook_count == 3)                                                                                           \
         {                                                                                                                                                     \
             PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);                                                                              \
             uint8_t emithash[HASH_SIZE];                                                                                                                      \
