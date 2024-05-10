@@ -31,8 +31,6 @@
 
 int64_t hook(uint32_t reserved)
 {
-    _g(1, 1);
-
     if (!ACTIVE(ACTIVATION_UNIXTIME))
         rollback(SBUF("Not active yet."), __LINE__);
 
