@@ -59,10 +59,6 @@ int64_t hook(uint32_t reserved)
     uint8_t event_type[MAX_EVENT_TYPE_SIZE];
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
 
-    // Hook param analysis
-    uint8_t event_data[HASH_SIZE];
-    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
-
     if (event_type_len == DOESNT_EXIST)
     {
         // PERMIT_MSG >> Transaction is not handled.
@@ -93,6 +89,13 @@ int64_t hook(uint32_t reserved)
         // PERMIT_MSG >> Transaction is not handled.
         PERMIT();
     }
+
+    // Heartbeat without vote does not have data.
+    uint8_t event_data[MAX_EVENT_DATA_SIZE];
+    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
+
+    // ASSERT_FAILURE_MSG >> Error getting the event data param.
+    ASSERT(!(event_data_len < 0));
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
@@ -190,7 +193,7 @@ int64_t hook(uint32_t reserved)
     {
         // BEGIN: Check for registration entry.
         uint8_t host_acc_keylet[34] = {0};
-        util_keylet(host_acc_keylet, 34, KEYLET_ACCOUNT, SBUF(event_data), 0, 0, 0, 0);
+        util_keylet(SBUF(host_acc_keylet), KEYLET_ACCOUNT, event_data, ACCOUNT_ID_SIZE, 0, 0, 0, 0);
 
         int64_t cur_slot = 0;
         GET_SLOT_FROM_KEYLET(host_acc_keylet, cur_slot);

@@ -741,7 +741,7 @@ int64_t hook(uint32_t reserved)
         {
             // BEGIN: Check for registration entry.
             uint8_t host_acc_keylet[34] = {0};
-            util_keylet(host_acc_keylet, 34, KEYLET_ACCOUNT, SBUF(event_data), 0, 0, 0, 0);
+            util_keylet(SBUF(host_acc_keylet), KEYLET_ACCOUNT, event_data, ACCOUNT_ID_SIZE, 0, 0, 0, 0);
 
             int64_t cur_slot = 0;
             GET_SLOT_FROM_KEYLET(host_acc_keylet, cur_slot);
