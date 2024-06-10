@@ -129,7 +129,7 @@ int64_t hook(uint32_t reserved)
         if (is_xrp)
         {
             if (EQUAL_HOST_DEREG(event_type, event_type_len))
-                op_type = (event_type_len == HOST_DEREG_FROM_REP_PARAM_SIZE) ? OP_HOST_DEREG_FROM_REPUTATION : OP_HOST_DEREG;
+                op_type = OP_HOST_DEREG;
             else if (EQUAL_HOST_UPDATE_REG(event_type, event_type_len))
                 op_type = OP_HOST_UPDATE_REG;
             // Dead Host Prune.
@@ -187,8 +187,12 @@ int64_t hook(uint32_t reserved)
     // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
     if (op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER ||
         op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_DEREG ||
-        op_type == OP_HOST_UPDATE_REPUTATION || op_type == OP_HOST_DEREG_FROM_REPUTATION)
+        op_type == OP_HOST_UPDATE_REPUTATION)
     {
+        // Check whether dereg is sent from reputation.
+        if (op_type == OP_HOST_DEREG && event_data_len == HOST_DEREG_FROM_REP_PARAM_SIZE)
+            op_type = OP_HOST_DEREG_FROM_REPUTATION;
+
         // Generate host account key.
         if (op_type != OP_DEAD_HOST_PRUNE && op_type != OP_DUD_HOST_REMOVE && op_type != OP_HOST_UPDATE_REPUTATION && op_type != OP_HOST_DEREG_FROM_REPUTATION)
         {
