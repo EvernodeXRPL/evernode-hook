@@ -129,7 +129,7 @@ int64_t hook(uint32_t reserved)
         if (is_xrp)
         {
             if (EQUAL_HOST_DEREG(event_type, event_type_len))
-                op_type = OP_HOST_DEREG;
+                op_type = (event_type_len == HOST_DEREG_FROM_REP_PARAM_SIZE) ? OP_HOST_DEREG_FROM_REPUTATION : OP_HOST_DEREG;
             else if (EQUAL_HOST_UPDATE_REG(event_type, event_type_len))
                 op_type = OP_HOST_UPDATE_REG;
             // Dead Host Prune.
@@ -187,10 +187,10 @@ int64_t hook(uint32_t reserved)
     // Common logic for host deregistration, heartbeat, update registration, rebate process and transfer.
     if (op_type == OP_HOST_UPDATE_REG || op_type == OP_HOST_REBATE || op_type == OP_HOST_TRANSFER ||
         op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_DEREG ||
-        op_type == OP_HOST_UPDATE_REPUTATION)
+        op_type == OP_HOST_UPDATE_REPUTATION || op_type == OP_HOST_DEREG_FROM_REPUTATION)
     {
         // Generate host account key.
-        if (op_type != OP_DEAD_HOST_PRUNE && op_type != OP_DUD_HOST_REMOVE && op_type != OP_HOST_UPDATE_REPUTATION)
+        if (op_type != OP_DEAD_HOST_PRUNE && op_type != OP_DUD_HOST_REMOVE && op_type != OP_HOST_UPDATE_REPUTATION && op_type != OP_HOST_DEREG_FROM_REPUTATION)
         {
             HOST_ADDR_KEY(account_field);
         }
@@ -211,12 +211,14 @@ int64_t hook(uint32_t reserved)
 
         // If host is a transferer it does not own a token.
         // Check whether this host has an initiated transfer.
-        const int is_controlled_op = (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE || op_type == OP_HOST_UPDATE_REPUTATION);
-        if (!is_controlled_op || host_addr[HOST_TRANSFER_FLAG_OFFSET] != PENDING_TRANSFER)
+        const int is_force_remove = (op_type == OP_DEAD_HOST_PRUNE || op_type == OP_DUD_HOST_REMOVE);
+        if (!is_force_remove || host_addr[HOST_TRANSFER_FLAG_OFFSET] != PENDING_TRANSFER)
         {
+            // Controlled transactions are sent from other account than host account.
+            int is_controlled = (is_force_remove || op_type == OP_HOST_UPDATE_REPUTATION || op_type == OP_HOST_DEREG_FROM_REPUTATION);
             // Check the ownership of the token to this user before proceeding.
             int token_exists;
-            IS_REG_TOKEN_EXIST((is_controlled_op ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
+            IS_REG_TOKEN_EXIST((is_controlled ? event_data : account_field), (host_addr + HOST_TOKEN_ID_OFFSET), token_exists);
 
             // ASSERT_FAILURE_MSG >> Registration URIToken does not exist.
             ASSERT(token_exists);
@@ -732,10 +734,30 @@ int64_t hook(uint32_t reserved)
 
         redirect_op_type = OP_HOST_REMOVE;
     }
-    if (op_type == OP_HOST_DEREG)
+    if (op_type == OP_HOST_DEREG || op_type == OP_HOST_DEREG_FROM_REPUTATION)
     {
+        uint8_t *token_id_ptr = event_data;
+        if (op_type == OP_HOST_DEREG_FROM_REPUTATION)
+        {
+            // BEGIN: Check for registration entry.
+            uint8_t host_acc_keylet[34] = {0};
+            util_keylet(host_acc_keylet, 34, KEYLET_ACCOUNT, SBUF(event_data), 0, 0, 0, 0);
+
+            int64_t cur_slot = 0;
+            GET_SLOT_FROM_KEYLET(host_acc_keylet, cur_slot);
+
+            uint8_t wallet_locator[32] = {0};
+            GET_SUB_FIELDS(cur_slot, sfWalletLocator, wallet_locator);
+
+            // ASSERT_FAILURE_MSG >> This account is not set as reputation account for this host.
+            ASSERT(BUFFER_EQUAL_20((wallet_locator + 1), account_field));
+
+            token_id_ptr = event_data + ACCOUNT_ID_SIZE;
+            op_type = OP_HOST_DEREG;
+        }
+
         // ASSERT_FAILURE_MSG >> Token id sent doesn't match with the registered token.
-        ASSERT(BUFFER_EQUAL_32(event_data, (host_addr + HOST_TOKEN_ID_OFFSET)));
+        ASSERT(BUFFER_EQUAL_32(token_id_ptr, (host_addr + HOST_TOKEN_ID_OFFSET)));
 
         redirect_op_type = OP_HOST_REMOVE;
     }
@@ -785,7 +807,7 @@ int64_t hook(uint32_t reserved)
         const uint64_t total_rebate_amount = host_rebate_amount + pending_rebate_amount;
 
         const uint8_t *event_type_ptr = op_type == OP_HOST_DEREG ? HOST_DEREG_SELF_RES : (op_type == OP_DEAD_HOST_PRUNE ? DEAD_HOST_PRUNE_RES : DUD_HOST_REMOVE_RES);
-        const uint8_t *host_addr_ptr = op_type == OP_HOST_DEREG ? account_field : event_data;
+        const uint8_t *host_addr_ptr = &token_id[HOST_ADDRESS_OFFSET];
 
         const uint8_t *host_accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
         const int64_t accumulated_reward = INT64_FROM_BUF_LE(host_accumulated_reward_ptr);
