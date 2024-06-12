@@ -90,7 +90,6 @@ int64_t hook(uint32_t reserved)
         PERMIT();
     }
 
-    // Heartbeat without vote does not have data.
     uint8_t event_data[MAX_EVENT_DATA_SIZE];
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
