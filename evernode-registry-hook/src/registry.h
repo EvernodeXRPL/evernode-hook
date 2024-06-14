@@ -21,6 +21,16 @@ const uint32_t HOST_DESCRIPTION_PARAM_OFFSET = 62;
 const uint32_t HOST_EMAIL_ADDRESS_PARAM_OFFSET = 88;
 const uint32_t HOST_LEASE_AMOUNT_PARAM_OFFSET = 128;
 
+// HOST_DEREG
+// By host address <token_id(32)><error(1)>
+const uint32_t HOST_DEREG_ERROR_PARAM_OFFSET = 32;
+const uint8_t HOST_DEREG_PARAM_SIZE = 33;
+
+// By reputation address <host_address(20)><token_id(32)><error(1)>
+const uint32_t HOST_DEREG_FROM_REP_TOKEN_ID_PARAM_OFFSET = 20;
+const uint32_t HOST_DEREG_FROM_REP_ERROR_PARAM_OFFSET = 52;
+const uint8_t HOST_DEREG_FROM_REP_PARAM_SIZE = 53;
+
 // <token_id(32)><country_code(2)><cpu_microsec(4)><ram_mb(4)><disk_mb(4)><total_instance_count(4)><active_instances(4)><description(26)><version(3)><email(40)><host_lease_amount(8,xfl)>
 // HOST_UPDATE_REG
 const uint32_t HOST_UPDATE_TOKEN_ID_PARAM_OFFSET = 0;

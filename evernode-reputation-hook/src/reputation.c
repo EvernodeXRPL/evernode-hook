@@ -2,12 +2,10 @@
  * Everrep - Reputation accumulator and universe shuffler hook for Evernode.
  *
  * State: (8l = 8 byte uint64 little endian)
- *   [reputation account id : 20b]          => [last registered moment: 8l, score numerator: 8l, score denominator 8l]
- *   [moment : 8l, repaccid : 20b]          => [ordered hostid : 8l]
- *   [moment : 8l, ordered hostid : 8l ]    => [repaccid : 20b]
+ *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l]
+ *   [moment : 8l, hostaccid : 20b]         => [ordered hostid : 8l]
+ *   [moment : 8l, ordered hostid : 8l ]    => [hostaccid : 20b]
  *   [moment : 8l]                          => [host count in that moment : 8l]
- *
- *  Use sfWalletLocator to delegate "reputation scoring authority" from the host account to the reputation account.
  *
  * Behaviour:
  *  There is a reputation round each moment (hour).
@@ -61,10 +59,6 @@ int64_t hook(uint32_t reserved)
     uint8_t event_type[MAX_EVENT_TYPE_SIZE];
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
 
-    // Hook param analysis
-    uint8_t event_data[HASH_SIZE];
-    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
-
     if (event_type_len == DOESNT_EXIST)
     {
         // PERMIT_MSG >> Transaction is not handled.
@@ -95,6 +89,12 @@ int64_t hook(uint32_t reserved)
         // PERMIT_MSG >> Transaction is not handled.
         PERMIT();
     }
+
+    uint8_t event_data[MAX_EVENT_DATA_SIZE];
+    const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
+
+    // ASSERT_FAILURE_MSG >> Error getting the event data param.
+    ASSERT(!(event_data_len < 0));
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
@@ -191,26 +191,28 @@ int64_t hook(uint32_t reserved)
     else if (op_type == OP_HOST_SEND_REPUTATION)
     {
         // BEGIN: Check for registration entry.
-        uint8_t host_rep_acc_keylet[34] = {0};
-        util_keylet(host_rep_acc_keylet, 34, KEYLET_ACCOUNT, account_field, 20, 0, 0, 0, 0);
-
-        // Host Registration State.
-        uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+        uint8_t host_acc_keylet[34] = {0};
+        util_keylet(SBUF(host_acc_keylet), KEYLET_ACCOUNT, event_data, ACCOUNT_ID_SIZE, 0, 0, 0, 0);
 
         int64_t cur_slot = 0;
-        GET_SLOT_FROM_KEYLET(host_rep_acc_keylet, cur_slot);
+        GET_SLOT_FROM_KEYLET(host_acc_keylet, cur_slot);
 
         uint8_t wallet_locator[32] = {0};
         GET_SUB_FIELDS(cur_slot, sfWalletLocator, wallet_locator);
-        HOST_ADDR_KEY(wallet_locator);
 
+        // ASSERT_FAILURE_MSG >> This account is not set as reputation account for this host.
+        ASSERT(BUFFER_EQUAL_20((wallet_locator + 1), account_field));
+
+        // Host Registration State.
+        uint8_t host_addr[HOST_ADDR_VAL_SIZE];
+        HOST_ADDR_KEY(event_data);
         // ASSERT_FAILURE_MSG >> This host is not registered.
         ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
 
         // END: Check for registration entry.
 
         uint8_t accid[28];
-        COPY_20BYTES((accid + 8), account_field);
+        COPY_20BYTES((accid + 8), event_data);
 
         uint8_t blob[65];
 
@@ -346,6 +348,17 @@ int64_t hook(uint32_t reserved)
                 state_set(0, 0, order_id, 16);
             }
             state_set(0, 0, SVAR(cleanup_moment));
+
+            // TODO: This section is used to cleanup older deprecated states from v0.8.3. Can be removed when all hosts are updated and stabilized. 
+            uint8_t deprecated_accid[28];
+            *((uint64_t *)deprecated_accid) = cleanup_moment;
+            COPY_20BYTES((deprecated_accid + 8), account_field);
+            if (state(SVAR(order_id[1]), SBUF(deprecated_accid)) > 0)
+            {
+                state_set(0, 0, SBUF(deprecated_accid));
+                state_set(0, 0, order_id, 16);
+            }
+            ///////////////////////
         }
 
         acc_data[0] = next_moment;
