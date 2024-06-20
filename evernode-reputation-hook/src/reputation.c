@@ -35,8 +35,8 @@ int64_t hook(uint32_t reserved)
     CHECK_PARTIAL_PAYMENT();
 
     // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
+    unsigned char hook_accid[ACCOUNT_ID_SIZE];
+    hook_account((uint32_t)hook_accid, ACCOUNT_ID_SIZE);
 
     int64_t cur_ledger_seq = ledger_seq();
 
@@ -45,7 +45,7 @@ int64_t hook(uint32_t reserved)
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
 
     // ASSERT_FAILURE_MSG >> sfAccount field is missing.
-    ASSERT(account_field_len == 20);
+    ASSERT(account_field_len == ACCOUNT_ID_SIZE);
 
     enum OPERATION op_type = OP_NONE;
     int64_t txn_type = otxn_type();
@@ -94,7 +94,7 @@ int64_t hook(uint32_t reserved)
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
-    ASSERT(!(event_data_len < 0));
+    ASSERT(!(event_data_len <= 0));
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
