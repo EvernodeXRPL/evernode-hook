@@ -90,7 +90,7 @@ int64_t hook(uint32_t reserved)
         PERMIT();
     }
 
-    uint8_t event_data[MAX_EVENT_DATA_SIZE] = {0};
+    uint8_t event_data[MAX_EVENT_DATA_SIZE];
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
@@ -138,9 +138,9 @@ int64_t hook(uint32_t reserved)
 
         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
         // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
-        uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE] = {0};
+        uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
         // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)>
-        uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE] = {0};
+        uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
 
         CANDIDATE_ID_KEY(event_data);
 
@@ -153,7 +153,7 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Could not get candidate owner state.
         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) > 0);
 
-        uint8_t hash_arr[HASH_SIZE * 4] = {0};
+        uint8_t hash_arr[HASH_SIZE * 4];
         COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET]);
 
         uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
