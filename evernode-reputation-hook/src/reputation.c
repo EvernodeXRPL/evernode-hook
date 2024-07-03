@@ -218,8 +218,7 @@ int64_t hook(uint32_t reserved)
         COPY_20BYTES((moment_accid + 8), event_data);
 
         uint8_t host_accid_key[32] = {0};
-        uint8_t *host_accid = host_accid_key + 4;
-        COPY_20BYTES((host_accid + 8), event_data);
+        COPY_20BYTES((host_accid_key + 12), event_data);
 
         uint8_t blob[65];
 
@@ -328,14 +327,13 @@ int64_t hook(uint32_t reserved)
             if (hostid <= last_universe_hostid)
             {
                 // accumulate the scores
-                uint64_t id[4];
-                id[2] = current_moment;
+                uint64_t id[4] = {0,0,current_moment,0};
                 int n = 0;
                 for (id[3] = first_hostid; GUARD(64), id[3] <= last_hostid; ++id[3], ++n)
                 {
                     uint8_t accid_key[32] = {0};
                     uint8_t *accid = accid_key + 12;
-                    if (state(SBUF(accid_key), id, 32) != 20)
+                    if (state(accid, 20, id, 32) != 20)
                         continue;
                     uint64_t data[3];
                     if (state(data, 24, SBUF(accid_key)) != 24)
