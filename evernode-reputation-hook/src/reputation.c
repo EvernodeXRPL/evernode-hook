@@ -219,7 +219,7 @@ int64_t hook(uint32_t reserved)
 
         uint8_t host_accid_key[32] = {0};
         uint8_t *host_accid = host_accid_key + 4;
-        COPY_20BYTES((host_accid + 12), event_data);
+        COPY_20BYTES((host_accid + 8), event_data);
 
         uint8_t blob[65];
 
@@ -363,7 +363,8 @@ int64_t hook(uint32_t reserved)
         // get host voting data
         uint64_t acc_data[3] = {0};
         // ASSERT_FAILURE_MSG >> Error when getting hook state.
-        ASSERT(state(SBUF(acc_data), SBUF(host_accid_key)) >= 0);
+        int res = state(SBUF(acc_data), SBUF(host_accid_key));
+        ASSERT(res > 0 || res == DOESNT_EXIST);
         // ASSERT_FAILURE_MSG >> Already registered for this round.
         ASSERT(acc_data[0] != next_moment);
 
@@ -428,7 +429,8 @@ int64_t hook(uint32_t reserved)
         uint64_t host_count = 0;
         moment_key[3] = next_moment;
         // ASSERT_FAILURE_MSG >> Error when getting hook state.
-        ASSERT(state(SVAR(host_count), moment_key, 32) >= 0);
+        res = state(SVAR(host_count), moment_key, 32);
+        ASSERT(res > 0 || res == DOESNT_EXIST);
 
         *((uint64_t *)moment_accid) = next_moment;
         uint64_t forward[4] = {0, 0, next_moment, 0};
