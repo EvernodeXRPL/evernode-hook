@@ -314,8 +314,12 @@ int64_t hook(uint32_t reserved)
                     // If this is a new moment.
                     if (current_moment > data[4])
                     {
-                        // If we receive the minimum number of votes. update the score
-                        if (data[2] >= MIN_DENOM_REQUIREMENT)
+                        // Get the host count in the universe.
+                        uint64_t universe_size = REPUTATION_UNIVERSE_SIZE;
+                        if (universe == last_universe && (host_count % REPUTATION_UNIVERSE_SIZE) != 0)
+                            universe_size = host_count % REPUTATION_UNIVERSE_SIZE;
+                        // If we receive the minimum number of votes. update the score.
+                        if (data[4] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(universe_size))
                         {
                             data[3] = (((current_moment - data[5]) <= SCORE_EXPIRY_MOMENT_COUNT ? data[3] : 0) + (data[1] / data[2])) / 2;
                             data[5] = current_moment;
@@ -368,6 +372,9 @@ int64_t hook(uint32_t reserved)
         }
 
         acc_data[0] = next_moment;
+        // Initialize reset moment if empty.
+        if (acc_data[4] == 0)
+            acc_data[4] = current_moment;
         // ASSERT_FAILURE_MSG >> Failed to set acc_data. Check hook reserves.
         ASSERT(state_set(SBUF(acc_data), accid + 8, 20) == 48);
 
