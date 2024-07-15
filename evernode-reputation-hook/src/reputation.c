@@ -304,7 +304,7 @@ int64_t hook(uint32_t reserved)
                     if (state(SBUF(accid), id, 16) != 20)
                         continue;
                     uint64_t data[5];
-                    if (state(SBUF(data), SBUF(accid)) != 40)
+                    if (!(state(SBUF(data), SBUF(accid)) >= 24))
                         continue;
 
                     // sanity check: either they are still most recently registered for next moment or last
