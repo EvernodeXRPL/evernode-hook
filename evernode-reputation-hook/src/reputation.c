@@ -214,14 +214,18 @@ int64_t hook(uint32_t reserved)
         uint8_t accid[28];
         COPY_20BYTES((accid + 8), event_data);
 
-        uint8_t blob[65];
+        uint8_t blob[66];
 
         int64_t result = otxn_field(SBUF(blob), sfBlob);
 
-        int64_t no_scores_submitted = (result == DOESNT_EXIST);
+        // ASSERT_FAILURE_MSG >> sfBlob doesn't exist.
+        ASSERT(result > 0);
+        // ASSERT_FAILURE_MSG >> sfBlob must be 2 bytes or 65 bytes.
+        ASSERT(result == 2 || result == 66);
+        // ASSERT_FAILURE_MSG >> sfBlob invalid score version.
+        ASSERT(blob[1] == REPUTATION_SCORE_VERSION);
 
-        // ASSERT_FAILURE_MSG >> sfBlob must be 65 bytes.
-        ASSERT(no_scores_submitted || result == 65);
+        int64_t no_scores_submitted = (result == 2);
 
         // TODO: Clarify uncertainty wether this has any affect.
         uint64_t cleanup_moment[2];
@@ -321,7 +325,7 @@ int64_t hook(uint32_t reserved)
                         // If we receive the minimum number of votes. update the score.
                         if (data[4] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(universe_size))
                         {
-                            data[3] = (((current_moment - data[5]) <= SCORE_EXPIRY_MOMENT_COUNT ? data[3] : 0) + (data[1] / data[2])) / 2;
+                            data[3] = (((current_moment - data[5]) <= REPUTATION_SCORE_EXPIRY_MOMENT_COUNT ? data[3] : 0) + (data[1] / data[2])) / 2;
                             data[5] = current_moment;
                         }
                         data[4] = current_moment;
@@ -329,7 +333,7 @@ int64_t hook(uint32_t reserved)
                         data[2] = 0;
                     }
 
-                    data[1] += blob[n + 1];
+                    data[1] += blob[n + 2];
                     data[2]++;
 
                     state_set(SBUF(data), SBUF(accid));
