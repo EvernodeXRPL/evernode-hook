@@ -438,6 +438,21 @@ int64_t hook(uint32_t reserved)
                 host_addr[HOST_REPUTATION_OFFSET] = 0;
             else if (host_addr[HOST_REPUTATION_OFFSET] == 0)
                 host_addr[HOST_REPUTATION_OFFSET] = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+            // TODO: Uncomment following to consider reputation score for rewards.
+            // else
+            // {
+            //     uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
+            //     // ASSERT_FAILURE_MSG >> Could not get reputation account id.
+            //     ASSERT(!(state_foreign(SBUF(reputation_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
+            //     uint64_t data[6];
+            //     const int host_rep_state_res = state_foreign(SBUF(data), SBUF(account_field), SBUF(NAMESPACE), reputation_accid, ACCOUNT_ID_SIZE);
+            //     // ASSERT_FAILURE_MSG >> Error getting host reputation state.
+            //     ASSERT(host_rep_state_res > 0 || host_rep_state_res == DOESNT_EXIST);
+            //     if (host_rep_state_res == DOESNT_EXIST || (cur_moment - data[5]) > REPUTATION_SCORE_EXPIRY_MOMENT_COUNT)
+            //         host_addr[HOST_REPUTATION_OFFSET] = 0;
+            //     else
+            //         host_addr[HOST_REPUTATION_OFFSET] = data[3] * 255 / 100;
+            // }
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
