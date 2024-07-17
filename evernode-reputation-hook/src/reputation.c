@@ -382,7 +382,7 @@ int64_t hook(uint32_t reserved)
         if (acc_data[4] == 0)
             acc_data[4] = current_moment;
         // ASSERT_FAILURE_MSG >> Failed to set acc_data. Check hook reserves.
-        ASSERT(state_set(SBUF(acc_data), accid + 8, 20) == 48);
+        ASSERT(state_set(SBUF(acc_data), accid + 8, 20) == 56);
 
         // execution to here means we will register for next round
 
