@@ -9,6 +9,6 @@
 
 // Minimum requirement of denominator to update score.
 #define MIN_DENOM_REQUIREMENT(universe_size) \
-    universe_size * 0.8
+    universe_size * 80 / 100
 
 #endif

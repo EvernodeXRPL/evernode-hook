@@ -2,7 +2,7 @@
  * Everrep - Reputation accumulator and universe shuffler hook for Evernode.
  *
  * State: (8l = 8 byte uint64 little endian)
- *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l, score: 8l, last reset moment: 8l, last scored moment: 8l]
+ *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l, score: 8l, last reset moment: 8l, last scored moment: 8l, universe size 8l]
  *   [moment : 8l, hostaccid : 20b]         => [ordered hostid : 8l]
  *   [moment : 8l, ordered hostid : 8l ]    => [hostaccid : 20b]
  *   [moment : 8l]                          => [host count in that moment : 8l]
@@ -299,6 +299,11 @@ int64_t hook(uint32_t reserved)
 
             if (hostid <= last_universe_hostid)
             {
+                // Get the host count in the universe.
+                uint64_t universe_size = REPUTATION_UNIVERSE_SIZE;
+                if (universe == last_universe && (host_count % REPUTATION_UNIVERSE_SIZE) != 0)
+                    universe_size = host_count % REPUTATION_UNIVERSE_SIZE;
+
                 // accumulate the scores
                 uint64_t id[2] = {current_moment, 0};
                 int n = 0;
@@ -307,7 +312,7 @@ int64_t hook(uint32_t reserved)
                     uint8_t accid[20];
                     if (state(SBUF(accid), id, 16) != 20)
                         continue;
-                    uint64_t data[6];
+                    uint64_t data[7];
                     if (!(state(SBUF(data), SBUF(accid)) >= 24))
                         continue;
 
@@ -318,14 +323,10 @@ int64_t hook(uint32_t reserved)
                     // If this is a new moment.
                     if (current_moment > data[4])
                     {
-                        // Get the host count in the universe.
-                        uint64_t universe_size = REPUTATION_UNIVERSE_SIZE;
-                        if (universe == last_universe && (host_count % REPUTATION_UNIVERSE_SIZE) != 0)
-                            universe_size = host_count % REPUTATION_UNIVERSE_SIZE;
                         // If we receive the minimum number of votes. update the score.
-                        if (data[4] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(universe_size))
+                        if (data[4] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(data[6]))
                         {
-                            data[3] = (((current_moment - data[5]) <= REPUTATION_SCORE_EXPIRY_MOMENT_COUNT ? data[3] : 0) + (data[1] / data[2])) / 2;
+                            data[3] = (data[5] == 0) ? data[1] / data[2] : (data[3] + (data[1] / data[2])) / 2;
                             data[5] = current_moment;
                         }
                         data[4] = current_moment;
@@ -335,6 +336,7 @@ int64_t hook(uint32_t reserved)
 
                     data[1] += blob[n + 2];
                     data[2]++;
+                    data[6] = universe_size;
 
                     state_set(SBUF(data), SBUF(accid));
                 }
@@ -343,7 +345,7 @@ int64_t hook(uint32_t reserved)
 
         // register for the next moment
         // get host voting data
-        uint64_t acc_data[6] = {0};
+        uint64_t acc_data[7] = {0};
         int res = state(SBUF(acc_data), accid + 8, 20);
         // ASSERT_FAILURE_MSG >> Error when getting hook state.
         ASSERT(res > 0 || res == DOESNT_EXIST);
@@ -363,7 +365,7 @@ int64_t hook(uint32_t reserved)
             }
             state_set(0, 0, SVAR(cleanup_moment));
 
-            // TODO: This section is used to cleanup older deprecated states from v0.8.3. Can be removed when all hosts are updated and stabilized. 
+            // TODO: This section is used to cleanup older deprecated states from v0.8.3. Can be removed when all hosts are updated and stabilized.
             uint8_t deprecated_accid[28];
             *((uint64_t *)deprecated_accid) = cleanup_moment;
             COPY_20BYTES((deprecated_accid + 8), account_field);
