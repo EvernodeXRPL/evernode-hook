@@ -307,7 +307,7 @@ int64_t hook(uint32_t reserved)
                 // accumulate the scores
                 uint64_t id[2] = {current_moment, 0};
                 int n = 0;
-                for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
+                for (id[1] = first_hostid; GUARD(REPUTATION_UNIVERSE_SIZE), id[1] <= last_hostid; ++id[1], ++n)
                 {
                     uint8_t accid[20];
                     if (state(SBUF(accid), id, 16) != 20)
