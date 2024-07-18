@@ -327,7 +327,7 @@ int64_t hook(uint32_t reserved)
             if (hostid <= last_universe_hostid)
             {
                 // accumulate the scores
-                uint64_t id[4] = {0,0,current_moment,0};
+                uint64_t id[4] = {0, 0, current_moment, 0};
                 int n = 0;
                 for (id[3] = first_hostid; GUARD(64), id[3] <= last_hostid; ++id[3], ++n)
                 {
@@ -414,8 +414,8 @@ int64_t hook(uint32_t reserved)
                     state_set(0, 0, SBUF(deprecated_accid_key));
                     state_set(0, 0, order_id, 32);
                 }
-                ///////////////////////
             }
+            ///////////////////////
         }
 
         acc_data[0] = next_moment;
