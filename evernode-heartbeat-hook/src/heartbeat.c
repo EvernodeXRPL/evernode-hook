@@ -444,7 +444,7 @@ int64_t hook(uint32_t reserved)
             //     uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
             //     // ASSERT_FAILURE_MSG >> Could not get reputation account id.
             //     ASSERT(!(state_foreign(SBUF(reputation_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
-            //     uint64_t data[6];
+            //     uint64_t data[7];
             //     const int host_rep_state_res = state_foreign(SBUF(data), SBUF(account_field), SBUF(NAMESPACE), reputation_accid, ACCOUNT_ID_SIZE);
             //     // ASSERT_FAILURE_MSG >> Error getting host reputation state.
             //     ASSERT(host_rep_state_res > 0 || host_rep_state_res == DOESNT_EXIST);
