@@ -375,6 +375,29 @@ int64_t hook(uint32_t reserved)
                 state_set(0, 0, order_id, 16);
             }
             ///////////////////////
+
+            // If we have missed a round, There's a gap between moments. So cleanup previous.
+            if (cleanup_moment == acc_data[0])
+            {
+                cleanup_moment--;
+                order_id[0] = cleanup_moment;
+                *((uint64_t *)accid) = cleanup_moment;
+                if (state(SVAR(order_id[1]), SBUF(accid)) > 0)
+                {
+                    state_set(0, 0, SBUF(accid));
+                    state_set(0, 0, order_id, 16);
+                }
+                state_set(0, 0, SVAR(cleanup_moment));
+
+                // TODO: This section is used to cleanup older deprecated states from v0.8.3. Can be removed when all hosts are updated and stabilized.
+                *((uint64_t *)deprecated_accid) = cleanup_moment;
+                if (state(SVAR(order_id[1]), SBUF(deprecated_accid)) > 0)
+                {
+                    state_set(0, 0, SBUF(deprecated_accid));
+                    state_set(0, 0, order_id, 16);
+                }
+                ///////////////////////
+            }
         }
 
         acc_data[0] = next_moment;
