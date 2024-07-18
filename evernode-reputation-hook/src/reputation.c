@@ -2,7 +2,7 @@
  * Everrep - Reputation accumulator and universe shuffler hook for Evernode.
  *
  * State: (8l = 8 byte uint64 little endian)
- *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l]
+ *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l, score: 8l, last reset moment: 8l, last scored moment: 8l, universe size 8l]
  *   [moment : 8l, hostaccid : 20b]         => [ordered hostid : 8l]
  *   [moment : 8l, ordered hostid : 8l ]    => [hostaccid : 20b]
  *   [moment : 8l]                          => [host count in that moment : 8l]
@@ -220,14 +220,18 @@ int64_t hook(uint32_t reserved)
         uint8_t host_accid_key[32] = {0};
         COPY_20BYTES((host_accid_key + 12), event_data);
 
-        uint8_t blob[65];
+        uint8_t blob[66];
 
         int64_t result = otxn_field(SBUF(blob), sfBlob);
 
-        int64_t no_scores_submitted = (result == DOESNT_EXIST);
+        // ASSERT_FAILURE_MSG >> sfBlob doesn't exist.
+        ASSERT(result > 0);
+        // ASSERT_FAILURE_MSG >> sfBlob must be 2 bytes or 65 bytes.
+        ASSERT(result == 2 || result == 66);
+        // ASSERT_FAILURE_MSG >> sfBlob invalid score version.
+        ASSERT(blob[1] == REPUTATION_SCORE_VERSION);
 
-        // ASSERT_FAILURE_MSG >> sfBlob must be 65 bytes.
-        ASSERT(no_scores_submitted || result == 65);
+        int64_t no_scores_submitted = (result == 2);
 
         // TODO: Clarify uncertainty wether this has any affect.
         uint64_t cleanup_moment[4] = {0};
@@ -302,11 +306,8 @@ int64_t hook(uint32_t reserved)
 
         int in_previous_round = (state(SVAR(previous_hostid), SBUF(moment_accid_key)) == sizeof(previous_hostid));
 
-        if (in_previous_round)
+        if (in_previous_round && !no_scores_submitted)
         {
-            // ASSERT_FAILURE_MSG >> Submit your scores!
-            ASSERT(!no_scores_submitted);
-
             // find out which universe you were in
             uint64_t hostid = previous_hostid;
 
@@ -326,6 +327,11 @@ int64_t hook(uint32_t reserved)
 
             if (hostid <= last_universe_hostid)
             {
+                // Get the host count in the universe.
+                uint64_t universe_size = REPUTATION_UNIVERSE_SIZE;
+                if (universe == last_universe && (host_count % REPUTATION_UNIVERSE_SIZE) != 0)
+                    universe_size = host_count % REPUTATION_UNIVERSE_SIZE;
+
                 // accumulate the scores
                 uint64_t id[4] = {0,0,current_moment,0};
                 int n = 0;
@@ -335,33 +341,42 @@ int64_t hook(uint32_t reserved)
                     uint8_t *accid = accid_key + 12;
                     if (state(accid, 20, id, 32) != 20)
                         continue;
-                    uint64_t data[3];
-                    if (state(data, 24, SBUF(accid_key)) != 24)
+                    uint64_t data[7];
+                    if (!(state(SBUF(data), SBUF(accid_key)) >= 24))
                         continue;
 
                     // sanity check: either they are still most recently registered for next moment or last
                     if (data[0] > next_moment || data[0] < previous_moment)
                         continue;
 
-                    data[1] += blob[n + 1];
-                    data[2]++;
-
-                    // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
-                    if (data[2] > 12 * host_count)
+                    // If this is a new moment.
+                    if (current_moment > data[4])
                     {
-                        data[1] >>= 1;
-                        data[2] >>= 1;
+                        // If we receive the minimum number of votes. update the score.
+                        if (data[4] != 0 && data[6] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(data[6]))
+                        {
+                            data[3] = (data[5] == 0) ? data[1] / data[2] : (data[3] + (data[1] / data[2])) / 2;
+                            data[5] = current_moment;
+                        }
+                        data[4] = current_moment;
+                        data[1] = 0;
+                        data[2] = 0;
                     }
-                    state_set(data, 24, SBUF(accid_key));
+
+                    data[1] += blob[n + 2];
+                    data[2]++;
+                    data[6] = universe_size;
+
+                    state_set(SBUF(data), SBUF(accid_key));
                 }
             }
         }
 
         // register for the next moment
         // get host voting data
-        uint64_t acc_data[3] = {0};
-        // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        uint64_t acc_data[7] = {0};
         int res = state(SBUF(acc_data), SBUF(host_accid_key));
+        // ASSERT_FAILURE_MSG >> Error when getting hook state.
         ASSERT(res > 0 || res == DOESNT_EXIST);
         // ASSERT_FAILURE_MSG >> Already registered for this round.
         ASSERT(acc_data[0] != next_moment);
@@ -419,8 +434,11 @@ int64_t hook(uint32_t reserved)
         }
 
         acc_data[0] = next_moment;
+        // Initialize reset moment if empty.
+        if (acc_data[4] == 0)
+            acc_data[4] = current_moment;
         // ASSERT_FAILURE_MSG >> Failed to set acc_data. Check hook reserves.
-        ASSERT(state_set(acc_data, 24, moment_accid + 8, 20) == 24);
+        ASSERT(state_set(SBUF(acc_data), SBUF(host_accid_key)) == 56);
 
         // execution to here means we will register for next round
 
