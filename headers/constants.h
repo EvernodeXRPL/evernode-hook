@@ -109,7 +109,7 @@ enum OPERATION
 #define MAX_EVENT_TYPE_SIZE 40  // Maximum string length of the event type.
 
 #define REPUTATION_UNIVERSE_SIZE 64 // Size of reputation contract cluster.
-#define REPUTATION_SCORE_EXPIRY_MOMENT_COUNT 4 // If scores haven't been updated for this amount of time reset.
+#define REPUTATION_SCORE_EXPIRY_MOMENT_COUNT 2 // If scores haven't been updated for this amount of time reset.
 #define REPUTATION_SCORE_VERSION 1 // Version of reputation score.
 
 // Maximum size of the event data.
