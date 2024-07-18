@@ -335,7 +335,7 @@ int64_t hook(uint32_t reserved)
                 // accumulate the scores
                 uint64_t id[4] = {0,0,current_moment,0};
                 int n = 0;
-                for (id[3] = first_hostid; GUARD(64), id[3] <= last_hostid; ++id[3], ++n)
+                for (id[3] = first_hostid; GUARD(REPUTATION_UNIVERSE_SIZE), id[3] <= last_hostid; ++id[3], ++n)
                 {
                     uint8_t accid_key[32] = {0};
                     uint8_t *accid = accid_key + 12;
