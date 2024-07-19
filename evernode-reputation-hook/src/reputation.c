@@ -233,71 +233,71 @@ int64_t hook(uint32_t reserved)
 
         int64_t no_scores_submitted = (result == 2);
 
-        // TODO: Clarify uncertainty wether this has any affect.
-        uint64_t cleanup_moment[4] = {0};
-        uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
-        uint64_t cleanup_key[4] = {0, 0, 0, special};
+        // // TODO: Clarify uncertainty wether this has any affect.
+        // uint64_t cleanup_moment[4] = {0};
+        // uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
+        // uint64_t cleanup_key[4] = {0, 0, 0, special};
 
-        // ASSERT_FAILURE_MSG >> Error when getting hook state.
-        ASSERT(state(SVAR(cleanup_moment[2]), cleanup_key, 32) >= 0);
+        // // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        // ASSERT(state(SVAR(cleanup_moment[2]), cleanup_key, 32) >= 0);
 
-        uint64_t initial_cleanup_moment = cleanup_moment[3];
+        // uint64_t initial_cleanup_moment = cleanup_moment[3];
 
-        // gc
+        // // gc
 
-        if (cleanup_moment[2] > 0 && cleanup_moment[2] < before_previous_moment)
-        {
-            // store the host count in cleanup_moment[3], so we can use the whole array as a key in a minute
-            cleanup_key[3] = cleanup_moment[2];
-            if (state(SVAR(cleanup_moment[3]), cleanup_key, 32) == sizeof(cleanup_moment[4]))
-            {
-                uint8_t cleanup_accid_key[32] = {0};
-                uint8_t *cleanup_accid = cleanup_accid_key + 4;
-                // we will cleanup the final two entries in an amortized fashion
-                if (cleanup_moment[3] > 0)
-                {
-                    *((uint64_t *)cleanup_accid) = --cleanup_moment[3];
-                    // fetch the account id for the reverse direction
-                    // ASSERT_FAILURE_MSG >> Error when getting hook state.
-                    ASSERT(state(cleanup_accid + 8, 20, cleanup_moment, sizeof(cleanup_moment)) >= 0);
-                    // ASSERT_FAILURE_MSG >> Error when setting hook state.
-                    ASSERT(state_set(0, 0, SBUF(cleanup_accid_key)) >= 0);
-                    ASSERT(state_set(0, 0, cleanup_moment, sizeof(cleanup_moment)) >= 0);
-                }
+        // if (cleanup_moment[2] > 0 && cleanup_moment[2] < before_previous_moment)
+        // {
+        //     // store the host count in cleanup_moment[3], so we can use the whole array as a key in a minute
+        //     cleanup_key[3] = cleanup_moment[2];
+        //     if (state(SVAR(cleanup_moment[3]), cleanup_key, 32) == sizeof(cleanup_moment[4]))
+        //     {
+        //         uint8_t cleanup_accid_key[32] = {0};
+        //         uint8_t *cleanup_accid = cleanup_accid_key + 4;
+        //         // we will cleanup the final two entries in an amortized fashion
+        //         if (cleanup_moment[3] > 0)
+        //         {
+        //             *((uint64_t *)cleanup_accid) = --cleanup_moment[3];
+        //             // fetch the account id for the reverse direction
+        //             // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        //             ASSERT(state(cleanup_accid + 8, 20, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(0, 0, SBUF(cleanup_accid_key)) >= 0);
+        //             ASSERT(state_set(0, 0, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //         }
 
-                if (cleanup_moment[3] > 0)
-                {
-                    *((uint64_t *)cleanup_accid) = --cleanup_moment[3];
-                    // fetch the account id for the reverse direction
-                    // ASSERT_FAILURE_MSG >> Error when getting hook state.
-                    ASSERT(state(cleanup_accid + 8, 20, cleanup_moment, sizeof(cleanup_moment)) >= 0);
-                    // ASSERT_FAILURE_MSG >> Error when setting hook state.
-                    ASSERT(state_set(0, 0, SBUF(cleanup_accid_key)) >= 0);
-                    ASSERT(state_set(0, 0, cleanup_moment, sizeof(cleanup_moment)) >= 0);
-                }
+        //         if (cleanup_moment[3] > 0)
+        //         {
+        //             *((uint64_t *)cleanup_accid) = --cleanup_moment[3];
+        //             // fetch the account id for the reverse direction
+        //             // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        //             ASSERT(state(cleanup_accid + 8, 20, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(0, 0, SBUF(cleanup_accid_key)) >= 0);
+        //             ASSERT(state_set(0, 0, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //         }
 
-                cleanup_key[3] = cleanup_moment[2];
-                // update or remove moment counters
-                if (cleanup_moment[3] > 0)
-                {
-                    // ASSERT_FAILURE_MSG >> Error when setting hook state.
-                    ASSERT(state_set(SVAR(cleanup_moment[3]), cleanup_key, 32) >= 0);
-                }
-                else
-                {
-                    // ASSERT_FAILURE_MSG >> Error when setting hook state.
-                    ASSERT(state_set(0, 0, cleanup_key, 32) >= 0);
-                    cleanup_moment[2]++;
-                }
-            }
-        }
+        //         cleanup_key[3] = cleanup_moment[2];
+        //         // update or remove moment counters
+        //         if (cleanup_moment[3] > 0)
+        //         {
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(SVAR(cleanup_moment[3]), cleanup_key, 32) >= 0);
+        //         }
+        //         else
+        //         {
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(0, 0, cleanup_key, 32) >= 0);
+        //             cleanup_moment[2]++;
+        //         }
+        //     }
+        // }
 
-        // Only do state_set if cleanup_moment[0] was updated since reading it initially
-        if (cleanup_moment[2] != initial_cleanup_moment)
-        {
-            cleanup_key[3] = special;
-            ASSERT(state_set(SVAR(cleanup_moment[2]), cleanup_key, 32) >= 0);
-        }
+        // // Only do state_set if cleanup_moment[0] was updated since reading it initially
+        // if (cleanup_moment[2] != initial_cleanup_moment)
+        // {
+        //     cleanup_key[3] = special;
+        //     ASSERT(state_set(SVAR(cleanup_moment[2]), cleanup_key, 32) >= 0);
+        // }
 
         uint64_t moment_key[4] = {0, 0, 0, current_moment};
         *((uint64_t *)moment_accid) = current_moment;
