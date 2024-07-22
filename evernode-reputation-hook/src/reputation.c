@@ -9,7 +9,7 @@
  *
  * Behaviour:
  *  There is a reputation round each moment (hour).
- *  To register for a reputation round your reputation account invokes this hook.
+ *  To register for a reputation round your reputation account invokes this hook..
  *  If you were in the previous round then you submit your scores as a blob when you invoke, otherwise submit no blob.
  *  You are placed into a shuffled deck. Your Ordered Host ID is your place in the deck. The first place is 0.
  *  Your Ordered host ID is only final when the moment begins.
