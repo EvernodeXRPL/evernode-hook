@@ -27,15 +27,15 @@ int64_t hook(uint32_t reserved)
     CHECK_PARTIAL_PAYMENT();
 
     // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
+    unsigned char hook_accid[ACCOUNT_ID_SIZE];
+    hook_account((uint32_t)hook_accid, ACCOUNT_ID_SIZE);
 
     // Next fetch the sfAccount field from the originating transaction
     uint8_t account_field[ACCOUNT_ID_SIZE];
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
 
     // ASSERT_FAILURE_MSG >> sfAccount field is missing.
-    ASSERT(account_field_len == 20);
+    ASSERT(account_field_len == ACCOUNT_ID_SIZE);
 
     /**
      * Accept
@@ -293,7 +293,7 @@ int64_t hook(uint32_t reserved)
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
-    ASSERT(!(op_type != OP_HEARTBEAT && event_data_len < 0));
+    ASSERT(!(op_type != OP_HEARTBEAT && event_data_len <= 0));
 
     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
