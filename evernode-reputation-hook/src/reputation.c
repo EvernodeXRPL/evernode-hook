@@ -220,18 +220,21 @@ int64_t hook(uint32_t reserved)
         uint8_t host_accid_key[32] = {0};
         COPY_20BYTES((host_accid_key + 12), event_data);
 
-        uint8_t blob[66];
+        uint8_t blob[67];
 
         int64_t result = otxn_field(SBUF(blob), sfBlob);
 
         // ASSERT_FAILURE_MSG >> sfBlob doesn't exist.
         ASSERT(result > 0);
-        // ASSERT_FAILURE_MSG >> sfBlob must be 2 bytes or 65 bytes.
-        ASSERT(result == 2 || result == 66);
+        // ASSERT_FAILURE_MSG >> sfBlob must be 2 bytes or 66 bytes.
+        ASSERT(result == 2 || result == 66 || result == 67);
         // ASSERT_FAILURE_MSG >> sfBlob invalid score version.
         ASSERT(blob[1] == REPUTATION_SCORE_VERSION);
 
         int64_t no_scores_submitted = (result == 2);
+
+        // Read the cluster size if sent.
+        uint8_t cluster_size = result == 67 ? blob[66] : 0;
 
         // // TODO: Clarify uncertainty wether this has any affect.
         // uint64_t cleanup_moment[4] = {0};
@@ -361,11 +364,15 @@ int64_t hook(uint32_t reserved)
                         data[4] = current_moment;
                         data[1] = 0;
                         data[2] = 0;
+                        data[6] = 0;
                     }
 
                     data[1] += blob[n + 2];
                     data[2]++;
-                    data[6] = universe_size;
+                    if (cluster_size != 0)
+                        data[6] = cluster_size;
+                    else if (data[6] == 0)
+                        data[6] = universe_size;
 
                     state_set(SBUF(data), SBUF(accid_key));
                 }
