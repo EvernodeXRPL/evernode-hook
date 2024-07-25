@@ -28,15 +28,15 @@ int64_t hook(uint32_t reserved)
     CHECK_PARTIAL_PAYMENT();
 
     // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
+    unsigned char hook_accid[ACCOUNT_ID_SIZE];
+    hook_account((uint32_t)hook_accid, ACCOUNT_ID_SIZE);
 
     // Next fetch the sfAccount field from the originating transaction
     uint8_t account_field[ACCOUNT_ID_SIZE];
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
 
     // ASSERT_FAILURE_MSG >> sfAccount field is missing.
-    ASSERT(account_field_len == 20);
+    ASSERT(account_field_len == ACCOUNT_ID_SIZE);
 
     /**
      * Accept
@@ -176,7 +176,7 @@ int64_t hook(uint32_t reserved)
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
-    ASSERT(!(op_type != OP_HOST_REBATE && op_type != OP_FOUNDATION_FUND_REQ && event_data_len < 0));
+    ASSERT(!(op_type != OP_HOST_REBATE && op_type != OP_FOUNDATION_FUND_REQ && event_data_len <= 0));
 
     // <token_id(32)><country_code(2)><reserved(8)><description(26)><registration_ledger(8)><registration_fee(8)><no_of_total_instances(4)><no_of_active_instances(4)>
     // <last_heartbeat_index(8)><version(3)><registration_timestamp(8)><transfer_flag(1)><last_vote_candidate_idx(4)><last_vote_timestamp(8)><support_vote_sent(1)><host_reputation(1)><flags(1)><transfer_timestamp(8)>

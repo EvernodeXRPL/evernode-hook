@@ -2,14 +2,14 @@
  * Everrep - Reputation accumulator and universe shuffler hook for Evernode.
  *
  * State: (8l = 8 byte uint64 little endian)
- *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l]
+ *   [host account id : 20b]                => [last registered moment: 8l, score numerator: 8l, score denominator 8l, score: 8l, last reset moment: 8l, last scored moment: 8l, universe size 8l]
  *   [moment : 8l, hostaccid : 20b]         => [ordered hostid : 8l]
  *   [moment : 8l, ordered hostid : 8l ]    => [hostaccid : 20b]
  *   [moment : 8l]                          => [host count in that moment : 8l]
  *
  * Behaviour:
  *  There is a reputation round each moment (hour).
- *  To register for a reputation round your reputation account invokes this hook.
+ *  To register for a reputation round your reputation account invokes this hook..
  *  If you were in the previous round then you submit your scores as a blob when you invoke, otherwise submit no blob.
  *  You are placed into a shuffled deck. Your Ordered Host ID is your place in the deck. The first place is 0.
  *  Your Ordered host ID is only final when the moment begins.
@@ -35,8 +35,8 @@ int64_t hook(uint32_t reserved)
     CHECK_PARTIAL_PAYMENT();
 
     // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
+    unsigned char hook_accid[ACCOUNT_ID_SIZE];
+    hook_account((uint32_t)hook_accid, ACCOUNT_ID_SIZE);
 
     int64_t cur_ledger_seq = ledger_seq();
 
@@ -45,7 +45,7 @@ int64_t hook(uint32_t reserved)
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
 
     // ASSERT_FAILURE_MSG >> sfAccount field is missing.
-    ASSERT(account_field_len == 20);
+    ASSERT(account_field_len == ACCOUNT_ID_SIZE);
 
     enum OPERATION op_type = OP_NONE;
     int64_t txn_type = otxn_type();
@@ -56,7 +56,7 @@ int64_t hook(uint32_t reserved)
         PERMIT();
     }
 
-    uint8_t event_type[MAX_EVENT_TYPE_SIZE];
+    uint8_t event_type[MAX_EVENT_TYPE_SIZE] = {0};
     const int64_t event_type_len = otxn_param(SBUF(event_type), SBUF(PARAM_EVENT_TYPE_KEY));
 
     if (event_type_len == DOESNT_EXIST)
@@ -66,7 +66,7 @@ int64_t hook(uint32_t reserved)
     }
 
     // ASSERT_FAILURE_MSG >> Error getting the event type param.
-    ASSERT(!(event_type_len < 0));
+    ASSERT(!(event_type_len <= 0));
 
     // Reading the hook governance account from hook params
     uint8_t state_hook_accid[ACCOUNT_ID_SIZE] = {0};
@@ -94,7 +94,7 @@ int64_t hook(uint32_t reserved)
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
-    ASSERT(!(event_data_len < 0));
+    ASSERT(!(event_data_len <= 0));
 
     int64_t cur_ledger_timestamp = ledger_last_time() + XRPL_TIMESTAMP_OFFSET;
 
@@ -102,7 +102,7 @@ int64_t hook(uint32_t reserved)
     uint8_t moment_base_info[MOMENT_BASE_INFO_VAL_SIZE] = {0};
 
     // ASSERT_FAILURE_MSG >> Could not get moment base info state.
-    ASSERT(state_foreign(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) >= 0);
+    ASSERT(state_foreign(SBUF(moment_base_info), SBUF(STK_MOMENT_BASE_INFO), FOREIGN_REF) > 0);
 
     uint64_t moment_base_idx = UINT64_FROM_BUF_LE(&moment_base_info[MOMENT_BASE_POINT_OFFSET]);
     uint32_t prev_transition_moment = UINT32_FROM_BUF_LE(&moment_base_info[MOMENT_AT_TRANSITION_OFFSET]);
@@ -145,13 +145,13 @@ int64_t hook(uint32_t reserved)
         CANDIDATE_ID_KEY(event_data);
 
         // ASSERT_FAILURE_MSG >> Error getting a candidate for the given id.
-        ASSERT(state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
+        ASSERT(state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) > 0);
 
         // As first 20 bytes of "candidate_id" represents owner address.
         CANDIDATE_OWNER_KEY(candidate_id);
 
         // ASSERT_FAILURE_MSG >> Could not get candidate owner state.
-        ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0);
+        ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) > 0);
 
         uint8_t hash_arr[HASH_SIZE * 4];
         COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET]);
@@ -164,8 +164,8 @@ int64_t hook(uint32_t reserved)
                  state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
 
         int tx_size;
-
-        etxn_reserve(2);
+        // ASSERT_FAILURE_MSG >> Could not estimate required txn fee.
+        ASSERT(!(etxn_reserve(2) < 0));
 
         uint8_t emithash[HASH_SIZE];
 
@@ -179,12 +179,12 @@ int64_t hook(uint32_t reserved)
                                                    0, 0, 0, 0, 1, tx_size);
 
         // ASSERT_FAILURE_MSG >> Emitting reputation hook grant update failed.
-        ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) >= 0);
+        ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) == HASH_SIZE);
 
         PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);
 
         // ASSERT_FAILURE_MSG >> Emitting reputation hook post update trigger failed.
-        ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) >= 0);
+        ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) == HASH_SIZE);
 
         PERMIT();
     }
@@ -192,7 +192,9 @@ int64_t hook(uint32_t reserved)
     {
         // BEGIN: Check for registration entry.
         uint8_t host_acc_keylet[34] = {0};
-        util_keylet(SBUF(host_acc_keylet), KEYLET_ACCOUNT, event_data, ACCOUNT_ID_SIZE, 0, 0, 0, 0);
+
+        // ASSERT_FAILURE_MSG >> Could not generate the keylet for KEYLET_ACCOUNT.
+        ASSERT(util_keylet(SBUF(host_acc_keylet), KEYLET_ACCOUNT, event_data, ACCOUNT_ID_SIZE, 0, 0, 0, 0) == 34);
 
         int64_t cur_slot = 0;
         GET_SLOT_FROM_KEYLET(host_acc_keylet, cur_slot);
@@ -206,87 +208,114 @@ int64_t hook(uint32_t reserved)
         // Host Registration State.
         uint8_t host_addr[HOST_ADDR_VAL_SIZE];
         HOST_ADDR_KEY(event_data);
-        // ASSERT_FAILURE_MSG >> This host is not registered.
-        ASSERT(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) != DOESNT_EXIST);
+        // ASSERT_FAILURE_MSG >> Error when getting host address.
+        ASSERT(!(state_foreign(SBUF(host_addr), SBUF(STP_HOST_ADDR), FOREIGN_REF) < 0));
 
         // END: Check for registration entry.
 
-        uint8_t accid[28];
-        COPY_20BYTES((accid + 8), event_data);
+        uint8_t moment_accid_key[32] = {0};
+        uint8_t *moment_accid = moment_accid_key + 4;
+        COPY_20BYTES((moment_accid + 8), event_data);
 
-        uint8_t blob[65];
+        uint8_t host_accid_key[32] = {0};
+        COPY_20BYTES((host_accid_key + 12), event_data);
+
+        uint8_t blob[66];
 
         int64_t result = otxn_field(SBUF(blob), sfBlob);
 
-        int64_t no_scores_submitted = (result == DOESNT_EXIST);
+        // ASSERT_FAILURE_MSG >> sfBlob doesn't exist.
+        ASSERT(result > 0);
+        // ASSERT_FAILURE_MSG >> sfBlob must be 2 bytes or 65 bytes.
+        ASSERT(result == 2 || result == 66);
+        // ASSERT_FAILURE_MSG >> sfBlob invalid score version.
+        ASSERT(blob[1] == REPUTATION_SCORE_VERSION);
 
-        // ASSERT_FAILURE_MSG >> sfBlob must be 65 bytes.
-        ASSERT(no_scores_submitted || result == 65);
+        int64_t no_scores_submitted = (result == 2);
 
-        // TODO: Clarify uncertainty wether this has any affect.
-        uint64_t cleanup_moment[2];
-        uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
-        state(SVAR(cleanup_moment[0]), SVAR(special));
+        // // TODO: Clarify uncertainty wether this has any affect.
+        // uint64_t cleanup_moment[4] = {0};
+        // uint64_t special = 0xFFFFFFFFFFFFFFFFULL;
+        // uint64_t cleanup_key[4] = {0, 0, 0, special};
 
-        // gc
+        // // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        // ASSERT(state(SVAR(cleanup_moment[2]), cleanup_key, 32) >= 0);
 
-        if (cleanup_moment[0] > 0 && cleanup_moment[0] < before_previous_moment)
-        {
-            // store the host count in cleanup_moment[1], so we can use the whole array as a key in a minute
-            if (state(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0])) == sizeof(cleanup_moment[1]))
-            {
+        // uint64_t initial_cleanup_moment = cleanup_moment[3];
 
-                uint8_t accid[28];
-                // we will cleanup the final two entries in an amortized fashion
-                if (cleanup_moment[1] > 0)
-                {
-                    *((uint64_t *)accid) = --cleanup_moment[1];
-                    // fetch the account id for the reverse direction
-                    state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
+        // // gc
 
-                    state_set(0, 0, SBUF(accid));
-                    state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
-                }
+        // if (cleanup_moment[2] > 0 && cleanup_moment[2] < before_previous_moment)
+        // {
+        //     // store the host count in cleanup_moment[3], so we can use the whole array as a key in a minute
+        //     cleanup_key[3] = cleanup_moment[2];
+        //     if (state(SVAR(cleanup_moment[3]), cleanup_key, 32) == sizeof(cleanup_moment[4]))
+        //     {
+        //         uint8_t cleanup_accid_key[32] = {0};
+        //         uint8_t *cleanup_accid = cleanup_accid_key + 4;
+        //         // we will cleanup the final two entries in an amortized fashion
+        //         if (cleanup_moment[3] > 0)
+        //         {
+        //             *((uint64_t *)cleanup_accid) = --cleanup_moment[3];
+        //             // fetch the account id for the reverse direction
+        //             // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        //             ASSERT(state(cleanup_accid + 8, 20, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(0, 0, SBUF(cleanup_accid_key)) >= 0);
+        //             ASSERT(state_set(0, 0, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //         }
 
-                if (cleanup_moment[1] > 0)
-                {
-                    *((uint64_t *)accid) = --cleanup_moment[1];
-                    // fetch the account id for the reverse direction
-                    state(accid + 8, 20, cleanup_moment, sizeof(cleanup_moment));
+        //         if (cleanup_moment[3] > 0)
+        //         {
+        //             *((uint64_t *)cleanup_accid) = --cleanup_moment[3];
+        //             // fetch the account id for the reverse direction
+        //             // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        //             ASSERT(state(cleanup_accid + 8, 20, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(0, 0, SBUF(cleanup_accid_key)) >= 0);
+        //             ASSERT(state_set(0, 0, cleanup_moment, sizeof(cleanup_moment)) >= 0);
+        //         }
 
-                    state_set(0, 0, SBUF(accid));
-                    state_set(0, 0, cleanup_moment, sizeof(cleanup_moment));
-                }
+        //         cleanup_key[3] = cleanup_moment[2];
+        //         // update or remove moment counters
+        //         if (cleanup_moment[3] > 0)
+        //         {
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(SVAR(cleanup_moment[3]), cleanup_key, 32) >= 0);
+        //         }
+        //         else
+        //         {
+        //             // ASSERT_FAILURE_MSG >> Error when setting hook state.
+        //             ASSERT(state_set(0, 0, cleanup_key, 32) >= 0);
+        //             cleanup_moment[2]++;
+        //         }
+        //     }
+        // }
 
-                // update or remove moment counters
-                if (cleanup_moment[1] > 0)
-                    state_set(SVAR(cleanup_moment[1]), SVAR(cleanup_moment[0]));
-                else
-                {
-                    state_set(0, 0, SVAR(cleanup_moment[0]));
-                    cleanup_moment[0]++;
-                }
-            }
-        }
-        state_set(SVAR(cleanup_moment[0]), SVAR(special));
+        // // Only do state_set if cleanup_moment[0] was updated since reading it initially
+        // if (cleanup_moment[2] != initial_cleanup_moment)
+        // {
+        //     cleanup_key[3] = special;
+        //     ASSERT(state_set(SVAR(cleanup_moment[2]), cleanup_key, 32) >= 0);
+        // }
 
-        *((uint64_t *)accid) = current_moment;
+        uint64_t moment_key[4] = {0, 0, 0, current_moment};
+        *((uint64_t *)moment_accid) = current_moment;
+
         uint64_t previous_hostid;
 
-        int64_t in_previous_round = (state(SVAR(previous_hostid), SBUF(accid)) == sizeof(previous_hostid));
+        int in_previous_round = (state(SVAR(previous_hostid), SBUF(moment_accid_key)) == sizeof(previous_hostid));
 
-        if (in_previous_round)
+        if (in_previous_round && !no_scores_submitted)
         {
-            // ASSERT_FAILURE_MSG >> Submit your scores!
-            ASSERT(!no_scores_submitted);
-
             // find out which universe you were in
             uint64_t hostid = previous_hostid;
 
             uint64_t universe = hostid >> 6;
 
             uint64_t host_count;
-            state(SVAR(host_count), accid, 8);
+            // ASSERT_FAILURE_MSG >> Error when getting hook state.
+            ASSERT(state(SVAR(host_count), moment_key, 32) >= 0);
 
             uint64_t first_hostid = universe << 6;
 
@@ -298,41 +327,57 @@ int64_t hook(uint32_t reserved)
 
             if (hostid <= last_universe_hostid)
             {
+                // Get the host count in the universe.
+                uint64_t universe_size = REPUTATION_UNIVERSE_SIZE;
+                if (universe == last_universe && (host_count % REPUTATION_UNIVERSE_SIZE) != 0)
+                    universe_size = host_count % REPUTATION_UNIVERSE_SIZE;
+
                 // accumulate the scores
-                uint64_t id[2];
-                id[0] = current_moment;
+                uint64_t id[4] = {0, 0, current_moment, 0};
                 int n = 0;
-                for (id[1] = first_hostid; GUARD(64), id[1] <= last_hostid; ++id[1], ++n)
+                for (id[3] = first_hostid; GUARD(REPUTATION_UNIVERSE_SIZE), id[3] <= last_hostid; ++id[3], ++n)
                 {
-                    uint8_t accid[20];
-                    if (state(SBUF(accid), id, 16) != 20)
+                    uint8_t accid_key[32] = {0};
+                    uint8_t *accid = accid_key + 12;
+                    if (state(accid, 20, id, 32) != 20)
                         continue;
-                    uint64_t data[3];
-                    if (state(data, 24, SBUF(accid)) != 24)
+                    uint64_t data[7];
+                    if (!(state(SBUF(data), SBUF(accid_key)) >= 24))
                         continue;
 
                     // sanity check: either they are still most recently registered for next moment or last
                     if (data[0] > next_moment || data[0] < previous_moment)
                         continue;
 
-                    data[1] += blob[n + 1];
-                    data[2]++;
-
-                    // when the denominator gets above a certain size we normalize the fraction by dividing top and bottom
-                    if (data[2] > 12 * host_count)
+                    // If this is a new moment.
+                    if (current_moment > data[4])
                     {
-                        data[1] >>= 1;
-                        data[2] >>= 1;
+                        // If we receive the minimum number of votes. update the score.
+                        if (data[4] != 0 && data[6] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(data[6]))
+                        {
+                            data[3] = (data[5] == 0) ? data[1] / data[2] : (data[3] + (data[1] / data[2])) / 2;
+                            data[5] = current_moment;
+                        }
+                        data[4] = current_moment;
+                        data[1] = 0;
+                        data[2] = 0;
                     }
-                    state_set(data, 24, SBUF(accid));
+
+                    data[1] += blob[n + 2];
+                    data[2]++;
+                    data[6] = universe_size;
+
+                    state_set(SBUF(data), SBUF(accid_key));
                 }
             }
         }
 
         // register for the next moment
         // get host voting data
-        uint64_t acc_data[3];
-        state(SBUF(acc_data), accid + 8, 20);
+        uint64_t acc_data[7] = {0};
+        int res = state(SBUF(acc_data), SBUF(host_accid_key));
+        // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        ASSERT(res > 0 || res == DOESNT_EXIST);
         // ASSERT_FAILURE_MSG >> Already registered for this round.
         ASSERT(acc_data[0] != next_moment);
 
@@ -340,23 +385,26 @@ int64_t hook(uint32_t reserved)
         {
             // Clean up Junk state entires related to host previous round.
             uint64_t cleanup_moment = acc_data[0] == current_moment ? acc_data[0] - 1 : acc_data[0];
-            uint64_t order_id[2] = {cleanup_moment, 0};
-            *((uint64_t *)accid) = cleanup_moment;
-            if (state(SVAR(order_id[1]), SBUF(accid)) > 0)
+            uint64_t order_id[4] = {0, 0, cleanup_moment, 0};
+            *((uint64_t *)moment_accid) = cleanup_moment;
+            if (state(SVAR(order_id[3]), SBUF(moment_accid_key)) > 0)
             {
-                state_set(0, 0, SBUF(accid));
-                state_set(0, 0, order_id, 16);
+                state_set(0, 0, SBUF(moment_accid_key));
+                state_set(0, 0, order_id, 32);
             }
-            state_set(0, 0, SVAR(cleanup_moment));
+
+            moment_key[3] = cleanup_moment;
+            state_set(0, 0, moment_key, 32);
 
             // TODO: This section is used to cleanup older deprecated states from v0.8.3. Can be removed when all hosts are updated and stabilized.
-            uint8_t deprecated_accid[28];
+            uint8_t deprecated_accid_key[32] = {0};
+            uint8_t *deprecated_accid = deprecated_accid_key + 4;
             *((uint64_t *)deprecated_accid) = cleanup_moment;
             COPY_20BYTES((deprecated_accid + 8), account_field);
-            if (state(SVAR(order_id[1]), SBUF(deprecated_accid)) > 0)
+            if (state(SVAR(order_id[3]), SBUF(deprecated_accid_key)) > 0)
             {
-                state_set(0, 0, SBUF(deprecated_accid));
-                state_set(0, 0, order_id, 16);
+                state_set(0, 0, SBUF(deprecated_accid_key));
+                state_set(0, 0, order_id, 32);
             }
             ///////////////////////
 
@@ -364,69 +412,79 @@ int64_t hook(uint32_t reserved)
             if (cleanup_moment == acc_data[0])
             {
                 cleanup_moment--;
-                order_id[0] = cleanup_moment;
-                *((uint64_t *)accid) = cleanup_moment;
-                if (state(SVAR(order_id[1]), SBUF(accid)) > 0)
+                order_id[2] = cleanup_moment;
+                *((uint64_t *)moment_accid) = cleanup_moment;
+                if (state(SVAR(order_id[3]), SBUF(moment_accid_key)) > 0)
                 {
-                    state_set(0, 0, SBUF(accid));
-                    state_set(0, 0, order_id, 16);
+                    state_set(0, 0, SBUF(moment_accid_key));
+                    state_set(0, 0, order_id, 32);
                 }
-                state_set(0, 0, SVAR(cleanup_moment));
+                moment_key[3] = cleanup_moment;
+                state_set(0, 0, moment_key, 32);
 
                 // TODO: This section is used to cleanup older deprecated states from v0.8.3. Can be removed when all hosts are updated and stabilized.
                 *((uint64_t *)deprecated_accid) = cleanup_moment;
-                if (state(SVAR(order_id[1]), SBUF(deprecated_accid)) > 0)
+                if (state(SVAR(order_id[3]), SBUF(deprecated_accid_key)) > 0)
                 {
-                    state_set(0, 0, SBUF(deprecated_accid));
-                    state_set(0, 0, order_id, 16);
+                    state_set(0, 0, SBUF(deprecated_accid_key));
+                    state_set(0, 0, order_id, 32);
                 }
-                ///////////////////////
             }
+            ///////////////////////
         }
 
         acc_data[0] = next_moment;
+        // Initialize reset moment if empty.
+        if (acc_data[4] == 0)
+            acc_data[4] = current_moment;
         // ASSERT_FAILURE_MSG >> Failed to set acc_data. Check hook reserves.
-        ASSERT(state_set(acc_data, 24, accid + 8, 20) == 24);
+        ASSERT(state_set(SBUF(acc_data), SBUF(host_accid_key)) == 56);
 
         // execution to here means we will register for next round
 
-        uint64_t host_count;
-        state(SVAR(host_count), SVAR(next_moment));
+        uint64_t host_count = 0;
+        moment_key[3] = next_moment;
+        // ASSERT_FAILURE_MSG >> Error when getting hook state.
+        res = state(SVAR(host_count), moment_key, 32);
+        ASSERT(res > 0 || res == DOESNT_EXIST);
 
-        *((uint64_t *)accid) = next_moment;
-        uint64_t forward[2] = {next_moment, 0};
+        *((uint64_t *)moment_accid) = next_moment;
+        uint64_t forward[4] = {0, 0, next_moment, 0};
 
         if (host_count == 0)
         {
             // ASSERT_FAILURE_MSG >> Failed to set state host_count 1. Check hook reserves.
-            ASSERT(state_set(accid + 8, 20, forward, 16) == 20 &&
-                   state_set(SVAR(host_count), SBUF(accid)) == 8);
+            ASSERT(state_set(moment_accid + 8, 20, forward, 32) == 20 &&
+                   state_set(SVAR(host_count), SBUF(moment_accid_key)) == 8);
         }
         else
         {
             // pick a random other host
             uint64_t rnd[4];
-            ledger_nonce(rnd, 32);
+            // ASSERT_FAILURE_MSG >> Error when getting nonce.
+            ASSERT(ledger_nonce(rnd, 32) >= 0);
 
             uint64_t other = rnd[0] % host_count;
 
             // put the other at the end
-            forward[1] = other;
-            uint8_t reverse[28];
+            forward[3] = other;
+            uint8_t reverse_key[32] = {0};
+            uint8_t *reverse = reverse_key + 4;
             *((uint64_t *)reverse) = next_moment;
-            state(reverse + 8, 20, forward, 16);
+            // ASSERT_FAILURE_MSG >> Could not set state.
+            ASSERT(state(reverse + 8, 20, forward, 32) >= 0);
 
-            forward[1] = host_count;
+            forward[3] = host_count;
 
             // ASSERT_FAILURE_MSG >> Could not set state (move host.) Check hook reserves.
-            ASSERT(state_set(SVAR(host_count), SBUF(reverse)) == 8 &&
-                   state_set(reverse + 8, 20, forward, 16) == 20);
+            ASSERT(state_set(SVAR(host_count), SBUF(reverse_key)) == 8 &&
+                   state_set(reverse + 8, 20, forward, 32) == 20);
 
             // put us where he was
-            forward[1] = other;
+            forward[3] = other;
             // ASSERT_FAILURE_MSG >> Could not set state (new host.) Check hook reserves.
-            ASSERT(state_set(SVAR(other), SBUF(accid)) == 8 &&
-                   state_set(accid + 8, 20, forward, 16) == 20);
+            ASSERT(state_set(SVAR(other), SBUF(moment_accid_key)) == 8 &&
+                   state_set(moment_accid + 8, 20, forward, 32) == 20);
         }
 
         host_count += 1;

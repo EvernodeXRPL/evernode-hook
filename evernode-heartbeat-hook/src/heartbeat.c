@@ -27,15 +27,15 @@ int64_t hook(uint32_t reserved)
     CHECK_PARTIAL_PAYMENT();
 
     // Getting the hook account id.
-    unsigned char hook_accid[20];
-    hook_account((uint32_t)hook_accid, 20);
+    unsigned char hook_accid[ACCOUNT_ID_SIZE];
+    hook_account((uint32_t)hook_accid, ACCOUNT_ID_SIZE);
 
     // Next fetch the sfAccount field from the originating transaction
     uint8_t account_field[ACCOUNT_ID_SIZE];
     int32_t account_field_len = otxn_field(SBUF(account_field), sfAccount);
 
     // ASSERT_FAILURE_MSG >> sfAccount field is missing.
-    ASSERT(account_field_len == 20);
+    ASSERT(account_field_len == ACCOUNT_ID_SIZE);
 
     /**
      * Accept
@@ -293,7 +293,7 @@ int64_t hook(uint32_t reserved)
     const int64_t event_data_len = otxn_param(SBUF(event_data), SBUF(PARAM_EVENT_DATA_KEY));
 
     // ASSERT_FAILURE_MSG >> Error getting the event data param.
-    ASSERT(!(op_type != OP_HEARTBEAT && event_data_len < 0));
+    ASSERT(!(op_type != OP_HEARTBEAT && event_data_len <= 0));
 
     uint8_t issuer_accid[ACCOUNT_ID_SIZE] = {0};
     uint8_t foundation_accid[ACCOUNT_ID_SIZE] = {0};
@@ -438,6 +438,21 @@ int64_t hook(uint32_t reserved)
                 host_addr[HOST_REPUTATION_OFFSET] = 0;
             else if (host_addr[HOST_REPUTATION_OFFSET] == 0)
                 host_addr[HOST_REPUTATION_OFFSET] = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+            // TODO: Uncomment following to consider reputation score for rewards.
+            // else
+            // {
+            //     uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
+            //     // ASSERT_FAILURE_MSG >> Could not get reputation account id.
+            //     ASSERT(!(state_foreign(SBUF(reputation_accid), SBUF(CONF_REPUTATION_ADDR), FOREIGN_REF) < 0));
+            //     uint64_t data[7];
+            //     const int host_rep_state_res = state_foreign(SBUF(data), SBUF(account_field), SBUF(NAMESPACE), reputation_accid, ACCOUNT_ID_SIZE);
+            //     // ASSERT_FAILURE_MSG >> Error getting host reputation state.
+            //     ASSERT(host_rep_state_res > 0 || host_rep_state_res == DOESNT_EXIST);
+            //     if (host_rep_state_res == DOESNT_EXIST || (cur_moment - data[5]) > REPUTATION_SCORE_EXPIRY_MOMENT_COUNT)
+            //         host_addr[HOST_REPUTATION_OFFSET] = 0;
+            //     else
+            //         host_addr[HOST_REPUTATION_OFFSET] = data[3] * 255 / 100;
+            // }
 
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
