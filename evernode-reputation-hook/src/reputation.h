@@ -9,7 +9,7 @@
 
 // Minimum requirement of denominator to update score.
 #define MIN_DENOM_REQUIREMENT(cluster_size) \
-    cluster_size * 80 / 100
+    cluster_size * 60 / 100
 
 // Minimum requirement of cluster size to update score.
 #define MIN_CLUSTER_REQUIREMENT(universe_size) \
