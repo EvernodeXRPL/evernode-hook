@@ -356,7 +356,7 @@ int64_t hook(uint32_t reserved)
                     if (current_moment > data[4])
                     {
                         // If we receive the minimum number of votes. update the score.
-                        if (data[4] != 0 && data[6] != 0 && data[2] >= MIN_DENOM_REQUIREMENT(data[6]))
+                        if (data[4] != 0 && data[6] != 0 && data[6] > MIN_CLUSTER_REQUIREMENT(universe_size) && data[2] >= MIN_DENOM_REQUIREMENT(data[6]))
                         {
                             data[3] = (data[5] == 0) ? data[1] / data[2] : (data[3] + (data[1] / data[2])) / 2;
                             data[5] = current_moment;
