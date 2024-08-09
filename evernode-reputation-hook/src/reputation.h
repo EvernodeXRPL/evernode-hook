@@ -13,6 +13,6 @@
 
 // Minimum requirement of cluster size to update score.
 #define MIN_CLUSTER_REQUIREMENT(universe_size) \
-    universe_size * 50 / 100
+    universe_size * 51 / 100
 
 #endif
