@@ -110,7 +110,7 @@ enum OPERATION
 
 #define REPUTATION_UNIVERSE_SIZE 64 // Size of reputation contract cluster.
 #define REPUTATION_SCORE_EXPIRY_MOMENT_COUNT 2 // If scores haven't been updated for this amount of time reset.
-#define REPUTATION_SCORE_VERSION 2 // Version of reputation score.
+#define REPUTATION_SCORE_VERSION 3 // Version of reputation score.
 
 // Maximum size of the event data.
 #define MAX_EVENT_DATA_SIZE \
