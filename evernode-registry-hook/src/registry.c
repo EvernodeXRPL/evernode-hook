@@ -133,8 +133,8 @@ int64_t hook(uint32_t reserved)
             else if (EQUAL_HOST_UPDATE_REG(event_type, event_type_len))
                 op_type = OP_HOST_UPDATE_REG;
             // Dead Host Prune.
-            else if (EQUAL_DEAD_HOST_PRUNE(event_type, event_type_len))
-                op_type = OP_DEAD_HOST_PRUNE;
+            // else if (EQUAL_DEAD_HOST_PRUNE(event_type, event_type_len))
+            //     op_type = OP_DEAD_HOST_PRUNE;
             // Host rebate.
             else if (EQUAL_HOST_REBATE(event_type, event_type_len))
                 op_type = OP_HOST_REBATE;
