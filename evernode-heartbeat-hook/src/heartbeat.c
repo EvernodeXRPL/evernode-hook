@@ -473,17 +473,17 @@ int64_t hook(uint32_t reserved)
             const uint8_t *accumulated_reward_ptr = &token_id[HOST_ACCUMULATED_REWARD_OFFSET];
             int64_t accumulated_reward = INT64_FROM_BUF_LE(accumulated_reward_ptr);
 
-            // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active and reputed in the previous moment AND
-            // the reward quota is not 0.
-            if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
-                last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
-                CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) &&
-                (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
-            {
-                accumulated_reward = float_sum(accumulated_reward, reward_amount);
-                reward_pool_amount = float_sum(reward_pool_amount, float_negate(reward_amount));
-                INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], reward_pool_amount);
-            }
+            // // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active and reputed in the previous moment AND
+            // // the reward quota is not 0.
+            // if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
+            //     last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
+            //     CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) &&
+            //     (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
+            // {
+            //     accumulated_reward = float_sum(accumulated_reward, reward_amount);
+            //     reward_pool_amount = float_sum(reward_pool_amount, float_negate(reward_amount));
+            //     INT64_TO_BUF_LE(&reward_info[EPOCH_POOL_OFFSET], reward_pool_amount);
+            // }
 
             // Send the accumulated rewards if there's any.
             const uint16_t accumulated_reward_freq = UINT16_FROM_BUF_LE(&reward_configuration[ACCUMULATED_REWARD_FREQUENCY_OFFSET]);
