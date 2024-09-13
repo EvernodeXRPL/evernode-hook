@@ -389,9 +389,9 @@ int64_t hook(uint32_t reserved)
             // Update the reputed flag if host is reputed.
             const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
             const uint8_t host_flags = host_addr[HOST_FLAGS_OFFSET];
-            // TODO: This is currently hardcoded to 102 to make the threshold 40% temporary. Uncomment when it's made to 200.
-            // const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
-            const uint8_t reputation_threshold = 102;
+            const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
+            // TODO: This is hardcoded to 102 to make the threshold 40% temporary. Uncomment if revert is needed.
+            // const uint8_t reputation_threshold = 102;
             int host_reputed = (host_reputation >= reputation_threshold) ? 1 : 0;
             if (host_reputed)
                 ADD_FLAG(host_addr[HOST_FLAGS_OFFSET], REPUTED_ON_HEARTBEAT);
@@ -438,9 +438,9 @@ int64_t hook(uint32_t reserved)
             const uint32_t host_instance_count = UINT32_FROM_BUF_LE(&host_addr[HOST_TOT_INS_COUNT_OFFSET]);
             if (float_compare(host_lease_amount, float_set(0, 0), COMPARE_EQUAL) == 1 || float_compare(host_lease_amount, max_lease_amount, COMPARE_GREATER) == 1 || host_instance_count < min_instance_count)
                 host_addr[HOST_REPUTATION_OFFSET] = 0;
+            // TODO: This is to skip reputation score consideration for rewards, Uncomment if revert is needed.
             // else if (host_addr[HOST_REPUTATION_OFFSET] == 0)
             //     host_addr[HOST_REPUTATION_OFFSET] = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
-            // TODO: Uncomment following to consider reputation score for rewards.
             else
             {
                 uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
@@ -455,6 +455,7 @@ int64_t hook(uint32_t reserved)
                 else
                     host_addr[HOST_REPUTATION_OFFSET] = data[3] * 255 / 100;
             }
+            // TODO: This is to consider only reputation registration for rewards, Uncomment if revert is needed.
             // else
             // {
             //     uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
