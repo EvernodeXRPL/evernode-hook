@@ -450,7 +450,9 @@ int64_t hook(uint32_t reserved)
                 const int host_rep_state_res = state_foreign(SBUF(data), SBUF(account_field), SBUF(NAMESPACE), reputation_accid, ACCOUNT_ID_SIZE);
                 // ASSERT_FAILURE_MSG >> Error getting host reputation state.
                 ASSERT(host_rep_state_res > 0 || host_rep_state_res == DOESNT_EXIST);
-                if (host_rep_state_res == DOESNT_EXIST || (cur_moment - data[5]) > REPUTATION_SCORE_EXPIRY_MOMENT_COUNT)
+                // If reputation values aren't reset withing last 2 moments means host hasn't been assigned to a universe.
+                // If score hasn't been updated within last 2 moments means score is expired but universes were dud.
+                if (host_rep_state_res == DOESNT_EXIST || (cur_moment - data[4]) > REPUTATION_SCORE_EXPIRY_MOMENT_COUNT)
                     host_addr[HOST_REPUTATION_OFFSET] = 0;
                 else
                     host_addr[HOST_REPUTATION_OFFSET] = data[3] * 255 / 100;
