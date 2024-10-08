@@ -364,7 +364,7 @@ int64_t hook(uint32_t reserved)
         uint32_t last_heartbeat_moment = 0;
 
         // Skip if already sent a heartbeat in this moment.
-        int accept_heartbeat = 0, send_foundation_fund = 0;
+        int accept_heartbeat = 0, send_foundation_fund = 0, eligible_for_rewards = 0;
         if (last_heartbeat_idx == 0)
         {
             last_heartbeat_moment = 0;
@@ -478,9 +478,10 @@ int64_t hook(uint32_t reserved)
 
             // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active and reputed in the previous moment AND
             // the reward quota is not 0.
-            if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
-                last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
-                CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) &&
+            eligible_for_rewards = ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
+                                    last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
+                                    CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT));
+            if (eligible_for_rewards &&
                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
             {
                 accumulated_reward = float_sum(accumulated_reward, reward_amount);
@@ -515,12 +516,13 @@ int64_t hook(uint32_t reserved)
 
         const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
-        uint8_t eligible_for_governance = 0;
+        uint8_t eligible_for_vote = 0;
         uint8_t do_rollback = 0;
-        VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);
+        if (eligible_for_rewards)
+            VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_vote, do_rollback);
 
         // Increase the voter base count if this host haven't send heartbeat before and host is eligible for voting.
-        if (accept_heartbeat && eligible_for_governance)
+        if (accept_heartbeat && eligible_for_vote)
         {
             const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
             // Reset the count if this is a new moment.
@@ -544,7 +546,7 @@ int64_t hook(uint32_t reserved)
         if (event_data_len > 0)
         {
             // ASSERT_FAILURE_MSG >> This host is not eligible for voting.
-            ASSERT(eligible_for_governance);
+            ASSERT(eligible_for_vote);
 
             redirect_op_type = OP_VOTE;
         }
