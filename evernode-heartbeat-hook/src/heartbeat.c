@@ -543,11 +543,8 @@ int64_t hook(uint32_t reserved)
         }
 
         // Handle votes if there's a vote.
-        if (event_data_len > 0)
+        if (accept_heartbeat && eligible_for_vote && event_data_len > 0)
         {
-            // ASSERT_FAILURE_MSG >> This host is not eligible for voting.
-            ASSERT(eligible_for_vote);
-
             redirect_op_type = OP_VOTE;
         }
         else
