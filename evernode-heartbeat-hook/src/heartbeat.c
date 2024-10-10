@@ -634,8 +634,11 @@ int64_t hook(uint32_t reserved)
         // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
 
-        // ASSERT_FAILURE_MSG >> VOTE_VALIDATION_ERR - Error getting a candidate for the given id.
-        ASSERT(state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
+        if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
+        {
+            // PERMIT_MSG >> Vote skipped, error getting candidate for the given id.
+            PERMIT();
+        }
 
         // As first 20 bytes of "candidate_id" represents owner address.
         CANDIDATE_OWNER_KEY(candidate_id);
