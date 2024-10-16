@@ -635,19 +635,18 @@ int64_t hook(uint32_t reserved)
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
 
         if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
-        {
-            // PERMIT_MSG >> Vote skipped, error getting candidate for the given id.
-            PERMIT();
-        }
+            PERMIT_M("VOTE_VALIDATION_ERR - Vote skipped, error getting candidate for the given id.", 0);
 
         // As first 20 bytes of "candidate_id" represents owner address.
         CANDIDATE_OWNER_KEY(candidate_id);
 
         const uint8_t candidate_type = CANDIDATE_TYPE(event_data);
 
-        REQUIRE((candidate_type != 0), "Evernode: VOTE_VALIDATION_ERR - Voting for an invalid candidate type.");
+        if (candidate_type == 0)
+            PERMIT_M("VOTE_VALIDATION_ERR - Vote skipped, Voting for an invalid candidate type.", 0);
 
-        REQUIRE(!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]), "Evernode: VOTE_VALIDATION_ERR - Voting for this candidate is now closed.");
+        if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
+            PERMIT_M("VOTE_VALIDATION_ERR - Vote skipped, Voting for this candidate is now closed.", 0);
 
         const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
         const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
