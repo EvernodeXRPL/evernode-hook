@@ -130,12 +130,6 @@ int64_t hook(uint32_t reserved)
         ASSERT(state_foreign(SBUF(governance_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) >= 0);
         const uint8_t updated_hook_count = governance_info[UPDATED_HOOK_COUNT_OFFSET];
 
-        if (updated_hook_count < 3)
-        {
-            HANDLE_HOOK_UPDATE(CANDIDATE_REPUTATION_HOOK_HASH_OFFSET);
-            PERMIT();
-        }
-
         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
         // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
@@ -153,39 +147,42 @@ int64_t hook(uint32_t reserved)
         // ASSERT_FAILURE_MSG >> Could not get candidate owner state.
         ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) > 0);
 
-        uint8_t hash_arr[HASH_SIZE * 4];
-        COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET]);
-
-        uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
-        uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
-
-        // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry or reputation hook account id.
-        ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
-                 state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
-
-        int tx_size;
-        // ASSERT_FAILURE_MSG >> Could not estimate required txn fee.
-        ASSERT(!(etxn_reserve(2) < 0));
-
+        etxn_reserve(1);
         uint8_t emithash[HASH_SIZE];
+        if (reserved == STRONG_HOOK && updated_hook_count != 3)
+        {
+            uint8_t hash_arr[HASH_SIZE * 4];
+            COPY_32BYTES(hash_arr, &candidate_owner[CANDIDATE_REPUTATION_HOOK_HASH_OFFSET]);
 
-        PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, NAMESPACE, event_data,
-                                                   state_hook_accid,
-                                                   &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET],
-                                                   registry_accid,
-                                                   &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET],
-                                                   heartbeat_accid,
-                                                   &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET],
-                                                   0, 0, 0, 0, 1, tx_size);
+            uint8_t registry_accid[ACCOUNT_ID_SIZE] = {0};
+            uint8_t heartbeat_accid[ACCOUNT_ID_SIZE] = {0};
 
-        // ASSERT_FAILURE_MSG >> Emitting reputation hook grant update failed.
-        ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) == HASH_SIZE);
+            // ASSERT_FAILURE_MSG >> Could not get heartbeat or registry or reputation hook account id.
+            ASSERT(!(state_foreign(SBUF(heartbeat_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) < 0 ||
+                     state_foreign(SBUF(registry_accid), SBUF(CONF_REGISTRY_ADDR), FOREIGN_REF) < 0));
 
-        PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);
+            int tx_size;
+            PREPARE_SET_HOOK_WITH_GRANT_TRANSACTION_TX(hash_arr, NAMESPACE, event_data,
+                                                       state_hook_accid,
+                                                       &candidate_owner[CANDIDATE_GOVERNOR_HOOK_HASH_OFFSET],
+                                                       registry_accid,
+                                                       &candidate_owner[CANDIDATE_REGISTRY_HOOK_HASH_OFFSET],
+                                                       heartbeat_accid,
+                                                       &candidate_owner[CANDIDATE_HEARTBEAT_HOOK_HASH_OFFSET],
+                                                       PARAM_STATE_HOOK_KEY, HASH_SIZE, state_hook_accid, ACCOUNT_ID_SIZE,
+                                                       1, 1, tx_size);
+            // ASSERT_FAILURE_MSG >> Emitting reputation hook grant update failed.
+            ASSERT(emit(SBUF(emithash), SET_HOOK_TRANSACTION, tx_size) == HASH_SIZE);
 
-        // ASSERT_FAILURE_MSG >> Emitting reputation hook post update trigger failed.
-        ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) == HASH_SIZE);
-
+            // ASSERT_FAILURE_MSG >> Hook again failed on update hook.
+            ASSERT(hook_again() == 1);
+        }
+        else if (reserved == AGAIN_HOOK || updated_hook_count == 3)
+        {
+            PREPARE_HOOK_UPDATE_RES_PAYMENT_TX(1, state_hook_accid, event_data);
+            // ASSERT_FAILURE_MSG >> Emitting reputation hook post update trigger failed.
+            ASSERT(emit(SBUF(emithash), SBUF(HOOK_UPDATE_RES_PAYMENT)) == HASH_SIZE);
+        }
         PERMIT();
     }
     else if (op_type == OP_HOST_SEND_REPUTATION)
