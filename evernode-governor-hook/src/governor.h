@@ -508,4 +508,18 @@ uint8_t HEARTBEAT_FUND_PAYMENT[424] = {
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                \
     }
 
+#define GET_ACCOUNT_BALANCE(account, balance)                                                          \
+    {                                                                                                  \
+        uint8_t acc_keylet[34] = {0};                                                                  \
+        balance = 0;                                                                                   \
+        if (util_keylet(SBUF(acc_keylet), KEYLET_ACCOUNT, account, ACCOUNT_ID_SIZE, 0, 0, 0, 0) == 34) \
+        {                                                                                              \
+            int64_t cur_slot = slot_set(SBUF(acc_keylet), 0);                                          \
+            if (cur_slot >= 0)                                                                         \
+                cur_slot = slot_subfield(cur_slot, sfBalance, 0);                                      \
+            if (cur_slot >= 0)                                                                         \
+                balance = slot_float(cur_slot);                                                        \
+        }                                                                                              \
+    }
+
 #endif

@@ -742,6 +742,20 @@ int64_t hook(uint32_t reserved)
 
                 if (candidate_type == NEW_HOOK_CANDIDATE)
                 {
+                    // Check if hooks have enough funds.
+                    int64_t governor_bal, registry_bal, heartbeat_bal, reputation_bal = 0;
+                    GET_ACCOUNT_BALANCE(hook_accid, governor_bal);
+                    GET_ACCOUNT_BALANCE(registry_accid, registry_bal);
+                    GET_ACCOUNT_BALANCE(heartbeat_accid, heartbeat_bal);
+                    GET_ACCOUNT_BALANCE(reputation_accid, reputation_bal);
+                    const int64_t min_fee = float_set(-6, 999);
+
+                    // ASSERT_FAILURE_MSG >> Balance for setHook is less than required.
+                    ASSERT(float_compare(governor_bal, min_fee, COMPARE_GREATER) == 1 &&
+                           float_compare(registry_bal, min_fee, COMPARE_GREATER) == 1 &&
+                           float_compare(heartbeat_bal, min_fee, COMPARE_GREATER) == 1 &&
+                           float_compare(reputation_bal, min_fee, COMPARE_GREATER) == 1);
+
                     // Sending hook update trigger transactions to registry and heartbeat hooks.
                     PREPARE_HOOK_UPDATE_PAYMENT_TX(1, heartbeat_accid, event_data);
 
