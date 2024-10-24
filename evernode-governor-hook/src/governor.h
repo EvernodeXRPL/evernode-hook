@@ -508,18 +508,42 @@ uint8_t HEARTBEAT_FUND_PAYMENT[424] = {
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                \
     }
 
-#define GET_ACCOUNT_BALANCE(account, balance)                                                          \
-    {                                                                                                  \
-        uint8_t acc_keylet[34] = {0};                                                                  \
-        balance = 0;                                                                                   \
-        if (util_keylet(SBUF(acc_keylet), KEYLET_ACCOUNT, account, ACCOUNT_ID_SIZE, 0, 0, 0, 0) == 34) \
-        {                                                                                              \
-            int64_t cur_slot = slot_set(SBUF(acc_keylet), 0);                                          \
-            if (cur_slot >= 0)                                                                         \
-                cur_slot = slot_subfield(cur_slot, sfBalance, 0);                                      \
-            if (cur_slot >= 0)                                                                         \
-                balance = slot_float(cur_slot);                                                        \
-        }                                                                                              \
+#define GET_ACCOUNT_BALANCE(account, balance)                                         \
+    {                                                                                 \
+        uint8_t keylet[34] = {0};                                                     \
+        balance = 0;                                                                  \
+        if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, account, ACCOUNT_ID_SIZE, 0,    \
+                        0, 0, 0) == 34)                                               \
+        {                                                                             \
+            int64_t parent_slot = slot_set(SBUF(keylet), 0);                          \
+            int64_t cur_slot = -1;                                                    \
+            if (parent_slot >= 0)                                                     \
+                cur_slot = slot_subfield(parent_slot, sfBalance, 0);                  \
+            if (cur_slot >= 0)                                                        \
+                balance = slot_float(cur_slot);                                       \
+            if (parent_slot >= 0)                                                     \
+                cur_slot = slot_subfield(parent_slot, sfOwnerCount, 0);               \
+            uint32_t count = 0;                                                       \
+            const uint8_t buf[4] = {0};                                               \
+            if (cur_slot >= 0 && slot(SBUF(buf), cur_slot) == 4)                      \
+                count = UINT32_FROM_BUF(buf);                                         \
+            if (count > 0 &&                                                          \
+                util_keylet(SBUF(keylet), KEYLET_FEES, 0, 0, 0, 0, 0, 0) == 34)       \
+            {                                                                         \
+                parent_slot = slot_set(SBUF(keylet), 0);                              \
+                if (parent_slot >= 0)                                                 \
+                    cur_slot = slot_subfield(parent_slot, sfReserveIncrement, 0);     \
+                uint32_t reduction = 0;                                               \
+                if (cur_slot >= 0 && slot(SBUF(buf), cur_slot) == 4)                  \
+                    reduction = UINT32_FROM_BUF(buf);                                 \
+                reduction *= count;                                                   \
+                if (parent_slot >= 0)                                                 \
+                    cur_slot = slot_subfield(parent_slot, sfReserveBase, 0);          \
+                if (cur_slot >= 0 && slot(SBUF(buf), cur_slot) == 4)                  \
+                    reduction += UINT32_FROM_BUF(buf);                                \
+                balance = float_sum(balance, float_negate(float_set(-6, reduction))); \
+            }                                                                         \
+        }                                                                             \
     }
 
 #endif
