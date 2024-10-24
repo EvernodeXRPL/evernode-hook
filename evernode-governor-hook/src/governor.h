@@ -546,4 +546,58 @@ uint8_t HEARTBEAT_FUND_PAYMENT[424] = {
         }                                                                             \
     }
 
+#define DOES_HOOKS_EXISTS(hook_hashes, hooks_exists)               \
+    {                                                              \
+        hooks_exists = 0;                                          \
+        int64_t hook_slot = slot_set(hook_hashes, 32, 0);          \
+        if (hook_slot >= 0)                                        \
+        {                                                          \
+            hook_slot = slot_set(hook_hashes + 32, 32, 0);         \
+            if (hook_slot >= 0)                                    \
+            {                                                      \
+                hook_slot = slot_set(hook_hashes + 64, 32, 0);     \
+                if (hook_slot >= 0)                                \
+                {                                                  \
+                    hook_slot = slot_set(hook_hashes + 98, 32, 0); \
+                    if (hook_slot >= 0)                            \
+                        hooks_exists = 1;                          \
+                }                                                  \
+            }                                                      \
+        }                                                          \
+    }
+
+#define GET_HOOK_KEYLET(hash, keylet)                   \
+    {                                                   \
+        uint8_t index_data[34] = {0};                   \
+        UINT16_TO_BUF(index_data, ltHOOK_DEFINITION);   \
+        UINT16_TO_BUF(keylet, ltHOOK_DEFINITION);       \
+        COPY_32BYTES(&index_data[2], hash);             \
+        util_sha512h(keylet + 2, 32, SBUF(index_data)); \
+    }
+
+#define IS_HOOKS_EXIST(hook_hashes, hooks_exists)               \
+    {                                                          \
+        hooks_exists = 0;                                      \
+        uint8_t keylet[34] = {0};                              \
+        GET_HOOK_KEYLET(hook_hashes, keylet);                  \
+        int64_t hook_slot = slot_set(keylet, 34, 0);           \
+        if (hook_slot >= 0)                                    \
+        {                                                      \
+            GET_HOOK_KEYLET(hook_hashes + 32, keylet);         \
+            hook_slot = slot_set(keylet, 34, 0);               \
+            if (hook_slot >= 0)                                \
+            {                                                  \
+                GET_HOOK_KEYLET(hook_hashes + 64, keylet);     \
+                hook_slot = slot_set(keylet, 34, 0);           \
+                if (hook_slot >= 0)                            \
+                {                                              \
+                    GET_HOOK_KEYLET(hook_hashes + 96, keylet); \
+                    hook_slot = slot_set(keylet, 34, 0);       \
+                    if (hook_slot >= 0)                        \
+                        hooks_exists = 1;                      \
+                }                                              \
+            }                                                  \
+        }                                                      \
+    }
+
 #endif

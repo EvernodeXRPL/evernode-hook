@@ -69,8 +69,8 @@
 #define tfHookOverride 0x00000001
 #define tfPartialPayment 0x00020000
 #define ltHOOK 'H'
-
 #define ltURI_TOKEN 'U'
+#define ltHOOK_DEFINITION 'D'
 
 enum OPERATION
 {

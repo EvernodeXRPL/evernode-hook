@@ -246,7 +246,7 @@ int64_t hook(uint32_t reserved)
     // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
     // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
     uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
-    // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)>
+    // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)>
     uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
     if (op_type == OP_STATUS_CHANGE || op_type == OP_HOOK_UPDATE || op_type == OP_WITHDRAW || op_type == OP_REMOVE_LINKED_CANDIDATE)
     {
@@ -687,6 +687,7 @@ int64_t hook(uint32_t reserved)
         ASSERT(candidate_type != 0);
 
         uint8_t vote_status = *(event_data + HASH_SIZE);
+        const uint8_t is_retry = *(event_data + HASH_SIZE + 1);
 
         if (origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE)
         {
@@ -717,13 +718,29 @@ int64_t hook(uint32_t reserved)
             int64_t reward_amount = 0;
             const uint64_t cur_moment_start_timestamp = GET_MOMENT_START_INDEX(cur_idx);
 
+            // If new hook candidate is elected, Check the validity and purge if invalid.
+            if (candidate_type == NEW_HOOK_CANDIDATE && vote_status == CANDIDATE_ELECTED)
+            {
+                // Check the hook validity before electing.
+                // ASSERT_FAILURE_MSG >> Could not get candidate owner state.
+                ASSERT(state_foreign(SBUF(candidate_owner), SBUF(STP_CANDIDATE_OWNER), FOREIGN_REF) >= 0);
+
+                int hooks_exists = 0;
+                IS_HOOKS_EXIST(candidate_owner, hooks_exists);
+                if (!hooks_exists)
+                    vote_status = CANDIDATE_PURGED;
+            }
+
             uint8_t emithash[HASH_SIZE];
             if (vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAWN)
             {
-                // If proposal is purged proposal fee will be added to the reward pool.
-                // If proposal is withdrawn 50% of proposal fee will be rebated to owner.
-                reward_amount = (vote_status == CANDIDATE_PURGED) ? proposal_fee : float_multiply(proposal_fee, float_set(-1, 5));
-                etxn_reserve(2);
+                if (!is_retry)
+                {
+                    // If proposal is purged proposal fee will be added to the reward pool.
+                    // If proposal is withdrawn 50% of proposal fee will be rebated to owner.
+                    reward_amount = (vote_status == CANDIDATE_PURGED) ? proposal_fee : float_multiply(proposal_fee, float_set(-1, 5));
+                    etxn_reserve(2);
+                }
 
                 // Clear the proposal states.
                 // ASSERT_FAILURE_MSG >> Could not delete the candidate id state.
@@ -737,8 +754,8 @@ int64_t hook(uint32_t reserved)
             {
                 // If proposal is withdrawn proposal fee will be rebated to owner.
                 reward_amount = 0;
-                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? 4 : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
-                                                                                                                     : 2);
+                etxn_reserve(candidate_type == NEW_HOOK_CANDIDATE ? (is_retry ? 3 : 4) : origin_op_type == OP_REMOVE_LINKED_CANDIDATE ? 1
+                                                                                                                                      : 2);
 
                 if (candidate_type == NEW_HOOK_CANDIDATE)
                 {
@@ -797,45 +814,48 @@ int64_t hook(uint32_t reserved)
                 }
             }
 
-            if (reward_amount > 0)
+            if (!is_retry)
             {
-                ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount);
-                // Reading the heartbeat-hook account from states (Not yet set to states)
-                uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
-
-                // ASSERT_FAILURE_MSG >> Error getting heartbeat hook address from states.
-                ASSERT(state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
-
-                PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount, heartbeat_hook_accid, txid);
-
-                // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
-                ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
-            }
-
-            if (vote_status == CANDIDATE_ELECTED || vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAWN)
-            {
-                const int64_t rebate_amount = float_sum(proposal_fee, float_negate(reward_amount));
-                uint8_t *tx_ptr;
-                uint32_t tx_size;
-                const uint8_t *res_event_data_ptr = ((vote_status == CANDIDATE_PURGED) ? CANDIDATE_PURGED_RES : ((vote_status == CANDIDATE_ELECTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_REMOVE_RES));
-                if (float_compare(rebate_amount, float_set(0, 0), COMPARE_GREATER) == 1)
+                if (reward_amount > 0)
                 {
-                    // We should rollback if calculated rebate amount is greater than the received proposal fee.
-                    // ASSERT_FAILURE_MSG >> Rebate amount is greater than received.
-                    ASSERT(float_compare(rebate_amount, proposal_fee, COMPARE_GREATER) != 1);
+                    ADD_TO_REWARD_POOL(reward_info, epoch_count, first_epoch_reward_quota, epoch_reward_amount, moment_base_idx, reward_amount);
+                    // Reading the heartbeat-hook account from states (Not yet set to states)
+                    uint8_t heartbeat_hook_accid[ACCOUNT_ID_SIZE];
 
-                    PREPARE_CANDIDATE_REBATE_PAYMENT_TX(rebate_amount, candidate_id, res_event_data_ptr, event_data);
-                    tx_ptr = CANDIDATE_REBATE_PAYMENT;
-                    tx_size = CANDIDATE_REBATE_PAYMENT_TX_SIZE;
+                    // ASSERT_FAILURE_MSG >> Error getting heartbeat hook address from states.
+                    ASSERT(state_foreign(SBUF(heartbeat_hook_accid), SBUF(CONF_HEARTBEAT_ADDR), FOREIGN_REF) >= 0);
+
+                    PREPARE_HEARTBEAT_FUND_PAYMENT_TX(reward_amount, heartbeat_hook_accid, txid);
+
+                    // ASSERT_FAILURE_MSG >> EVR funding to heartbeat hook account failed.
+                    ASSERT(emit(SBUF(emithash), SBUF(HEARTBEAT_FUND_PAYMENT)) >= 0);
                 }
-                else
+
+                if (vote_status == CANDIDATE_ELECTED || vote_status == CANDIDATE_PURGED || vote_status == CANDIDATE_WITHDRAWN)
                 {
-                    PREPARE_CANDIDATE_REBATE_MIN_PAYMENT_TX(1, candidate_id, res_event_data_ptr, event_data);
-                    tx_ptr = CANDIDATE_REBATE_MIN_PAYMENT;
-                    tx_size = CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE;
+                    const int64_t rebate_amount = float_sum(proposal_fee, float_negate(reward_amount));
+                    uint8_t *tx_ptr;
+                    uint32_t tx_size;
+                    const uint8_t *res_event_data_ptr = ((vote_status == CANDIDATE_PURGED) ? CANDIDATE_PURGED_RES : ((vote_status == CANDIDATE_ELECTED) ? CANDIDATE_ACCEPT_RES : CANDIDATE_REMOVE_RES));
+                    if (float_compare(rebate_amount, float_set(0, 0), COMPARE_GREATER) == 1)
+                    {
+                        // We should rollback if calculated rebate amount is greater than the received proposal fee.
+                        // ASSERT_FAILURE_MSG >> Rebate amount is greater than received.
+                        ASSERT(float_compare(rebate_amount, proposal_fee, COMPARE_GREATER) != 1);
+
+                        PREPARE_CANDIDATE_REBATE_PAYMENT_TX(rebate_amount, candidate_id, res_event_data_ptr, event_data);
+                        tx_ptr = CANDIDATE_REBATE_PAYMENT;
+                        tx_size = CANDIDATE_REBATE_PAYMENT_TX_SIZE;
+                    }
+                    else
+                    {
+                        PREPARE_CANDIDATE_REBATE_MIN_PAYMENT_TX(1, candidate_id, res_event_data_ptr, event_data);
+                        tx_ptr = CANDIDATE_REBATE_MIN_PAYMENT;
+                        tx_size = CANDIDATE_REBATE_MIN_PAYMENT_TX_SIZE;
+                    }
+                    // ASSERT_FAILURE_MSG >> EVR funding to candidate account failed.
+                    ASSERT(emit(SBUF(emithash), tx_ptr, tx_size) >= 0);
                 }
-                // ASSERT_FAILURE_MSG >> EVR funding to candidate account failed.
-                ASSERT(emit(SBUF(emithash), tx_ptr, tx_size) >= 0);
             }
 
             if (candidate_type == NEW_HOOK_CANDIDATE)
