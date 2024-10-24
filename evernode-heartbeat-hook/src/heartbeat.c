@@ -645,98 +645,107 @@ int64_t hook(uint32_t reserved)
         if (candidate_type == 0)
             PERMIT_M("VOTE_VALIDATION_ERR - Vote skipped, Voting for an invalid candidate type.", 0);
 
-        if (VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
+        const uint64_t last_purge_elect_try_ts = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_ELECT_PURGE_LAST_TRY_TIMESTAMP_OFFSET]);
+        if (GET_MOMENT(last_purge_elect_try_ts) == GET_MOMENT(cur_ledger_timestamp) && VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
             PERMIT_M("VOTE_VALIDATION_ERR - Vote skipped, Voting for this candidate is now closed.", 0);
 
-        const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
-        const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
-        uint32_t supported_count = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
-
         uint8_t status = CANDIDATE_REJECTED;
-        const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF_LE(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
-        const uint8_t governance_mode = governance_info[GOVERNANCE_MODE_OFFSET];
-        const uint32_t life_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
-        const uint32_t election_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET]);
-        const uint64_t created_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
-        uint8_t cur_status = candidate_id[CANDIDATE_STATUS_OFFSET];
-        uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];
-        uint64_t status_changed_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);
-
-        int is_foundation_driven = (governance_mode == PILOTED && source_is_foundation) ? 1 : 0;
-
-        // If this is piloted mode candidate we treat differently.
-        // If there is a recently closed election or if the candidate's life period is passed. This voted candidate will be purged.
-        if ((candidate_type != PILOTED_MODE_CANDIDATE) &&
-            (last_election_completed_timestamp > created_timestamp || cur_ledger_timestamp - created_timestamp > life_period))
+        uint32_t supported_count = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
+        if (!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
         {
-            status = CANDIDATE_PURGED;
-        }
-        // If this is a new moment, Evaluate the votes and vote statuses. Then reset the votes for the next moment.
-        else if (cur_moment > last_vote_moment)
-        {
-            uint64_t election_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);
-            // If the last vote is received before previous moment means the proposal is rejected in the next moment after last_vote_moment.
-            if (cur_moment - 1 > last_vote_moment)
+            const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
+            const uint32_t last_vote_moment = GET_MOMENT(last_vote_timestamp);
+
+            const uint64_t last_election_completed_timestamp = UINT64_FROM_BUF_LE(&governance_info[PROPOSAL_ELECTED_TIMESTAMP_OFFSET]);
+            const uint8_t governance_mode = governance_info[GOVERNANCE_MODE_OFFSET];
+            const uint32_t life_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_LIFE_PERIOD_OFFSET]);
+            const uint32_t election_period = UINT32_FROM_BUF_LE(&governance_configuration[CANDIDATE_ELECTION_PERIOD_OFFSET]);
+            const uint64_t created_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_CREATED_TIMESTAMP_OFFSET]);
+            uint8_t cur_status = candidate_id[CANDIDATE_STATUS_OFFSET];
+            uint8_t foundation_vote_status = candidate_id[CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET];
+            uint64_t status_changed_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET]);
+
+            int is_foundation_driven = (governance_mode == PILOTED && source_is_foundation) ? 1 : 0;
+
+            // If this is piloted mode candidate we treat differently.
+            // If there is a recently closed election or if the candidate's life period is passed. This voted candidate will be purged.
+            if ((candidate_type != PILOTED_MODE_CANDIDATE) &&
+                (last_election_completed_timestamp > created_timestamp || cur_ledger_timestamp - created_timestamp > life_period))
             {
-                supported_count = 0;
-                election_timestamp = GET_NEXT_MOMENT_START_INDEX(last_vote_timestamp + (2 * moment_size));
+                status = CANDIDATE_PURGED;
             }
-
-            // Piloted: which means the Foundation vote determined the outcome of all Proposals
-            // Co-Piloted:  which means no Proposal can succeed unless the Foundation Supports it and it fails if the Foundation opposes it.
-            // Auto-Piloted: which means the standard voting rules apply with the Foundation being treated equally with any other Participant.
-            if (governance_mode == PILOTED)
-                status = foundation_vote_status;
-            else
+            // If this is a new moment, Evaluate the votes and vote statuses. Then reset the votes for the next moment.
+            else if (cur_moment > last_vote_moment)
             {
-                uint32_t prev_voter_base_count = voter_base_count;
-                const uint16_t support_average = UINT16_FROM_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);
-
-                // If auto-piloted standard voting rules applies for foundation.
-                if (governance_mode == AUTO_PILOTED)
+                uint64_t election_timestamp = GET_MOMENT_START_INDEX(cur_ledger_timestamp);
+                // If the last vote is received before previous moment means the proposal is rejected in the next moment after last_vote_moment.
+                if (cur_moment - 1 > last_vote_moment)
                 {
-                    prev_voter_base_count++;
-                    if (foundation_vote_status == CANDIDATE_SUPPORTED)
-                        supported_count++;
+                    supported_count = 0;
+                    election_timestamp = GET_NEXT_MOMENT_START_INDEX(last_vote_timestamp + (2 * moment_size));
                 }
 
-                if (prev_voter_base_count > 0 && ((supported_count * 100) > (prev_voter_base_count * support_average)))
-                    status = CANDIDATE_SUPPORTED;
-
-                // In co-piloted mode if foundation is not supported, we do not consider other participants' status.
-                if (governance_mode == CO_PILOTED && foundation_vote_status != CANDIDATE_SUPPORTED)
+                // Piloted: which means the Foundation vote determined the outcome of all Proposals
+                // Co-Piloted:  which means no Proposal can succeed unless the Foundation Supports it and it fails if the Foundation opposes it.
+                // Auto-Piloted: which means the standard voting rules apply with the Foundation being treated equally with any other Participant.
+                if (governance_mode == PILOTED)
                     status = foundation_vote_status;
+                else
+                {
+                    uint32_t prev_voter_base_count = voter_base_count;
+                    const uint16_t support_average = UINT16_FROM_BUF_LE(&governance_configuration[CANDIDATE_SUPPORT_AVERAGE_OFFSET]);
+
+                    // If auto-piloted standard voting rules applies for foundation.
+                    if (governance_mode == AUTO_PILOTED)
+                    {
+                        prev_voter_base_count++;
+                        if (foundation_vote_status == CANDIDATE_SUPPORTED)
+                            supported_count++;
+                    }
+
+                    if (prev_voter_base_count > 0 && ((supported_count * 100) > (prev_voter_base_count * support_average)))
+                        status = CANDIDATE_SUPPORTED;
+
+                    // In co-piloted mode if foundation is not supported, we do not consider other participants' status.
+                    if (governance_mode == CO_PILOTED && foundation_vote_status != CANDIDATE_SUPPORTED)
+                        status = foundation_vote_status;
+                }
+
+                // Update the vote status if changed.
+                if (status != cur_status)
+                {
+                    candidate_id[CANDIDATE_STATUS_OFFSET] = status;
+                    cur_status = status;
+                    UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], election_timestamp);
+                    status_changed_timestamp = election_timestamp;
+                }
+
+                // Update the vote counts.
+                supported_count = 0;
             }
 
-            // Update the vote status if changed.
-            if (status != cur_status)
-            {
-                candidate_id[CANDIDATE_STATUS_OFFSET] = status;
-                cur_status = status;
-                UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET], election_timestamp);
-                status_changed_timestamp = election_timestamp;
-            }
+            // If the candidate is not purged and it fulfils the time period to get elected.
+            if (status != CANDIDATE_PURGED && (cur_ledger_timestamp - status_changed_timestamp) > election_period && cur_status == CANDIDATE_SUPPORTED)
+                status = CANDIDATE_ELECTED;
 
-            // Update the vote counts.
-            supported_count = 0;
+            // Also a candidate will be elected
+            // * If it is supported by the foundation in the piloted mode and
+            // * If there are no other candidates elected after the creation of that.
+            if (is_foundation_driven)
+                status = (*(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED &&
+                          (created_timestamp >= last_election_completed_timestamp))
+                             ? CANDIDATE_ELECTED
+                             : CANDIDATE_PURGED;
         }
-
-        // If the candidate is not purged and it fulfils the time period to get elected.
-        if (status != CANDIDATE_PURGED && (cur_ledger_timestamp - status_changed_timestamp) > election_period && cur_status == CANDIDATE_SUPPORTED)
-            status = CANDIDATE_ELECTED;
-
-        // Also a candidate will be elected
-        // * If it is supported by the foundation in the piloted mode and
-        // * If there are no other candidates elected after the creation of that.
-        if (is_foundation_driven)
-            status = (*(event_data + CANDIDATE_VOTE_VALUE_PARAM_OFFSET) == CANDIDATE_SUPPORTED &&
-                      (created_timestamp >= last_election_completed_timestamp))
-                         ? CANDIDATE_ELECTED
-                         : CANDIDATE_PURGED;
+        else
+        {
+            status = candidate_id[CANDIDATE_STATUS_OFFSET];
+        }
 
         if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(status) : (status == CANDIDATE_ELECTED))
         {
             candidate_id[CANDIDATE_STATUS_OFFSET] = status;
+            UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_ELECT_PURGE_LAST_TRY_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
             // Invoke Governor to trigger on this condition.
             uint8_t trigger_memo_data[33];
