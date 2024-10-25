@@ -772,7 +772,7 @@ int64_t hook(uint32_t reserved)
                     GET_ACCOUNT_BALANCE(registry_accid, registry_bal);
                     GET_ACCOUNT_BALANCE(heartbeat_accid, heartbeat_bal);
                     GET_ACCOUNT_BALANCE(reputation_accid, reputation_bal);
-                    const int64_t min_fee = float_set(-6, 999);
+                    const int64_t min_fee = float_set(0, 1);
 
                     // ASSERT_FAILURE_MSG >> Balance for setHook is less than required.
                     ASSERT(float_compare(governor_bal, min_fee, COMPARE_GREATER) == 1 &&
