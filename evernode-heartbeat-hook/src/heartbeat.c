@@ -631,7 +631,7 @@ int64_t hook(uint32_t reserved)
         // Generate Candidate ID state key.
         CANDIDATE_ID_KEY(event_data);
         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)><negative_vote_count(4)>
-        // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
+        // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)><elect_purge_last_try_timestamp(8)><complete_acknowledged(1)>
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
 
         if (state_foreign(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) < 0)
@@ -651,7 +651,6 @@ int64_t hook(uint32_t reserved)
 
         uint8_t status = CANDIDATE_REJECTED;
         uint32_t supported_count = UINT32_FROM_BUF_LE(&candidate_id[CANDIDATE_POSITIVE_VOTE_COUNT_OFFSET]);
-        uint8_t is_retry = 0;
         if (!VOTING_COMPLETED(candidate_id[CANDIDATE_STATUS_OFFSET]))
         {
             const uint64_t last_vote_timestamp = UINT64_FROM_BUF_LE(&candidate_id[CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET]);
@@ -741,7 +740,6 @@ int64_t hook(uint32_t reserved)
         else
         {
             status = candidate_id[CANDIDATE_STATUS_OFFSET];
-            is_retry = 1;
         }
 
         if ((candidate_type != PILOTED_MODE_CANDIDATE) ? VOTING_COMPLETED(status) : (status == CANDIDATE_ELECTED))
@@ -750,10 +748,9 @@ int64_t hook(uint32_t reserved)
             UINT64_TO_BUF_LE(&candidate_id[CANDIDATE_ELECT_PURGE_LAST_TRY_TIMESTAMP_OFFSET], cur_ledger_timestamp);
 
             // Invoke Governor to trigger on this condition.
-            uint8_t trigger_memo_data[34];
+            uint8_t trigger_memo_data[33];
             COPY_32BYTES(trigger_memo_data, event_data);
             trigger_memo_data[32] = status;
-            trigger_memo_data[33] = is_retry;
 
             PREPARE_CANDIDATE_STATUS_CHANGE_MIN_PAYMENT(1, state_hook_accid, trigger_memo_data);
             uint8_t emithash[HASH_SIZE];

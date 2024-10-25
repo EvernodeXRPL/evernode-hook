@@ -244,7 +244,7 @@ int64_t hook(uint32_t reserved)
     }
 
     // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
-    // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
+    // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)><elect_purge_last_try_timestamp(8)><complete_acknowledged(1)>
     uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
     // <GOVERNOR_HASH(32)><REGISTRY_HASH(32)><HEARTBEAT_HASH(32)><REPUTATION_HASH(32)>
     uint8_t candidate_owner[CANDIDATE_OWNER_VAL_SIZE];
@@ -687,7 +687,14 @@ int64_t hook(uint32_t reserved)
         ASSERT(candidate_type != 0);
 
         uint8_t vote_status = *(event_data + HASH_SIZE);
-        const uint8_t is_retry = *(event_data + HASH_SIZE + 1);
+        const uint8_t is_retry = candidate_id[CANDIDATE_COMPLETE_ACKNOWLEDGED_OFFSET];
+        if (!is_retry)
+        {
+            candidate_id[CANDIDATE_COMPLETE_ACKNOWLEDGED_OFFSET] = 1;
+            // Update about already acknowledged.
+            // ASSERT_FAILURE_MSG >> Could not set the candidate id state.
+            ASSERT(state_foreign_set(SBUF(candidate_id), SBUF(STP_CANDIDATE_ID), FOREIGN_REF) >= 0);
+        }
 
         if (origin_op_type == OP_REMOVE_ORPHAN_CANDIDATE)
         {
