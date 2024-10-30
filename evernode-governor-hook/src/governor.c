@@ -395,7 +395,7 @@ int64_t hook(uint32_t reserved)
     }
     else if (op_type == OP_PROPOSE)
     {
-
+        const uint64_t zero = 0;
         const int64_t event_data2_len = otxn_param(event_data + event_data_len, MAX_HOOK_PARAM_SIZE, SBUF(PARAM_EVENT_DATA2_KEY));
 
         // ASSERT_FAILURE_MSG >> Error getting the event data 2 param.
