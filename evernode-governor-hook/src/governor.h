@@ -508,4 +508,96 @@ uint8_t HEARTBEAT_FUND_PAYMENT[424] = {
         _06_08_ENCODE_DROPS_FEE(fee_ptr, fee);                                \
     }
 
+#define GET_ACCOUNT_BALANCE(account, balance)                                         \
+    {                                                                                 \
+        uint8_t keylet[34] = {0};                                                     \
+        balance = 0;                                                                  \
+        if (util_keylet(SBUF(keylet), KEYLET_ACCOUNT, account, ACCOUNT_ID_SIZE, 0,    \
+                        0, 0, 0) == 34)                                               \
+        {                                                                             \
+            int64_t parent_slot = slot_set(SBUF(keylet), 0);                          \
+            int64_t cur_slot = -1;                                                    \
+            if (parent_slot >= 0)                                                     \
+                cur_slot = slot_subfield(parent_slot, sfBalance, 0);                  \
+            if (cur_slot >= 0)                                                        \
+                balance = slot_float(cur_slot);                                       \
+            if (parent_slot >= 0)                                                     \
+                cur_slot = slot_subfield(parent_slot, sfOwnerCount, 0);               \
+            uint32_t count = 0;                                                       \
+            const uint8_t buf[4] = {0};                                               \
+            if (cur_slot >= 0 && slot(SBUF(buf), cur_slot) == 4)                      \
+                count = UINT32_FROM_BUF(buf);                                         \
+            if (count > 0 &&                                                          \
+                util_keylet(SBUF(keylet), KEYLET_FEES, 0, 0, 0, 0, 0, 0) == 34)       \
+            {                                                                         \
+                parent_slot = slot_set(SBUF(keylet), 0);                              \
+                if (parent_slot >= 0)                                                 \
+                    cur_slot = slot_subfield(parent_slot, sfReserveIncrement, 0);     \
+                uint32_t reduction = 0;                                               \
+                if (cur_slot >= 0 && slot(SBUF(buf), cur_slot) == 4)                  \
+                    reduction = UINT32_FROM_BUF(buf);                                 \
+                reduction *= count;                                                   \
+                if (parent_slot >= 0)                                                 \
+                    cur_slot = slot_subfield(parent_slot, sfReserveBase, 0);          \
+                if (cur_slot >= 0 && slot(SBUF(buf), cur_slot) == 4)                  \
+                    reduction += UINT32_FROM_BUF(buf);                                \
+                balance = float_sum(balance, float_negate(float_set(-6, reduction))); \
+            }                                                                         \
+        }                                                                             \
+    }
+
+#define DOES_HOOKS_EXISTS(hook_hashes, hooks_exists)               \
+    {                                                              \
+        hooks_exists = 0;                                          \
+        int64_t hook_slot = slot_set(hook_hashes, 32, 0);          \
+        if (hook_slot >= 0)                                        \
+        {                                                          \
+            hook_slot = slot_set(hook_hashes + 32, 32, 0);         \
+            if (hook_slot >= 0)                                    \
+            {                                                      \
+                hook_slot = slot_set(hook_hashes + 64, 32, 0);     \
+                if (hook_slot >= 0)                                \
+                {                                                  \
+                    hook_slot = slot_set(hook_hashes + 98, 32, 0); \
+                    if (hook_slot >= 0)                            \
+                        hooks_exists = 1;                          \
+                }                                                  \
+            }                                                      \
+        }                                                          \
+    }
+
+#define GET_HOOK_KEYLET(hash, keylet)                   \
+    {                                                   \
+        uint8_t index_data[34] = {0};                   \
+        UINT16_TO_BUF(index_data, ltHOOK_DEFINITION);   \
+        UINT16_TO_BUF(keylet, ltHOOK_DEFINITION);       \
+        COPY_32BYTES(&index_data[2], hash);             \
+        util_sha512h(keylet + 2, 32, SBUF(index_data)); \
+    }
+
+#define IS_HOOKS_EXIST(hook_hashes, hooks_exists)               \
+    {                                                          \
+        hooks_exists = 0;                                      \
+        uint8_t keylet[34] = {0};                              \
+        GET_HOOK_KEYLET(hook_hashes, keylet);                  \
+        int64_t hook_slot = slot_set(keylet, 34, 0);           \
+        if (hook_slot >= 0)                                    \
+        {                                                      \
+            GET_HOOK_KEYLET(hook_hashes + 32, keylet);         \
+            hook_slot = slot_set(keylet, 34, 0);               \
+            if (hook_slot >= 0)                                \
+            {                                                  \
+                GET_HOOK_KEYLET(hook_hashes + 64, keylet);     \
+                hook_slot = slot_set(keylet, 34, 0);           \
+                if (hook_slot >= 0)                            \
+                {                                              \
+                    GET_HOOK_KEYLET(hook_hashes + 96, keylet); \
+                    hook_slot = slot_set(keylet, 34, 0);       \
+                    if (hook_slot >= 0)                        \
+                        hooks_exists = 1;                      \
+                }                                              \
+            }                                                  \
+        }                                                      \
+    }
+
 #endif

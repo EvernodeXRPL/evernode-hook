@@ -69,8 +69,8 @@
 #define tfHookOverride 0x00000001
 #define tfPartialPayment 0x00020000
 #define ltHOOK 'H'
-
 #define ltURI_TOKEN 'U'
+#define ltHOOK_DEFINITION 'D'
 
 enum OPERATION
 {
@@ -150,7 +150,7 @@ const uint32_t EMAIL_ADDRESS_LEN = 40;
 const uint32_t REG_NFT_URI_SIZE = 39;
 const uint32_t GOVERNANCE_CONFIGURATION_VAL_SIZE = 14;
 const uint32_t CANDIDATE_OWNER_VAL_SIZE = 128;
-const uint32_t CANDIDATE_ID_VAL_SIZE = 82;
+const uint32_t CANDIDATE_ID_VAL_SIZE = 91;
 const uint32_t URI_TOKEN_ID_SIZE = 32;
 const uint32_t REG_URI_TOKEN_URI_SIZE = 23;
 const uint32_t TRX_FEE_BASE_INFO_VAL_SIZE = 18;
@@ -251,6 +251,8 @@ const uint32_t CANDIDATE_LAST_VOTE_TIMESTAMP_OFFSET = 64;
 const uint32_t CANDIDATE_STATUS_OFFSET = 72;
 const uint32_t CANDIDATE_STATUS_CHANGE_TIMESTAMP_OFFSET = 73;
 const uint32_t CANDIDATE_FOUNDATION_VOTE_STATUS_OFFSET = 81;
+const uint32_t CANDIDATE_ELECT_PURGE_LAST_TRY_TIMESTAMP_OFFSET = 82;
+const uint32_t CANDIDATE_COMPLETE_ACKNOWLEDGED_OFFSET = 90;
 
 const uint8_t TOKEN_ID_PREFIX[4] = {0, 8, 0, 0}; // In host NFT only tfTransferable flag is set and transfer fee always will be 0.
 const uint64_t MIN_DROPS = 1;

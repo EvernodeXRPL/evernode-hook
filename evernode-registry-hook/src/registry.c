@@ -712,7 +712,7 @@ int64_t hook(uint32_t reserved)
         uint8_t unique_id[HASH_SIZE] = {0};
         GET_DUD_HOST_CANDIDATE_ID(event_data, unique_id);
         // <owner_address(20)><candidate_idx(4)><short_name(20)><created_timestamp(8)><proposal_fee(8)><positive_vote_count(4)>
-        // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)>
+        // <last_vote_timestamp(8)><status(1)><status_change_timestamp(8)><foundation_vote_status(1)><elect_purge_last_try_timestamp(8)><complete_acknowledged(1)>
         uint8_t candidate_id[CANDIDATE_ID_VAL_SIZE];
         CANDIDATE_ID_KEY(unique_id);
 
