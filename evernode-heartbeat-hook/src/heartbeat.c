@@ -522,7 +522,7 @@ int64_t hook(uint32_t reserved)
             VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_vote, do_rollback);
 
         // Increase the voter base count if this host haven't send heartbeat before and host is eligible for voting.
-        if (accept_heartbeat && eligible_for_vote)
+        if ((accept_heartbeat || (cur_moment == last_heartbeat_moment)) && eligible_for_vote)
         {
             const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
             // Reset the count if this is a new moment.
@@ -543,7 +543,7 @@ int64_t hook(uint32_t reserved)
         }
 
         // Handle votes if there's a vote.
-        if (accept_heartbeat && eligible_for_vote && event_data_len > 0)
+        if ((accept_heartbeat || (cur_moment == last_heartbeat_moment)) && eligible_for_vote && event_data_len > 0)
         {
             redirect_op_type = OP_VOTE;
         }
