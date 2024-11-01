@@ -364,7 +364,7 @@ int64_t hook(uint32_t reserved)
         uint32_t last_heartbeat_moment = 0;
 
         // Skip if already sent a heartbeat in this moment.
-        int accept_heartbeat = 0, send_foundation_fund = 0, eligible_for_rewards = 0;
+        int accept_heartbeat = 0, send_foundation_fund = 0;
         if (last_heartbeat_idx == 0)
         {
             last_heartbeat_moment = 0;
@@ -378,6 +378,7 @@ int64_t hook(uint32_t reserved)
                 accept_heartbeat = 1;
         }
 
+        const uint8_t host_flags = host_addr[HOST_FLAGS_OFFSET];
         if (accept_heartbeat)
         {
             // <epoch_count(uint8_t)><first_epoch_reward_quota(uint32_t)><epoch_reward_amount(uint32_t)><reward_start_moment(uint32_t)><accumulated_reward_frequency(uint16_t)><host_reputation_threshold(uint8_t)><host_min_instance_count(uint32_t)>
@@ -388,7 +389,6 @@ int64_t hook(uint32_t reserved)
 
             // Update the reputed flag if host is reputed.
             const uint8_t host_reputation = host_addr[HOST_REPUTATION_OFFSET];
-            const uint8_t host_flags = host_addr[HOST_FLAGS_OFFSET];
             const uint8_t reputation_threshold = reward_configuration[HOST_REPUTATION_THRESHOLD_OFFSET];
             // TODO: This is hardcoded to 102 to make the threshold 40% temporary. Uncomment if revert is needed.
             // const uint8_t reputation_threshold = 102;
@@ -478,10 +478,9 @@ int64_t hook(uint32_t reserved)
 
             // Reward if reward start moment has passed AND if this is not the first heartbeat of the host AND host is active and reputed in the previous moment AND
             // the reward quota is not 0.
-            eligible_for_rewards = ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
-                                    last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
-                                    CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT));
-            if (eligible_for_rewards &&
+            if ((reward_start_moment == 0 || cur_moment >= reward_start_moment) &&
+                last_heartbeat_moment > 0 && last_heartbeat_moment >= (cur_moment - heartbeat_freq - 1) &&
+                CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) &&
                 (float_compare(reward_amount, float_set(0, 0), COMPARE_GREATER) == 1))
             {
                 accumulated_reward = float_sum(accumulated_reward, reward_amount);
@@ -516,13 +515,12 @@ int64_t hook(uint32_t reserved)
 
         const uint32_t min_eligibility_period = UINT32_FROM_BUF_LE(&governance_configuration[ELIGIBILITY_PERIOD_OFFSET]);
 
-        uint8_t eligible_for_vote = 0;
+        uint8_t eligible_for_governance = 0;
         uint8_t do_rollback = 0;
-        if (eligible_for_rewards)
-            VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_vote, do_rollback);
+        VALIDATE_GOVERNANCE_ELIGIBILITY(host_addr, cur_ledger_timestamp, min_eligibility_period, eligible_for_governance, do_rollback);
 
         // Increase the voter base count if this host haven't send heartbeat before and host is eligible for voting.
-        if (accept_heartbeat && eligible_for_vote)
+        if (accept_heartbeat && CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) && eligible_for_governance)
         {
             const uint32_t voter_base_count_moment = GET_MOMENT(UINT64_FROM_BUF_LE(&governance_info[VOTER_BASE_COUNT_CHANGED_TIMESTAMP_OFFSET]));
             // Reset the count if this is a new moment.
@@ -543,7 +541,7 @@ int64_t hook(uint32_t reserved)
         }
 
         // Handle votes if there's a vote.
-        if (eligible_for_vote && event_data_len > 0)
+        if (CHECK_FLAG(host_flags, REPUTED_ON_HEARTBEAT) && eligible_for_governance && event_data_len > 0)
         {
             redirect_op_type = OP_VOTE;
         }
