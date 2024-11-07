@@ -95,7 +95,7 @@ const uint32_t DEF_REWARD_START_MOMENT = 0;
 const int64_t DEF_EMIT_FEE_THRESHOLD = 1000;                // In Drops.
 const uint32_t DEF_GOVERNANCE_ELIGIBILITY_PERIOD = 7884000; // 3 months in seconds.
 const uint32_t DEF_CANDIDATE_LIFE_PERIOD = 7884000;         // 3 months in seconds.
-const uint32_t DEF_CANDIDATE_ELECTION_PERIOD = 1209600;     // 2 weeks in seconds.
+const uint32_t DEF_CANDIDATE_ELECTION_PERIOD = 432000;      // 5 days in seconds.
 const uint16_t DEF_CANDIDATE_SUPPORT_AVERAGE = 80;
 const uint16_t DEF_ACCUMULATED_REWARD_FREQUENCY = 24;
 const uint32_t DEF_NETWORK_BUSYNESS_DETECT_PERIOD = 604800; // 1 week in seconds.
@@ -575,7 +575,7 @@ uint8_t HEARTBEAT_FUND_PAYMENT[424] = {
         util_sha512h(keylet + 2, 32, SBUF(index_data)); \
     }
 
-#define IS_HOOKS_EXIST(hook_hashes, hooks_exists)               \
+#define IS_HOOKS_EXIST(hook_hashes, hooks_exists)              \
     {                                                          \
         hooks_exists = 0;                                      \
         uint8_t keylet[34] = {0};                              \
