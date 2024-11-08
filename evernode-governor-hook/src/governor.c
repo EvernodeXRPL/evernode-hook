@@ -198,7 +198,7 @@ int64_t hook(uint32_t reserved)
     uint8_t reputation_accid[ACCOUNT_ID_SIZE] = {0};
 
     // <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)><foundation_last_voted_timestamp(8)><elected_proposal_unique_id(32)>
-    // <proposal_elected_timestamp(8)><updated_hook_count(1)>
+    // <proposal_elected_timestamp(8)><updated_hook_count(1)><prev_moment_voter_base_count(4)>
     uint8_t governance_info[GOVERNANCE_INFO_VAL_SIZE];
 
     // <epoch(uint8_t)><saved_moment(uint32_t)><prev_moment_active_host_count(uint32_t)><cur_moment_active_host_count(uint32_t)><epoch_pool(int64_t,xfl)><host_max_lease_amount(int64_t,xfl)>

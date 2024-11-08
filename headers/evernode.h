@@ -558,7 +558,7 @@ const uint8_t evr_currency[20] = GET_TOKEN_CURRENCY(EVR_TOKEN);
             rollback(SBUF("Evernode: Only governor is allowed to send hook update trigger."), 1);                                                             \
                                                                                                                                                               \
         /* <governance_mode(1)><last_candidate_idx(4)><voter_base_count(4)><voter_base_count_changed_timestamp(8)><foundation_last_voted_candidate_idx(4)> */ \
-        /* <elected_proposal_unique_id(32)><proposal_elected_timestamp(8)><updated_hook_count(1)> */                                                          \
+        /* <elected_proposal_unique_id(32)><proposal_elected_timestamp(8)><updated_hook_count(1)><prev_moment_voter_base_count(4)> */                                                          \
         uint8_t governance_game_info[GOVERNANCE_INFO_VAL_SIZE];                                                                                               \
         if (state_foreign(SBUF(governance_game_info), SBUF(STK_GOVERNANCE_INFO), FOREIGN_REF) < 0)                                                            \
             rollback(SBUF("Evernode: Could not get state governance_game info."), 1);                                                                         \
