@@ -22,6 +22,8 @@
  */
 int64_t hook(uint32_t reserved)
 {
+    TRACESTR(VERSION);
+
     if (!ACTIVE(ACTIVATION_UNIXTIME))
         rollback(SBUF("Not active yet."), __LINE__);
 

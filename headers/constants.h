@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_INCLUDED
 #define CONSTANTS_INCLUDED 1
 
+#define VERSION "v3"
+
 #define HOST_REG "evnHostReg"
 #define HOST_DEREG "evnHostDereg"
 #define HOST_DEREG_SELF_RES "evnHostDeregSelfRes"
